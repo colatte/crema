@@ -30,7 +30,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Demo: forçar fallback JXA do now playing (relance o app)"
+            "value": "Demo: forçar fallback JXA do now playing (reinicie o app)"
           }
         }
       }
@@ -115,7 +115,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Demo: registrar stream do adapter de now playing (relance o app)"
+            "value": "Demo: registrar stream do adapter de now playing (reinicie o app)"
           }
         }
       }
@@ -149,7 +149,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Estilo (todos os displays)"
+            "value": "Estilo (todas as telas)"
           }
         }
       }
@@ -166,7 +166,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Demo: usar fontes de demonstração (relance o app)"
+            "value": "Demo: usar fontes de demonstração (reinicie o app)"
           }
         }
       }
@@ -217,7 +217,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "⚠️ Controles de mídia bloqueados pelo macOS — só exibição"
+            "value": "⚠️ Controles de mídia bloqueados pelo macOS — apenas visualização"
           }
         }
       }
@@ -268,7 +268,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Preferências…"
+            "value": "Ajustes…"
           }
         }
       }
@@ -336,7 +336,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "A concessão é detectada automaticamente — sem precisar relançar. Se a captura não começar, relance o Crema."
+            "value": "A concessão é detectada automaticamente — sem precisar reiniciar. Se a captura não começar, reinicie o Crema."
           }
         }
       }
@@ -455,7 +455,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aplica-se a todos os monitores. Num monitor sem notch, o estilo Notch cai pro Card."
+            "value": "Aplica-se a todas as telas. Numa tela sem notch, o estilo Notch volta para o Card."
           }
         }
       }
