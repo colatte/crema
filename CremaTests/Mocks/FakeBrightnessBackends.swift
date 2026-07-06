@@ -3,15 +3,20 @@ import Foundation
 
 /// Test fake for the screen backend: the test drives value and availability;
 /// records writes. Lets the source/controller logic run without the real API.
+/// `writeSucceeds` decouples the write result from availability so the
+/// apply-and-verify failure path (available, but the write does not take) is
+/// reachable; nil keeps the natural "succeeds while available" behavior.
 final class FakeScreenBrightnessBackend: ScreenBrightnessBackend, @unchecked Sendable {
     private let lock = NSLock()
     private var _value: Float?
     private var _available: Bool
+    private var _writeSucceeds: Bool?
     private var _writes: [Float] = []
 
-    init(available: Bool = true, value: Float? = 0.5) {
+    init(available: Bool = true, value: Float? = 0.5, writeSucceeds: Bool? = nil) {
         _available = available
         _value = value
+        _writeSucceeds = writeSucceeds
     }
 
     var isAvailable: Bool { lock.withLock { _available } }
@@ -27,7 +32,7 @@ final class FakeScreenBrightnessBackend: ScreenBrightnessBackend, @unchecked Sen
         lock.withLock {
             _writes.append(value)
             _value = value
-            return _available
+            return _writeSucceeds ?? _available
         }
     }
 }
@@ -37,11 +42,13 @@ final class FakeKeyboardBrightnessBackend: KeyboardBrightnessBackend, @unchecked
     private let lock = NSLock()
     private var _value: Float?
     private var _available: Bool
+    private var _writeSucceeds: Bool?
     private var _writes: [Float] = []
 
-    init(available: Bool = true, value: Float? = 0.5) {
+    init(available: Bool = true, value: Float? = 0.5, writeSucceeds: Bool? = nil) {
         _available = available
         _value = value
+        _writeSucceeds = writeSucceeds
     }
 
     var isAvailable: Bool { lock.withLock { _available } }
@@ -57,7 +64,7 @@ final class FakeKeyboardBrightnessBackend: KeyboardBrightnessBackend, @unchecked
         lock.withLock {
             _writes.append(value)
             _value = value
-            return _available
+            return _writeSucceeds ?? _available
         }
     }
 }

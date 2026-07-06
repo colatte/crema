@@ -54,7 +54,33 @@ struct MediaKeyTranslationTests {
         #expect(MediaKeyTranslation.mediaKey(fromData1: data1(keyCode: 16, down: true)) == nil)
     }
 
+    /// The consumption path swallows both phases of an owned key: a key-up
+    /// decodes to the same key the down did, phase ignored — an orphan up
+    /// reaching the system would confuse its key pairing.
+    @Test func ownedKeyDecodeIgnoresThePhase() {
+        // data1 layout: keyCode in the high word; 0x0A down / 0x0B up in the
+        // second byte of the low word.
+        let volumeUpDown = (0 << 16) | 0x0A00
+        let volumeUpUp = (0 << 16) | 0x0B00
+        #expect(MediaKeyTranslation.mediaKey(fromData1: volumeUpDown) == .volumeUp)
+        #expect(MediaKeyTranslation.mediaKey(fromData1: volumeUpUp) == nil)   // stream: down-only
+        #expect(MediaKeyTranslation.ownedKey(ignoringPhaseFromData1: volumeUpDown) == .volumeUp)
+        #expect(MediaKeyTranslation.ownedKey(ignoringPhaseFromData1: volumeUpUp) == .volumeUp)
+    }
+
+    @Test func foreignKeysAreNeverOwned() {
+        // Play/pause (NX_KEYTYPE_PLAY = 16) is not ours in either decode —
+        // suppression must never swallow keys it does not reapply.
+        let playDown = (16 << 16) | 0x0A00
+        #expect(MediaKeyTranslation.mediaKey(fromData1: playDown) == nil)
+        #expect(MediaKeyTranslation.ownedKey(ignoringPhaseFromData1: playDown) == nil)
+    }
+
     @Test func mediaKeyIsSendable() {
+        // The real check is the compile-time requireSendable constraint below:
+        // MediaKey crosses the actor boundary via the tap consumer closure, so
+        // losing Sendable must fail the build — the #expect is a vestigial
+        // runtime line.
         func requireSendable<T: Sendable>(_: T.Type) {}
         requireSendable(MediaKey.self)
         #expect(Bool(true))

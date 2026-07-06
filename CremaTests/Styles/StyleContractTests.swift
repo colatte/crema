@@ -25,6 +25,9 @@ struct StyleContractTests {
     }
 
     @Test func screenGeometryIsSendable() {
+        // The real check is the compile-time requireSendable constraint below:
+        // ScreenGeometry must stay Sendable. Losing it fails the build, not this
+        // assertion — the #expect is a vestigial runtime line.
         func requireSendable<T: Sendable>(_: T.Type) {}
         requireSendable(ScreenGeometry.self)
         #expect(Bool(true))

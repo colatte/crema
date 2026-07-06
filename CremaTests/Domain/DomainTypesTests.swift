@@ -66,6 +66,9 @@ struct DomainTypesTests {
     }
 
     @Test func domainTypesAreSendable() {
+        // The real check is the compile-time requireSendable constraint below:
+        // the domain must stay Sendable to cross threads. Losing it fails the
+        // build, not this assertion — the #expect is a vestigial runtime line.
         func requireSendable<T: Sendable>(_: T.Type) {}
         requireSendable(NowPlaying.self)
         requireSendable(SystemHUD.self)
