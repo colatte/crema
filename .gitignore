@@ -1,0 +1,61 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# xcode — per-user state
+xcuserdata/
+*.xcuserstate
+*.xcuserdatad
+*.xcscmblueprint
+*.xccheckout
+
+# xcode — build products
+build/
+DerivedData/
+*.xcresult
+*.dSYM
+*.dSYM.zip
+*.hmap
+*.moved-aside
+*.o
+*.xcarchive
+
+# distribution files
+*.dmg
+*.pkg
+
+# swift Package Manager
+.build/
+.swiftpm/
+
+# playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# editors
+.vscode/
+.idea/
+
+# local-only dev docs
+docs/internal/
+
+# secrets
+*.p12
+*.pfx
+*.cer
+*.pem
+*.key
+*.certSigningRequest
+*.provisionprofile
+*.mobileprovision
+# temporary signing keychains (created during codesign/notarization)
+*.keychain
+*.keychain-db
+# App Store Connect / notarization API keys (e.g. AuthKey_XXXXXXXXXX.p8)
+*.p8
+AuthKey_*.p8
+.env
+.env.*

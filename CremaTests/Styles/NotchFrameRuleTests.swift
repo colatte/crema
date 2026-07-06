@@ -1,0 +1,165 @@
+import CoreGraphics
+import Testing
+@testable import Crema
+
+/// Notch frame rule: pure function of
+/// (state, ScreenGeometry). The surface anchors at the slit (top edge flush with
+/// the screen top, centered) but descends below it into visible pixels; the
+/// expanded rect fully contains the compact one, giving hover hysteresis. No AppKit.
+@MainActor
+struct NotchFrameRuleTests {
+
+    private let style = NotchStyle()
+    private let track = CoordinatorHarness.playingTrack()
+
+    /// A notched 14" display: 1512-wide, 32 pt slit, aux areas of 663.5 pt each
+    /// (slit width = 1512 − 663.5 − 663.5 = 185 pt).
+    private let notched = ScreenGeometry(
+        frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+        safeTop: 32,
+        auxLeft: 663.5,
+        auxRight: 663.5
+    )
+    private let noNotch = ScreenGeometry(frame: CGRect(x: 0, y: 0, width: 1512, height: 982))
+
+    private var slitWidth: CGFloat { notched.frame.width - notched.auxLeft - notched.auxRight }   // 185
+
+    @Test func compactAnchorsAtTheSlitTuckedInsideIt() {
+        let frame = style.frame(for: .nowPlaying(track, expanded: false), on: notched)
+        #expect(frame.width == slitWidth - 2 * NotchMetrics.lateralInset)
+        #expect(frame.midX == notched.frame.midX)                              // centered on the display
+        #expect(frame.maxY == notched.frame.maxY)                              // top flush with the screen top
+    }
+
+    @Test func compactDescendsBelowTheSlitIntoVisiblePixels() {
+        // The core fix: the surface is taller than the slit and its bottom
+        // edge sits below the cutout, so content/hover land on real pixels — not
+        // the camera dead zone (which caused the hidden content and hover flicker).
+        let frame = style.frame(for: .nowPlaying(track, expanded: false), on: notched)
+        #expect(frame.height == notched.safeTop + NotchMetrics.compactDrop)
+        #expect(frame.height > notched.safeTop)
+        let slitBottom = notched.frame.maxY - notched.safeTop
+        #expect(frame.minY < slitBottom)   // extends past the slit's bottom edge
+    }
+
+    @Test func heightIsBuiltFromTheSlitNotTheMenuBar() {
+        // Guards the menu-bar-vs-slit distinction: the height is derived from
+        // safeTop (the slit) + the drop, never the taller menu-bar height.
+        let frame = style.frame(for: .hud(SystemHUD(kind: .volume, value: 0.5)), on: notched)
+        #expect(frame.height == notched.safeTop + NotchMetrics.compactDrop)
+    }
+
+    @Test func hudUsesTheSameCompactFrame() {
+        let compact = style.frame(for: .nowPlaying(track, expanded: false), on: notched)
+        let hud = style.frame(for: .hud(SystemHUD(kind: .volume, value: 0.5)), on: notched)
+        #expect(hud == compact)
+    }
+
+    @Test func everyStateNeverOvershootsTheSlit() {
+        // Flush with the cutout is the calibrated ideal (lateralInset 0 — any
+        // tuck reads recessed on hardware); an edge past the slit would land
+        // on live pixels and cover the clickable menu bar. So: within, never
+        // beyond.
+        let slitLeft = notched.auxLeft
+        let slitRight = notched.frame.width - notched.auxRight
+        for state in [PresentationState.nowPlaying(track, expanded: false), .nowPlaying(track, expanded: true), .hud(SystemHUD(kind: .volume, value: 0.5))] {
+            let frame = style.frame(for: state, on: notched)
+            #expect(frame.minX >= slitLeft)
+            #expect(frame.maxX <= slitRight)
+        }
+    }
+
+    @Test func expandedGrowsDownFromTheSameTopAnchor() {
+        let compact = style.frame(for: .nowPlaying(track, expanded: false), on: notched)
+        let expanded = style.frame(for: .nowPlaying(track, expanded: true), on: notched)
+        #expect(expanded.height > compact.height)
+        #expect(expanded.midX == compact.midX)   // same center
+        #expect(expanded.maxY == compact.maxY)   // same top edge (grows down)
+        #expect(expanded.height == notched.safeTop + NotchMetrics.expandedDrop)
+    }
+
+    @Test func expandedContainsCompactForHoverHysteresis() {
+        // Once expanded, the exit boundary is the (larger) expanded rect, which
+        // fully contains the compact entry area — spatial hysteresis that, with
+        // hover-intent + debounce, kills the open/close flicker.
+        let compact = style.frame(for: .nowPlaying(track, expanded: false), on: notched)
+        let expanded = style.frame(for: .nowPlaying(track, expanded: true), on: notched)
+        #expect(expanded.contains(compact))
+    }
+
+    @Test func hiddenCollapsesToThePointAtTheSlit() {
+        let frame = style.frame(for: .hidden, on: notched)
+        #expect(frame.isEmpty)
+        #expect(frame.midX == notched.frame.midX)
+        #expect(frame.maxY == notched.frame.maxY)
+    }
+
+    @Test func fallsBackToTheCardOnADisplayWithoutANotch() {
+        // No physical notch: the rule degrades to the card geometry (defensive;
+        // the WindowManager also resolves notch→card on non-notch displays).
+        let states: [PresentationState] = [
+            .hidden,
+            .nowPlaying(track, expanded: false),
+            .nowPlaying(track, expanded: true),
+            .hud(SystemHUD(kind: .screenBrightness, value: 0.8)),
+        ]
+        for state in states {
+            #expect(style.frame(for: state, on: noNotch) == CardStyle().frame(for: state, on: noNotch))
+        }
+    }
+
+    @Test func invokeZoneIsExactlyThePhysicalSlit() {
+        // The click-invoke zone must be dead territory only: the slit rect,
+        // never the compact frame (whose drop band overlaps live content
+        // below the menu bar) and never the flanking menu-bar areas.
+        let zone = style.invokeZone(on: notched)
+        #expect(zone == CGRect(
+            x: notched.auxLeft,
+            y: notched.frame.maxY - notched.safeTop,
+            width: slitWidth,
+            height: notched.safeTop
+        ))
+        // Without a slit there is nothing dead to claim.
+        #expect(style.invokeZone(on: noNotch) == nil)
+        // The floating styles never click-invoke: their regions sit over
+        // live app content.
+        #expect(CardStyle().invokeZone(on: noNotch) == nil)
+        #expect(ClassicStyle().invokeZone(on: noNotch) == nil)
+        #expect(Style.notch.invokeZone(on: notched) == style.invokeZone(on: notched))
+    }
+
+    @Test func frameRuleIsDeterministic() {
+        let state = PresentationState.nowPlaying(track, expanded: true)
+        #expect(style.frame(for: state, on: notched) == style.frame(for: state, on: notched))
+    }
+
+    @Test func lateralEdgesSnapInwardToDevicePixels() {
+        // Fractional aux widths (a scale mode artifact) must not leave the
+        // surface's antialiased edge outside the cutout: both edges land on
+        // the @2x pixel grid, rounded inward (never past the slit).
+        let fractional = ScreenGeometry(
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            safeTop: 32,
+            auxLeft: 663.4,
+            auxRight: 663.4
+        )
+        let rawSlitWidth = fractional.frame.width - fractional.auxLeft - fractional.auxRight
+
+        let frame = style.frame(for: .nowPlaying(track, expanded: false), on: fractional)
+
+        #expect((frame.minX * fractional.scale).truncatingRemainder(dividingBy: 1) == 0)
+        #expect((frame.maxX * fractional.scale).truncatingRemainder(dividingBy: 1) == 0)
+        #expect(frame.width <= rawSlitWidth - 2 * NotchMetrics.lateralInset)
+    }
+
+    @Test func theMorphNeverMovesTheLateralEdges() {
+        // The hover shimmer was exactly this: any lateral drift between the
+        // states re-rasterizes the edge against the cutout mid-animation.
+        for geometry in [notched, ScreenGeometry(frame: CGRect(x: 0, y: 0, width: 1512, height: 982), safeTop: 32, auxLeft: 663.4, auxRight: 663.4)] {
+            let compact = style.frame(for: .nowPlaying(track, expanded: false), on: geometry)
+            let expanded = style.frame(for: .nowPlaying(track, expanded: true), on: geometry)
+            #expect(compact.minX == expanded.minX)
+            #expect(compact.maxX == expanded.maxX)
+        }
+    }
+}
