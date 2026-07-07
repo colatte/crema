@@ -12,9 +12,11 @@ Use este documento sempre que gerar ou alterar código neste repositório — el
 | UI e animações               | SwiftUI                                                                                                                                       |
 | Janelas e ciclo de vida      | AppKit — NSPanel borderless; app accessory (LSUIElement)                                                                                      |
 | Now playing                  | mediaremote-adapter (bridge em Perl) em todas as versões suportadas; fallback via JXA; checagem de disponibilidade — nunca MediaRemote direto |
-| Displays externos (opcional) | BetterDisplay (OSD integration API; sentido inverso via betterdisplaycli / URL scheme / App Intents) ou Lunar (socket `lunar listen`)         |
-| Updates e distribuição       | Sparkle; download direto, assinado e notarizado (fora da Mac App Store)                                                                       |
+| Displays externos (roadmap)  | **Não implementado.** Planejado via BetterDisplay (OSD integration API; sentido inverso via betterdisplaycli / URL scheme / App Intents) ou Lunar (socket `lunar listen`); hoje o app cobre só o display interno + volume do sistema — ver ROADMAP.md |
+| Distribuição                 | Download direto, fora da Mac App Store; **não assinado/notarizado por ora**, atualização manual. Assinatura/notarização e auto-update via Sparkle são **roadmap** — ver ROADMAP.md |
 | Alvo                         | macOS 14+ (Sonoma), Apple Silicon e Intel, com e sem notch                                                                                    |
+
+> **Construído vs. roadmap:** a integração com displays externos (BetterDisplay/Lunar), o auto-update via Sparkle e a assinatura/notarização **não estão implementados** — são roadmap (ver [ROADMAP.md](ROADMAP.md)). Hoje o app cobre o display interno + volume do sistema, é distribuído sem assinatura e atualiza por download manual. As menções a esses itens adiante descrevem como a arquitetura os acomoda **quando existirem**, não features atuais.
 
 ## Estrutura de pastas
 
@@ -34,7 +36,7 @@ crema/                       # raiz do repositório
 │   └── mediaremote-adapter/ # bridge de now playing vendorizada (BSD-3-Clause)
 ├── Crema.xcodeproj          # projeto Xcode
 ├── Crema/                   # código do app
-│   ├── App/                 # entry point (LSUIElement), ícone da barra de menus, Settings, onboarding de Acessibilidade, Sparkle
+│   ├── App/                 # entry point (LSUIElement), ícone da barra de menus, Settings, onboarding de Acessibilidade
 │   ├── Domain/              # tipos próprios do app (NowPlaying, SystemHUD, PresentationState) — nada da Apple vaza pra cima
 │   ├── Sources/             # camada Fontes: integração com o sistema (a parte frágil); cada fonte atrás de um protocolo
 │   │   ├── NowPlaying/      # mediaremote-adapter + fallback JXA + checagem de disponibilidade (nunca MediaRemote direto)
@@ -42,7 +44,7 @@ crema/                       # raiz do repositório
 │   │   ├── Brightness/      # brilho da tela e brilho do teclado
 │   │   ├── MediaKeys/       # event tap das teclas de mídia (exige permissão de Acessibilidade)
 │   │   ├── OSDSuppression/  # supressão do OSD nativo por interceptação de teclas — opt-in e reversível
-│   │   └── External/        # fonte OPCIONAL BetterDisplay/Lunar: traduz a notificação de OSD (JSON) pro tipo de domínio
+│   │   └── External/        # roadmap (placeholder hoje): fonte BetterDisplay/Lunar que traduziria a notificação de OSD (JSON) pro domínio
 │   ├── Coordinator/         # decide o que aparece na tela: hidden / nowPlaying / hud, com prioridade e timers
 │   ├── Windows/             # WindowManager: uma NSPanel por tela; resolve o estilo por display; frame calculado na mão
 │   └── Styles/              # skins: Notch, Card, Classic — cada um View + regra de posição/tamanho da janela (+ componentes compartilhados)
@@ -62,7 +64,7 @@ xcodebuild -project Crema.xcodeproj -scheme Crema -configuration Debug build
 
 - O app é acessório (LSUIElement): não aparece no Dock — procure o ícone na barra de menus.
 - **Acessibilidade no primeiro run**: o onboarding explica a necessidade e abre Ajustes do Sistema → Privacidade e Segurança → Acessibilidade; habilite o app ali. Sem a permissão, o app roda degradado (sem captura de teclas) e sinaliza no menu da barra de menus. Em desenvolvimento, assine com um certificado estável — o TCC identifica o binário pela assinatura e rebuilds podem exigir re-conceder a permissão.
-- **Displays externos são opcionais**: brilho/volume de monitor externo só funciona com BetterDisplay ou Lunar instalado e a integração habilitada nos Settings (uma ativa por vez). Sem eles, o app cobre normalmente o display interno + volume do sistema.
+- **Displays externos (roadmap, não implementado)**: hoje o app cobre só o display interno + volume do sistema. O suporte planejado a brilho/volume de monitor externo dependerá de BetterDisplay ou Lunar instalado, com a integração habilitada nos Settings (uma ativa por vez) — ver ROADMAP.md.
 
 ## Padrões de código
 
@@ -72,7 +74,7 @@ Regra de ouro em uma frase: **dados do sistema sobem já traduzidos pro domínio
 
 - Swift API Design Guidelines — tipos e protocolos em `UpperCamelCase`, membros em `lowerCamelCase`; um tipo principal por arquivo, com o arquivo nomeado pelo tipo (`NowPlayingSource.swift`).
 - Protocolos de contato com o sistema nomeiam a **capacidade** e levam o sufixo `Source`: `NowPlayingSource`, `SystemHUDSource`.
-- Implementações nomeiam **tecnologia + capacidade**: `MediaRemoteAdapterNowPlayingSource`, `JXANowPlayingSource`, `BetterDisplayOSDSource`, `LunarOSDSource`.
+- Implementações nomeiam **tecnologia + capacidade**: `MediaRemoteAdapterNowPlayingSource`, `JXANowPlayingSource` (e, quando a integração externa existir, `BetterDisplayOSDSource` / `LunarOSDSource`).
 - Atuadores (executam ações em vez de emitir eventos — ex.: supressão do OSD) seguem o mesmo esquema: protocolo com nome de capacidade, implementação com nome de tecnologia.
 
 ### Comentários
@@ -89,12 +91,12 @@ Regra de ouro em uma frase: **dados do sistema sobem já traduzidos pro domínio
 - O Domínio é 100% value types `Sendable` (struct/enum) — atravessa threads sem drama.
 - Fontes podem produzir fora da main (processo, notificações, callbacks de sistema); o **consumo** é sempre na main — o Coordinator consome os streams em `Task`s no MainActor.
 - Timers de exibição (ex.: revert do HUD) são `Task` canceláveis com `Task.sleep` — nunca `Timer`/RunLoop.
-- Processos externos (adapter Perl, `betterdisplaycli`) são long-running/streaming: leia o stdout via sequência assíncrona (`FileHandle.bytes` ou equivalente) e trate EOF como indisponibilidade. Nunca `waitUntilExit`/`readDataToEndOfFile` na main thread.
+- Processos externos long-running/streaming (o adapter Perl hoje; `betterdisplaycli` quando o external existir): leia o stdout via sequência assíncrona (`FileHandle.bytes` ou equivalente) e trate EOF como indisponibilidade. Nunca `waitUntilExit`/`readDataToEndOfFile` na main thread.
 
 ### Fontes (a borda do sistema)
 
-- Todo ponto de contato com o sistema fica atrás de um protocolo (mockável) — inclusive a integração BetterDisplay/Lunar, que é só mais uma fonte.
-- Fonte de eventos expõe `updates: AsyncStream<TipoDeDomínio>` + `isAvailable() async -> Bool`. A tradução (dict do MediaRemote, JSON do BetterDisplay) acontece **dentro da fonte**, na borda — nunca acima dela.
+- Todo ponto de contato com o sistema fica atrás de um protocolo (mockável) — inclusive a futura integração BetterDisplay/Lunar (roadmap), que seria só mais uma fonte.
+- Fonte de eventos expõe `updates: AsyncStream<TipoDeDomínio>` + `isAvailable() async -> Bool`. A tradução (dict do MediaRemote; o JSON do BetterDisplay na fonte externa planejada) acontece **dentro da fonte**, na borda — nunca acima dela.
 - O Coordinator recebe as fontes **injetadas pelos protocolos**; nunca referencia uma implementação concreta. Os mocks implementam os mesmos protocolos e moram em `CremaTests/Mocks/`.
 - Falha em runtime: o stream termina (`finish`) e quem consome reavalia a disponibilidade (refaz a cadeia de fallback). **Indisponibilidade é estado, não erro fatal** — reserve `throws` para operações pontuais (ex.: disparar um comando), não para o fluxo de eventos.
 
@@ -113,7 +115,7 @@ Regra de ouro em uma frase: **dados do sistema sobem já traduzidos pro domínio
 
 - Cadeia do now playing: adapter → JXA → feature desligada. Sem crash em nenhum elo; o estado é sinalizado no menu da barra.
 - Sem permissão de Acessibilidade: o app roda sem captura de teclas + aviso no menu.
-- Sem BetterDisplay/Lunar (ou com a integração desligada): as funcionalidades essenciais operam normalmente sobre o display interno + volume do sistema.
+- Sem a integração de displays externos (roadmap; BetterDisplay/Lunar): as funcionalidades essenciais operam normalmente sobre o display interno + volume do sistema.
 
 ### Internacionalização
 
@@ -124,7 +126,7 @@ Regra de ouro em uma frase: **dados do sistema sobem já traduzidos pro domínio
 
 ### Preferências e logging
 
-- Preferências (estilo por display, toggles de supressão/integração/"mostrar now playing aqui", iniciar no login) vivem em `UserDefaults`, atrás de um tipo `Preferences` injetado onde for preciso. A chave estável por display é o **UUID do display** (`CGDisplayCreateUUIDFromDisplayID`) — a tradução displayID→UUID acontece na borda; preferências e domínio só veem o UUID.
+- Preferências (estilo por display, toggles de supressão e "mostrar now playing aqui", iniciar no login) vivem em `UserDefaults`, atrás de um tipo `Preferences` injetado onde for preciso. A chave estável por display é o **UUID do display** (`CGDisplayCreateUUIDFromDisplayID`) — a tradução displayID→UUID acontece na borda; preferências e domínio só veem o UUID.
 - Logging via `os.Logger`, com `subsystem` = bundle id e `category` = camada ou fonte (`"NowPlaying"`, `"Windows"`, `"OSD"`). Sem `print`.
 
 ### Exemplos
@@ -136,7 +138,7 @@ protocol SystemHUDSource {
     func isAvailable() async -> Bool
 }
 
-struct BetterDisplayOSDSource: SystemHUDSource {
+struct BetterDisplayOSDSource: SystemHUDSource {   // fonte externa planejada (roadmap) — ilustra o padrão
     // decodifica o JSON do BetterDisplay aqui, na borda:
     // systemIconID 1 → .brightness · 3 → .volume · 4 → mute
 }
@@ -205,12 +207,12 @@ coord.onPresentationChange = { [weak self] in self?.applyFrames() }
 
 - Brilho (API privada, validada por spike no macOS 26 / Apple Silicon): tela via **DisplayServices** (`DisplayServicesGet/SetBrightness`, dlopen/dlsym); teclado via **CoreBrightness** `KeyboardBrightnessClient` (dlopen + ObjC runtime), com o ID do teclado **enumerado** (`copyKeyboardBacklightIDs` + `isKeyboardBuiltIn:`), nunca hardcodado. **Descartados** (testados, não funcionam neste hardware): CoreDisplay (retorna 1.0 fixo) e IOKit `IODisplayGetFloatParameter` (serviço morto em Apple Silicon). Todo lookup de símbolo/classe privada é checado: nil ⇒ `isAvailable() == false` e a feature degrada sem crash.
 - Nunca chamar MRMediaRemoteGetNowPlayingInfo direto (bloqueado no 15.4+) — sempre via mediaremote-adapter, com fallback
-- Nunca deixar tipo da Apple (MediaRemote/Core Audio) nem tipo do BetterDisplay vazar pra camada de view
+- Nunca deixar tipo da Apple (MediaRemote/Core Audio) nem tipo do BetterDisplay (fonte externa planejada) vazar pra camada de view
 - Nunca suprimir o OSD nativo sem tornar reversível e opt-in (e nunca deixar o usuário sem controle de volume: consumo de tecla exige aplicar+verificar com auto-desligamento)
 - Nunca acoplar um estilo ao core — skin novo não pode exigir mudança nas Fontes/Domínio/Coordinator
 - Nunca atualizar o frame da janela pelo SwiftUI — todo estilo usa janela FIXA (`windowFrame`, só o conteúdo anima); o frame por estado aplicado na mão existe apenas como fallback defensivo para uma futura view que preencha a janela. Nunca reintroduzir setFrame por estado nos estilos
-- Nunca tratar a integração BetterDisplay/Lunar como obrigatória — é enhancement opcional; sem ela o app cobre display interno + volume do sistema
-- Nunca implementar DDC próprio — controle de brilho/volume de externo é delegado ao BetterDisplay/Lunar
+- Nunca tratar a integração BetterDisplay/Lunar (roadmap) como obrigatória — é enhancement opcional; sem ela o app cobre display interno + volume do sistema
+- Nunca implementar DDC próprio — o controle de brilho/volume de externo é delegado ao BetterDisplay/Lunar (integração planejada)
 - Nunca bloquear a main thread esperando processo externo (`waitUntilExit`, `readDataToEndOfFile`) — stdout se lê como stream assíncrono, e EOF significa indisponibilidade
 - Nunca escrever teste unitário que toque API de sistema real — fonte real não entra em teste; os mocks implementam os protocolos
 
