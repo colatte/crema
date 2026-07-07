@@ -5,8 +5,11 @@
 #        under CommandLineTools; it needs full Xcode.)
 #       swiftlint --fix   autocorrects the fixable violations.
 #
-# No code formatter is adopted (the code is already uniformly formatted), so
-# SwiftLint here focuses on correctness and best practice, not pure formatting.
+# SwiftFormat owns pure formatting (see .swiftformat, enforced by
+# `swiftformat --lint .` in CI); SwiftLint here focuses on correctness and best
+# practice. The two run side by side, so the formatting rules disabled below are
+# left to SwiftFormat; the remaining opt-outs are disabled for behavior reasons
+# noted per rule.
 
 included:
   - Crema
@@ -19,8 +22,9 @@ excluded:
 
 # Default rules disabled deliberately for this codebase:
 disabled_rules:
-  - trailing_comma # formatting; no formatter adopted
-  - vertical_whitespace # formatting
+  - trailing_comma # SwiftFormat's trailingCommas adds them on wrapped collections;
+    # this rule forbids them, so it's disabled to not fight the formatter
+  - vertical_whitespace # blank-line collapsing now owned by SwiftFormat (consecutiveBlankLines)
   - optional_data_string_conversion # our String(decoding:as:) is a deliberate
     # lossy decode — the failable form would drop
     # a whole line on a stray byte (behavior change)
@@ -93,8 +97,10 @@ line_length:
   ignores_urls: true
 
 identifier_name:
-  # Single-letter names are idiomatic in the geometry/color/index code:
-  # h/w (height/width), x/y/z (coords), r/g/b (color), i/j/k/n (indices/counts).
+  # min_length is 2; these short names are whitelisted. Single letters are idiomatic
+  # in geometry/index/color code: h/w, x/y/z, i/j/k/n, r/g/b. a/b are the A/B
+  # test-screen fixtures; dx/dy are insetBy deltas; np is a now-playing local; id
+  # and the to/on parameter labels round out the two-letter allowances.
   min_length: 2
   excluded: [id, a, b, g, r, h, w, x, y, z, i, j, k, n, dx, dy, np, to, on]
 
@@ -111,7 +117,9 @@ large_tuple:
 cyclomatic_complexity:
   warning: 15 # the Coordinator/suppressor state machines are inherently branchy
 
-# Test files are naturally larger; production files stay well under these.
+# Ceilings sized for this app's larger files. Coordinator.swift (625 lines) already
+# exceeds the 500 file_length warning and opts out inline via
+# `// swiftlint:disable file_length`; the largest test file tops out around 440.
 file_length:
   warning: 500
   error: 1200

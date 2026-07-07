@@ -45,4 +45,5 @@ final class Flag: @unchecked Sendable {
         set { lock.withLock { _value = newValue } }
     }
 }
+
 // swiftlint:enable force_unwrapping

@@ -129,6 +129,7 @@ enum NotchMetrics {
             + expandedSectionGap
             + controlsHeight
     }
+
     /// Artwork stays small so the title column keeps ~120 pt of the narrow
     /// surface — a 44 pt cover truncated most real titles.
     static let expandedArtworkSide: CGFloat = 36

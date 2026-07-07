@@ -207,4 +207,5 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         #expect(await !MediaRemoteAdapterNowPlayingSource(lines: lines2, availability: { false }, clock: TestSleepClock()).isAvailable())
     }
 }
+
 // swiftlint:enable line_length

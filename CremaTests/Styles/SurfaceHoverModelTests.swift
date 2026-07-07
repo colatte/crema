@@ -146,4 +146,5 @@ struct SurfaceHoverModelTests {
         #expect(Style.classic.hoverCommit == .immediate)
     }
 }
+
 // swiftlint:enable force_unwrapping

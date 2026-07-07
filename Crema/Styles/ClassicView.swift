@@ -95,7 +95,6 @@ struct ClassicView: View {
         return false
     }
 
-
     /// Artwork bytes driving the accent — from the state payload (ticks never
     /// rewrite it); nil outside now-playing, so the tone fades out with the
     /// surface.

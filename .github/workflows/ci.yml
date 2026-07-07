@@ -52,6 +52,20 @@ jobs:
           export DEVELOPER_DIR="$(xcode-select -p)"
           swiftlint lint --strict
 
+      - name: Install SwiftFormat
+        # Pinned for reproducibility, like SwiftLint.
+        env:
+          SWIFTFORMAT_VERSION: "0.62.0"
+        run: |
+          curl -sSL "https://github.com/nicklockwood/SwiftFormat/releases/download/${SWIFTFORMAT_VERSION}/swiftformat.zip" -o /tmp/swiftformat.zip
+          unzip -oq /tmp/swiftformat.zip -d /tmp/swiftformat
+          echo "/tmp/swiftformat" >> "$GITHUB_PATH"
+
+      - name: SwiftFormat (lint)
+        # Fails the job if any file isn't formatted per .swiftformat. SwiftFormat
+        # parses Swift itself, so it needs no sourcekitd/DEVELOPER_DIR.
+        run: swiftformat --lint .
+
       - name: Build and test
         # Crema is not code-signed and the runner has no signing identity, so
         # signing is disabled — otherwise xcodebuild would try to sign and fail.

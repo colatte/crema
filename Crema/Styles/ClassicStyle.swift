@@ -70,6 +70,7 @@ enum ClassicMetrics {
                 + controlsHeight
         )
     }
+
     static let hud = CGSize(width: 200, height: 200)
     /// One generous fixed radius for every state — the block is never low
     /// enough for a capsule to make sense.

@@ -61,6 +61,7 @@ enum CardMetrics {
                 + controlsHeight
         )
     }
+
     /// The floor keeps the spanning scrubber (with both time labels) usable
     /// when a short title would hug narrower.
     static let expandedMinWidth: CGFloat = 240

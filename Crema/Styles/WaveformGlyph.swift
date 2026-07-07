@@ -53,8 +53,8 @@ struct WaveformGlyph: View {
                     .animation(
                         dancing
                             ? .easeInOut(duration: config.pulsePeriod)
-                                .repeatForever(autoreverses: true)
-                                .delay(config.pulsePeriod * Double(index) / Double(config.barCount))
+                            .repeatForever(autoreverses: true)
+                            .delay(config.pulsePeriod * Double(index) / Double(config.barCount))
                             : .easeOut(duration: Self.freezeDuration),
                         value: dancing
                     )

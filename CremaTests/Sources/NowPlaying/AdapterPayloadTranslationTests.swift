@@ -170,4 +170,5 @@ struct AdapterPayloadTranslationTests {
         #expect(np.position == 52.5)
     }
 }
+
 // swiftlint:enable line_length

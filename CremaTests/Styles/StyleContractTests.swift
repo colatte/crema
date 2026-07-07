@@ -38,6 +38,7 @@ struct StyleContractTests {
             func frame(for state: PresentationState, on geometry: ScreenGeometry) -> CGRect {
                 CGRect(x: geometry.frame.midX, y: CGFloat(geometry.safeTop), width: 10, height: 10)
             }
+
             func makeView(coordinator: Coordinator, displayPolicy: SurfaceDisplayPolicy) -> some View { EmptyView() }
         }
 

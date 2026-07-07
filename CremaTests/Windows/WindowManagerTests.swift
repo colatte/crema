@@ -433,4 +433,5 @@ struct WindowManagerTests {
         #expect(h.recorder.panel(for: screen.id)?.showsControlsStates.last == true)
     }
 }
+
 // swiftlint:enable force_unwrapping
