@@ -1,0 +1,51 @@
+name: CI
+
+# Build and run the test suite on every push and pull request to the
+# release (main) and integration (dev) branches.
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+# A newer commit on the same ref supersedes an in-flight run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build & test
+    runs-on: macos-15 # Sequoia image ships Xcode 16 (needed for Swift Testing)
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        # Swift Testing (@Test / #expect) requires Xcode 16+. The app's
+        # deployment target (macOS 14) is unaffected by the toolchain version.
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Toolchain versions
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Build and test
+        # Crema is not code-signed and the runner has no signing identity, so
+        # signing is disabled — otherwise xcodebuild would try to sign and fail.
+        # The suite is unit-only and deterministic (injected clocks, mocked
+        # sources), so it needs no real audio device, display, or Accessibility
+        # permission and runs cleanly on a headless runner.
+        run: |
+          xcodebuild test \
+            -project Crema.xcodeproj \
+            -scheme Crema \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
