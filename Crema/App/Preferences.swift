@@ -98,6 +98,7 @@ struct Preferences {
         static func style(_ display: DisplayUUID) -> String {
             "style.\(display.rawValue)"
         }
+
         static func showsNowPlaying(_ display: DisplayUUID) -> String {
             "showsNowPlaying.\(display.rawValue)"
         }

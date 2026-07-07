@@ -130,6 +130,8 @@ struct NotchFrameRuleTests {
 
     @Test func frameRuleIsDeterministic() {
         let state = PresentationState.nowPlaying(track, expanded: true)
+        // A pure rule is deterministic: the same inputs must yield an equal frame.
+        // swiftlint:disable:next identical_operands
         #expect(style.frame(for: state, on: notched) == style.frame(for: state, on: notched))
     }
 

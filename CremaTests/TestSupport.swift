@@ -1,5 +1,8 @@
 import Foundation
 
+// A few test helpers force-unwrap known-good values (e.g. UserDefaults(suiteName:)).
+// swiftlint:disable force_unwrapping
+
 /// Spins the main actor until `condition` holds, without ever really sleeping.
 /// Returns the final evaluation so call sites can `#expect(await eventually { … })`.
 @MainActor
@@ -42,3 +45,5 @@ final class Flag: @unchecked Sendable {
         set { lock.withLock { _value = newValue } }
     }
 }
+
+// swiftlint:enable force_unwrapping

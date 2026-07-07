@@ -2,6 +2,9 @@ import CoreGraphics
 import Testing
 @testable import Crema
 
+// Test fixtures force-unwrap known values (a nil means the test itself is broken).
+// swiftlint:disable force_unwrapping
+
 /// The loop-catcher. These assert the hover behavior at the boundary, not
 /// just static geometry: a cursor idling in the hysteresis band (or the resize
 /// animation sweeping the frame under it) must not oscillate. A single-threshold
@@ -143,3 +146,5 @@ struct SurfaceHoverModelTests {
         #expect(Style.classic.hoverCommit == .immediate)
     }
 }
+
+// swiftlint:enable force_unwrapping

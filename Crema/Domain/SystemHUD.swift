@@ -12,5 +12,5 @@ struct SystemHUD: Equatable, Sendable {
     var isMuted: Bool = false
     /// Originating display; nil means the internal display (the default).
     /// External-display sources populate it, keyed by display UUID.
-    var display: DisplayUUID? = nil
+    var display: DisplayUUID?
 }

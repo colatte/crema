@@ -58,6 +58,8 @@ struct StyleTests {
         ]
         for style in [Style.card, .classic] {
             for state in states {
+                // A pure rule is deterministic: the same inputs must yield an equal frame.
+                // swiftlint:disable:next identical_operands
                 #expect(style.frame(for: state, on: geometry) == style.frame(for: state, on: geometry))
             }
         }

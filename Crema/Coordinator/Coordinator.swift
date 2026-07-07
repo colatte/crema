@@ -2,6 +2,10 @@ import Foundation
 import Observation
 import os
 
+// This file holds the whole Coordinator: state machine + HUD priority + the
+// display/linger/hover timers — cohesive, but large.
+// swiftlint:disable file_length
+
 /// The app's single @Observable. Decides what is on screen (`state`), owns HUD
 /// priority and display timers, and routes view intents to actuators. Sources
 /// and actuators are injected by protocol — never a concrete implementation.
@@ -310,7 +314,7 @@ final class Coordinator {
             if case .nowPlaying(let track, false) = state {
                 state = .nowPlaying(track, expanded: true)
             }
-        } else if case .nowPlaying(let track, let expanded) = state {
+        } else if case let .nowPlaying(track, expanded) = state {
             if expanded {
                 state = .nowPlaying(track, expanded: false)
             }

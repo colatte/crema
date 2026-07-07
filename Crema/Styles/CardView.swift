@@ -28,9 +28,9 @@ struct CardView: View {
         // The rendered size is the click-interactive truth: with the width
         // adaptive, the rule frame alone can't place the click region, so the
         // panel follows what is actually drawn.
-        .onGeometryChange(for: CGSize.self, of: { $0.size }) { size in
+        .onGeometryChange(for: CGSize.self, of: { $0.size }, action: { size in
             reportSurfaceSize?(size)
-        }
+        })
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         // Keyed on layoutKind so value ticks don't animate; direction picks the
         // spring.
@@ -166,7 +166,6 @@ struct CardView: View {
         return false
     }
 
-
     /// Artwork bytes driving the accent — from the state payload (ticks never
     /// rewrite it); nil outside now-playing, so the tone fades out with the
     /// surface.
@@ -287,13 +286,13 @@ struct CardView: View {
             .bottom,
             showsControls
                 ? CardMetrics.contentPaddingVertical
-                    + CardMetrics.controlsHeight
-                    + CardMetrics.contentGap
-                    + CardMetrics.scrubberRowHeight
-                    + CardMetrics.contentGap
+                + CardMetrics.controlsHeight
+                + CardMetrics.contentGap
+                + CardMetrics.scrubberRowHeight
+                + CardMetrics.contentGap
                 : CardMetrics.contentPaddingVertical
-                    + CardMetrics.scrubberRowHeight
-                    + CardMetrics.contentGap
+                + CardMetrics.scrubberRowHeight
+                + CardMetrics.contentGap
         )
         .overlay(alignment: .bottom) {
             if showsControls {

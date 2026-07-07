@@ -25,6 +25,7 @@ final class MockNowPlayingController: NowPlayingController, @unchecked Sendable 
         get { lock.withLock { _shouldThrow } }
         set { lock.withLock { _shouldThrow = newValue } }
     }
+
     /// A specific error to throw (takes precedence) — e.g. a transient
     /// NowPlayingCommandError.noActiveSource.
     var errorToThrow: Error? {

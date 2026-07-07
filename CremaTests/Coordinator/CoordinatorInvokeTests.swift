@@ -77,7 +77,7 @@ struct CoordinatorInvokeTests {
         // Still the same appearance on the same reactive linger — the click
         // routed to the visible surface's controls, not to invocation.
         #expect(h.coordinator.state == .nowPlaying(track, expanded: false))
-        #expect(h.clock.delays.filter { $0 == Coordinator.defaultInvokedLinger }.isEmpty)
+        #expect(!h.clock.delays.contains(Coordinator.defaultInvokedLinger))
     }
 
     @Test func pointerExitCollapsesTheInvokedPlayerAndTheInvokedTuckEndsIt() async {

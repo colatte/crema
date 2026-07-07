@@ -1,0 +1,26 @@
+# SwiftFormat configuration for Crema — tuned to PRESERVE the code's deliberate
+# styles and minimise churn (it standardises spacing/blank-lines, not personal
+# choices). Run:  swiftformat .
+#
+# The disabled rules below preserve, in order: the `guard else { stmt; return }`
+# one-liners; explicit `self.`; the // vs /// comment style; `case .x(let y)`
+# (hoisting only for multiple bindings, as SwiftLint enforces); number literals
+# like `1_000`; @ViewBuilder; the `code   // comment` spacing; and three rules
+# that would otherwise fight SwiftLint (isEmpty, trailingClosures,
+# noForceUnwrapInTests).
+
+--swiftversion 6
+
+--indent 4
+--xcodeindentation enabled      # Xcode-style continuation indentation
+--ifdef no-indent               # don't indent inside #if blocks
+--semicolons inline             # keep `{ stmt; return }` one-liners
+--ranges no-space               # keep `0..<5`
+--importgrouping testable-last  # @testable imports sorted last
+--wraparguments preserve
+--wrapparameters preserve
+--wrapcollections preserve
+
+--exclude ThirdParty,.build,DerivedData
+
+--disable wrapIfStatementBodies,wrapFunctionBodies,wrapPropertyBodies,wrapLoopBodies,wrapMultilineStatementBraces,redundantSelf,docComments,conditionalAssignment,opaqueGenericParameters,unusedArguments,isEmpty,trailingClosures,noForceUnwrapInTests,blankLinesAtStartOfScope,consecutiveSpaces,hoistPatternLet,numberFormatting,redundantViewBuilder

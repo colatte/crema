@@ -24,6 +24,7 @@ final class FakeScreenBrightnessBackend: ScreenBrightnessBackend, @unchecked Sen
         get { lock.withLock { _value } }
         set { lock.withLock { _value = newValue } }
     }
+
     var writes: [Float] { lock.withLock { _writes } }
 
     func read() -> Float? { value }
@@ -56,6 +57,7 @@ final class FakeKeyboardBrightnessBackend: KeyboardBrightnessBackend, @unchecked
         get { lock.withLock { _value } }
         set { lock.withLock { _value = newValue } }
     }
+
     var writes: [Float] { lock.withLock { _writes } }
 
     func read() -> Float? { value }

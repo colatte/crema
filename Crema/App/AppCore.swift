@@ -59,6 +59,8 @@ final class AppCore {
     private var terminationObservation: NSObjectProtocol?
     private var onboardingWindow: NSWindow?
 
+    // The composition root wires every source, actuator, and observer; long by nature.
+    // swiftlint:disable:next function_body_length
     init(loginItem: (any LoginItemManaging)? = nil) {
         let preferences = Preferences()
         self.preferences = preferences

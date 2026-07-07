@@ -66,6 +66,9 @@ final class CoreBrightnessKeyboardBridge: KeyboardBrightnessBackend, @unchecked 
               client.responds(to: copySel), client.responds(to: builtInSel)
         else { return nil }
 
+        // The responds(to:) guard above proves each selector exists, so
+        // client.method(for:) is guaranteed non-nil here.
+        // swiftlint:disable force_unwrapping
         let copyFn = unsafeBitCast(client.method(for: copySel)!, to: CopyFn.self)
         let builtInFn = unsafeBitCast(client.method(for: builtInSel)!, to: BuiltInFn.self)
 
@@ -83,5 +86,6 @@ final class CoreBrightnessKeyboardBridge: KeyboardBrightnessBackend, @unchecked 
             getFn: unsafeBitCast(client.method(for: getSel)!, to: GetFn.self),
             setFn: unsafeBitCast(client.method(for: setSel)!, to: SetFn.self)
         )
+        // swiftlint:enable force_unwrapping
     }
 }

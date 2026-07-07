@@ -2,6 +2,9 @@ import Foundation
 import Testing
 @testable import Crema
 
+// The JSON fixtures below are single long lines by nature.
+// swiftlint:disable line_length
+
 /// Translation of the adapter's JSON lines into NowPlaying, with real
 /// fixtures from the observed format (type/diff/payload).
 struct AdapterPayloadTranslationTests {
@@ -167,3 +170,5 @@ struct AdapterPayloadTranslationTests {
         #expect(np.position == 52.5)
     }
 }
+
+// swiftlint:enable line_length

@@ -2,6 +2,9 @@ import Foundation
 import Testing
 @testable import Crema
 
+// A couple of JSON fixtures below are single long lines by nature.
+// swiftlint:disable line_length
+
 /// The adapter source over fake lines + an injectable clock (no real
 /// process): translation emitted, local position tick while playing, hide on
 /// empty payload, and finish when the line stream ends (EOF → self-heal signal).
@@ -204,3 +207,5 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         #expect(await !MediaRemoteAdapterNowPlayingSource(lines: lines2, availability: { false }, clock: TestSleepClock()).isAvailable())
     }
 }
+
+// swiftlint:enable line_length
