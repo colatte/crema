@@ -14,11 +14,21 @@
 #   4. Package Crema.app + an /Applications shortcut into Crema.dmg.
 #   5. Leave Crema.dmg in the repo root and remove the intermediate build/.
 #
-# Why unsigned: Crema is distributed without a Developer ID signature or
-# notarization (documented in the README's "First launch"). So the build runs
-# with signing disabled — the same flags the CI uses — and users clear the
-# quarantine flag on first launch. Do NOT add signing here without also updating
-# the README.
+# Signing: the app is AD-HOC signed (codesign --sign -), not Developer ID signed
+# or notarized. Ad-hoc is what makes the Accessibility permission actually stick:
+# macOS TCC anchors an Accessibility grant to the app's code identity, and a fully
+# UNSIGNED bundle has none — so the grant never applies to it and the brightness
+# HUDs / OSD suppression stay dead even after the user toggles the permission on.
+# Xcode-run builds work precisely because the project ad-hoc signs
+# (CODE_SIGN_IDENTITY = "-"); packaging with signing disabled dropped that, which
+# is the whole bug this step fixes. Ad-hoc needs no Developer ID and no paid
+# account — it is local and free.
+#
+# Ad-hoc does NOT change Gatekeeper: the app still reads as an "unidentified
+# developer," so the README's "First launch" (clear quarantine / open anyway)
+# still applies unchanged. A real Developer ID + notarization would additionally
+# drop that prompt and let a grant survive across version updates, but is not
+# required for the permission to work.
 #
 # Why the name is exactly Crema.dmg: GitHub exposes the newest release asset at
 #   https://github.com/vctorgriggi/crema/releases/latest/download/Crema.dmg
@@ -111,12 +121,14 @@ rm -f "$DMG_OUT"
 mkdir -p "$BUILD_DIR"
 info "Intermediates: $BUILD_DIR"
 
-# --- 1. archive (Release, unsigned) ------------------------------------------
+# --- 1. archive (Release) ----------------------------------------------------
 
 step "Archiving Crema in Release (this can take a few minutes)"
 # MARKETING_VERSION="$VERSION" stamps CFBundleShortVersionString so the built
-# app reports the release version. Signing is disabled (matches CI). Output is
-# tee'd to a log so a failure leaves something to read.
+# app reports the release version. The archive is built unsigned; the app is
+# ad-hoc signed after extraction (the signing step below) — that ad-hoc identity
+# is what lets the Accessibility grant stick. Output is tee'd to a log so a
+# failure leaves something to read.
 if ! xcodebuild archive \
         -project "$PROJECT" \
         -scheme Crema \
@@ -141,12 +153,26 @@ else
     info "Built $APP_NAME reports version $BUILT_VERSION."
 fi
 
-# --- 2. package into Crema.dmg -----------------------------------------------
+# --- 2. ad-hoc sign, then package into Crema.dmg -----------------------------
 
-step "Packaging $DMG_NAME"
+step "Signing and packaging $DMG_NAME"
 rm -rf "$DMG_SRC"
 mkdir -p "$DMG_SRC"
 cp -R "$APP_SRC" "$DMG_SRC/$APP_NAME"
+
+# Ad-hoc sign the copy that ships in the .dmg. Without a code signature TCC has
+# no identity to bind the Accessibility grant to, so an installed copy never sees
+# the permission even after the user grants it (the reported bug). --deep also
+# signs the nested vendored framework, which a valid bundle signature requires.
+# No Developer ID / paid account needed. Hardened runtime is intentionally left
+# off: it only matters for notarization and could restrict the private brightness
+# frameworks the app dlopens.
+info "Ad-hoc signing $APP_NAME"
+codesign --force --deep --sign - "$DMG_SRC/$APP_NAME" \
+    || fail "codesign (ad-hoc) failed on $APP_NAME."
+codesign --verify --deep --strict "$DMG_SRC/$APP_NAME" \
+    || fail "the ad-hoc signature did not verify on $APP_NAME."
+info "$(codesign -dvv "$DMG_SRC/$APP_NAME" 2>&1 | grep -E '^Signature=' || echo 'Signature=adhoc')"
 
 if [[ "$USE_CREATE_DMG" == "1" ]]; then
     info "Using create-dmg (drag-to-Applications layout)."
