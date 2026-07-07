@@ -10,6 +10,8 @@ final class MergedSystemHUDSource: SystemHUDSource, @unchecked Sendable {
         self.sources = sources
         var continuation: AsyncStream<SystemHUD>.Continuation!
         updates = AsyncStream { continuation = $0 }
+        // The AsyncStream builder above ran synchronously, so continuation is set.
+        // swiftlint:disable:next force_unwrapping
         let sink = continuation!
         for source in sources {
             forwarders.append(Task {

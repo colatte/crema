@@ -3,6 +3,9 @@ import Foundation
 import Testing
 @testable import Crema
 
+// Test fixtures force-unwrap known values (a nil means the test itself is broken).
+// swiftlint:disable force_unwrapping
+
 /// WindowManager logic over fake screens and panels: screen
 /// reconciliation, state-driven frames, per-display style resolution.
 @MainActor
@@ -430,3 +433,4 @@ struct WindowManagerTests {
         #expect(h.recorder.panel(for: screen.id)?.showsControlsStates.last == true)
     }
 }
+// swiftlint:enable force_unwrapping

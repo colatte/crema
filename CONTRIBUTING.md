@@ -51,11 +51,32 @@ Keep it lowercase, hyphenated, and descriptive — for example
 5. Open the pull request against **`dev`** with a clear description of what
    changed and why.
 
-Continuous integration builds the app and runs the test suite on every pull
-request; the check needs to pass before a change can be merged.
+Continuous integration builds the app, runs SwiftLint, and runs the test suite
+on every pull request; the check needs to pass before a change can be merged.
 
 By contributing, you agree that your contributions are licensed under the
 project's [GPL-3.0 license](LICENSE).
+
+## Linting
+
+The project uses [SwiftLint](https://github.com/realm/SwiftLint) (config in
+[`.swiftlint.yml`](.swiftlint.yml)); CI runs it in strict mode, so it needs to
+pass. To run it locally:
+
+```bash
+brew install swiftlint
+swiftlint            # or `swiftlint --fix` to autocorrect what it can
+```
+
+CI pins a specific SwiftLint version; if a local run is clean but CI flags
+something (or vice versa), a version mismatch is the likely cause.
+
+If SwiftLint fails to load `sourcekitd`, point it at a full Xcode rather than the
+Command Line Tools:
+
+```bash
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swiftlint
+```
 
 ## A note on third-party code
 

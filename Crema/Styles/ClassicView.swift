@@ -24,9 +24,9 @@ struct ClassicView: View {
         }
         // The rendered size is the click-interactive truth: view-only shortens
         // the surface, so the panel must follow what is actually drawn.
-        .onGeometryChange(for: CGSize.self, of: { $0.size }) { size in
+        .onGeometryChange(for: CGSize.self, of: { $0.size }, action: { size in
             reportSurfaceSize?(size)
-        }
+        })
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         // Keyed on layoutKind so value ticks don't animate; direction picks the
         // spring.

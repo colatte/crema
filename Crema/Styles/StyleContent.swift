@@ -13,7 +13,7 @@ enum StyleContent: Equatable {
         switch state {
         case .hidden:
             self = .empty
-        case .nowPlaying(let track, let expanded):
+        case let .nowPlaying(track, expanded):
             self = showsNowPlaying
                 ? (expanded ? .nowPlayingExpanded(track) : .nowPlayingCompact(track))
                 : .empty

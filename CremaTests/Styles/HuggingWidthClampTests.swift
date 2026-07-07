@@ -58,7 +58,7 @@ struct HuggingWidthClampTests {
             Color.red
                 .frame(width: 100, height: 40)
                 .frame(maxWidth: .infinity)
-                .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { box.width = $0 }
+                .onGeometryChange(for: CGFloat.self, of: { $0.size.width }, action: { box.width = $0 })
         }
         let controller = NSHostingController(rootView: clamp)
         controller.view.setFrameSize(controller.view.fittingSize)

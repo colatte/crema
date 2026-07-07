@@ -135,6 +135,7 @@ private struct NowPlayingSettingsView: View {
             } footer: {
                 Text(String(
                     localized: "settings.nowPlaying.browsers.footer",
+                    // swiftlint:disable:next line_length
                     defaultValue: "Includes music playing in Safari, Chrome, and other browsers. This can make the player appear for autoplay videos on websites."
                 ))
                 .settingsFootnote()
@@ -213,6 +214,7 @@ private struct PermissionsSettingsView: View {
             } footer: {
                 Text(String(
                     localized: "settings.permissions.footer",
+                    // swiftlint:disable:next line_length
                     defaultValue: "Crema needs Accessibility access to capture the media keys — for its volume and brightness HUDs and to replace the system indicators. Without it the app still runs; it just can't react to those keys. Granting is picked up automatically, no relaunch needed."
                 ))
                 .settingsFootnote()

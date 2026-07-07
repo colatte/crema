@@ -34,6 +34,24 @@ jobs:
           xcodebuild -version
           swift --version
 
+      - name: Install SwiftLint
+        # Pinned so the strict gate is reproducible: a floating SwiftLint could
+        # add or tighten a default rule and turn CI red on an unrelated PR.
+        env:
+          SWIFTLINT_VERSION: "0.65.0"
+        run: |
+          curl -sSL "https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/portable_swiftlint.zip" -o /tmp/swiftlint.zip
+          unzip -oq /tmp/swiftlint.zip -d /tmp/swiftlint
+          echo "/tmp/swiftlint" >> "$GITHUB_PATH"
+
+      - name: SwiftLint (strict)
+        # SwiftLint needs full Xcode's sourcekitd (selected above), not the
+        # Command Line Tools. --strict fails the job on any violation, so a
+        # noncompliant PR is blocked before the slower build/test step.
+        run: |
+          export DEVELOPER_DIR="$(xcode-select -p)"
+          swiftlint lint --strict
+
       - name: Build and test
         # Crema is not code-signed and the runner has no signing identity, so
         # signing is disabled — otherwise xcodebuild would try to sign and fail.

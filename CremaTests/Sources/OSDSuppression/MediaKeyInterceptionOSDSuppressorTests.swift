@@ -19,6 +19,7 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         let suppressor: MediaKeyInterceptionOSDSuppressor
         let disengages = Box()
 
+        // swiftlint:disable:next nesting
         @MainActor final class Box { var count = 0 }
 
         init() {
@@ -159,6 +160,8 @@ struct MediaKeyInterceptionOSDSuppressorTests {
 
         #expect(await eventually { h.volume.applied == [1.0] })
         #expect(h.suppressor.isEngaged)
+        // Box.count is a running counter, not a collection.
+        // swiftlint:disable:next empty_count
         #expect(h.disengages.count == 0)
     }
 
@@ -182,6 +185,8 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         #expect(h.volume.mutedWrites.isEmpty)
         #expect(h.keyboard.applied.isEmpty)
         #expect(h.suppressor.isEngaged)
+        // Box.count is a running counter, not a collection.
+        // swiftlint:disable:next empty_count
         #expect(h.disengages.count == 0)
     }
 

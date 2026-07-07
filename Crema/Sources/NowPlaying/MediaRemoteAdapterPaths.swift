@@ -11,12 +11,12 @@ struct MediaRemoteAdapterPaths {
     /// The test client, used only by the availability probe.
     let testClient: String
 
-    static func inBundle(_ bundle: Bundle = .main) -> MediaRemoteAdapterPaths? {
+    static func inBundle(_ bundle: Bundle = .main) -> Self? {
         guard let root = bundle.resourceURL?.appendingPathComponent("mediaremote-adapter"),
               FileManager.default.fileExists(atPath: root.path) else {
             return nil
         }
-        return MediaRemoteAdapterPaths(
+        return Self(
             script: root.appendingPathComponent("bin/mediaremote-adapter.pl").path,
             framework: root.appendingPathComponent("MediaRemoteAdapter.framework").path,
             testClient: root.appendingPathComponent("MediaRemoteAdapterTestClient").path

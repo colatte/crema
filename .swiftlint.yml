@@ -1,0 +1,122 @@
+# SwiftLint configuration for Crema.
+#
+# Run:  DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swiftlint
+#       (the DEVELOPER_DIR is required — SwiftLint crashes loading sourcekitd
+#        under CommandLineTools; it needs full Xcode.)
+#       swiftlint --fix   autocorrects the fixable violations.
+#
+# No code formatter is adopted (the code is already uniformly formatted), so
+# SwiftLint here focuses on correctness and best practice, not pure formatting.
+
+included:
+  - Crema
+  - CremaTests
+
+excluded:
+  - .build
+  - DerivedData
+  - ThirdParty # vendored third-party code — not ours to lint
+
+# Default rules disabled deliberately for this codebase:
+disabled_rules:
+  - trailing_comma # formatting; no formatter adopted
+  - vertical_whitespace # formatting
+  - optional_data_string_conversion # our String(decoding:as:) is a deliberate
+    # lossy decode — the failable form would drop
+    # a whole line on a stray byte (behavior change)
+
+# 'Bool?' is used deliberately for tri-state (mute readback, playing state, ...),
+# so discouraged_optional_boolean is intentionally not enabled. multiline_arguments
+# is formatting and also not enabled.
+opt_in_rules:
+  - array_init
+  - closure_end_indentation
+  - closure_spacing
+  - collection_alignment
+  - comma_inheritance
+  - contains_over_filter_count
+  - contains_over_filter_is_empty
+  - contains_over_first_not_nil
+  - contains_over_range_nil_comparison
+  - convenience_type
+  - discouraged_none_name
+  - discouraged_object_literal
+  - empty_collection_literal
+  - empty_count
+  - empty_string
+  - enum_case_associated_values_count
+  - explicit_init
+  - fallthrough
+  - fatal_error_message
+  - first_where
+  - flatmap_over_map_reduce
+  - force_unwrapping
+  - identical_operands
+  - joined_default_parameter
+  - last_where
+  - legacy_multiple
+  - literal_expression_end_indentation
+  - lower_acl_than_parent
+  - modifier_order
+  - multiline_function_chains
+  - multiline_parameters
+  - operator_usage_whitespace
+  - optional_enum_case_matching
+  - overridden_super_call
+  - override_in_extension
+  - pattern_matching_keywords
+  - prefer_self_in_static_references
+  - prefer_self_type_over_type_of_self
+  - prefer_zero_over_explicit_init
+  - prohibited_super_call
+  - reduce_into
+  - redundant_nil_coalescing
+  - redundant_type_annotation
+  - return_value_from_void_function
+  - self_binding
+  - shorthand_optional_binding
+  - sorted_first_last
+  - static_operator
+  - toggle_bool
+  - unavailable_function
+  - unhandled_throwing_task
+  - unneeded_parentheses_in_closure_argument
+  - unowned_variable_capture
+  - vertical_parameter_alignment_on_call
+  - vertical_whitespace_closing_braces
+  - weak_delegate
+  - yoda_condition
+
+line_length:
+  warning: 160 # accommodates long String(localized:) defaults + SwiftUI chains
+  error: 200
+  ignores_urls: true
+
+identifier_name:
+  # Single-letter names are idiomatic in the geometry/color/index code:
+  # h/w (height/width), x/y/z (coords), r/g/b (color), i/j/k/n (indices/counts).
+  min_length: 2
+  excluded: [id, a, b, g, r, h, w, x, y, z, i, j, k, n, dx, dy, np, to, on]
+
+type_name:
+  min_length: 3
+  max_length:
+    warning:
+      50 # tech+capability names are deliberately descriptive/long
+      # (e.g. CoreBrightnessKeyboardBrightnessController)
+
+large_tuple:
+  warning: 3 # 3-element tuples (RGB, (id, delay, continuation)) are fine
+
+cyclomatic_complexity:
+  warning: 15 # the Coordinator/suppressor state machines are inherently branchy
+
+# Test files are naturally larger; production files stay well under these.
+file_length:
+  warning: 500
+  error: 1200
+type_body_length:
+  warning: 400
+  error: 600
+
+reporter: "xcode"

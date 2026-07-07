@@ -22,6 +22,7 @@ struct AccessibilityOnboardingView: View {
 
             Text(String(
                 localized: "onboarding.body",
+                // swiftlint:disable:next line_length
                 defaultValue: "Crema uses the Accessibility permission to capture the volume and brightness keys so it can show its own HUD. Without it the app keeps working — it just can't react to those keys."
             ))
             .multilineTextAlignment(.center)

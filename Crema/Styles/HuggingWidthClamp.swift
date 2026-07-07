@@ -28,7 +28,7 @@ struct SurfaceBranch: LayoutValueKey {
 struct HuggingWidthClamp: Layout {
     var minWidth: CGFloat?
     var maxWidth: CGFloat?
-    var activeBranch: String? = nil
+    var activeBranch: String?
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         guard let child = driver(in: subviews) else { return .zero }

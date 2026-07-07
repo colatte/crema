@@ -28,9 +28,9 @@ struct CardView: View {
         // The rendered size is the click-interactive truth: with the width
         // adaptive, the rule frame alone can't place the click region, so the
         // panel follows what is actually drawn.
-        .onGeometryChange(for: CGSize.self, of: { $0.size }) { size in
+        .onGeometryChange(for: CGSize.self, of: { $0.size }, action: { size in
             reportSurfaceSize?(size)
-        }
+        })
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         // Keyed on layoutKind so value ticks don't animate; direction picks the
         // spring.
