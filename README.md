@@ -65,7 +65,8 @@ Curious what might come next? See the [roadmap](ROADMAP.md).
 
 ## Installation
 
-1. Download the latest `Crema.dmg` from the [Releases](../../releases) page.
+1. Download the latest [`Crema.dmg`](../../releases/latest/download/Crema.dmg) —
+   or browse all [Releases](../../releases).
 2. Open it and drag **Crema** into your Applications folder.
 3. Launch Crema. It lives in the menu bar — look for its icon up top, not in the Dock.
 4. When asked, grant **Accessibility** in System Settings so Crema can handle the
