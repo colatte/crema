@@ -20,6 +20,14 @@ Crema ships as a direct download, so updates are manual for now. Built-in
 automatic updates — through [Sparkle](https://sparkle-project.org) — would let it
 keep itself current without a trip back to the releases page.
 
+## Signing and notarization
+
+Crema isn't code-signed or notarized yet, so macOS flags it as coming from an
+unidentified developer the first time you open it (the
+[installation notes](README.md#installation) explain how to get past that). A
+signed, notarized build would let it open without that step — a natural thing to
+add as the project matures.
+
 ## More languages
 
 Crema is built on Apple's String Catalog and currently ships in English and

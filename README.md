@@ -71,15 +71,28 @@ Curious what might come next? See the [roadmap](ROADMAP.md).
 4. When asked, grant **Accessibility** in System Settings so Crema can handle the
    volume and brightness keys. You can also do this later from Settings → Permissions.
 
-<details>
-<summary>If macOS won't open it</summary>
+### First launch
 
-Signed, notarized builds open straight away. If you're running an unsigned build
-(for example, one you compiled yourself), macOS may block it the first time. Open
-**System Settings → Privacy & Security**, scroll to the note about Crema, and
-click **Open Anyway** — then launch it again.
+> [!NOTE]
+> Crema isn't signed or notarized yet (it's open source and distributed for free),
+> so the first time you open it macOS warns that it's from an "unidentified
+> developer." That's expected — nothing is wrong with the app, and you only need to
+> do this once.
 
-</details>
+There are two ways to get past it:
+
+**Terminal — recommended, always works.** Run this, then open Crema normally:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Crema.app
+```
+
+**System Settings — no Terminal, but may not work on non-admin accounts.** Try to
+open Crema, dismiss the warning, then open **System Settings → Privacy &
+Security**, scroll to the note about Crema, and click **Open Anyway** — confirm once
+more and it opens.
+
+The Terminal command is the more reliable of the two.
 
 ## Usage
 
