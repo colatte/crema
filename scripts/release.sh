@@ -1,54 +1,17 @@
 #!/usr/bin/env bash
 #
-# release.sh — build a production Crema.app and package it as Crema.dmg for a
-# GitHub release. Run on the author's Mac (macOS + full Xcode); the author then
-# uploads the .dmg to a release (see docs/internal/RELEASE-GUIDE.md).
+# release.sh — build a production Crema.app and package it as Crema.dmg.
+# Usage: ./scripts/release.sh <version>   (e.g. ./scripts/release.sh 1.0.0)
 #
-#   ./scripts/release.sh <version>        e.g. ./scripts/release.sh 1.0.0
-#
-# What it does:
-#   1. Validate the version argument and the toolchain.
-#   2. Archive the Crema scheme in Release — this compiles out the `#if DEBUG`
-#      demos and optimizes — stamping <version> as the app's MARKETING_VERSION.
-#   3. Extract Crema.app from the archive.
-#   4. Package Crema.app + an /Applications shortcut into Crema.dmg.
-#   5. Leave Crema.dmg in the repo root and remove the intermediate build/.
-#
-# Signing: the app is AD-HOC signed (codesign --sign -), not Developer ID signed
-# or notarized. Ad-hoc is what makes the Accessibility permission actually stick:
-# macOS TCC anchors an Accessibility grant to the app's code identity, and a fully
-# UNSIGNED bundle has none — so the grant never applies to it and the brightness
-# HUDs / OSD suppression stay dead even after the user toggles the permission on.
-# Xcode-run builds work precisely because the project ad-hoc signs
-# (CODE_SIGN_IDENTITY = "-"); packaging with signing disabled dropped that, which
-# is the whole bug this step fixes. Ad-hoc needs no Developer ID and no paid
-# account — it is local and free.
-#
-# Ad-hoc does NOT change Gatekeeper: the app still reads as an "unidentified
-# developer," so the README's "First launch" (clear quarantine / open anyway)
-# still applies unchanged. A real Developer ID + notarization would additionally
-# drop that prompt and let a grant survive across version updates, but is not
-# required for the permission to work.
-#
-# Why the name is exactly Crema.dmg: GitHub exposes the newest release asset at
-#   https://github.com/vctorgriggi/crema/releases/latest/download/Crema.dmg
-# and the README points users at a file called Crema.dmg. A different filename
-# would silently break that direct-download URL, so the name is fixed here.
-#
-# Requirements:
-#   - Full Xcode (not just the Command Line Tools) — `archive` needs it. If the
-#     active developer dir is only the CLT, the script points DEVELOPER_DIR at
-#     /Applications/Xcode.app for this run.
-#   - create-dmg (optional, recommended) for the standard drag-to-Applications
-#     layout:  brew install create-dmg
-#     Without it the script falls back to hdiutil — same contents (app +
-#     /Applications symlink), plainer window. create-dmg is preferred because it
-#     positions the icons and hides the .app extension; hdiutil is the
-#     dependency-free safety net so the script never hard-blocks on a missing brew.
+# Signing modes: ad-hoc by default; Developer ID when CREMA_SIGN_IDENTITY is set
+# (a "Developer ID Application: …" cert), then notarized via the CREMA_NOTARY_PROFILE
+# keychain profile (default "CremaNotary").
+# Dependencies: full Xcode; create-dmg optional (hdiutil fallback); the Developer ID
+# path needs the cert + notary profile. See docs/internal/RELEASE-GUIDE.md.
 
 set -euo pipefail
 
-# --- output helpers ----------------------------------------------------------
+# Output helpers
 
 if [[ -t 1 ]]; then
     BOLD=$'\033[1m'; RED=$'\033[31m'; GREEN=$'\033[32m'; BLUE=$'\033[34m'; RESET=$'\033[0m'
@@ -60,14 +23,14 @@ step() { printf '%s==>%s %s\n' "$BLUE$BOLD" "$RESET$BOLD" "$*$RESET"; }
 info() { printf '    %s\n' "$*"; }
 fail() { printf '%sError:%s %s\n' "$RED$BOLD" "$RESET" "$*" >&2; exit 1; }
 
-# --- locate the repo (works from any CWD) ------------------------------------
+# Locate the repo (works from any CWD)
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 PROJECT="$REPO_ROOT/Crema.xcodeproj"
 [[ -d "$PROJECT" ]] || fail "Crema.xcodeproj not found at $PROJECT — is this the Crema repo?"
 
-# --- argument: version -------------------------------------------------------
+# Argument: version
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     printf 'Usage: %s <version>\n  e.g. %s 1.0.0\n' "$0" "$0"
@@ -76,15 +39,15 @@ fi
 
 VERSION="${1:-}"
 [[ -n "$VERSION" ]] || fail "Missing version. Usage: ./scripts/release.sh <version>  (e.g. 1.0.0)"
-VERSION="${VERSION#v}"   # tolerate a leading "v" (v1.0.0 -> 1.0.0)
+VERSION="${VERSION#v}"   # tolerate a leading "v"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
     || fail "Version must be MAJOR.MINOR.PATCH (e.g. 1.0.0), got: '$VERSION'"
 TAG="v$VERSION"
 
-# --- toolchain ---------------------------------------------------------------
+# Toolchain
 
-# `xcodebuild archive` needs a full Xcode. If the active developer dir is only
-# the Command Line Tools, point DEVELOPER_DIR at Xcode.app for this process.
+# `xcodebuild archive` needs full Xcode; the CLT alone cannot archive. If only the
+# CLT is active, point DEVELOPER_DIR at Xcode.app for this process.
 step "Checking toolchain"
 CURRENT_DEV_DIR="$(xcode-select -p 2>/dev/null || true)"
 if [[ "$CURRENT_DEV_DIR" == *"Xcode"*"/Developer"* ]]; then
@@ -103,16 +66,22 @@ info "Xcode: $(xcodebuild -version | head -1)  ·  DEVELOPER_DIR=$DEVELOPER_DIR"
 USE_CREATE_DMG=1
 command -v create-dmg >/dev/null 2>&1 || USE_CREATE_DMG=0
 
-# --- paths -------------------------------------------------------------------
+# Paths
 
 APP_NAME="Crema.app"
-DMG_NAME="Crema.dmg"                       # fixed — see header
+DMG_NAME="Crema.dmg"                       # fixed name: matches releases/latest/download/Crema.dmg and the README
 VOL_NAME="Crema"
 BUILD_DIR="$REPO_ROOT/build/release"       # under gitignored build/
 ARCHIVE="$BUILD_DIR/Crema.xcarchive"
 DMG_SRC="$BUILD_DIR/dmg-src"               # holds only Crema.app for packaging
 BUILD_LOG="$BUILD_DIR/xcodebuild.log"
 DMG_OUT="$REPO_ROOT/$DMG_NAME"
+
+# Signing mode: SIGN_IDENTITY set = Developer ID + notarize; empty = ad-hoc fallback.
+# NOTARY_PROFILE is a notarytool keychain profile created once out of band; no secret lives here.
+SIGN_IDENTITY="${CREMA_SIGN_IDENTITY:-}"
+NOTARY_PROFILE="${CREMA_NOTARY_PROFILE:-CremaNotary}"
+ENTITLEMENTS="$REPO_ROOT/Crema.entitlements"
 
 # Start clean so a stale archive or half-built .dmg can't leak into the release.
 step "Preparing a clean build ($TAG)"
@@ -121,14 +90,11 @@ rm -f "$DMG_OUT"
 mkdir -p "$BUILD_DIR"
 info "Intermediates: $BUILD_DIR"
 
-# --- 1. archive (Release) ----------------------------------------------------
+# 1. Archive (Release)
 
 step "Archiving Crema in Release (this can take a few minutes)"
-# MARKETING_VERSION="$VERSION" stamps CFBundleShortVersionString so the built
-# app reports the release version. The archive is built unsigned; the app is
-# ad-hoc signed after extraction (the signing step below) — that ad-hoc identity
-# is what lets the Accessibility grant stick. Output is tee'd to a log so a
-# failure leaves something to read.
+# MARKETING_VERSION stamps CFBundleShortVersionString. Archive is unsigned; the app
+# is signed after extraction, since a real code identity is what lets the grant stick.
 if ! xcodebuild archive \
         -project "$PROJECT" \
         -scheme Crema \
@@ -144,8 +110,7 @@ fi
 APP_SRC="$ARCHIVE/Products/Applications/$APP_NAME"
 [[ -d "$APP_SRC" ]] || fail "Build succeeded but $APP_NAME was not found at $APP_SRC."
 
-# Sanity: confirm the app reports the version we asked for. A mismatch usually
-# means the project stopped deriving its version from MARKETING_VERSION.
+# Version sanity-check: a mismatch means the project stopped deriving from MARKETING_VERSION.
 BUILT_VERSION="$(defaults read "$APP_SRC/Contents/Info" CFBundleShortVersionString 2>/dev/null || echo '?')"
 if [[ "$BUILT_VERSION" != "$VERSION" ]]; then
     info "${RED}Warning:${RESET} built app reports version $BUILT_VERSION, expected $VERSION — reconcile before publishing."
@@ -153,34 +118,67 @@ else
     info "Built $APP_NAME reports version $BUILT_VERSION."
 fi
 
-# --- 2. ad-hoc sign, then package into Crema.dmg -----------------------------
+# 2. Sign the app
 
-step "Signing and packaging $DMG_NAME"
+step "Signing $APP_NAME"
 rm -rf "$DMG_SRC"
 mkdir -p "$DMG_SRC"
 cp -R "$APP_SRC" "$DMG_SRC/$APP_NAME"
+APP="$DMG_SRC/$APP_NAME"
 
-# Ad-hoc sign the copy that ships in the .dmg. Without a code signature TCC has
-# no identity to bind the Accessibility grant to, so an installed copy never sees
-# the permission even after the user grants it (the reported bug). --deep also
-# signs the nested vendored framework, which a valid bundle signature requires.
-# No Developer ID / paid account needed. Hardened runtime is intentionally left
-# off: it only matters for notarization and could restrict the private brightness
-# frameworks the app dlopens.
-info "Ad-hoc signing $APP_NAME"
-codesign --force --deep --sign - "$DMG_SRC/$APP_NAME" \
-    || fail "codesign (ad-hoc) failed on $APP_NAME."
-codesign --verify --deep --strict "$DMG_SRC/$APP_NAME" \
-    || fail "the ad-hoc signature did not verify on $APP_NAME."
-info "$(codesign -dvv "$DMG_SRC/$APP_NAME" 2>&1 | grep -E '^Signature=' || echo 'Signature=adhoc')"
+# A code signature is what lets TCC anchor the Accessibility grant: an unsigned bundle
+# has no identity, so the grant never applies. The two vendored Mach-O live in
+# Contents/Resources, which a top-level codesign never reaches — sign them explicitly.
+ADAPTER_DIR="$APP/Contents/Resources/mediaremote-adapter"
+NESTED_MACHO=(
+    "$ADAPTER_DIR/MediaRemoteAdapter.framework"
+    "$ADAPTER_DIR/MediaRemoteAdapterTestClient"
+)
 
+if [[ -n "$SIGN_IDENTITY" ]]; then
+    info "Developer ID: $SIGN_IDENTITY"
+    [[ -f "$ENTITLEMENTS" ]] || fail "Entitlements file not found: $ENTITLEMENTS"
+    security find-identity -v -p codesigning 2>/dev/null | grep -qF "$SIGN_IDENTITY" \
+        || fail "Signing identity not in the keychain: '$SIGN_IDENTITY'. List them with: security find-identity -v -p codesigning"
+    # Sign inside-out; NEVER --deep for Developer ID (mis-applies the app's options
+    # to nested code).
+    # Embedded frameworks/dylibs (usually none, but sign whatever the build produced).
+    if [[ -d "$APP/Contents/Frameworks" ]]; then
+        while IFS= read -r -d '' item; do
+            codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$item" \
+                || fail "codesign (Developer ID) failed on: $item"
+        done < <(find "$APP/Contents/Frameworks" -depth \( -name '*.framework' -o -name '*.dylib' \) -print0)
+    fi
+    # The two vendored Mach-O in Contents/Resources, which a top-level codesign never reaches.
+    for item in "${NESTED_MACHO[@]}"; do
+        [[ -e "$item" ]] || fail "Expected nested binary missing: $item"
+        codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$item" \
+            || fail "codesign (Developer ID) failed on: $item"
+    done
+    codesign --force --options runtime --timestamp \
+        --entitlements "$ENTITLEMENTS" --sign "$SIGN_IDENTITY" "$APP" \
+        || fail "codesign (Developer ID) failed on $APP_NAME"
+    codesign --verify --deep --strict --verbose=2 "$APP" \
+        || fail "Developer ID signature did not verify on $APP_NAME"
+    info "Signed with Developer ID (hardened runtime + entitlements + timestamp)."
+else
+    info "Ad-hoc signing $APP_NAME (CREMA_SIGN_IDENTITY unset — local/testing build)."
+    # --deep is fine for ad-hoc: no entitlements to mis-apply. The grant does not
+    # survive rebuilds and Gatekeeper still prompts. Hardened runtime is off (notarization-only).
+    codesign --force --deep --sign - "$APP" \
+        || fail "codesign (ad-hoc) failed on $APP_NAME."
+    codesign --verify --deep --strict "$APP" \
+        || fail "the ad-hoc signature did not verify on $APP_NAME."
+    info "$(codesign -dvv "$APP" 2>&1 | grep -E '^Signature=' || echo 'Signature=adhoc')"
+fi
+
+# 3. Package into Crema.dmg
+
+step "Packaging $DMG_NAME"
 if [[ "$USE_CREATE_DMG" == "1" ]]; then
     info "Using create-dmg (drag-to-Applications layout)."
-    # create-dmg adds the /Applications shortcut itself via --app-drop-link, so
-    # DMG_SRC contains only the app. It occasionally exits non-zero on a Finder/
-    # AppleScript hiccup even after writing the .dmg, so success is judged by the
-    # file existing, not solely by the exit code. (Run in a normal desktop
-    # session — over SSH the Finder window step can't run and it falls short.)
+    # create-dmg may exit non-zero after writing the .dmg, so success is judged by the
+    # file existing, not the exit code. Needs a desktop session (over SSH the Finder step fails).
     create-dmg \
         --volname "$VOL_NAME" \
         --window-pos 200 120 \
@@ -194,8 +192,7 @@ if [[ "$USE_CREATE_DMG" == "1" ]]; then
     [[ -f "$DMG_OUT" ]] || fail "create-dmg did not produce $DMG_NAME. Re-run in a desktop session, or uninstall create-dmg to use the hdiutil fallback."
 else
     info "create-dmg not found; using hdiutil fallback (plainer layout). For the nicer window: brew install create-dmg"
-    # hdiutil path: stage the app next to an /Applications symlink, then image
-    # the folder. UDZO = compressed, read-only — the standard distribution format.
+    # Stage the app next to an /Applications symlink, then image the folder (UDZO = compressed, read-only).
     ln -s /Applications "$DMG_SRC/Applications"
     hdiutil create \
         -volname "$VOL_NAME" \
@@ -206,7 +203,27 @@ fi
 
 [[ -f "$DMG_OUT" ]] || fail "Packaging finished but $DMG_OUT is missing."
 
-# --- 3. cleanup + summary ----------------------------------------------------
+# 4. Notarize + staple (Developer ID only)
+
+if [[ -n "$SIGN_IDENTITY" ]]; then
+    # Notarize then staple the .dmg. The app copied to /Applications is notarized but
+    # not stapled, so its first launch uses the online Gatekeeper check.
+    # notarytool submit --wait exits 0 even when Invalid, so success = grep "status: Accepted".
+    step "Notarizing $DMG_NAME (notarytool submit --wait — can take minutes)"
+    NOTARY_OUT="$(xcrun notarytool submit "$DMG_OUT" --keychain-profile "$NOTARY_PROFILE" --wait 2>&1)" || true
+    printf '%s\n' "$NOTARY_OUT" | sed 's/^/    /'
+    grep -q "status: Accepted" <<<"$NOTARY_OUT" || fail "Notarization was not Accepted. Inspect the log with:
+    xcrun notarytool log <submission-id> --keychain-profile \"$NOTARY_PROFILE\""
+
+    step "Stapling $DMG_NAME"
+    xcrun stapler staple "$DMG_OUT" || fail "stapler staple failed on $DMG_NAME"
+    xcrun stapler validate "$DMG_OUT" || fail "stapler validate failed on $DMG_NAME"
+    # Final Gatekeeper check — should report "accepted" / "Notarized Developer ID".
+    spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG_OUT" 2>&1 | sed 's/^/    /' || true
+    info "Notarized + stapled."
+fi
+
+# 5. Cleanup + summary
 
 step "Cleaning intermediates"
 rm -rf "$BUILD_DIR"
