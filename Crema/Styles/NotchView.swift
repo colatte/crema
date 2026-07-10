@@ -288,6 +288,7 @@ struct NotchView: View {
         return HStack(spacing: 10) {
             Image(systemName: presentation.iconSystemName)
                 .frame(width: 22)
+                .symbolReplace(on: presentation.iconSystemName)
             HUDLevelSlider(kind: hud.kind, value: presentation.value, onChange: { hudSliderMoved(to: $0) })
         }
         .padding(.horizontal, 12)

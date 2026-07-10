@@ -36,4 +36,48 @@ struct SurfaceAnimationTests {
         // clicks through still-visible pixels to the window below.
         #expect(SurfaceAnimation.interactiveSettle >= 1.5 * SurfaceAnimation.closeResponse)
     }
+
+    // MARK: - Geometry provenance (appear/disappear snaps, morph between visible)
+
+    @Test func appearanceFromHiddenSnapsGeometry() {
+        // Either side empty ⇒ nil: the frame/radius jump to the final layout and
+        // only the opacity fades. Covers empty→hud and empty→compact.
+        #expect(SurfaceAnimation.geometryAnimation(fromEmpty: true, toEmpty: false, expanding: false) == nil)
+        #expect(SurfaceAnimation.geometryAnimation(fromEmpty: true, toEmpty: false, expanding: true) == nil)
+    }
+
+    @Test func disappearanceToHiddenSnapsGeometry() {
+        // hud→empty and compact→empty: the reverse path must not ghost-morph.
+        #expect(SurfaceAnimation.geometryAnimation(fromEmpty: false, toEmpty: true, expanding: false) == nil)
+        #expect(SurfaceAnimation.geometryAnimation(fromEmpty: false, toEmpty: true, expanding: true) == nil)
+    }
+
+    @Test func hiddenToHiddenSnaps() {
+        #expect(SurfaceAnimation.geometryAnimation(fromEmpty: true, toEmpty: true, expanding: false) == nil)
+    }
+
+    @Test func visibleToVisibleMorphsUnderTheDirectionalSpring() {
+        // compact→expanded opens; expanded→compact and now-playing↔hud close.
+        #expect(SurfaceAnimation.geometryAnimation(fromEmpty: false, toEmpty: false, expanding: true) == SurfaceAnimation.open)
+        #expect(SurfaceAnimation.geometryAnimation(fromEmpty: false, toEmpty: false, expanding: false) == SurfaceAnimation.close)
+    }
+
+    // MARK: - Content crossfade provenance (the material/clip bounds shield)
+
+    @Test func appearanceSnapsTheContentBounds() {
+        // fromEmpty ⇒ nil: the crossfade scope also sizes the material/clip/stroke,
+        // so an appearance must snap them to the destination instead of springing
+        // past the snapped outer frame (the ghost behind the HUD). Direction is
+        // irrelevant when appearing.
+        #expect(SurfaceAnimation.contentAnimation(fromEmpty: true, expanding: false) == nil)
+        #expect(SurfaceAnimation.contentAnimation(fromEmpty: true, expanding: true) == nil)
+    }
+
+    @Test func disappearanceKeepsTheFadeSpring() {
+        // toEmpty (not fromEmpty) ⇒ the outgoing glyph fades with the surface
+        // rather than popping; the frozen empty geometry means the spring has no
+        // size delta to drag.
+        #expect(SurfaceAnimation.contentAnimation(fromEmpty: false, expanding: false) == SurfaceAnimation.close)
+        #expect(SurfaceAnimation.contentAnimation(fromEmpty: false, expanding: true) == SurfaceAnimation.open)
+    }
 }

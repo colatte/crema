@@ -33,12 +33,16 @@ struct TransportControls: View {
                 action: onPrevious
             )
             Button(action: onPlayPause) {
-                Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                let glyph = isPlaying ? "pause.fill" : "play.fill"
+                Image(systemName: glyph)
                     .font(.title3)
                     // The glyph alone is a ~15 pt target — too small for an
                     // ephemeral surface whose linger timers race the click.
                     .frame(width: buttonSide, height: buttonSide)
                     .contentShape(Rectangle())
+                    // Native play↔pause replace, the same dynamic-glyph idiom as
+                    // the HUD icons; keyed on the glyph so only the icon animates.
+                    .symbolReplace(on: glyph)
             }
             .buttonStyle(.plain)
             .disabled(!enabled)

@@ -212,9 +212,19 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// still reports its size but must not capture clicks.
     private func refreshReportedInteractiveRect() {
         guard let fixedWindowFrame, let size = reportedSurfaceSize else { return }
-        interactiveRect = currentFrame.isEmpty
+        let visible: CGRect = currentFrame.isEmpty
             ? .zero
             : SurfaceClickThrough.surfaceRect(size: size, window: fixedWindowFrame, anchor: style.surfaceVerticalAnchor)
+        interactiveRect = visible
+        // Hover follows the same rendered surface as clicks: the adaptive card
+        // reports narrower than its rule ceiling, so a rule-derived region would
+        // arm in the dead air beside the visible edge. Only the adaptive style
+        // retargets; hidden leaves the region as-is (hover is disarmed there, so
+        // a stale rect is never sampled) and never adopts the empty branch's
+        // window-tall report.
+        if style.hoverTracksRenderedSurface, !visible.isEmpty {
+            hoverMonitor?.updateRegions(.around(visible))
+        }
         routeClicks(at: NSEvent.mouseLocation)
     }
 

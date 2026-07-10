@@ -97,6 +97,7 @@ struct HUDLevelSlider: View {
             )
         }
         .accessibilityElement()
+        .accessibilityLabel(accessibilityLabel)
         .accessibilityValue(Text(value.formatted(.percent)))
         .accessibilityAdjustableAction { direction in
             switch direction {
@@ -109,5 +110,21 @@ struct HUDLevelSlider: View {
 
     private var animatesLevel: Bool {
         !isEditing && !reduceMotion
+    }
+
+    /// VoiceOver label for the thumbless filled bar, which — unlike the system
+    /// slider in the `.slider` variant — ships no built-in name. Keyed on the
+    /// HUD kind so the announced value (a percent) has a subject; the muted
+    /// glyph stays a visual-only cue rather than leaking volume sub-state into
+    /// this shared level control.
+    private var accessibilityLabel: Text {
+        switch kind {
+        case .volume:
+            return Text("hud.accessibility.volume", comment: "VoiceOver label for the volume HUD bar")
+        case .screenBrightness:
+            return Text("hud.accessibility.brightness", comment: "VoiceOver label for the screen-brightness HUD bar")
+        case .keyboardBrightness:
+            return Text("hud.accessibility.keyboardBrightness", comment: "VoiceOver label for the keyboard-brightness HUD bar")
+        }
     }
 }

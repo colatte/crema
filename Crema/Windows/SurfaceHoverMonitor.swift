@@ -11,7 +11,7 @@ import AppKit
 /// border — smoke-tested on hardware.
 @MainActor
 final class SurfaceHoverMonitor {
-    private let model: SurfaceHoverModel
+    private var model: SurfaceHoverModel
     private let report: (Bool) -> Void
     private var localMonitor: Any?
     private var globalMonitor: Any?
@@ -46,6 +46,22 @@ final class SurfaceHoverMonitor {
 
     func stop() {
         setActive(false)
+    }
+
+    /// Retargets detection to new regions (the adaptive card's, tracking the
+    /// rendered surface per layout). Snapping to the settled/target rect — not
+    /// the in-flight animated frame — keeps the decision stable; the panel only
+    /// pushes on discrete size reports, and the hysteresis band absorbs the
+    /// open spring's overshoot. Re-samples so a region that tightened under a
+    /// stationary cursor (reactive appearance) corrects without waiting for a
+    /// move; `sample` reports only on a real transition, so an unchanged answer
+    /// stays quiet.
+    func updateRegions(_ regions: SurfaceHoverRegions) {
+        guard regions != model.regions else { return }
+        model = SurfaceHoverModel(regions: regions)
+        if isActive {
+            sample()
+        }
     }
 
     private func install() {
