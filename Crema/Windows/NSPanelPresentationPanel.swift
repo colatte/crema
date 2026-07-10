@@ -135,12 +135,21 @@ final class NSPanelPresentationPanel: PresentationPanel {
         }
     }
 
+    // swiftlint:disable function_parameter_count
     /// `frame` arrives in AppKit global screen coordinates (ScreenTranslation
     /// convention) and is the state's tight rule frame. For the fixed-window
     /// skins it never touches the window: it becomes the click-interactive
     /// region (the view animates the matching surface on its own). A style
     /// without a fixed window falls back to direct per-state window frames.
-    func apply(frame: CGRect, hoverArmed: Bool, showsNowPlaying: Bool, showsControls: Bool, invokeZone: CGRect?) {
+    func apply(
+        frame: CGRect,
+        hoverArmed: Bool,
+        showsNowPlaying: Bool,
+        showsControls: Bool,
+        hudIndicatorStyle: HUDIndicatorStyle,
+        invokeZone: CGRect?
+    ) {
+        // swiftlint:enable function_parameter_count
         hoverMonitor?.setActive(hoverArmed)
         self.invokeZone = invokeZone ?? .zero
 
@@ -154,6 +163,9 @@ final class NSPanelPresentationPanel: PresentationPanel {
         }
         if displayPolicy.showsControls != showsControls {
             displayPolicy.showsControls = showsControls
+        }
+        if displayPolicy.hudIndicatorStyle != hudIndicatorStyle {
+            displayPolicy.hudIndicatorStyle = hudIndicatorStyle
         }
 
         tightenTask?.cancel()

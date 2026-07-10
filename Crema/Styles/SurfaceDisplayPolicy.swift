@@ -14,4 +14,7 @@ final class SurfaceDisplayPolicy {
     /// scrubber, no transport buttons). Carried alongside showsNowPlaying since
     /// both are render context the panel updates on each frame pass.
     var showsControls = true
+    /// The HUD level-indicator appearance (Card only). Render context like the
+    /// flags above; the panel updates it on each frame pass from Preferences.
+    var hudIndicatorStyle: HUDIndicatorStyle = .slider
 }

@@ -17,7 +17,7 @@ struct CardStyle: PresentationStyle {
         case .nowPlaying(_, expanded: true):
             size = CardMetrics.expanded
         case .hud:
-            size = CardMetrics.hud
+            size = CardMetrics.hudSystemSize
         }
         // Anchor below the safe area: on a notched display the card must not
         // sit behind the slit.
@@ -66,8 +66,44 @@ enum CardMetrics {
     /// when a short title would hug narrower.
     static let expandedMinWidth: CGFloat = 240
     static let expandedMaxWidth: CGFloat = 280
-    static let hud = CGSize(width: 260, height: 64)
+    /// Dedicated system-HUD frame, deliberately smaller than the now-playing
+    /// compact strip: that strip is sized around a 40 pt artwork the HUD never
+    /// shows, so reusing it (the old 260×64) left the volume/brightness bar
+    /// oversized for glance-level info. Issue #3's reference indicators are thin
+    /// bars, roughly 4.5–5.5:1 width:height; 210×42 (5:1) sits mid-range. Both
+    /// Card HUD variants lay out in it: the .slider row is a 22 pt icon beside a
+    /// system Slider (~21 pt tall) centered in the 42 pt height with headroom to
+    /// spare, and the full-bleed .filled bar adapts by construction while its
+    /// leading glyph stays legible at the shorter height. Width and height are
+    /// separate calibration knobs.
+    static let hudSystemWidth: CGFloat = 210
+    static let hudSystemHeight: CGFloat = 42
+    static let hudSystemSize = CGSize(width: hudSystemWidth, height: hudSystemHeight)
+    /// Now-playing surface radius: generous, near half the compact height so the
+    /// player reads as a soft block (never a capsule at its taller states).
     static let cornerRadius: CGFloat = 20
+    /// HUD-state surface radius, a separate knob from cornerRadius: at the short
+    /// 42 pt HUD height, reusing 20 (≈ half the height) rounds the ends into a
+    /// capsule. Issue #3's reference indicators are rounded rectangles — soft
+    /// corners with straight runs, radius ~1/4 of the height. This rides the same
+    /// layoutKind-keyed surface spring, so HUD↔now-playing morphs the outline
+    /// (RoundedRectangle cornerRadius is animatable) instead of snapping.
+    static let hudSystemCornerRadius: CGFloat = 12
+
+    /// Filled HUD indicator (HUDIndicatorStyle.filled): the whole card IS the
+    /// bar. The fill sweeps edge to edge under the card's own corners with no
+    /// inner track; the level is the boundary between a light fill and a dark
+    /// remainder (iOS Control Center contrast), fixed across light and dark so
+    /// the fill always reads and the empty stays recessed in both. No radius
+    /// here — the card's rounded-rect clip rounds the sweep.
+    static let hudFilledFill = Color.white.opacity(0.9)
+    static let hudFilledEmpty = Color.black.opacity(0.55)
+    /// Grayish glyph that stays legible over both the light fill and the dark
+    /// remainder — at low levels the icon sits on the empty area.
+    static let hudFilledIconColor = Color(white: 0.5)
+    /// Leading inset of the icon riding inside the fused bar; clears the card's
+    /// corner curve at the vertical center where the glyph sits.
+    static let hudFilledIconLeading: CGFloat = 18
 
     static let compactArtworkSide: CGFloat = 40
     static let compactArtworkRadius: CGFloat = 10

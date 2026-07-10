@@ -199,6 +199,22 @@ final class AppCore {
                 }
             }
         }
+        // Slider-driven brightness writes do not echo the way Core Audio volume
+        // does, so the Coordinator asks us to poke the matching sampler after a
+        // successful write — it re-reads and emits the applied value, closing the
+        // HUD loop (indicator follows, revert timer refreshes) exactly like the
+        // media-key router and the suppressor's post-apply poke. Absent on demo
+        // sources, where the demo HUD is already event-driven end to end.
+        if let screenSampler = graph.screenBrightnessSampler,
+           let keyboardSampler = graph.keyboardBrightnessSampler {
+            coordinator.onBrightnessApplied = { kind in
+                switch kind {
+                case .screenBrightness: screenSampler.sample()
+                case .keyboardBrightness: keyboardSampler.sample()
+                case .volume: break   // volume echoes itself; never routed here
+                }
+            }
+        }
         // The preference persists across launches: suppression is a real
         // opt-in feature, and its reversibility never depends on state — the
         // tap dies with the process.
@@ -255,6 +271,13 @@ final class AppCore {
     /// (render context only; no window geometry changes).
     func setShowsPlaybackControls(_ shows: Bool) {
         preferences.showsPlaybackControls = shows
+        windowManager.refreshPresentation()
+    }
+
+    /// The HUD level-indicator appearance (Card only) — persisted and re-applied
+    /// to the panels (render context only; no window geometry changes).
+    func setHUDIndicatorStyle(_ style: HUDIndicatorStyle) {
+        preferences.hudIndicatorStyle = style
         windowManager.refreshPresentation()
     }
 

@@ -247,7 +247,15 @@ struct WindowManagerTests {
         private(set) var appliedFrames: [CGRect] = []
         var onFirstArmedApply: (() -> Void)?
 
-        func apply(frame: CGRect, hoverArmed: Bool, showsNowPlaying: Bool, showsControls: Bool, invokeZone: CGRect?) {
+        // swiftlint:disable:next function_parameter_count
+        func apply(
+            frame: CGRect,
+            hoverArmed: Bool,
+            showsNowPlaying: Bool,
+            showsControls: Bool,
+            hudIndicatorStyle: HUDIndicatorStyle,
+            invokeZone: CGRect?
+        ) {
             appliedFrames.append(frame)
             if hoverArmed, let fire = onFirstArmedApply {
                 onFirstArmedApply = nil
@@ -431,6 +439,21 @@ struct WindowManagerTests {
         h.preferences.showsPlaybackControls = true
         h.manager.refreshPresentation()
         #expect(h.recorder.panel(for: screen.id)?.showsControlsStates.last == true)
+    }
+
+    @Test func hudIndicatorStylePreferenceReachesEachPanelAndReappliesLive() {
+        // The HUD indicator appearance is a global preference the panel carries
+        // into the view (render context, like show-controls); refreshPresentation
+        // re-applies it without recreating the panel.
+        let h = Harness()
+        let screen = Self.screen("A")
+        h.preferences.hudIndicatorStyle = .filled
+        h.manager.updateScreens([screen])
+        #expect(h.recorder.panel(for: screen.id)?.hudIndicatorStyleStates.last == .filled)
+
+        h.preferences.hudIndicatorStyle = .slider
+        h.manager.refreshPresentation()
+        #expect(h.recorder.panel(for: screen.id)?.hudIndicatorStyleStates.last == .slider)
     }
 }
 

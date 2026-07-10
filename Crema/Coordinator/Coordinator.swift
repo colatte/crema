@@ -63,6 +63,18 @@ final class Coordinator {
         didSet { onPresentationChange?() }
     }
 
+    /// Closes the HUD loop after a slider-driven brightness write. Volume echoes
+    /// its own programmatic writes — Core Audio property listeners fire on writes
+    /// too — so its indicator follows and the revert timer refreshes for free;
+    /// the brightness sources emit only through a key-gated poll, so a drag with
+    /// no key press behind it would leave the indicator stuck at the old value
+    /// and the revert timer unrefreshed (the HUD tucks mid-drag). On a successful
+    /// write the Coordinator names the applied kind; AppCore pokes the matching
+    /// sampler, which re-reads and emits the applied value into the HUD stream —
+    /// the same close-the-loop poke the media-key router and OSD suppressor use.
+    /// Injection is intact: the Coordinator names the kind, never a concrete sampler.
+    @ObservationIgnored var onBrightnessApplied: (@MainActor (SystemHUD.Kind) -> Void)?
+
     /// Synchronous presentation hook for the WindowManager. The window must be
     /// resized/ordered in the same runloop callout as the state write: SwiftUI
     /// commits the new state's render at the end of the turn, and any async hop
@@ -371,11 +383,11 @@ final class Coordinator {
                 try await volumeController.setVolume(value, on: hud.display)
             }
         case .screenBrightness:
-            run("setBrightness(screen)") { [screenBrightnessController] in
+            applyBrightness("setBrightness(screen)", kind: .screenBrightness) { [screenBrightnessController] in
                 try await screenBrightnessController.setBrightness(value, on: hud.display)
             }
         case .keyboardBrightness:
-            run("setBrightness(keyboard)") { [keyboardBrightnessController] in
+            applyBrightness("setBrightness(keyboard)", kind: .keyboardBrightness) { [keyboardBrightnessController] in
                 try await keyboardBrightnessController.setBrightness(value)
             }
         }
@@ -587,6 +599,26 @@ final class Coordinator {
         Task {
             do {
                 try await command()
+            } catch {
+                logger.error("actuator command \(name, privacy: .public) failed: \(error, privacy: .public)")
+            }
+        }
+    }
+
+    /// A slider-driven brightness write closes its own HUD loop: on success, poke
+    /// the matching sampler through `onBrightnessApplied` (see its doc) so the
+    /// applied value echoes back — otherwise the indicator sticks and the revert
+    /// timer never refreshes. Separate from `run` only because volume echoes
+    /// itself (Core Audio) and needs no poke. `@MainActor` because the hook is.
+    private func applyBrightness(
+        _ name: StaticString,
+        kind: SystemHUD.Kind,
+        _ command: @escaping @Sendable () async throws -> Void
+    ) {
+        Task { @MainActor in
+            do {
+                try await command()
+                onBrightnessApplied?(kind)
             } catch {
                 logger.error("actuator command \(name, privacy: .public) failed: \(error, privacy: .public)")
             }

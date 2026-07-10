@@ -58,8 +58,19 @@ struct CardView: View {
         // riding above them also keeps the accent state across
         // compact↔expanded.
         .artworkAccent(from: accentArtwork)
-        .vibrantSurface(in: RoundedRectangle(cornerRadius: CardMetrics.cornerRadius, style: .continuous))
+        // One morphing outline for every state: the radius is state-dependent
+        // (the short HUD would read as a capsule at the now-playing radius), and
+        // because it rides the layoutKind-keyed surface spring, the corner morphs
+        // with the surface on HUD↔now-playing instead of snapping.
+        .vibrantSurface(in: RoundedRectangle(cornerRadius: surfaceCornerRadius, style: .continuous))
         .opacity(layoutKind == .empty ? 0 : 1)
+    }
+
+    /// The HUD gets its own smaller radius (rounded rectangle, not capsule); every
+    /// now-playing state keeps the generous card radius. Animatable, so the change
+    /// morphs under the surface spring keyed on layoutKind.
+    private var surfaceCornerRadius: CGFloat {
+        layoutKind == .hud ? CardMetrics.hudSystemCornerRadius : CardMetrics.cornerRadius
     }
 
     private var adaptiveMinWidth: CGFloat? {
@@ -328,13 +339,42 @@ struct CardView: View {
         )
     }
 
-    private func hudContent(_ hud: SystemHUD) -> some View {
+    @ViewBuilder private func hudContent(_ hud: SystemHUD) -> some View {
         let presentation = HUDPresentation(hud: hud)
-        return HStack(spacing: CardMetrics.contentGap) {
-            Image(systemName: presentation.iconSystemName)
-                .frame(width: 22)
-            HUDLevelSlider(kind: hud.kind, value: presentation.value, onChange: { hudSliderMoved(to: $0) })
+        switch displayPolicy.hudIndicatorStyle {
+        case .slider:
+            // Icon beside a padded slider — the shared HUD layout every skin uses.
+            HStack(spacing: CardMetrics.contentGap) {
+                Image(systemName: presentation.iconSystemName)
+                    .frame(width: 22)
+                HUDLevelSlider(
+                    kind: hud.kind,
+                    value: presentation.value,
+                    onChange: { hudSliderMoved(to: $0) },
+                    variant: .slider
+                )
+            }
+            .padding(.horizontal, CardMetrics.contentPaddingHorizontal)
+        case .filled:
+            // Fused, full-bleed: the bar fills the whole HUD frame (no padding,
+            // no inner track) and the card's rounded-rect clip (vibrantSurface)
+            // rounds the sweep. The icon rides inside at the leading edge, over
+            // the fill at high levels and the dark remainder at low ones.
+            HUDLevelSlider(
+                kind: hud.kind,
+                value: presentation.value,
+                onChange: { hudSliderMoved(to: $0) },
+                variant: .filled
+            )
+            .overlay(alignment: .leading) {
+                Image(systemName: presentation.iconSystemName)
+                    .foregroundStyle(CardMetrics.hudFilledIconColor)
+                    .padding(.leading, CardMetrics.hudFilledIconLeading)
+                    .accessibilityHidden(true)
+                    // The bar underneath owns the whole drag/tap surface; the
+                    // glyph is decoration and must let touches through to it.
+                    .allowsHitTesting(false)
+            }
         }
-        .padding(.horizontal, CardMetrics.contentPaddingHorizontal)
     }
 }

@@ -85,6 +85,23 @@ struct Preferences {
         nonmutating set { defaults.set(newValue, forKey: Self.showsPlaybackControlsKey) }
     }
 
+    // MARK: - System-HUD indicator appearance
+
+    /// The HUD level-indicator appearance, scoped to the Card style. Persisted
+    /// as the enum rawValue; an unknown value (a variant removed since) degrades
+    /// to the shipped default, `.slider`, same rule as the per-display Style.
+    static let hudIndicatorStyleKey = "hudIndicatorStyle"
+    var hudIndicatorStyle: HUDIndicatorStyle {
+        get {
+            guard let raw = defaults.string(forKey: Self.hudIndicatorStyleKey),
+                  let style = HUDIndicatorStyle(rawValue: raw) else {
+                return .slider
+            }
+            return style
+        }
+        nonmutating set { defaults.set(newValue.rawValue, forKey: Self.hudIndicatorStyleKey) }
+    }
+
     // MARK: - Accessibility onboarding
 
     /// Whether the first-launch Accessibility onboarding was already shown
