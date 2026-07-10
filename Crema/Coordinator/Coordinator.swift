@@ -414,10 +414,17 @@ final class Coordinator {
         // bytes or duration arriving a beat later) only refreshes an already
         // visible surface — it must not pop a tucked one back up. The position
         // tick clears neither and never touches `state`.
-        let surfacingEvent = previous == nil
+        let identityChanged = previous == nil
             || previous?.title != update.title
             || previous?.artist != update.artist
+        let surfacingEvent = identityChanged
             || previous?.isPlaying != update.isPlaying
+        // A spontaneous pop only fires for a change that involves playing:
+        // something now playing, or a play/pause flip of the same track. A
+        // switch to a different track/source that lands paused (a filtered
+        // browser handing now-playing back to a paused app, a stream failover)
+        // must not surface itself — a paused app returning is not news.
+        let surfacesReactively = surfacingEvent && (update.isPlaying || !identityChanged)
         let contentChanged = previous?.layoutContent != update.layoutContent
 
         if case .hud = state {
@@ -425,7 +432,7 @@ final class Coordinator {
             // as the new event's reactive appearance (its linger too), exactly
             // as it would surface outside the HUD. Quiet mode never
             // self-surfaces, so the revert just returns to hidden.
-            if surfacingEvent, reactiveNowPlaying {
+            if surfacesReactively, reactiveNowPlaying {
                 resumeNowPlayingAfterHUD = true
                 currentLinger = nowPlayingLinger
             }
@@ -455,7 +462,7 @@ final class Coordinator {
             // From hidden, only a surfacing event appears — and only in reactive
             // mode. Quiet mode still tracks nowPlaying/mediaActive above (so
             // click-invoke works), it just does not pop the surface on its own.
-            guard surfacingEvent, reactiveNowPlaying else { return }
+            guard surfacesReactively, reactiveNowPlaying else { return }
             wasExpanded = false
         }
         // A media event is a reactive appearance — it earns the reactive

@@ -36,6 +36,82 @@ struct CoordinatorStateTests {
         #expect(await eventually { h.coordinator.state == .hidden })
     }
 
+    @Test func aFirstPausedEventDoesNotSelfSurface() async {
+        // Contract: a paused app appearing from nothing (previous == nil) is
+        // not news — nothing started playing — so it must not pop on its own,
+        // though it is still tracked for click-invoke/hover.
+        let h = CoordinatorHarness()
+        let paused = CoordinatorHarness.playingTrack(isPlaying: false)
+
+        h.nowPlayingSource.emit(paused)
+        await settle()
+
+        #expect(h.coordinator.state == .hidden)
+        #expect(h.coordinator.nowPlaying == paused)
+        #expect(!h.coordinator.mediaActive)
+    }
+
+    @Test func switchingToADifferentPlayingAppSurfaces() async {
+        // A different source that lands PLAYING is news: it pops.
+        let h = CoordinatorHarness()
+        h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(title: "Breathe"))
+        #expect(await eventually { h.coordinator.state != .hidden })
+
+        let other = CoordinatorHarness.playingTrack(title: "Time")
+        h.nowPlayingSource.emit(other)
+
+        #expect(await eventually { h.coordinator.state == .nowPlaying(other, expanded: false) })
+    }
+
+    @Test func aPausedTrackChangeDoesNotSelfSurface() async {
+        // Contract: a paused app skipping tracks (previous non-nil, both paused,
+        // same source) changed identity but nothing started playing — the switch
+        // is not news, so it must not pop, though the snapshot follows to B.
+        let h = CoordinatorHarness()
+
+        // Establish a paused track A with the surface already tucked to hidden.
+        let playingA = CoordinatorHarness.playingTrack(title: "Breathe")
+        h.nowPlayingSource.emit(playingA)
+        #expect(await eventually { h.coordinator.state == .nowPlaying(playingA, expanded: false) })
+        let pausedA = CoordinatorHarness.playingTrack(title: "Breathe", isPlaying: false)
+        h.nowPlayingSource.emit(pausedA)
+        #expect(await eventually { h.coordinator.state == .nowPlaying(pausedA, expanded: false) })
+        await h.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
+        h.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
+        _ = await eventually { h.coordinator.state == .hidden }
+
+        // Skip to a different paused track from the same source.
+        let pausedB = CoordinatorHarness.playingTrack(title: "Time", isPlaying: false)
+        h.nowPlayingSource.emit(pausedB)
+        await settle()
+
+        #expect(h.coordinator.state == .hidden)
+        #expect(h.coordinator.nowPlaying == pausedB)
+    }
+
+    @Test func aDifferentAppArrivingPausedDoesNotSelfSurface() async {
+        // Contrast with switchingToADifferentPlayingAppSurfaces: a different app
+        // taking over while paused (previous non-nil) lands with nothing playing,
+        // so it must not pop — only a different app that arrives playing is news.
+        let h = CoordinatorHarness()
+
+        // App A plays, surfaces, and tucks away.
+        let playingA = CoordinatorHarness.playingTrack(title: "Breathe")
+        h.nowPlayingSource.emit(playingA)
+        #expect(await eventually { h.coordinator.state == .nowPlaying(playingA, expanded: false) })
+        await h.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
+        h.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
+        _ = await eventually { h.coordinator.state == .hidden }
+
+        // A different app arrives already paused.
+        let pausedB = CoordinatorHarness.playingTrack(title: "Time", isPlaying: false)
+        h.nowPlayingSource.emit(pausedB)
+        await settle()
+
+        #expect(h.coordinator.state == .hidden)
+        #expect(h.coordinator.nowPlaying == pausedB)
+    }
+
     @Test func hudInterruptsNowPlaying() async {
         let h = CoordinatorHarness()
         h.nowPlayingSource.emit(CoordinatorHarness.playingTrack())

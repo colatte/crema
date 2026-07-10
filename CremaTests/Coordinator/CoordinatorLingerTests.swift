@@ -263,6 +263,25 @@ struct CoordinatorLingerTests {
         #expect(await eventually { h.coordinator.state == .hidden })
     }
 
+    @Test func aNewPausedIdentityDuringAHUDIsNotResurfacedOnRevert() async {
+        // Contrast with pauseDuringAHUDResurfacesThePausedAppearanceOnRevert: a
+        // pause flip of the visible track earns its appearance on the revert, but
+        // a fresh paused identity landing during the HUD is not news — nothing
+        // started playing — so the revert hands back to hidden, never surfacing
+        // an appearance the app had not shown.
+        let h = CoordinatorHarness()
+        h.hudSource.emit(SystemHUD(kind: .volume, value: 0.5))
+        #expect(await eventually { h.coordinator.state != .hidden })
+
+        let paused = CoordinatorHarness.playingTrack(isPlaying: false)
+        h.nowPlayingSource.emit(paused)
+        #expect(await eventually { h.coordinator.nowPlaying == paused })
+
+        await h.clock.waitForSleep(delay: Coordinator.defaultHUDRevertDelay)
+        h.clock.advance(delay: Coordinator.defaultHUDRevertDelay)
+        #expect(await eventually { h.coordinator.state == .hidden })
+    }
+
     @Test func streamEndDropsTheGhostSnapshot() async {
         let h = CoordinatorHarness()
         await appeared(h)
