@@ -383,6 +383,9 @@ final class Coordinator {
 
     // MARK: - Event handling
 
+    // Weighs every arrival against HUD priority, linger, and the surfacing
+    // thresholds in one place; branchy by nature.
+    // swiftlint:disable:next function_body_length
     private func handleNowPlayingUpdate(_ update: NowPlaying) {
         // Ignored media is treated as nothing playing, not merely "don't
         // surface": keeping the snapshot would leave hover/click armed for a
