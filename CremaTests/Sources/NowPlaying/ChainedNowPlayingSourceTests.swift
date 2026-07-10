@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import Crema
 
@@ -68,6 +69,61 @@ struct ChainedNowPlayingSourceTests {
         #expect(await iterator.next() == track("J"))
     }
 
+    @Test func failoverDoesNotEmitAStopOnTheOuterStream_pinnedLatentS6() async {
+        // Pinned-latent fence (CONTRACTS-AUDIT S6): a mid-chain inner-stream
+        // failover surfaces NO "stopped" snapshot on the OUTER stream. When the
+        // adapter dies mid-playback and no other candidate can represent the
+        // media, the last live snapshot simply stays put — so the Coordinator
+        // keeps the ghost with mediaActive=true and click-invoke armed. This
+        // pins that CURRENT behavior: a failure here means someone changed the
+        // ghost contract (started surfacing a stop on failover) — decide that
+        // consciously, don't let it drift.
+        let adapter = MockNowPlayingSource()
+        let adapterUp = Flag()
+        adapterUp.value = true
+        let clock = TestSleepClock()
+
+        let chain = ChainedNowPlayingSource(
+            candidates: [
+                .init(isAvailable: { adapterUp.value }, makeSource: { adapter }, commandChannel: MockCommandChannel()),
+                // JXA is blind to the browser source (unavailable): once the
+                // adapter dies, no candidate can represent the "playing" media.
+                .init(isAvailable: { false }, makeSource: { MockNowPlayingSource() }, commandChannel: MockCommandChannel()),
+            ],
+            clock: clock
+        )
+
+        let collector = SnapshotCollector()
+        let consumer = Task { for await value in chain.updates { collector.append(value) } }
+
+        adapter.emit(track("A"))
+        #expect(await pollUntil { collector.all.last == track("A") })
+
+        // Adapter process dies mid-playback and is no longer available.
+        adapterUp.value = false
+        adapter.finish()
+
+        // Wait until the failover has fully run: the inner loop exited,
+        // activeSource=nil, re-selection found nothing, and the chain parked on
+        // the retry backoff. That backoff sleep is the fence point.
+        await clock.waitForSleep()
+        // Give the outer stream every chance to (wrongly) emit a stop snapshot.
+        for _ in 0..<200 { await Task.yield() }
+
+        let all = collector.all
+        // The ghost: the only outer emission is the still-playing track A; no
+        // not-playing ("stopped") snapshot was ever produced on the failover.
+        #expect(all == [track("A")])
+        // Key-path form breaks the #expect macro expansion (spurious "call can
+        // throw"), so the closure stays and the result is hoisted out of the macro.
+        // swiftformat:disable:next preferKeyPath
+        let allPlaying = all.allSatisfy { $0.isPlaying }
+        #expect(allPlaying)
+
+        consumer.cancel()
+        chain.stop()
+    }
+
     @Test func isAvailableWhenAnyCandidateIs() async {
         let none = ChainedNowPlayingSource(
             candidates: [.init(isAvailable: { false }, makeSource: { MockNowPlayingSource() }, commandChannel: MockCommandChannel())],
@@ -123,4 +179,14 @@ struct ChainedNowPlayingSourceTests {
         }
         return condition()
     }
+}
+
+/// Lock-protected sink for the outer stream — the consumer Task appends off the
+/// main actor while the test asserts, so a negative ("no stop emitted") can be
+/// pinned safely.
+private final class SnapshotCollector: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _all: [NowPlaying] = []
+    var all: [NowPlaying] { lock.withLock { _all } }
+    func append(_ value: NowPlaying) { lock.withLock { _all.append(value) } }
 }

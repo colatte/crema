@@ -15,6 +15,10 @@ struct CardView: View {
     @Environment(\.surfaceStateSizes) private var stateSizes
     @Environment(\.surfaceSizeReporter) private var reportSurfaceSize
 
+    /// Gates every surface morph to a dry landing (MG5) — see
+    /// `SurfaceAnimation.geometryAnimation`; the opacity fade stays regardless.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     /// The layout the surface is coming FROM, for provenance-aware geometry
     /// (see `geometryAnimation`). Ephemeral, purely visual: it never feeds the
     /// domain. Advanced in `onChange` AFTER the render that reads it — see the
@@ -58,10 +62,11 @@ struct CardView: View {
         // for next time (it runs after this body, so it can't disturb this read).
         .animation(geometryAnimation, value: layoutKind)
         // Width morphs when the track changes (the key derives from the state
-        // payload, which ticks never rewrite) — never a bare jump.
-        .animation(SurfaceAnimation.open, value: adaptiveWidthKey)
+        // payload, which ticks never rewrite) — never a bare jump; dry under
+        // Reduce Motion like the geometry spring.
+        .animation(SurfaceAnimation.morph(reduceMotion: reduceMotion), value: adaptiveWidthKey)
         // Toggling view-only resizes the card while it is open — animate it too.
-        .animation(SurfaceAnimation.open, value: showsControls)
+        .animation(SurfaceAnimation.morph(reduceMotion: reduceMotion), value: showsControls)
         .onChange(of: layoutKind) { _, newValue in
             previousLayoutKind = newValue
             // Skip `.empty`: the frozen-geometry contract needs the last VISIBLE
@@ -78,7 +83,8 @@ struct CardView: View {
         SurfaceAnimation.geometryAnimation(
             fromEmpty: previousLayoutKind == .empty,
             toEmpty: layoutKind == .empty,
-            expanding: isExpanded
+            expanding: isExpanded,
+            reduceMotion: reduceMotion
         )
     }
 
@@ -87,7 +93,11 @@ struct CardView: View {
     /// it — snaps to the destination instead of springing past the snapped outer
     /// frame; the directional spring otherwise, so the outgoing content fades.
     private var contentAnimation: Animation? {
-        SurfaceAnimation.contentAnimation(fromEmpty: previousLayoutKind == .empty, expanding: isExpanded)
+        SurfaceAnimation.contentAnimation(
+            fromEmpty: previousLayoutKind == .empty,
+            expanding: isExpanded,
+            reduceMotion: reduceMotion
+        )
     }
 
     var surface: some View {

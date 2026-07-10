@@ -36,6 +36,9 @@ struct Preferences {
         defaults.object(forKey: Key.showsNowPlaying(display)) as? Bool ?? isInternal
     }
 
+    /// Honored live by WindowManager but intentionally headless — no Settings
+    /// control writes it yet (deferred to the per-display-styling roadmap; see
+    /// CONTRACTS-AUDIT P5). Not dead: do not remove for lack of a caller.
     func setShowsNowPlaying(_ shows: Bool, on display: DisplayUUID) {
         defaults.set(shows, forKey: Key.showsNowPlaying(display))
     }

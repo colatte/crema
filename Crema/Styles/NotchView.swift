@@ -25,6 +25,22 @@ struct NotchView: View {
     @Environment(\.surfaceStateSizes) private var stateSizes
     @Environment(\.surfaceSizeReporter) private var reportSurfaceSize
 
+    /// Gates every surface morph to a dry landing (MG5) — see
+    /// `SurfaceAnimation.geometryAnimation`; the opacity fade stays regardless.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// The layout the surface is coming FROM, for provenance-aware geometry
+    /// (see `geometryAnimation`). Ephemeral, purely visual. Advanced in
+    /// `onChange` AFTER the render that reads it (evaluation-order subtlety in
+    /// the body comment) — the same mechanism as Card/Classic.
+    @State private var previousLayoutKind: LayoutKind = .empty
+
+    /// The last VISIBLE layout — advanced only on non-empty kinds, so it survives
+    /// the whole hidden period. The hidden surface freezes its geometry AND its
+    /// shape flare to this (`effectiveLayoutKind`), so a fade-out sits on the drop
+    /// (and radii) it is leaving instead of telescoping to compact behind the fade.
+    @State private var lastVisibleLayoutKind: LayoutKind = .compact
+
     var body: some View {
         Group {
             if let size = surfaceSize {
@@ -39,11 +55,38 @@ struct NotchView: View {
             reportSurfaceSize?(size)
         })
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        // Keyed on layoutKind, not the whole state, so HUD/scrubber value ticks
-        // aren't animated (no slider rubber-banding); direction picks the spring.
-        .animation(isExpanded ? SurfaceAnimation.open : SurfaceAnimation.close, value: layoutKind)
-        // Toggling view-only resizes the band while it is open — animate it too.
-        .animation(SurfaceAnimation.open, value: showsControls)
+        // Geometry: the frame morphs only between visible layouts; an appearance
+        // from or disappearance to `.empty` snaps it (geometryAnimation → nil), so
+        // the black surface lands at its final drop instead of telescoping the
+        // expanded↔compact height across the fade (the fade lives on the opacity,
+        // the flare on its own snap — both in `surface`). geometryAnimation reads
+        // `previousLayoutKind`, which still holds the OLD kind during the body pass
+        // that first sees the NEW layoutKind; the onChange advances it afterward,
+        // so this pass gets true provenance. Keyed on layoutKind, not the whole
+        // state, so HUD/scrubber value ticks aren't animated.
+        .animation(geometryAnimation, value: layoutKind)
+        // Toggling view-only resizes the band while it is open — a visible morph,
+        // so it honors Reduce Motion (nil) like the geometry spring.
+        .animation(SurfaceAnimation.morph(reduceMotion: reduceMotion), value: showsControls)
+        .onChange(of: layoutKind) { _, newValue in
+            previousLayoutKind = newValue
+            // Skip `.empty`: the frozen-geometry contract needs the last VISIBLE
+            // layout to persist across the whole hidden period.
+            if newValue != .empty { lastVisibleLayoutKind = newValue }
+        }
+    }
+
+    /// Snap on an appearance/disappearance (either side `.empty`), morph between
+    /// visible layouts; nil under Reduce Motion. Provenance comes from
+    /// `previousLayoutKind` (the FROM) and `layoutKind` (the TO); scoped to the
+    /// frame and the shape flare only, so the opacity fade is untouched.
+    private var geometryAnimation: Animation? {
+        SurfaceAnimation.geometryAnimation(
+            fromEmpty: previousLayoutKind == .empty,
+            toEmpty: layoutKind == .empty,
+            expanding: isExpanded,
+            reduceMotion: reduceMotion
+        )
     }
 
     private var surface: some View {
@@ -61,6 +104,12 @@ struct NotchView: View {
         // (larger than every state) never crops.
         .background(Color.black)
         .clipShape(shape)
+        // The flare is geometry too: the expanded outline opens into wider radii,
+        // so it morphs compact/HUD↔expanded but SNAPS across the empty boundary and
+        // holds the last-visible flare while hidden — same provenance gate as the
+        // frame. Keyed on the expanded-ness so it fires only when the flare
+        // actually changes (never on the compact↔HUD same-shape transition).
+        .animation(geometryAnimation, value: shapeIsExpanded)
         // Fixed black background ⇒ fixed dark palette, regardless of the
         // system appearance.
         .environment(\.colorScheme, .dark)
@@ -76,6 +125,12 @@ struct NotchView: View {
             }
         }
         .opacity(layoutKind == .empty ? 0 : 1)
+        // The appearance/disappearance fade: opacity keeps its spring even when the
+        // geometry and flare snap, so a surface born from hidden fades in at its
+        // final drop. A fade is Reduce-Motion-safe, so it is NOT gated. Only fires
+        // on empty↔visible (opacity is 1 across every visible transition), so its
+        // choice never touches a visible→visible morph.
+        .animation(isExpanded ? SurfaceAnimation.open : SurfaceAnimation.close, value: layoutKind)
     }
 
     /// The inner content, crossfading between layouts (text/controls fade rather
@@ -98,9 +153,16 @@ struct NotchView: View {
     }
 
     /// The morphing outline: bottom corners flare more than the top, and the
-    /// radii open up when expanded (design-reference §4.1).
-    private var shape: NotchShape {
-        switch layoutKind {
+    /// radii open up when expanded (design-reference §4.1). Keyed on the EFFECTIVE
+    /// layout so a hidden surface keeps the flare it faded out with.
+    private var shape: NotchShape { Self.shape(for: effectiveLayoutKind) }
+
+    /// Whether the current flare is the expanded one — the animation key, so the
+    /// shape spring fires only when the outline actually changes.
+    private var shapeIsExpanded: Bool { effectiveLayoutKind == .expanded }
+
+    nonisolated static func shape(for kind: LayoutKind) -> NotchShape {
+        switch kind {
         case .expanded:
             NotchShape(topRadius: NotchMetrics.expandedTopRadius, bottomRadius: NotchMetrics.expandedBottomRadius)
         default:
@@ -108,21 +170,30 @@ struct NotchView: View {
         }
     }
 
-    /// Rule-derived size for the current layout; `.empty` keeps the compact size
-    /// so appearing is a fade-in in place, not a grow-from-nothing.
+    /// Rule-derived size for the EFFECTIVE layout; a hidden surface freezes the
+    /// last-visible rect (`effectiveLayoutKind`) so appearing/disappearing is a
+    /// fade in place, never a telescope across the expanded↔compact drop.
     private var surfaceSize: CGSize? {
         guard let stateSizes else { return nil }
-        switch layoutKind {
-        case .empty, .compact: return stateSizes.compact
-        case .expanded: return expandedSurfaceSize(stateSizes.expanded)
-        case .hud: return stateSizes.hud
+        return Self.surfaceSize(for: effectiveLayoutKind, in: stateSizes, showsControls: showsControls)
+    }
+
+    nonisolated static func surfaceSize(
+        for kind: LayoutKind,
+        in stateSizes: SurfaceStateSizes,
+        showsControls: Bool
+    ) -> CGSize {
+        switch kind {
+        case .empty, .compact: stateSizes.compact
+        case .expanded: expandedSurfaceSize(stateSizes.expanded, showsControls: showsControls)
+        case .hud: stateSizes.hud
         }
     }
 
     /// View-only shrinks the expanded band by exactly the controls section, so
     /// the visible sections fill it with the same rhythm and no dead space; the
     /// fixed window is unchanged (it is always larger than any state).
-    private func expandedSurfaceSize(_ full: CGSize) -> CGSize {
+    nonisolated static func expandedSurfaceSize(_ full: CGSize, showsControls: Bool) -> CGSize {
         guard !showsControls else { return full }
         return CGSize(width: full.width, height: full.height - NotchMetrics.controlsSectionHeight)
     }
@@ -136,7 +207,7 @@ struct NotchView: View {
     /// The surface's layout identity, independent of the HUD/track value — so the
     /// morph animation fires on compact↔expanded↔hud transitions but not on the
     /// once-per-second position tick or a HUD level change.
-    private enum LayoutKind: Equatable {
+    enum LayoutKind: Equatable {
         case empty, compact, expanded, hud
     }
 
@@ -147,6 +218,19 @@ struct NotchView: View {
         case .nowPlayingExpanded: .expanded
         case .hud: .hud
         }
+    }
+
+    /// The layout whose geometry the surface presents: visible layouts are
+    /// themselves; a hidden surface FREEZES the last-visible layout so every
+    /// fade-out sits on the drop (and flare) it is leaving — no telescope to
+    /// compact behind a fading HUD, no mirror shrink on dismissal. Initial falls
+    /// back to compact. Pure and testable.
+    private var effectiveLayoutKind: LayoutKind {
+        Self.effectiveLayoutKind(layout: layoutKind, lastVisible: lastVisibleLayoutKind)
+    }
+
+    nonisolated static func effectiveLayoutKind(layout: LayoutKind, lastVisible: LayoutKind) -> LayoutKind {
+        layout == .empty ? lastVisible : layout
     }
 
     private var isExpanded: Bool {

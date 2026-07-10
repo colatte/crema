@@ -38,6 +38,10 @@ private struct GeneralSettingsView: View {
 
     init(core: AppCore) {
         self.core = core
+        // Pinned-latent (see CONTRACTS-AUDIT S4): `style` is seeded once and
+        // never re-synced, so a style changed by another writer while Settings
+        // is open leaves this picker — and the Indicator's .disabled(style != .card)
+        // gate below — showing the stale value until the window reopens.
         _style = State(initialValue: core.currentStyle())
         _launchesAtLogin = State(initialValue: core.loginItem.isEnabled || core.loginItem.requiresApproval)
         _loginNeedsApproval = State(initialValue: core.loginItem.requiresApproval)

@@ -261,6 +261,111 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         #expect(h.screen.applied.isEmpty)   // the hung apply never landed
     }
 
+    @Test func aGenuinelyUncancellableHungWriteAutoDisengagesWithinTheDeadline() async {
+        // The central guarantee the read-back can't provide and a cancellable
+        // hang can't prove: a write that never returns AND never observes
+        // cancellation (a blocked C actuator call). A structured task group
+        // would join this child at scope exit and never let the deadline
+        // return — leaving the tap swallowing keys forever. The write must run
+        // unstructured so the deadline returns and disengages regardless.
+        let keys = MockMediaKeyConsuming()
+        let hang = ControllableHangOSDChannel()
+        let clock = TestSleepClock()
+        let disengages = Harness.Box()
+        let suppressor = MediaKeyInterceptionOSDSuppressor(
+            keys: keys, volume: MockOSDVolumeChannel(),
+            screen: hang, keyboard: MockOSDChannel(), clock: clock
+        )
+        suppressor.onAutoDisengage = { [disengages] in disengages.count += 1 }
+        suppressor.setEngaged(true)
+
+        keys.press(.screenBrightnessUp)
+        await hang.waitForWriteStart()   // the uncancellable write is in flight
+        await clock.waitForSleep(delay: MediaKeyInterceptionOSDSuppressor.defaultApplyDeadline)
+        clock.advance(delay: MediaKeyInterceptionOSDSuppressor.defaultApplyDeadline)
+
+        #expect(await eventually { !suppressor.isEngaged })   // deadline returned and disengaged
+        #expect(!keys.isConsuming)                            // consumer cleared — keys released
+        #expect(disengages.count == 1)
+        #expect(hang.applied.isEmpty)                         // the abandoned write never landed
+
+        hang.release()   // let the orphan finish so its continuation is not leaked
+        await settle()
+    }
+
+    @Test func anAbandonedWriteThatLandsLateAppliesNoZombieState() async {
+        // The orphaned write finishes long after the deadline. It moves the
+        // hardware value (the consumed press's own intent — the honest, bounded
+        // residual), but the generation guard means it fires no onApplied/HUD
+        // and does not re-engage: no zombie feedback lands after the native OSD
+        // is back.
+        let keys = MockMediaKeyConsuming()
+        let hang = ControllableHangOSDChannel()
+        let clock = TestSleepClock()
+        let disengages = Harness.Box()
+        let applied = Harness.Box()
+        let suppressor = MediaKeyInterceptionOSDSuppressor(
+            keys: keys, volume: MockOSDVolumeChannel(),
+            screen: hang, keyboard: MockOSDChannel(), clock: clock
+        )
+        suppressor.onAutoDisengage = { [disengages] in disengages.count += 1 }
+        suppressor.onApplied = { [applied] _ in applied.count += 1 }
+        suppressor.setEngaged(true)
+
+        keys.press(.screenBrightnessUp)
+        await hang.waitForWriteStart()
+        await clock.waitForSleep(delay: MediaKeyInterceptionOSDSuppressor.defaultApplyDeadline)
+        clock.advance(delay: MediaKeyInterceptionOSDSuppressor.defaultApplyDeadline)
+        #expect(await eventually { !suppressor.isEngaged })
+        #expect(disengages.count == 1)
+
+        hang.release()   // the actuator finally returns, landing the write late
+        await settle()
+
+        #expect(hang.applied == [0.5 + 1.0 / 16.0])   // value moved: the honest residual
+        // Box.count is a running counter, not a collection.
+        // swiftlint:disable:next empty_count
+        #expect(applied.count == 0)                   // but no HUD/onApplied fired
+        #expect(!suppressor.isEngaged)                // and no zombie re-engage
+        #expect(!keys.isConsuming)
+        #expect(disengages.count == 1)                // no second disengage report
+    }
+
+    @Test func aHungWriteBoundsOrphansToOneAndDropsTheQueuedKeys() async {
+        // Orphan accumulation under a persistent stall is bounded by the queue
+        // + disengage semantics: applies run strictly in order, so a second
+        // write cannot start until the first returns; the first only returns at
+        // the deadline (disengaging), after which the queued keys fall through
+        // the generation guard and never reach the actuator. Exactly one write
+        // is ever outstanding.
+        let keys = MockMediaKeyConsuming()
+        let hang = ControllableHangOSDChannel()
+        let clock = TestSleepClock()
+        let disengages = Harness.Box()
+        let suppressor = MediaKeyInterceptionOSDSuppressor(
+            keys: keys, volume: MockOSDVolumeChannel(),
+            screen: hang, keyboard: MockOSDChannel(), clock: clock
+        )
+        suppressor.onAutoDisengage = { [disengages] in disengages.count += 1 }
+        suppressor.setEngaged(true)
+
+        keys.press(.screenBrightnessUp)   // this one hangs
+        await hang.waitForWriteStart()
+        keys.press(.screenBrightnessUp)   // queued behind the hung apply
+        keys.press(.screenBrightnessUp)
+        await clock.waitForSleep(delay: MediaKeyInterceptionOSDSuppressor.defaultApplyDeadline)
+        clock.advance(delay: MediaKeyInterceptionOSDSuppressor.defaultApplyDeadline)
+
+        #expect(await eventually { !suppressor.isEngaged })
+        await settle()
+        #expect(hang.writeStartCount == 1)   // only one actuator write ever started
+        #expect(hang.applied.isEmpty)
+        #expect(disengages.count == 1)
+
+        hang.release()   // let the single orphan finish so its continuation is not leaked
+        await settle()
+    }
+
     @Test func aBurstOfFailuresReportsExactlyOnceAndDropsTheQueue() async {
         let h = Harness()
         h.volume.writeIsDead = true

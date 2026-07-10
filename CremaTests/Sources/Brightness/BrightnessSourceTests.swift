@@ -132,20 +132,44 @@ struct BrightnessSourceTests {
         #expect(await iterator.next() == SystemHUD(kind: .screenBrightness, value: BrightnessConversion.normalize(0.2)))
     }
 
-    @Test func screenSourceDedupsAndClampsKeyDrivenReadings() async {
+    @Test func screenSourceDedupsUnchangedMidScaleKeyReadings() async {
+        // A repeated key read at the same mid-scale value does not re-emit; only
+        // a boundary no-op refreshes (proven separately).
         let backend = FakeScreenBrightnessBackend(available: true, value: 0.5)
         let source = DisplayServicesScreenBrightnessSource(backend: backend, clock: TestSleepClock(), pollInterval: 1)
         var iterator = source.updates.makeAsyncIterator()
 
-        backend.value = 1.9         // out of range → clamped
+        backend.value = 0.7
         source.sample()
-        backend.value = 1.9         // same → no emit
+        backend.value = 0.7         // same mid-scale → no emit
         source.sample()
         backend.value = 0.3
         source.sample()
 
-        #expect(await iterator.next() == SystemHUD(kind: .screenBrightness, value: 1))
+        #expect(await iterator.next() == SystemHUD(kind: .screenBrightness, value: BrightnessConversion.normalize(0.7)))
         #expect(await iterator.next() == SystemHUD(kind: .screenBrightness, value: BrightnessConversion.normalize(0.3)))
+    }
+
+    @Test func screenSourceClampsKeyDrivenReadings() async {
+        let backend = FakeScreenBrightnessBackend(available: true, value: 0.5)
+        let source = DisplayServicesScreenBrightnessSource(backend: backend, clock: TestSleepClock(), pollInterval: 1)
+        var iterator = source.updates.makeAsyncIterator()
+
+        backend.value = 1.9         // out of range → clamped into 0...1
+        source.sample()
+        #expect(await iterator.next() == SystemHUD(kind: .screenBrightness, value: 1))
+    }
+
+    @Test func screenBoundaryKeyPressStillEmitsTheClampedValue() async {
+        // Suppression-on, screen brightness pinned at max: the consumed key
+        // clamps to 1.0 == before (a no-op write), yet a key-driven sample still
+        // emits the full-bar HUD — S3, matching native's flash at the limit.
+        let backend = FakeScreenBrightnessBackend(available: true, value: 1.0)
+        let source = DisplayServicesScreenBrightnessSource(backend: backend, clock: TestSleepClock(), pollInterval: 1)
+        var iterator = source.updates.makeAsyncIterator()
+
+        source.sample()             // value unchanged at the boundary
+        #expect(await iterator.next() == SystemHUD(kind: .screenBrightness, value: 1))
     }
 
     // MARK: - Keyboard
@@ -183,5 +207,17 @@ struct BrightnessSourceTests {
         backend.value = 1.0
         source.sample()
         #expect(await iterator.next() == SystemHUD(kind: .keyboardBrightness, value: 1))
+    }
+
+    @Test func keyboardBoundaryKeyPressStillEmitsTheClampedValue() async {
+        // Suppression-on, keyboard backlight pinned at min: the consumed key
+        // clamps to 0.0 == before, yet a key-driven sample still emits the
+        // empty-bar HUD — S3 parity with native at the bottom of the scale.
+        let backend = FakeKeyboardBrightnessBackend(available: true, value: 0.0)
+        let source = CoreBrightnessKeyboardBrightnessSource(backend: backend, clock: TestSleepClock(), pollInterval: 1)
+        var iterator = source.updates.makeAsyncIterator()
+
+        source.sample()             // value unchanged at the boundary
+        #expect(await iterator.next() == SystemHUD(kind: .keyboardBrightness, value: 0))
     }
 }

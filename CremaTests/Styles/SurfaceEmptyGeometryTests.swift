@@ -77,4 +77,50 @@ struct SurfaceEmptyGeometryTests {
         #expect(trimmed.height == full.height - ClassicMetrics.controlsSectionHeight)
         #expect(trimmed.width == full.width)
     }
+
+    // MARK: - Notch (freezes the drop AND the flare; HUD is immune by construction)
+
+    @Test func notchEmptyAfterExpandedHoldsTheExpandedRectAndFlare() {
+        let kind = NotchView.effectiveLayoutKind(layout: .empty, lastVisible: .expanded)
+        #expect(kind == .expanded)
+        #expect(NotchView.surfaceSize(for: kind, in: sizes, showsControls: true) == sizes.expanded)
+        // The expanded outline's wider radii must persist under the fade, not snap
+        // back to the compact flare behind it.
+        let shape = NotchView.shape(for: kind)
+        #expect(shape.topRadius == NotchMetrics.expandedTopRadius)
+        #expect(shape.bottomRadius == NotchMetrics.expandedBottomRadius)
+    }
+
+    @Test func notchEmptyAfterHudHoldsTheHudRectAndCompactFlare() {
+        // HUD shares the compact frame and the compact (unflared) shape by
+        // construction — the by-construction-immune path stays byte-identical.
+        let kind = NotchView.effectiveLayoutKind(layout: .empty, lastVisible: .hud)
+        #expect(kind == .hud)
+        #expect(NotchView.surfaceSize(for: kind, in: sizes, showsControls: true) == sizes.hud)
+        let shape = NotchView.shape(for: kind)
+        #expect(shape.topRadius == NotchMetrics.compactTopRadius)
+        #expect(shape.bottomRadius == NotchMetrics.compactBottomRadius)
+    }
+
+    @Test func notchInitialEmptyFallsBackToCompact() {
+        let kind = NotchView.effectiveLayoutKind(layout: .empty, lastVisible: .compact)
+        #expect(kind == .compact)
+        #expect(NotchView.surfaceSize(for: kind, in: sizes, showsControls: true) == sizes.compact)
+        let shape = NotchView.shape(for: kind)
+        #expect(shape.topRadius == NotchMetrics.compactTopRadius)
+        #expect(shape.bottomRadius == NotchMetrics.compactBottomRadius)
+    }
+
+    @Test func notchVisibleLayoutsPresentThemselves() {
+        #expect(NotchView.effectiveLayoutKind(layout: .hud, lastVisible: .compact) == .hud)
+        #expect(NotchView.effectiveLayoutKind(layout: .compact, lastVisible: .hud) == .compact)
+        #expect(NotchView.effectiveLayoutKind(layout: .expanded, lastVisible: .hud) == .expanded)
+    }
+
+    @Test func notchViewOnlyExpandedDropsTheControlsSection() {
+        let full = NotchView.surfaceSize(for: .expanded, in: sizes, showsControls: true)
+        let trimmed = NotchView.surfaceSize(for: .expanded, in: sizes, showsControls: false)
+        #expect(trimmed.height == full.height - NotchMetrics.controlsSectionHeight)
+        #expect(trimmed.width == full.width)
+    }
 }

@@ -285,7 +285,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "⚠️ Now playing indisponível — sem fonte de mídia"
+            "value": "⚠️ Tocando Agora indisponível — sem fonte de mídia"
           }
         }
       }
@@ -320,23 +320,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ajustes…"
-          }
-        }
-      }
-    },
-    "menu.suppressSystemHUD": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Suppress System HUD"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Suprimir HUD do sistema"
           }
         }
       }
@@ -506,7 +489,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aplica-se a todas as telas. Numa tela sem notch, o estilo Notch volta para o Card."
+            "value": "Aplica-se a todas as telas. Numa tela sem notch, o estilo Notch volta para o Cartão."
           }
         }
       }

@@ -1,3 +1,6 @@
+// One suite per window-management concern would splinter the panel harness;
+// the file grew past the ceiling with the P5 pinning fence — large by accretion.
+// swiftlint:disable file_length
 import CoreGraphics
 import Foundation
 import Testing
@@ -425,6 +428,48 @@ struct WindowManagerTests {
         let hud = SystemHUD(kind: .volume, value: 0.5)
         h.base.hudSource.emit(hud)
         #expect(await eventually { h.recorder.panel(for: externalScreen.id)?.appliedFrames.last == Style.card.frame(for: .hud(hud), on: externalScreen.geometry) })
+    }
+
+    @Test func setShowsNowPlayingIsHonoredLiveBothDirections_pinnedLatentP5() async {
+        // Pinned-latent fence (CONTRACTS-AUDIT P5): setShowsNowPlaying has no
+        // Settings writer yet, but WindowManager honors the pref LIVE. This pins
+        // the honored side by writing the pref DIRECTLY via Preferences (the
+        // path a future toggle will take) and asserting both directions:
+        // flipping it off suppresses the surface and disarms hover on a display
+        // that would otherwise show it; flipping it on surfaces one that
+        // wouldn't by default. If the reader is ever removed as "dead", this
+        // fails — proving the behavior is reachable and must not be dropped.
+        let h = Harness()
+        let internalScreen = Self.screen("A", isInternal: true)   // defaults on
+        let externalScreen = Self.screen("B", isInternal: false, frame: CGRect(x: 1000, y: 0, width: 1200, height: 800))   // defaults off
+
+        // Invert both defaults through the writer under test.
+        h.preferences.setShowsNowPlaying(false, on: internalScreen.id)
+        h.preferences.setShowsNowPlaying(true, on: externalScreen.id)
+        h.manager.updateScreens([internalScreen, externalScreen])
+
+        let track = CoordinatorHarness.playingTrack()
+        h.base.nowPlayingSource.emit(track)
+        _ = await eventually { h.base.coordinator.state != .hidden }
+
+        let state = PresentationState.nowPlaying(track, expanded: false)
+        // Internal, now flipped OFF: surface suppressed to the hidden frame,
+        // showsNowPlaying=false, and hover never arms (empty region).
+        #expect(await eventually {
+            h.recorder.panel(for: internalScreen.id)?.appliedFrames.last
+                == Style.card.frame(for: .hidden, on: internalScreen.geometry)
+        })
+        #expect(h.recorder.panel(for: internalScreen.id)?.showsNowPlayingStates.last == false)
+        #expect(h.recorder.panel(for: internalScreen.id)?.hoverArmedStates.last == false)
+
+        // External, now flipped ON: surface shown at the now-playing frame,
+        // showsNowPlaying=true, hover armed.
+        #expect(await eventually {
+            h.recorder.panel(for: externalScreen.id)?.appliedFrames.last
+                == Style.card.frame(for: state, on: externalScreen.geometry)
+        })
+        #expect(h.recorder.panel(for: externalScreen.id)?.showsNowPlayingStates.last == true)
+        #expect(h.recorder.panel(for: externalScreen.id)?.hoverArmedStates.last == true)
     }
 
     @Test func showControlsPreferenceReachesEachPanelAndReappliesLive() {

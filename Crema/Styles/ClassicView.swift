@@ -14,6 +14,10 @@ struct ClassicView: View {
     @Environment(\.surfaceStateSizes) private var stateSizes
     @Environment(\.surfaceSizeReporter) private var reportSurfaceSize
 
+    /// Gates every surface morph to a dry landing (MG5) — see
+    /// `SurfaceAnimation.geometryAnimation`; the opacity fade stays regardless.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     /// The layout the surface is coming FROM, for provenance-aware geometry
     /// (see `geometryAnimation`). Ephemeral, purely visual. Advanced in
     /// `onChange` AFTER the render that reads it (evaluation-order subtlety in
@@ -48,8 +52,9 @@ struct ClassicView: View {
         // kind during the body pass that first sees the NEW layoutKind — the
         // onChange below advances it afterward, so this pass gets true provenance.
         .animation(geometryAnimation, value: layoutKind)
-        // Toggling view-only resizes the block while it is open — animate it too.
-        .animation(SurfaceAnimation.open, value: showsControls)
+        // Toggling view-only resizes the block while it is open — animate it too,
+        // dry under Reduce Motion like the geometry spring.
+        .animation(SurfaceAnimation.morph(reduceMotion: reduceMotion), value: showsControls)
         .onChange(of: layoutKind) { _, newValue in
             previousLayoutKind = newValue
             // Skip `.empty`: the frozen-geometry contract needs the last VISIBLE
@@ -65,7 +70,8 @@ struct ClassicView: View {
         SurfaceAnimation.geometryAnimation(
             fromEmpty: previousLayoutKind == .empty,
             toEmpty: layoutKind == .empty,
-            expanding: isExpanded
+            expanding: isExpanded,
+            reduceMotion: reduceMotion
         )
     }
 
@@ -74,7 +80,11 @@ struct ClassicView: View {
     /// snaps to the destination rather than springing past the snapped outer
     /// frame; the directional spring otherwise, so the outgoing content fades.
     private var contentAnimation: Animation? {
-        SurfaceAnimation.contentAnimation(fromEmpty: previousLayoutKind == .empty, expanding: isExpanded)
+        SurfaceAnimation.contentAnimation(
+            fromEmpty: previousLayoutKind == .empty,
+            expanding: isExpanded,
+            reduceMotion: reduceMotion
+        )
     }
 
     private var surface: some View {

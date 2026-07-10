@@ -90,6 +90,9 @@ final class ChainedNowPlayingSource: NowPlayingSource, StoppableSource, @uncheck
                 for await nowPlaying in source.updates {
                     continuation.yield(nowPlaying)
                 }
+                // Pinned-latent (see CONTRACTS-AUDIT S6): a mid-chain failover
+                // yields no "stopped" snapshot here — the last live snapshot
+                // stays on the outer stream, so a re-select cannot drop a ghost.
                 lock.lock(); activeSource = nil; activeChannel = nil; lock.unlock()
             } else {
                 onActiveChange?(false)

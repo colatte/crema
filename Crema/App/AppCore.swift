@@ -21,6 +21,9 @@ final class AppCore {
         let keyboardBrightnessController: any KeyboardBrightnessController
         let screenBrightnessSampler: (any ManuallySampledSource)?
         let keyboardBrightnessSampler: (any ManuallySampledSource)?
+        /// Poked at a volume scale boundary, where the Core Audio write is a
+        /// no-op and emits no echo; nil on demo sources.
+        let volumeSampler: (any ManuallySampledSource)?
         /// Read-side borders for the OSD-suppression spike (a consumed key
         /// needs the current value to step from); nil on demo sources.
         let screenBrightnessBackend: (any ScreenBrightnessBackend)?
@@ -196,15 +199,22 @@ final class AppCore {
         // the pre-apply value (with the key consumed, the app's write lands
         // after it) — this second sample refreshes it to the applied value.
         if let screenSampler = graph.screenBrightnessSampler,
-           let keyboardSampler = graph.keyboardBrightnessSampler {
+           let keyboardSampler = graph.keyboardBrightnessSampler,
+           let volumeSampler = graph.volumeSampler {
             osdSuppressor?.onApplied = { key in
                 switch key {
                 case .screenBrightnessUp, .screenBrightnessDown:
                     screenSampler.sample()
                 case .keyboardBrightnessUp, .keyboardBrightnessDown:
                     keyboardSampler.sample()
-                case .volumeUp, .volumeDown, .mute:
-                    break   // Core Audio is event-driven
+                case .volumeUp, .volumeDown:
+                    // A consumed key at the scale boundary is a no-op write that
+                    // fires no Core Audio echo; the sampler re-reads and emits
+                    // there so the HUD still shows (mid-scale the echo covers it,
+                    // and the sampler no-ops off the boundary — no double-fire).
+                    volumeSampler.sample()
+                case .mute:
+                    break   // a real toggle: Core Audio always echoes it
                 }
             }
         }
@@ -367,6 +377,7 @@ final class AppCore {
             keyboardBrightnessController: CoreBrightnessKeyboardBrightnessController(backend: keyboardBridge),
             screenBrightnessSampler: screenSource,
             keyboardBrightnessSampler: keyboardSource,
+            volumeSampler: volumeSource,
             screenBrightnessBackend: screenBridge,
             keyboardBrightnessBackend: keyboardBridge
         )
@@ -414,6 +425,7 @@ final class AppCore {
             keyboardBrightnessController: demo.hud,
             screenBrightnessSampler: nil,
             keyboardBrightnessSampler: nil,
+            volumeSampler: nil,
             screenBrightnessBackend: nil,
             keyboardBrightnessBackend: nil
         )

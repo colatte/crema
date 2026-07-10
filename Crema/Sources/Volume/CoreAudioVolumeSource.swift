@@ -6,7 +6,7 @@ import Foundation
 /// translation lives in VolumeConversion; when the default output device
 /// changes, observation moves to the new device (silently — switching devices
 /// must not pop the HUD; the next real change will).
-final class CoreAudioVolumeSource: SystemHUDSource, @unchecked Sendable {
+final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unchecked Sendable {
     let updates: AsyncStream<SystemHUD>
 
     private let continuation: AsyncStream<SystemHUD>.Continuation
@@ -52,6 +52,20 @@ final class CoreAudioVolumeSource: SystemHUDSource, @unchecked Sendable {
     func isAvailable() async -> Bool {
         guard let device = CoreAudioSystemOutput.defaultOutputDeviceID() else { return false }
         return CoreAudioSystemOutput.supportsVolume(device)
+    }
+
+    /// A consumed volume key drove this (the suppressor's post-apply poke). At a
+    /// scale boundary the write is a no-op and Core Audio fires no property
+    /// change, so re-read and emit here; off the boundary the echo already
+    /// covered the change, so `boundaryRefreshHUD` returns nil and we stay quiet
+    /// (no double-fire). Never called in observe mode — there the native OSD
+    /// covers the boundary and the app owns nothing to feed back.
+    func sample() {
+        guard let device = CoreAudioSystemOutput.defaultOutputDeviceID() else { return }
+        let raw = CoreAudioSystemOutput.readVolume(device) ?? 0
+        let muted = CoreAudioSystemOutput.readMute(device) ?? false
+        guard let hud = VolumeConversion.boundaryRefreshHUD(rawVolume: raw, isMuted: muted) else { return }
+        continuation.yield(hud)
     }
 
     // MARK: - Observation

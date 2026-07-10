@@ -34,7 +34,14 @@ enum SurfaceAnimation {
     /// enum, so each skin's private LayoutKind stays private (CLAUDE.md: skins
     /// independent). `expanding` picks the same spring the views already pick by
     /// `isExpanded`.
-    static func geometryAnimation(fromEmpty: Bool, toEmpty: Bool, expanding: Bool) -> Animation? {
+    ///
+    /// Reduce Motion contract (app-wide, MG5): with the preference on every
+    /// geometry/content/width morph resolves to nil so layouts land dry and only
+    /// the opacity fades survive (a cross-fade is the accessibility-preferred
+    /// substitution) — one home for the rule the leaf components (HUDLevelSlider,
+    /// SymbolReplaceEffect, WaveformGlyph) already honor per-value.
+    static func geometryAnimation(fromEmpty: Bool, toEmpty: Bool, expanding: Bool, reduceMotion: Bool) -> Animation? {
+        guard !reduceMotion else { return nil }
         guard !fromEmpty, !toEmpty else { return nil }
         return expanding ? open : close
     }
@@ -56,8 +63,17 @@ enum SurfaceAnimation {
     /// hidden layout freezes the outgoing rect (each view's effective-layout
     /// geometry), so a non-nil spring here has no size delta to animate. Between
     /// visible layouts it is the same crossfade+morph as the geometry spring.
-    static func contentAnimation(fromEmpty: Bool, expanding: Bool) -> Animation? {
-        fromEmpty ? nil : (expanding ? open : close)
+    static func contentAnimation(fromEmpty: Bool, expanding: Bool, reduceMotion: Bool) -> Animation? {
+        guard !reduceMotion else { return nil }
+        return fromEmpty ? nil : (expanding ? open : close)
+    }
+
+    /// A plain visible→visible morph under the open spring (the view-only band
+    /// resize, the card's width hug) — no provenance branch, but the same Reduce
+    /// Motion gate as the geometry/content springs: nil under the preference so
+    /// the resize lands dry while its opacity/content still fades.
+    static func morph(reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : open
     }
 
     /// HUD level-indicator spring (HUDLevelSlider): a fast glide with a barely
