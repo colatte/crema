@@ -8,14 +8,24 @@ final class RecordingPanel: PresentationPanel {
     private(set) var hoverArmedStates: [Bool] = []
     private(set) var showsNowPlayingStates: [Bool] = []
     private(set) var showsControlsStates: [Bool] = []
+    private(set) var hudIndicatorStyleStates: [HUDIndicatorStyle] = []
     private(set) var invokeZones: [CGRect?] = []
     private(set) var closed = false
 
-    func apply(frame: CGRect, hoverArmed: Bool, showsNowPlaying: Bool, showsControls: Bool, invokeZone: CGRect?) {
+    // swiftlint:disable:next function_parameter_count
+    func apply(
+        frame: CGRect,
+        hoverArmed: Bool,
+        showsNowPlaying: Bool,
+        showsControls: Bool,
+        hudIndicatorStyle: HUDIndicatorStyle,
+        invokeZone: CGRect?
+    ) {
         appliedFrames.append(frame)
         hoverArmedStates.append(hoverArmed)
         showsNowPlayingStates.append(showsNowPlaying)
         showsControlsStates.append(showsControls)
+        hudIndicatorStyleStates.append(hudIndicatorStyle)
         invokeZones.append(invokeZone)
     }
 

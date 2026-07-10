@@ -47,6 +47,25 @@ struct CoordinatorTimerTests {
         #expect(await eventually { h.coordinator.state == .hidden })
     }
 
+    @Test func anIdenticalBoundaryHUDStillRestartsTheTimer() async {
+        // S3: at a scale boundary a consumed key re-emits the SAME-value HUD (the
+        // brightness gate's boundary refresh / volume's boundary re-read). Even
+        // unchanged, it must restart the revert timer so a mash at the limit
+        // keeps the bar up — matching native's flash on every press — instead of
+        // tucking ~1.5s after the last CHANGING press.
+        let h = CoordinatorHarness()
+        let hud = SystemHUD(kind: .screenBrightness, value: 1)
+        h.hudSource.emit(hud)
+        #expect(await eventually { h.coordinator.state == .hud(hud) })
+        await h.clock.waitForSleep()   // first revert timer parked
+
+        h.hudSource.emit(hud)          // identical boundary refresh
+
+        #expect(await eventually { h.clock.cancelledCount == 1 })
+        await h.clock.waitForSleep()   // a fresh timer is parked, HUD held
+        #expect(h.coordinator.state == .hud(hud))
+    }
+
     @Test func usesTheDefaultDelayFromASinglePlace() async {
         let h = CoordinatorHarness()
         h.hudSource.emit(SystemHUD(kind: .volume, value: 0.5))

@@ -90,4 +90,21 @@ struct PreferencesTests {
         #expect(!reread.showsPlaybackControls)
         #expect(reread.includesBrowserMedia)
     }
+
+    @Test func hudIndicatorStyleDefaultsToSliderAndPersists() {
+        let preferences = Preferences(defaults: store.defaults)
+        #expect(preferences.hudIndicatorStyle == .slider)
+
+        preferences.hudIndicatorStyle = .filled
+
+        #expect(Preferences(defaults: store.defaults).hudIndicatorStyle == .filled)
+    }
+
+    /// A persisted rawValue of a removed indicator variant — or any garbage —
+    /// degrades to the default, never crashes. Writes the raw key directly to
+    /// also pin the persistence format.
+    @Test func unknownPersistedHUDIndicatorStyleDegradesToSlider() {
+        store.defaults.set("neon", forKey: Preferences.hudIndicatorStyleKey)
+        #expect(Preferences(defaults: store.defaults).hudIndicatorStyle == .slider)
+    }
 }

@@ -21,6 +21,9 @@ final class AppCore {
         let keyboardBrightnessController: any KeyboardBrightnessController
         let screenBrightnessSampler: (any ManuallySampledSource)?
         let keyboardBrightnessSampler: (any ManuallySampledSource)?
+        /// Poked at a volume scale boundary, where the Core Audio write is a
+        /// no-op and emits no echo; nil on demo sources.
+        let volumeSampler: (any ManuallySampledSource)?
         /// Read-side borders for the OSD-suppression spike (a consumed key
         /// needs the current value to step from); nil on demo sources.
         let screenBrightnessBackend: (any ScreenBrightnessBackend)?
@@ -39,6 +42,11 @@ final class AppCore {
     /// real borders (demo sources) or the key source cannot consume — the
     /// Settings toggle then persists the wish but nothing engages.
     let osdSuppressor: (any NativeOSDSuppressor)?
+    /// Lock-aware engagement policy for the suppressor: suspends suppression
+    /// while the screen is locked or off-console (native OSD restored), and
+    /// re-engages on return iff the preference is on. Nil alongside a nil
+    /// suppressor — nothing to lock-guard.
+    private let suppressionLockController: SuppressionLockController?
     /// Launch-at-login control (SMAppService behind a protocol).
     let loginItem: any LoginItemManaging
     #if DEBUG
@@ -165,46 +173,73 @@ final class AppCore {
         if let consuming = mediaKeys as? any MediaKeyConsuming,
            let screenBackend = graph.screenBrightnessBackend,
            let keyboardBackend = graph.keyboardBrightnessBackend {
-            osdSuppressor = MediaKeyInterceptionOSDSuppressor(
+            let suppressor = MediaKeyInterceptionOSDSuppressor(
                 keys: consuming,
                 volume: CoreAudioOSDVolumeChannel(controller: graph.volumeController),
                 screen: ScreenBrightnessOSDChannel(backend: screenBackend, controller: graph.screenBrightnessController),
                 keyboard: KeyboardBrightnessOSDChannel(backend: keyboardBackend, controller: graph.keyboardBrightnessController)
             )
+            osdSuppressor = suppressor
+            // Suppression is only ever engaged through the lock controller, so a
+            // locked/off-console context suspends it (native OSD restored) and
+            // the lock path never touches the persisted opt-in.
+            suppressionLockController = SuppressionLockController(
+                suppressor: suppressor,
+                lockSource: DistributedNotificationScreenLockSource(),
+                preferences: preferences
+            )
         } else {
             osdSuppressor = nil
+            suppressionLockController = nil
         }
 
         presentAccessibilityOnboardingIfFirstLaunch()
 
-        // Degradation made visible: a failed apply already disengaged the
-        // suppressor (native HUD restored); flipping the persisted preference
-        // makes the Settings toggle reflect it instead of lying "on".
-        osdSuppressor?.onAutoDisengage = { [preferences] in
-            preferences.suppressesNativeOSD = false
-        }
         // Post-apply poke: the router's key-time sample shows the HUD with
         // the pre-apply value (with the key consumed, the app's write lands
         // after it) — this second sample refreshes it to the applied value.
         if let screenSampler = graph.screenBrightnessSampler,
-           let keyboardSampler = graph.keyboardBrightnessSampler {
+           let keyboardSampler = graph.keyboardBrightnessSampler,
+           let volumeSampler = graph.volumeSampler {
             osdSuppressor?.onApplied = { key in
                 switch key {
                 case .screenBrightnessUp, .screenBrightnessDown:
                     screenSampler.sample()
                 case .keyboardBrightnessUp, .keyboardBrightnessDown:
                     keyboardSampler.sample()
-                case .volumeUp, .volumeDown, .mute:
-                    break   // Core Audio is event-driven
+                case .volumeUp, .volumeDown:
+                    // A consumed key at the scale boundary is a no-op write that
+                    // fires no Core Audio echo; the sampler re-reads and emits
+                    // there so the HUD still shows (mid-scale the echo covers it,
+                    // and the sampler no-ops off the boundary — no double-fire).
+                    volumeSampler.sample()
+                case .mute:
+                    break   // a real toggle: Core Audio always echoes it
+                }
+            }
+        }
+        // Slider-driven brightness writes do not echo the way Core Audio volume
+        // does, so the Coordinator asks us to poke the matching sampler after a
+        // successful write — it re-reads and emits the applied value, closing the
+        // HUD loop (indicator follows, revert timer refreshes) exactly like the
+        // media-key router and the suppressor's post-apply poke. Absent on demo
+        // sources, where the demo HUD is already event-driven end to end.
+        if let screenSampler = graph.screenBrightnessSampler,
+           let keyboardSampler = graph.keyboardBrightnessSampler {
+            coordinator.onBrightnessApplied = { kind in
+                switch kind {
+                case .screenBrightness: screenSampler.sample()
+                case .keyboardBrightness: keyboardSampler.sample()
+                case .volume: break   // volume echoes itself; never routed here
                 }
             }
         }
         // The preference persists across launches: suppression is a real
         // opt-in feature, and its reversibility never depends on state — the
-        // tap dies with the process.
-        if preferences.suppressesNativeOSD {
-            osdSuppressor?.setEngaged(true)
-        }
+        // tap dies with the process. The controller wires the auto-disengage
+        // report and engages to the correct initial state (suspended when
+        // launched while locked; off unless the opt-in is set).
+        suppressionLockController?.start()
 
         #if DEBUG
         startAdapterObservationIfRequested()
@@ -212,10 +247,15 @@ final class AppCore {
     }
 
     /// Persists the opt-in and engages/disengages the suppressor. Called by the
-    /// Settings toggle.
+    /// Settings toggle. Routed through the lock controller so a toggle-on while
+    /// locked persists the wish but defers engagement to unlock; when there is
+    /// no suppressor to control, the wish is still persisted.
     func setNativeOSDSuppression(_ enabled: Bool) {
-        preferences.suppressesNativeOSD = enabled
-        osdSuppressor?.setEngaged(enabled)
+        if let suppressionLockController {
+            suppressionLockController.setPreferredSuppression(enabled)
+        } else {
+            preferences.suppressesNativeOSD = enabled
+        }
     }
 
     // MARK: - Settings (live preference changes)
@@ -255,6 +295,13 @@ final class AppCore {
     /// (render context only; no window geometry changes).
     func setShowsPlaybackControls(_ shows: Bool) {
         preferences.showsPlaybackControls = shows
+        windowManager.refreshPresentation()
+    }
+
+    /// The HUD level-indicator appearance (Card only) — persisted and re-applied
+    /// to the panels (render context only; no window geometry changes).
+    func setHUDIndicatorStyle(_ style: HUDIndicatorStyle) {
+        preferences.hudIndicatorStyle = style
         windowManager.refreshPresentation()
     }
 
@@ -330,6 +377,7 @@ final class AppCore {
             keyboardBrightnessController: CoreBrightnessKeyboardBrightnessController(backend: keyboardBridge),
             screenBrightnessSampler: screenSource,
             keyboardBrightnessSampler: keyboardSource,
+            volumeSampler: volumeSource,
             screenBrightnessBackend: screenBridge,
             keyboardBrightnessBackend: keyboardBridge
         )
@@ -377,6 +425,7 @@ final class AppCore {
             keyboardBrightnessController: demo.hud,
             screenBrightnessSampler: nil,
             keyboardBrightnessSampler: nil,
+            volumeSampler: nil,
             screenBrightnessBackend: nil,
             keyboardBrightnessBackend: nil
         )

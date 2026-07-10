@@ -36,6 +36,9 @@ struct Preferences {
         defaults.object(forKey: Key.showsNowPlaying(display)) as? Bool ?? isInternal
     }
 
+    /// Honored live by WindowManager but intentionally headless — no Settings
+    /// control writes it yet (deferred to the per-display-styling roadmap; see
+    /// CONTRACTS-AUDIT P5). Not dead: do not remove for lack of a caller.
     func setShowsNowPlaying(_ shows: Bool, on display: DisplayUUID) {
         defaults.set(shows, forKey: Key.showsNowPlaying(display))
     }
@@ -83,6 +86,23 @@ struct Preferences {
     var showsPlaybackControls: Bool {
         get { defaults.object(forKey: Self.showsPlaybackControlsKey) as? Bool ?? true }
         nonmutating set { defaults.set(newValue, forKey: Self.showsPlaybackControlsKey) }
+    }
+
+    // MARK: - System-HUD indicator appearance
+
+    /// The HUD level-indicator appearance, scoped to the Card style. Persisted
+    /// as the enum rawValue; an unknown value (a variant removed since) degrades
+    /// to the shipped default, `.slider`, same rule as the per-display Style.
+    static let hudIndicatorStyleKey = "hudIndicatorStyle"
+    var hudIndicatorStyle: HUDIndicatorStyle {
+        get {
+            guard let raw = defaults.string(forKey: Self.hudIndicatorStyleKey),
+                  let style = HUDIndicatorStyle(rawValue: raw) else {
+                return .slider
+            }
+            return style
+        }
+        nonmutating set { defaults.set(newValue.rawValue, forKey: Self.hudIndicatorStyleKey) }
     }
 
     // MARK: - Accessibility onboarding

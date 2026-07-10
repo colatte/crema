@@ -89,6 +89,16 @@ enum Style: String, CaseIterable, Equatable, Sendable {
         self == .notch ? .debounced : .immediate
     }
 
+    /// Whether hover regions follow the rendered surface instead of the static
+    /// rule frame. Only the width-hugging card renders narrower than its rule
+    /// ceiling, so it retargets its region to the drawn size (the panel pushes
+    /// `SurfaceHoverRegions.around` on each size report); the fixed-width styles'
+    /// rendered size equals their rule frame, so they keep the init-time rule
+    /// regions untouched.
+    var hoverTracksRenderedSurface: Bool {
+        self == .card
+    }
+
     /// User-facing name (String Catalog; English as source language).
     var displayName: String {
         switch self {

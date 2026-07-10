@@ -29,7 +29,7 @@ struct SurfaceStateSizesTests {
         let sizes = style.stateSizes(on: plain)
         #expect(sizes.compact == CardMetrics.compact)
         #expect(sizes.expanded == CardMetrics.expanded)
-        #expect(sizes.hud == CardMetrics.hud)
+        #expect(sizes.hud == CardMetrics.hudSystemSize)
     }
 
     @Test func hudPayloadNeverAffectsTheSize() {

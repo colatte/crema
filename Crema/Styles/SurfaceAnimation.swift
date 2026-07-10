@@ -20,6 +20,75 @@ enum SurfaceAnimation {
     static let open: Animation = .spring(response: openResponse, dampingFraction: openDamping)
     static let close: Animation = .spring(response: closeResponse, dampingFraction: closeDamping)
 
+    /// Provenance-aware animation for the surface's GEOMETRY (frame + corner
+    /// radius) — never its opacity. The motion contract: transitions between two
+    /// visible layouts morph (compact↔expanded, now-playing↔HUD) under the
+    /// directional spring; an appearance from hidden or a disappearance to hidden
+    /// is a fade at the FINAL frame — no geometry travel. So when either side is
+    /// the hidden/empty layout this returns nil: the frame and radius SNAP to the
+    /// destination while the opacity (animated separately in each view) fades. Nil
+    /// on the geometry alone is why a HUD born from hidden lands at 210×42 instead
+    /// of gliding down from the last now-playing rect.
+    ///
+    /// Expressed over `fromEmpty`/`toEmpty` booleans rather than a shared layout
+    /// enum, so each skin's private LayoutKind stays private (CLAUDE.md: skins
+    /// independent). `expanding` picks the same spring the views already pick by
+    /// `isExpanded`.
+    ///
+    /// Reduce Motion contract (app-wide, MG5): with the preference on every
+    /// geometry/content/width morph resolves to nil so layouts land dry and only
+    /// the opacity fades survive (a cross-fade is the accessibility-preferred
+    /// substitution) — one home for the rule the leaf components (HUDLevelSlider,
+    /// SymbolReplaceEffect, WaveformGlyph) already honor per-value.
+    static func geometryAnimation(fromEmpty: Bool, toEmpty: Bool, expanding: Bool, reduceMotion: Bool) -> Animation? {
+        guard !reduceMotion else { return nil }
+        guard !fromEmpty, !toEmpty else { return nil }
+        return expanding ? open : close
+    }
+
+    /// Provenance-aware animation for the content crossfade — the scope closest
+    /// to the surface's branches, which also governs the bounds the material,
+    /// clips and stroke are sized off (a `.background`/clip sized to the node
+    /// below the modifier). It must therefore SNAP that geometry on an
+    /// APPEARANCE from hidden: with a spring here the material sprang from the
+    /// invisible compact/empty rect to the destination and drew OUTSIDE the
+    /// snapped outer frame — the ghost the author saw grow-and-shrink behind the
+    /// HUD (the fixed window is larger than every state, so there was room to
+    /// show it). On appearance the surface is invisible anyway (opacity 0, faded
+    /// in separately), so the branch swap needs no motion — nil.
+    ///
+    /// On a DISAPPEARANCE it stays the directional spring so the outgoing glyph
+    /// FADES with the surface instead of popping out a frame before the opacity
+    /// fade catches up; the disappearance geometry does not travel because the
+    /// hidden layout freezes the outgoing rect (each view's effective-layout
+    /// geometry), so a non-nil spring here has no size delta to animate. Between
+    /// visible layouts it is the same crossfade+morph as the geometry spring.
+    static func contentAnimation(fromEmpty: Bool, expanding: Bool, reduceMotion: Bool) -> Animation? {
+        guard !reduceMotion else { return nil }
+        return fromEmpty ? nil : (expanding ? open : close)
+    }
+
+    /// A plain visible→visible morph under the open spring (the view-only band
+    /// resize, the card's width hug) — no provenance branch, but the same Reduce
+    /// Motion gate as the geometry/content springs: nil under the preference so
+    /// the resize lands dry while its opacity/content still fades.
+    static func morph(reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : open
+    }
+
+    /// HUD level-indicator spring (HUDLevelSlider): a fast glide with a barely
+    /// perceptible settle, the native volume/brightness feel. The response is
+    /// short so a single keypress lands well before the ~1.5 s HUD revert, yet
+    /// long enough to read as a glide instead of a jump; the damping sits just
+    /// under critical, so the overshoot is under one percent — near-invisible on
+    /// purpose (drop it toward ~0.8 if the settle should read livelier; below
+    /// that it visibly wobbles). Scoped to the level
+    /// value only, never the surface morph. Named apart from open/close so the
+    /// author can tune it on hardware without perturbing the surface springs.
+    static let hudLevelResponse: Double = 0.28
+    static let hudLevelDamping: Double = 0.86
+    static let hudLevel: Animation = .spring(response: hudLevelResponse, dampingFraction: hudLevelDamping)
+
     /// Headroom the fixed window keeps past the expanded frame (sideways and
     /// down; the top anchor stays pinned): the open spring's overshoot carries
     /// the surface a few points past its target, and without headroom the

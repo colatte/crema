@@ -29,6 +29,7 @@ struct SettingsView: View {
 private struct GeneralSettingsView: View {
     let core: AppCore
     @State private var style: Style
+    @AppStorage(Preferences.hudIndicatorStyleKey) private var indicatorStyle = HUDIndicatorStyle.slider.rawValue
     /// Mirrors the real login-item status (enabled or pending approval), and is
     /// re-read from it after every attempt — the toggle is a view onto reality,
     /// never a wish that outran it.
@@ -37,6 +38,10 @@ private struct GeneralSettingsView: View {
 
     init(core: AppCore) {
         self.core = core
+        // Pinned-latent (see CONTRACTS-AUDIT S4): `style` is seeded once and
+        // never re-synced, so a style changed by another writer while Settings
+        // is open leaves this picker — and the Indicator's .disabled(style != .card)
+        // gate below — showing the stale value until the window reopens.
         _style = State(initialValue: core.currentStyle())
         _launchesAtLogin = State(initialValue: core.loginItem.isEnabled || core.loginItem.requiresApproval)
         _loginNeedsApproval = State(initialValue: core.loginItem.requiresApproval)
@@ -44,6 +49,11 @@ private struct GeneralSettingsView: View {
 
     var body: some View {
         Form {
+            // Style and Indicator sit in adjacent Sections so each footer stays
+            // welded to the control it explains (one shared footer read as
+            // ambiguous — which sentence scoped which picker). Adjacency still
+            // carries the proximity-scope: the indicator is a facet of the Card
+            // style, right below it.
             Section {
                 Picker(selection: $style) {
                     ForEach(Style.allCases, id: \.self) { style in
@@ -57,6 +67,30 @@ private struct GeneralSettingsView: View {
                 Text(String(
                     localized: "settings.general.style.footer",
                     defaultValue: "Applies to every display. On a display without a notch, the Notch style falls back to Card."
+                ))
+                .settingsFootnote()
+            }
+
+            // Kept visible but disabled outside Card (the macOS dependent-setting
+            // pattern) — the declared global style is the source of truth, so a
+            // notchless display whose Notch selection renders as Card still reads
+            // the picker as inert; the footer names the scope.
+            Section {
+                Picker(selection: $indicatorStyle) {
+                    ForEach(HUDIndicatorStyle.allCases, id: \.rawValue) { style in
+                        Text(style.displayName).tag(style.rawValue)
+                    }
+                } label: {
+                    Text(String(localized: "settings.hud.indicator", defaultValue: "Indicator style"))
+                }
+                .disabled(style != .card)
+                .onChange(of: indicatorStyle) { _, new in
+                    core.setHUDIndicatorStyle(HUDIndicatorStyle(rawValue: new) ?? .slider)
+                }
+            } footer: {
+                Text(String(
+                    localized: "settings.hud.indicator.footer",
+                    defaultValue: "Applies to the Card style."
                 ))
                 .settingsFootnote()
             }

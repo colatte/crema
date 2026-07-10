@@ -11,11 +11,32 @@ struct SurfaceHoverRegions: Equatable {
     /// counts as left — the spatial half of the hysteresis.
     static let defaultExitMargin: CGFloat = 24
 
+    /// A few points of slack around the visible surface so hover arms as the
+    /// cursor reaches the drawn edge, not on a pixel-perfect hit — deliberate
+    /// breathing room, distinct from the larger sticky exit band. Legitimate
+    /// comfort; the bug it replaces was the rule ceiling overshooting the
+    /// adaptive card by tens of points per side.
+    static let comfortMargin: CGFloat = 6
+
     /// Entering here starts a hover (the compact surface's bounds).
     var enter: CGRect
     /// The cursor must leave here to end a hover (expanded bounds + margin).
     /// Contains `enter`, so the gap between them is a sticky dead band.
     var exit: CGRect
+
+    /// Regions clipped to a surface actually rendered on screen: `enter` is the
+    /// visible rect widened by the comfort margin, `exit` adds the sticky
+    /// hysteresis band. The width-hugging card reports a surface narrower than
+    /// its rule ceiling, so deriving hover from the drawn rect — the same
+    /// rendered truth the click region uses — keeps hover from arming in the
+    /// dead air beside the visible card. `exit` contains `enter` by exactly
+    /// `exitMargin`, so the band is always sticky.
+    static func around(_ surface: CGRect, exitMargin: CGFloat = defaultExitMargin) -> Self {
+        Self(
+            enter: surface.insetBy(dx: -comfortMargin, dy: -comfortMargin),
+            exit: surface.insetBy(dx: -(comfortMargin + exitMargin), dy: -(comfortMargin + exitMargin))
+        )
+    }
 }
 
 /// Pure hover decision with hysteresis: while outside, the cursor must reach

@@ -138,6 +138,7 @@ final class WindowManager {
                 hoverArmed: hoverArmed,
                 showsNowPlaying: shows,
                 showsControls: preferences.showsPlaybackControls,
+                hudIndicatorStyle: preferences.hudIndicatorStyle,
                 invokeZone: invokeZone
             )
         }

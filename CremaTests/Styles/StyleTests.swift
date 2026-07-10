@@ -49,6 +49,22 @@ struct StyleTests {
         }
     }
 
+    @Test func cardNowPlayingMetricsStayPinnedIndependentOfTheHUD() {
+        // Literal anti-drift pins: the now-playing surface (sizes + its radius)
+        // is derived independently of the HUD strip, so a HUD resize must never
+        // leak into these. The two radii are separate knobs on purpose — the
+        // short HUD would read as a capsule at the now-playing radius.
+        #expect(CardMetrics.compact == CGSize(width: 280, height: 64))
+        #expect(CardMetrics.expanded == CGSize(width: 280, height: 128))
+        #expect(CardMetrics.compactMinWidth == 180)
+        #expect(CardMetrics.compactMaxWidth == 280)
+        #expect(CardMetrics.expandedMinWidth == 240)
+        #expect(CardMetrics.expandedMaxWidth == 280)
+        #expect(CardMetrics.cornerRadius == 20)
+        #expect(CardMetrics.hudSystemSize == CGSize(width: 210, height: 42))
+        #expect(CardMetrics.hudSystemCornerRadius == 12)
+    }
+
     @Test func cardAndClassicHaveDeterministicFramesForEveryState() {
         let states: [PresentationState] = [
             .hidden,

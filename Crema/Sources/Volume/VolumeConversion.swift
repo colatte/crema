@@ -3,6 +3,10 @@
 /// border, and the defensive clamp that guarantees the domain never receives
 /// a value outside 0...1.
 enum VolumeConversion {
+    /// The normalized scale ends, shared with the boundary-refresh rule below.
+    static let minValue: Double = 0
+    static let maxValue: Double = 1
+
     /// Raw system value → domain value. Non-finite input degrades to 0.
     static func normalize(_ raw: Float) -> Double {
         guard !raw.isNaN else { return 0 }
@@ -19,5 +23,17 @@ enum VolumeConversion {
     /// mapping lives here so the whole raw→domain step is testable in one place.
     static func hud(rawVolume: Float, isMuted: Bool) -> SystemHUD {
         SystemHUD(kind: .volume, value: normalize(rawVolume), isMuted: isMuted)
+    }
+
+    /// The HUD a consumed volume key owes at a scale boundary. Contract: a
+    /// consumed media key always produces feedback; at the boundary the write
+    /// is a clamped no-op that fires no Core Audio property-change echo, so the
+    /// source re-reads and emits here to reproduce native's full/empty-bar
+    /// flash. Nil off the boundary — mid-scale the write moves the value and the
+    /// echo already covers it, so emitting would double-fire.
+    static func boundaryRefreshHUD(rawVolume: Float, isMuted: Bool) -> SystemHUD? {
+        let value = normalize(rawVolume)
+        guard value == minValue || value == maxValue else { return nil }
+        return SystemHUD(kind: .volume, value: value, isMuted: isMuted)
     }
 }

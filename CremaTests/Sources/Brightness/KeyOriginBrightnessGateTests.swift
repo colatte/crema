@@ -74,6 +74,48 @@ struct KeyOriginBrightnessGateTests {
         #expect(!repeated)
     }
 
+    @Test func aKeyDrivenNoOpAtTheMaxBoundaryStillEmits() {
+        // Suppression-on, brightness pinned at max: the consumed key clamps to
+        // 1.0 == before, but native flashes the full bar, so the key-driven
+        // refresh emits even though the value did not move.
+        var g = gate(baseline: 1.0)
+        let emitted = g.register(1.0, keyDriven: true)
+        #expect(emitted)
+    }
+
+    @Test func aKeyDrivenNoOpAtTheMinBoundaryStillEmits() {
+        var g = gate(baseline: 0.0)
+        let emitted = g.register(0.0, keyDriven: true)
+        #expect(emitted)
+    }
+
+    @Test func aPollNoOpAtTheBoundaryStaysSilent() {
+        // The ambient-sensor protection is pinned: a pure poll at a boundary
+        // with an unchanged value never emits — only a key-driven read refreshes.
+        var g = gate(baseline: 1.0)
+        let emitted = g.register(1.0, keyDriven: false)
+        #expect(!emitted)
+    }
+
+    @Test func aKeyDrivenNoOpMidScaleStaysSilent() {
+        // Only the boundaries get the unchanged-value refresh: mid-scale the step
+        // always moves the value, so an unchanged key read there is a redundant
+        // poke and de-dups.
+        var g = gate(baseline: 0.5)
+        let emitted = g.register(0.5, keyDriven: true)
+        #expect(!emitted)
+    }
+
+    @Test func aBoundaryBaselineFirstReadingStillBaselinesSilently() {
+        // The launch value at a boundary baselines without emitting (previous is
+        // nil); the boundary refresh needs a prior reading to compare against.
+        var g = gate(baseline: nil)
+        let baseline = g.register(1.0, keyDriven: true)
+        let repress = g.register(1.0, keyDriven: true)
+        #expect(!baseline)
+        #expect(repress)
+    }
+
     @Test func aNilBaselineFirstReadingIsSilent() {
         var g = gate(baseline: nil)
         let baseline = g.register(0.5, keyDriven: true)   // baselines without emitting

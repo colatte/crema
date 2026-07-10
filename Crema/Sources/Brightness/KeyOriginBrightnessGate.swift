@@ -16,8 +16,21 @@ import Foundation
 /// the router before the event reaches the OS, so it takes a delayed router
 /// task on a single tap to hit; a held key re-arms and self-corrects.
 ///
+/// Contract: a consumed media key always produces feedback. At a scale
+/// boundary the clamped write is a no-op (the read comes back unchanged), yet
+/// native still flashes the full/empty bar — so a key-driven read pinned at 0
+/// or 1 emits a refresh HUD showing the clamped value even when the value did
+/// not move. A pure poll never triggers this: the ambient-sensor gate stays
+/// intact (only a real change, armed, emits for the sensor). This is the
+/// keyDriven-vs-poll seam, not keyDriven-vs-armed.
+///
 /// Not thread-safe: the owning source mutates it under its own lock.
 struct KeyOriginBrightnessGate {
+    /// The normalized scale ends: a key clamped here applies as a no-op, so the
+    /// read is unchanged yet still owes the native full/empty-bar feedback.
+    private static let minValue: Double = 0
+    private static let maxValue: Double = 1
+
     private let window: Double
     private let now: () -> Date
     private var lastValue: Double?
@@ -37,7 +50,13 @@ struct KeyOriginBrightnessGate {
         let previous = lastValue
         lastValue = value
         let armed = keyActivityUntil.map { now() < $0 } ?? false
-        let emit = (previous.map { $0 != value } ?? false) && (keyDriven || armed)
+        let changed = previous.map { $0 != value } ?? false
+        // A key-driven no-op at a scale boundary (0 or 1) still refreshes the
+        // HUD; a poll or a mid-scale no-op does not (the step always moves the
+        // value mid-scale, so an unchanged mid read is a redundant poke).
+        let atBoundary = value == Self.minValue || value == Self.maxValue
+        let boundaryRefresh = keyDriven && !changed && previous != nil && atBoundary
+        let emit = (changed && (keyDriven || armed)) || boundaryRefresh
         if emit { keyActivityUntil = nil }
         return emit
     }

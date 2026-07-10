@@ -36,6 +36,36 @@ struct ClassicFrameRuleTests {
         #expect(expanded.contains(compact))
     }
 
+    /// Pinned-latent fence (CONTRACTS-AUDIT G2): ClassicStyle.windowFrame builds
+    /// the fixed window from ONLY the expanded state's rule frame, silently
+    /// assuming expanded dominates compact AND hud on both axes (true today by
+    /// metric coincidence: expanded 230×224 vs hud 200×200 vs compact 170×170).
+    /// This converts that silent assumption into a loud fence — grow
+    /// ClassicMetrics.hud or .compact past expanded on either axis and this
+    /// fails, pointing straight at windowFrame's union-of-one shortcut.
+    @Test func expandedDominatesEveryOtherStateFrame_pinnedLatentG2() {
+        let expanded = style.frame(for: .nowPlaying(track, expanded: true), on: geometry)
+        let others: [PresentationState] = [
+            .nowPlaying(track, expanded: false),
+            .hud(SystemHUD(kind: .volume, value: 0.5)),
+            .hud(SystemHUD(kind: .screenBrightness, value: 1)),
+        ]
+        for state in others {
+            let frame = style.frame(for: state, on: geometry)
+            #expect(expanded.contains(frame), "\(state) escapes the expanded-derived window")
+            // Each axis independently: a taller-but-narrower future HUD would
+            // still clip even if area looked safe.
+            #expect(frame.width <= expanded.width)
+            #expect(frame.height <= expanded.height)
+        }
+        // The window really is derived from expanded alone, so it inherits the
+        // dominance above — if that ever breaks, the morph clips at the edge.
+        let window = style.windowFrame(on: geometry)
+        for state in others {
+            #expect(window.contains(style.frame(for: state, on: geometry)))
+        }
+    }
+
     @Test func hiddenCollapsesToThePointOnTheAnchorLine() {
         let frame = style.frame(for: .hidden, on: geometry)
         #expect(frame.isEmpty)

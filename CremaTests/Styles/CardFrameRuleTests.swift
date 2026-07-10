@@ -29,7 +29,7 @@ struct CardFrameRuleTests {
         let compact = style.frame(for: .nowPlaying(track, expanded: false), on: geometry)
         let expanded = style.frame(for: .nowPlaying(track, expanded: true), on: geometry)
         #expect(compact.width == expanded.width)
-        #expect(style.frame(for: .hud(SystemHUD(kind: .volume, value: 0.5)), on: geometry).width == CardMetrics.hud.width)
+        #expect(style.frame(for: .hud(SystemHUD(kind: .volume, value: 0.5)), on: geometry).width == CardMetrics.hudSystemSize.width)
     }
 
     @Test func adaptiveBoundsAreOrderedAndContainedByTheRule() {

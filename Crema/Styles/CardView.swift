@@ -15,6 +15,24 @@ struct CardView: View {
     @Environment(\.surfaceStateSizes) private var stateSizes
     @Environment(\.surfaceSizeReporter) private var reportSurfaceSize
 
+    /// Gates every surface morph to a dry landing (MG5) — see
+    /// `SurfaceAnimation.geometryAnimation`; the opacity fade stays regardless.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// The layout the surface is coming FROM, for provenance-aware geometry
+    /// (see `geometryAnimation`). Ephemeral, purely visual: it never feeds the
+    /// domain. Advanced in `onChange` AFTER the render that reads it — see the
+    /// body comment for the evaluation-order subtlety.
+    @State private var previousLayoutKind: LayoutKind = .empty
+
+    /// The last VISIBLE layout — advanced only on non-empty kinds, so it survives
+    /// the whole hidden period. It is what the hidden surface freezes its geometry
+    /// to (`effectiveLayoutKind`), so a fade-out happens at the last-visible rect
+    /// rather than snapping to a compact silhouette behind the fading HUD. Kept
+    /// apart from `previousLayoutKind` (which advances to `.empty` too, and would
+    /// otherwise flip the frozen rect to compact one render into the fade).
+    @State private var lastVisibleLayoutKind: LayoutKind = .compact
+
     var body: some View {
         Group {
             if let size = surfaceSize {
@@ -32,14 +50,54 @@ struct CardView: View {
             reportSurfaceSize?(size)
         })
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        // Keyed on layoutKind so value ticks don't animate; direction picks the
-        // spring.
-        .animation(isExpanded ? SurfaceAnimation.open : SurfaceAnimation.close, value: layoutKind)
+        // This frame is geometry: it morphs only between visible layouts; an
+        // appearance from or disappearance to `.empty` snaps it, so a HUD/card
+        // born from hidden lands at its final rect instead of gliding in from the
+        // invisible compact geometry (the surface radius snaps too, and the fade
+        // lives on the opacity — both animated in `surface`). geometryAnimation
+        // reads `previousLayoutKind`, which still holds the OLD kind during the
+        // body pass that first sees the NEW layoutKind — `.animation(_:value:)`
+        // samples its animation argument at that pass, so the transition's true
+        // provenance is used; the onChange below then advances previousLayoutKind
+        // for next time (it runs after this body, so it can't disturb this read).
+        .animation(geometryAnimation, value: layoutKind)
         // Width morphs when the track changes (the key derives from the state
-        // payload, which ticks never rewrite) — never a bare jump.
-        .animation(SurfaceAnimation.open, value: adaptiveWidthKey)
+        // payload, which ticks never rewrite) — never a bare jump; dry under
+        // Reduce Motion like the geometry spring.
+        .animation(SurfaceAnimation.morph(reduceMotion: reduceMotion), value: adaptiveWidthKey)
         // Toggling view-only resizes the card while it is open — animate it too.
-        .animation(SurfaceAnimation.open, value: showsControls)
+        .animation(SurfaceAnimation.morph(reduceMotion: reduceMotion), value: showsControls)
+        .onChange(of: layoutKind) { _, newValue in
+            previousLayoutKind = newValue
+            // Skip `.empty`: the frozen-geometry contract needs the last VISIBLE
+            // layout to persist across the whole hidden period.
+            if newValue != .empty { lastVisibleLayoutKind = newValue }
+        }
+    }
+
+    /// Snap on an appearance/disappearance (either side `.empty`), morph between
+    /// visible layouts. Provenance comes from `previousLayoutKind` (the FROM) and
+    /// `layoutKind` (the TO); scoped to the frame and the surface radius only, so
+    /// the opacity fade is untouched.
+    private var geometryAnimation: Animation? {
+        SurfaceAnimation.geometryAnimation(
+            fromEmpty: previousLayoutKind == .empty,
+            toEmpty: layoutKind == .empty,
+            expanding: isExpanded,
+            reduceMotion: reduceMotion
+        )
+    }
+
+    /// Content-crossfade provenance (see `SurfaceAnimation.contentAnimation`):
+    /// nil on an appearance so the clamp — and the material/clip/stroke sized off
+    /// it — snaps to the destination instead of springing past the snapped outer
+    /// frame; the directional spring otherwise, so the outgoing content fades.
+    private var contentAnimation: Animation? {
+        SurfaceAnimation.contentAnimation(
+            fromEmpty: previousLayoutKind == .empty,
+            expanding: isExpanded,
+            reduceMotion: reduceMotion
+        )
     }
 
     var surface: some View {
@@ -53,17 +111,55 @@ struct CardView: View {
         HuggingWidthClamp(minWidth: adaptiveMinWidth, maxWidth: adaptiveMaxWidth, activeBranch: activeBranch) {
             content
         }
+        // The content crossfade. This scope is closest to the branches, so it
+        // wins over the radius snap above AND governs the bounds the material,
+        // clip and stroke are sized off (vibrantSurface's `.background`/clip size
+        // to the node below them — this clamp output). It is therefore
+        // provenance-aware: nil on an appearance (the geometry snaps, no ghost
+        // springs past the snapped outer frame; the content is invisible under
+        // opacity 0 and fades in with the surface), the directional spring on a
+        // disappearance (the glyph fades out instead of popping) and between
+        // visible layouts (the HUD↔now-playing crossfade + morph). It wraps the
+        // clamp's output, never the branch switch, so the active-branch
+        // measurement is intact.
+        .animation(contentAnimation, value: layoutKind)
         // Outside the clamp: wrapping the branch switch would collapse the
         // branches into one subview and break the active-branch measurement;
         // riding above them also keeps the accent state across
         // compact↔expanded.
         .artworkAccent(from: accentArtwork)
-        .vibrantSurface(in: RoundedRectangle(cornerRadius: CardMetrics.cornerRadius, style: .continuous))
+        // One morphing outline for every state: the radius is state-dependent
+        // (the short HUD would read as a capsule at the now-playing radius).
+        .vibrantSurface(in: RoundedRectangle(cornerRadius: surfaceCornerRadius, style: .continuous))
+        // Radius is geometry: it morphs HUD↔now-playing but SNAPS on an
+        // appearance from or disappearance to hidden. Keyed on the radius VALUE so
+        // it fires only when the corner actually changes (never on a same-radius
+        // appear), and it sits above the clamp, so it drives the corner without
+        // overriding the content crossfade's own inner scope.
+        .animation(geometryAnimation, value: surfaceCornerRadius)
         .opacity(layoutKind == .empty ? 0 : 1)
+        // The appearance/disappearance fade: opacity keeps its spring even when
+        // the geometry snaps, so a surface born from hidden fades in at its final
+        // frame instead of gliding in. Only fires on empty↔visible (opacity is 1
+        // across every visible transition), so its animation choice never touches
+        // a visible→visible morph.
+        .animation(isExpanded ? SurfaceAnimation.open : SurfaceAnimation.close, value: layoutKind)
+    }
+
+    /// The HUD gets its own smaller radius (rounded rectangle, not capsule); every
+    /// now-playing state keeps the generous card radius. Animatable, so the change
+    /// morphs under the surface spring. Keyed on the EFFECTIVE layout, so a hidden
+    /// surface keeps the radius it faded out with (empty-after-hud stays 12).
+    private var surfaceCornerRadius: CGFloat {
+        Self.surfaceCornerRadius(for: effectiveLayoutKind)
+    }
+
+    nonisolated static func surfaceCornerRadius(for kind: LayoutKind) -> CGFloat {
+        kind == .hud ? CardMetrics.hudSystemCornerRadius : CardMetrics.cornerRadius
     }
 
     private var adaptiveMinWidth: CGFloat? {
-        switch layoutKind {
+        switch effectiveLayoutKind {
         case .compact, .empty: CardMetrics.compactMinWidth
         case .expanded: CardMetrics.expandedMinWidth
         case .hud: nil
@@ -71,7 +167,7 @@ struct CardView: View {
     }
 
     private var adaptiveMaxWidth: CGFloat? {
-        switch layoutKind {
+        switch effectiveLayoutKind {
         case .compact, .empty: CardMetrics.compactMaxWidth
         case .expanded: CardMetrics.expandedMaxWidth
         case .hud: nil
@@ -79,9 +175,11 @@ struct CardView: View {
     }
 
     /// True while the surface hugs its content (nil width in `body` ⇒ the
-    /// clamp decides); the HUD fills its fixed rule size.
+    /// clamp decides); the HUD fills its fixed rule size. Keyed on the EFFECTIVE
+    /// layout so a hidden surface freezes the outgoing layout's width discipline
+    /// (empty-after-hud stays fixed-width, not hugging).
     private var adaptiveWidth: Bool {
-        switch layoutKind {
+        switch effectiveLayoutKind {
         case .compact, .empty, .expanded: true
         case .hud: false
         }
@@ -106,12 +204,15 @@ struct CardView: View {
     @ViewBuilder private var content: some View {
         switch contentKind {
         case .empty:
-            // Pinned to the floor: Color fills whatever is proposed, and
-            // the empty fade should collapse to the floor, not stretch to
-            // the ceiling.
+            // Fills whatever the effective layout proposes: while hidden the
+            // surface freezes the outgoing rect, so the empty branch must adopt
+            // that width (empty-after-hud fills the 210 rule width) rather than
+            // pinning to the compact floor — a fixed floor here snapped the
+            // material narrower the instant a HUD began fading out. The adaptive
+            // states still collapse to the floor: the clamp's provenance-aware
+            // minWidth pins them, not this branch.
             Color.clear
-                .frame(width: CardMetrics.compactMinWidth)
-                .frame(maxHeight: .infinity)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .layoutValue(key: SurfaceBranch.self, value: "empty")
         case .nowPlayingCompact(let track):
             compactContent(track)
@@ -133,22 +234,30 @@ struct CardView: View {
 
     private var surfaceSize: CGSize? {
         guard let stateSizes else { return nil }
-        switch layoutKind {
-        case .empty, .compact: return stateSizes.compact
-        case .expanded: return expandedSurfaceSize(stateSizes.expanded)
-        case .hud: return stateSizes.hud
+        return Self.surfaceSize(for: effectiveLayoutKind, in: stateSizes, showsControls: showsControls)
+    }
+
+    nonisolated static func surfaceSize(
+        for kind: LayoutKind,
+        in stateSizes: SurfaceStateSizes,
+        showsControls: Bool
+    ) -> CGSize {
+        switch kind {
+        case .empty, .compact: stateSizes.compact
+        case .expanded: expandedSurfaceSize(stateSizes.expanded, showsControls: showsControls)
+        case .hud: stateSizes.hud
         }
     }
 
     /// View-only shrinks the expanded card by exactly the controls section, so
     /// the visible sections fill it with no dead space; the fixed window is
     /// unchanged (always larger than any state).
-    private func expandedSurfaceSize(_ full: CGSize) -> CGSize {
+    nonisolated static func expandedSurfaceSize(_ full: CGSize, showsControls: Bool) -> CGSize {
         guard !showsControls else { return full }
         return CGSize(width: full.width, height: full.height - CardMetrics.controlsSectionHeight)
     }
 
-    private enum LayoutKind: Equatable {
+    enum LayoutKind: Equatable {
         case empty, compact, expanded, hud
     }
 
@@ -159,6 +268,19 @@ struct CardView: View {
         case .nowPlayingExpanded: .expanded
         case .hud: .hud
         }
+    }
+
+    /// The layout whose geometry the surface presents. Visible layouts are
+    /// themselves; a hidden surface FREEZES the last-visible layout so every
+    /// fade-out sits on the rect it is leaving (no snap to a compact silhouette
+    /// behind a fading HUD, and no mirror shrink on dismissal). Initial (nothing
+    /// shown yet) falls back to compact. Pure and testable.
+    private var effectiveLayoutKind: LayoutKind {
+        Self.effectiveLayoutKind(layout: layoutKind, lastVisible: lastVisibleLayoutKind)
+    }
+
+    nonisolated static func effectiveLayoutKind(layout: LayoutKind, lastVisible: LayoutKind) -> LayoutKind {
+        layout == .empty ? lastVisible : layout
     }
 
     private var isExpanded: Bool {
@@ -328,18 +450,46 @@ struct CardView: View {
         )
     }
 
-    private func hudContent(_ hud: SystemHUD) -> some View {
+    @ViewBuilder private func hudContent(_ hud: SystemHUD) -> some View {
         let presentation = HUDPresentation(hud: hud)
-        return HStack(spacing: CardMetrics.contentGap) {
-            Image(systemName: presentation.iconSystemName)
-                .frame(width: 22)
-            Slider(
-                value: Binding(
-                    get: { presentation.value },
-                    set: { hudSliderMoved(to: $0) }
+        switch displayPolicy.hudIndicatorStyle {
+        case .slider:
+            // Icon beside a padded slider — the shared HUD layout every skin uses.
+            HStack(spacing: CardMetrics.contentGap) {
+                Image(systemName: presentation.iconSystemName)
+                    .frame(width: 22)
+                    .symbolReplace(on: presentation.iconSystemName)
+                HUDLevelSlider(
+                    kind: hud.kind,
+                    value: presentation.value,
+                    onChange: { hudSliderMoved(to: $0) },
+                    variant: .slider
                 )
+            }
+            .padding(.horizontal, CardMetrics.contentPaddingHorizontal)
+        case .filled:
+            // Fused, full-bleed: the bar fills the whole HUD frame (no padding,
+            // no inner track) and the card's rounded-rect clip (vibrantSurface)
+            // rounds the sweep. The icon rides inside at the leading edge, over
+            // the fill at high levels and the dark remainder at low ones.
+            HUDLevelSlider(
+                kind: hud.kind,
+                value: presentation.value,
+                onChange: { hudSliderMoved(to: $0) },
+                variant: .filled
             )
+            .overlay(alignment: .leading) {
+                Image(systemName: presentation.iconSystemName)
+                    .foregroundStyle(CardMetrics.hudFilledIconColor)
+                    .padding(.leading, CardMetrics.hudFilledIconLeading)
+                    .accessibilityHidden(true)
+                    // The bar underneath owns the whole drag/tap surface; the
+                    // glyph is decoration and must let touches through to it.
+                    .allowsHitTesting(false)
+                    // Overlay glyph — a separate subtree from the fill below, so
+                    // the swap animates the icon without touching the bar.
+                    .symbolReplace(on: presentation.iconSystemName)
+            }
         }
-        .padding(.horizontal, CardMetrics.contentPaddingHorizontal)
     }
 }

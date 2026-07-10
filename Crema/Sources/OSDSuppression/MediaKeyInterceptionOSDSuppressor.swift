@@ -18,12 +18,17 @@ import os
 ///   `onAutoDisengage` — a broken write path (a future macOS locking an
 ///   actuator) degrades to the native HUD instead of leaving the user
 ///   holding a dead volume key.
-/// - Applies race a deadline: a hung actuator (a coreaudiod stall, a
-///   Bluetooth output dropping mid-write) would otherwise freeze the apply
-///   chain while keys keep being consumed — stranding the verification can't
-///   see, because nothing ever completes. The timeout counts as a failure;
-///   the hung call is abandoned on its background thread and the
-///   still-responsive MainActor disengages.
+/// - Applies race a deadline on an unstructured background task: a hung
+///   actuator (a coreaudiod stall, a Bluetooth output dropping mid-write)
+///   that never returns — not even to cancellation — would otherwise strand
+///   the apply chain while keys keep being consumed. A structured child (task
+///   group / async let) is joined at scope exit, so the deadline could never
+///   return while the write hangs; running the write unstructured lets the
+///   timeout return and disengage while the write finishes orphaned. Residual:
+///   a write that lands long after the deadline moves the value one step (the
+///   consumed press's own intent) with no HUD — bounded to that single press,
+///   because disengage stops further consumption and the queued keys fall
+///   through the generation guard rather than starting new writes.
 /// - An absent capability is not a failure: outputs without a volume/mute
 ///   control and Macs without a keyboard backlight no-op (as the native
 ///   handler does) instead of self-destructing the feature on ordinary
@@ -165,19 +170,46 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         }
     }
 
-    /// Races the operation against the apply deadline. On timeout the hung
-    /// call keeps running on its background thread (a blocked C call cannot
-    /// be cancelled) — abandoning it is the point: the MainActor stays
-    /// responsive and the failure path can restore the native behavior.
+    /// Races the write against the apply deadline so the deadline can always
+    /// return — even against a write that never completes and never observes
+    /// cancellation (a blocked synchronous C actuator call). The write runs on
+    /// an unstructured, detached task: unstructured so this scope is never
+    /// forced to join it (a task group or `async let` awaits every child at
+    /// scope exit, which a hung write would block forever, defeating the very
+    /// deadline this exists to enforce); detached so a blocked write parks on a
+    /// background thread, not the MainActor. On timeout the write is cancelled
+    /// (a no-op for a blocked C call, tidy-up for a cancellable one) and
+    /// abandoned; the caller's failure path then restores the native behavior.
+    /// The deadline sleep always fires, so the continuation is resumed exactly
+    /// once whatever the write does.
     private func withDeadline(_ operation: @escaping @Sendable () async throws -> Void) async throws {
-        try await withThrowingTaskGroup(of: Void.self) { [clock, applyDeadline] group in
-            group.addTask { try await operation() }
-            group.addTask {
-                try await clock.sleep(for: applyDeadline)
-                throw ApplyFailure.timedOut
+        let race = DeadlineRace()
+        let write = Task.detached {
+            do {
+                try await operation()
+                race.finish(.success(()))
+            } catch {
+                race.finish(.failure(error))
             }
-            defer { group.cancelAll() }
-            try await group.next()
+        }
+        let deadline = Task.detached { [clock, applyDeadline] in
+            do {
+                try await clock.sleep(for: applyDeadline)
+                race.finish(.failure(ApplyFailure.timedOut))
+            } catch {
+                // The write won the race and this sleep was cancelled.
+            }
+        }
+        do {
+            try await withCheckedThrowingContinuation { race.begin($0) }
+            deadline.cancel()
+        } catch {
+            write.cancel()
+            deadline.cancel()
+            if case ApplyFailure.timedOut = error {
+                logger.error("apply exceeded the \(self.applyDeadline, privacy: .public)s deadline — abandoning the hung write, disengaging")
+            }
+            throw error
         }
     }
 
@@ -189,5 +221,46 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         logger.error("consumed \(String(describing: key), privacy: .public) but failed to apply: \(error, privacy: .public) — disengaging, native HUD restored")
         setEngaged(false)
         onAutoDisengage?()
+    }
+}
+
+/// Single-resume guard for the write/deadline race in withDeadline. The
+/// abandoned write can land on any thread, so the guard is lock-based rather
+/// than MainActor-bound; whichever racer finishes first resumes the
+/// continuation and the rest no-op. If a racer finishes before begin installs
+/// the continuation, the first result is stashed and delivered on begin — so
+/// the continuation is resumed exactly once, never lost, never twice.
+private final class DeadlineRace: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Void, Error>?
+    private var pendingResult: Result<Void, Error>?
+    private var resumed = false
+
+    func begin(_ continuation: CheckedContinuation<Void, Error>) {
+        lock.lock()
+        if let result = pendingResult {
+            resumed = true
+            lock.unlock()
+            continuation.resume(with: result)
+        } else {
+            self.continuation = continuation
+            lock.unlock()
+        }
+    }
+
+    func finish(_ result: Result<Void, Error>) {
+        lock.lock()
+        guard !resumed else { lock.unlock(); return }
+        if let continuation {
+            resumed = true
+            self.continuation = nil
+            lock.unlock()
+            continuation.resume(with: result)
+        } else if pendingResult == nil {
+            pendingResult = result
+            lock.unlock()
+        } else {
+            lock.unlock()
+        }
     }
 }

@@ -171,6 +171,57 @@
         }
       }
     },
+    "hud.accessibility.brightness": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brightness"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brilho"
+          }
+        }
+      }
+    },
+    "hud.accessibility.keyboardBrightness": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keyboard Brightness"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brilho do teclado"
+          }
+        }
+      }
+    },
+    "hud.accessibility.volume": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volume"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volume"
+          }
+        }
+      }
+    },
     "menu.accessibilityWarning": {
       "extractionState": "manual",
       "localizations": {
@@ -234,7 +285,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "⚠️ Now playing indisponível — sem fonte de mídia"
+            "value": "⚠️ Tocando Agora indisponível — sem fonte de mídia"
           }
         }
       }
@@ -269,23 +320,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ajustes…"
-          }
-        }
-      }
-    },
-    "menu.suppressSystemHUD": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Suppress System HUD"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Suprimir HUD do sistema"
           }
         }
       }
@@ -455,7 +489,75 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aplica-se a todas as telas. Numa tela sem notch, o estilo Notch volta para o Card."
+            "value": "Aplica-se a todas as telas. Numa tela sem notch, o estilo Notch volta para o Cartão."
+          }
+        }
+      }
+    },
+    "settings.hud.indicator": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Indicator style"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estilo do indicador"
+          }
+        }
+      }
+    },
+    "settings.hud.indicator.filled": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filled bar"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barra"
+          }
+        }
+      }
+    },
+    "settings.hud.indicator.footer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Applies to the Card style."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplica-se ao estilo Cartão."
+          }
+        }
+      }
+    },
+    "settings.hud.indicator.slider": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slider"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slider"
           }
         }
       }
