@@ -22,11 +22,12 @@ keep itself current without a trip back to the releases page.
 
 ## Signing and notarization
 
-Crema isn't code-signed or notarized yet, so macOS flags it as coming from an
-unidentified developer the first time you open it (the
+Crema ships signed with a self-signed certificate — enough for a stable code
+identity across versions, but not trusted by Apple, so macOS still flags it as
+coming from an unidentified developer the first time you open it (the
 [installation notes](README.md#installation) explain how to get past that). A
-signed, notarized build would let it open without that step — a natural thing to
-add as the project matures.
+Developer ID certificate and notarization would let it open without that step — a
+natural thing to add as the project matures.
 
 ## More languages
 

@@ -13,10 +13,10 @@ Use este documento sempre que gerar ou alterar código neste repositório — el
 | Janelas e ciclo de vida      | AppKit — NSPanel borderless; app accessory (LSUIElement)                                                                                      |
 | Now playing                  | mediaremote-adapter (bridge em Perl) em todas as versões suportadas; fallback via JXA; checagem de disponibilidade — nunca MediaRemote direto |
 | Displays externos (roadmap)  | **Não implementado.** Planejado via BetterDisplay (OSD integration API; sentido inverso via betterdisplaycli / URL scheme / App Intents) ou Lunar (socket `lunar listen`); hoje o app cobre só o display interno + volume do sistema — ver ROADMAP.md |
-| Distribuição                 | Download direto, fora da Mac App Store; **não assinado/notarizado por ora**, atualização manual. Assinatura/notarização e auto-update via Sparkle são **roadmap** — ver ROADMAP.md |
+| Distribuição                 | Download direto, fora da Mac App Store; **assinado com certificado self-signed** (identidade de código estável entre versões, então o grant de Acessibilidade persiste; não satisfaz o Gatekeeper — "abrir mesmo assim" no primeiro launch), atualização manual. Developer ID + notarização e auto-update via Sparkle são **roadmap** — ver ROADMAP.md |
 | Alvo                         | macOS 14+ (Sonoma), Apple Silicon e Intel, com e sem notch                                                                                    |
 
-> **Construído vs. roadmap:** a integração com displays externos (BetterDisplay/Lunar), o auto-update via Sparkle e a assinatura/notarização **não estão implementados** — são roadmap (ver [ROADMAP.md](ROADMAP.md)). Hoje o app cobre o display interno + volume do sistema, é distribuído sem assinatura e atualiza por download manual. As menções a esses itens adiante descrevem como a arquitetura os acomoda **quando existirem**, não features atuais.
+> **Construído vs. roadmap:** a integração com displays externos (BetterDisplay/Lunar), o auto-update via Sparkle e o Developer ID/notarização **não estão implementados** — são roadmap (ver [ROADMAP.md](ROADMAP.md)). Hoje o app cobre o display interno + volume do sistema, é distribuído com assinatura self-signed (sem notarização; o Gatekeeper ainda pede "abrir mesmo assim") e atualiza por download manual. As menções a esses itens adiante descrevem como a arquitetura os acomoda **quando existirem**, não features atuais.
 
 ## Estrutura de pastas
 

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Deliberately empty: Crema needs no hardened-runtime exceptions (strongest notarization posture).
+  disable-library-validation: not needed — the brightness dlopens are Apple-signed system frameworks (DisplayServices, CoreBrightness); library validation allows Apple code.
+  allow-dyld-environment-variables: not needed — dlopen by absolute path, no DYLD_* set.
+  allow-jit / allow-unsigned-executable-memory: not needed — no JIT, no writable-executable memory.
+  automation.apple-events: not needed — the osascript subprocess sends the events, not Crema.
+  app-sandbox: deliberately unsandboxed — needs the Accessibility event tap and private brightness frameworks.
+  get-task-allow: must stay absent — notarization rejects it.
+  If a future change loads a non-Apple library in-process, sends Apple events in-process, or adds JIT, add only that one entitlement.
+-->
+<plist version="1.0">
+<dict/>
+</plist>

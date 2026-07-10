@@ -67,8 +67,9 @@ jobs:
         run: swiftformat --lint .
 
       - name: Build and test
-        # Crema is not code-signed and the runner has no signing identity, so
+        # The CI build is not code-signed (the runner has no signing identity), so
         # signing is disabled — otherwise xcodebuild would try to sign and fail.
+        # Release builds are signed separately by scripts/release.sh.
         # The suite is unit-only and deterministic (injected clocks, mocked
         # sources), so it needs no real audio device, display, or Accessibility
         # permission and runs cleanly on a headless runner.

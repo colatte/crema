@@ -109,7 +109,7 @@ private struct NowPlayingSettingsView: View {
             } footer: {
                 Text(String(
                     localized: "settings.nowPlaying.reactive.footer",
-                    defaultValue: "Reactive: the player appears on its own when a track changes or playback starts. Quiet: it stays hidden until you open it."
+                    defaultValue: "The player appears on its own when a track changes or playback starts. Turn off to keep it hidden until you open it."
                 ))
                 .settingsFootnote()
             }
