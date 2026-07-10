@@ -333,12 +333,7 @@ struct CardView: View {
         return HStack(spacing: CardMetrics.contentGap) {
             Image(systemName: presentation.iconSystemName)
                 .frame(width: 22)
-            Slider(
-                value: Binding(
-                    get: { presentation.value },
-                    set: { hudSliderMoved(to: $0) }
-                )
-            )
+            HUDLevelSlider(kind: hud.kind, value: presentation.value, onChange: { hudSliderMoved(to: $0) })
         }
         .padding(.horizontal, CardMetrics.contentPaddingHorizontal)
     }

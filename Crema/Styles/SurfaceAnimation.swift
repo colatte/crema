@@ -20,6 +20,19 @@ enum SurfaceAnimation {
     static let open: Animation = .spring(response: openResponse, dampingFraction: openDamping)
     static let close: Animation = .spring(response: closeResponse, dampingFraction: closeDamping)
 
+    /// HUD level-indicator spring (HUDLevelSlider): a fast glide with a barely
+    /// perceptible settle, the native volume/brightness feel. The response is
+    /// short so a single keypress lands well before the ~1.5 s HUD revert, yet
+    /// long enough to read as a glide instead of a jump; the damping sits just
+    /// under critical, so the overshoot is under one percent — near-invisible on
+    /// purpose (drop it toward ~0.8 if the settle should read livelier; below
+    /// that it visibly wobbles). Scoped to the level
+    /// value only, never the surface morph. Named apart from open/close so the
+    /// author can tune it on hardware without perturbing the surface springs.
+    static let hudLevelResponse: Double = 0.28
+    static let hudLevelDamping: Double = 0.86
+    static let hudLevel: Animation = .spring(response: hudLevelResponse, dampingFraction: hudLevelDamping)
+
     /// Headroom the fixed window keeps past the expanded frame (sideways and
     /// down; the top anchor stays pinned): the open spring's overshoot carries
     /// the surface a few points past its target, and without headroom the

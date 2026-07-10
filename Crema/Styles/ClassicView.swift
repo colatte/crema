@@ -222,12 +222,7 @@ struct ClassicView: View {
                 .font(.system(size: ClassicMetrics.hudIconSize))
                 .foregroundStyle(.secondary)
             Spacer(minLength: 0)
-            Slider(
-                value: Binding(
-                    get: { presentation.value },
-                    set: { hudSliderMoved(to: $0) }
-                )
-            )
+            HUDLevelSlider(kind: hud.kind, value: presentation.value, onChange: { hudSliderMoved(to: $0) })
         }
         .padding(ClassicMetrics.contentPadding + 8)
     }
