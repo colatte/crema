@@ -39,6 +39,11 @@ final class AppCore {
     /// real borders (demo sources) or the key source cannot consume — the
     /// Settings toggle then persists the wish but nothing engages.
     let osdSuppressor: (any NativeOSDSuppressor)?
+    /// Lock-aware engagement policy for the suppressor: suspends suppression
+    /// while the screen is locked or off-console (native OSD restored), and
+    /// re-engages on return iff the preference is on. Nil alongside a nil
+    /// suppressor — nothing to lock-guard.
+    private let suppressionLockController: SuppressionLockController?
     /// Launch-at-login control (SMAppService behind a protocol).
     let loginItem: any LoginItemManaging
     #if DEBUG
@@ -165,24 +170,28 @@ final class AppCore {
         if let consuming = mediaKeys as? any MediaKeyConsuming,
            let screenBackend = graph.screenBrightnessBackend,
            let keyboardBackend = graph.keyboardBrightnessBackend {
-            osdSuppressor = MediaKeyInterceptionOSDSuppressor(
+            let suppressor = MediaKeyInterceptionOSDSuppressor(
                 keys: consuming,
                 volume: CoreAudioOSDVolumeChannel(controller: graph.volumeController),
                 screen: ScreenBrightnessOSDChannel(backend: screenBackend, controller: graph.screenBrightnessController),
                 keyboard: KeyboardBrightnessOSDChannel(backend: keyboardBackend, controller: graph.keyboardBrightnessController)
             )
+            osdSuppressor = suppressor
+            // Suppression is only ever engaged through the lock controller, so a
+            // locked/off-console context suspends it (native OSD restored) and
+            // the lock path never touches the persisted opt-in.
+            suppressionLockController = SuppressionLockController(
+                suppressor: suppressor,
+                lockSource: DistributedNotificationScreenLockSource(),
+                preferences: preferences
+            )
         } else {
             osdSuppressor = nil
+            suppressionLockController = nil
         }
 
         presentAccessibilityOnboardingIfFirstLaunch()
 
-        // Degradation made visible: a failed apply already disengaged the
-        // suppressor (native HUD restored); flipping the persisted preference
-        // makes the Settings toggle reflect it instead of lying "on".
-        osdSuppressor?.onAutoDisengage = { [preferences] in
-            preferences.suppressesNativeOSD = false
-        }
         // Post-apply poke: the router's key-time sample shows the HUD with
         // the pre-apply value (with the key consumed, the app's write lands
         // after it) — this second sample refreshes it to the applied value.
@@ -217,10 +226,10 @@ final class AppCore {
         }
         // The preference persists across launches: suppression is a real
         // opt-in feature, and its reversibility never depends on state — the
-        // tap dies with the process.
-        if preferences.suppressesNativeOSD {
-            osdSuppressor?.setEngaged(true)
-        }
+        // tap dies with the process. The controller wires the auto-disengage
+        // report and engages to the correct initial state (suspended when
+        // launched while locked; off unless the opt-in is set).
+        suppressionLockController?.start()
 
         #if DEBUG
         startAdapterObservationIfRequested()
@@ -228,10 +237,15 @@ final class AppCore {
     }
 
     /// Persists the opt-in and engages/disengages the suppressor. Called by the
-    /// Settings toggle.
+    /// Settings toggle. Routed through the lock controller so a toggle-on while
+    /// locked persists the wish but defers engagement to unlock; when there is
+    /// no suppressor to control, the wish is still persisted.
     func setNativeOSDSuppression(_ enabled: Bool) {
-        preferences.suppressesNativeOSD = enabled
-        osdSuppressor?.setEngaged(enabled)
+        if let suppressionLockController {
+            suppressionLockController.setPreferredSuppression(enabled)
+        } else {
+            preferences.suppressesNativeOSD = enabled
+        }
     }
 
     // MARK: - Settings (live preference changes)
