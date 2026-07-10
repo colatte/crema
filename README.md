@@ -75,7 +75,7 @@ Curious what might come next? See the [roadmap](ROADMAP.md).
 ### First launch
 
 > [!NOTE]
-> Crema isn't signed or notarized yet (it's open source and distributed for free),
+> Crema isn't notarized by Apple (it's open source and distributed for free),
 > so the first time you open it macOS warns that it's from an "unidentified
 > developer." That's expected — nothing is wrong with the app, and you only need to
 > do this once.

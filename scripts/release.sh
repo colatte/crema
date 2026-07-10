@@ -3,9 +3,11 @@
 # release.sh — build a production Crema.app and package it as Crema.dmg.
 # Usage: ./scripts/release.sh <version>   (e.g. ./scripts/release.sh 1.0.0)
 #
-# Signing modes: ad-hoc by default; Developer ID when CREMA_SIGN_IDENTITY is set
-# (a "Developer ID Application: …" cert), then notarized via the CREMA_NOTARY_PROFILE
-# keychain profile (default "CremaNotary").
+# Signing modes, by CREMA_SIGN_IDENTITY: empty = ad-hoc (local/testing). A
+# "Developer ID Application: …" cert = Developer ID (sign + notarize + staple) via the
+# CREMA_NOTARY_PROFILE keychain profile (default "CremaNotary"). Any other non-empty
+# identity = self-signed: signs with a stable code identity so the Accessibility grant
+# persists across releases, but is not notarized (Apple only notarizes Developer ID).
 # Dependencies: full Xcode; create-dmg optional (hdiutil fallback); the Developer ID
 # path needs the cert + notary profile. See docs/internal/RELEASE-GUIDE.md.
 
@@ -77,7 +79,7 @@ DMG_SRC="$BUILD_DIR/dmg-src"               # holds only Crema.app for packaging
 BUILD_LOG="$BUILD_DIR/xcodebuild.log"
 DMG_OUT="$REPO_ROOT/$DMG_NAME"
 
-# Signing mode: SIGN_IDENTITY set = Developer ID + notarize; empty = ad-hoc fallback.
+# Signing mode: empty = ad-hoc; "Developer ID Application …" = Developer ID + notarize; any other non-empty = self-signed (sign only).
 # NOTARY_PROFILE is a notarytool keychain profile created once out of band; no secret lives here.
 SIGN_IDENTITY="${CREMA_SIGN_IDENTITY:-}"
 NOTARY_PROFILE="${CREMA_NOTARY_PROFILE:-CremaNotary}"
@@ -136,31 +138,44 @@ NESTED_MACHO=(
 )
 
 if [[ -n "$SIGN_IDENTITY" ]]; then
-    info "Developer ID: $SIGN_IDENTITY"
+    # Identity string picks the shape: "Developer ID Application …" = Developer ID (notarizable); any other non-empty = self-signed (sign only).
     [[ -f "$ENTITLEMENTS" ]] || fail "Entitlements file not found: $ENTITLEMENTS"
     security find-identity -v -p codesigning 2>/dev/null | grep -qF "$SIGN_IDENTITY" \
         || fail "Signing identity not in the keychain: '$SIGN_IDENTITY'. List them with: security find-identity -v -p codesigning"
-    # Sign inside-out; NEVER --deep for Developer ID (mis-applies the app's options
-    # to nested code).
+    if [[ "$SIGN_IDENTITY" == "Developer ID Application"* ]]; then
+        TIMESTAMP_FLAG=--timestamp   # Apple recommends a timestamp for Developer ID/notarization
+        info "Developer ID: $SIGN_IDENTITY"
+    else
+        TIMESTAMP_FLAG=--timestamp=none   # self-signed: a timestamp adds a network dependency with no Gatekeeper/notarization benefit
+        info "Self-signed: $SIGN_IDENTITY"
+        info "Signing with a self-signed identity (stable code identity, Accessibility grant persists across releases)."
+        info "Skipping notarization (Apple only notarizes Developer ID; Gatekeeper first-launch flow still applies)."
+    fi
+    # Hardened runtime stays on for self-signed too: costs nothing (no entitlements exceptions needed) and keeps the build identical to the future Developer ID path.
+    # Sign inside-out; NEVER --deep with entitlements (mis-applies the app's options to nested code).
     # Embedded frameworks/dylibs (usually none, but sign whatever the build produced).
     if [[ -d "$APP/Contents/Frameworks" ]]; then
         while IFS= read -r -d '' item; do
-            codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$item" \
-                || fail "codesign (Developer ID) failed on: $item"
+            codesign --force --options runtime $TIMESTAMP_FLAG --sign "$SIGN_IDENTITY" "$item" \
+                || fail "codesign failed on: $item"
         done < <(find "$APP/Contents/Frameworks" -depth \( -name '*.framework' -o -name '*.dylib' \) -print0)
     fi
     # The two vendored Mach-O in Contents/Resources, which a top-level codesign never reaches.
     for item in "${NESTED_MACHO[@]}"; do
         [[ -e "$item" ]] || fail "Expected nested binary missing: $item"
-        codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$item" \
-            || fail "codesign (Developer ID) failed on: $item"
+        codesign --force --options runtime $TIMESTAMP_FLAG --sign "$SIGN_IDENTITY" "$item" \
+            || fail "codesign failed on: $item"
     done
-    codesign --force --options runtime --timestamp \
+    codesign --force --options runtime $TIMESTAMP_FLAG \
         --entitlements "$ENTITLEMENTS" --sign "$SIGN_IDENTITY" "$APP" \
-        || fail "codesign (Developer ID) failed on $APP_NAME"
+        || fail "codesign failed on $APP_NAME"
     codesign --verify --deep --strict --verbose=2 "$APP" \
-        || fail "Developer ID signature did not verify on $APP_NAME"
-    info "Signed with Developer ID (hardened runtime + entitlements + timestamp)."
+        || fail "signature did not verify on $APP_NAME"
+    if [[ "$SIGN_IDENTITY" == "Developer ID Application"* ]]; then
+        info "Signed with Developer ID (hardened runtime + entitlements + timestamp)."
+    else
+        info "Signed self-signed (hardened runtime + entitlements, no timestamp)."
+    fi
 else
     info "Ad-hoc signing $APP_NAME (CREMA_SIGN_IDENTITY unset — local/testing build)."
     # --deep is fine for ad-hoc: no entitlements to mis-apply. The grant does not
@@ -205,7 +220,7 @@ fi
 
 # 4. Notarize + staple (Developer ID only)
 
-if [[ -n "$SIGN_IDENTITY" ]]; then
+if [[ "$SIGN_IDENTITY" == "Developer ID Application"* ]]; then
     # Notarize then staple the .dmg. The app copied to /Applications is notarized but
     # not stapled, so its first launch uses the online Gatekeeper check.
     # notarytool submit --wait exits 0 even when Invalid, so success = grep "status: Accepted".
