@@ -602,13 +602,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reactive: the player appears on its own when a track changes or playback starts. Quiet: it stays hidden until you open it."
+            "value": "The player appears on its own when a track changes or playback starts. Turn off to keep it hidden until you open it."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reativo: o player aparece sozinho quando troca a faixa ou a reprodução começa. Quieto: fica oculto até você abrir."
+            "value": "O player aparece sozinho quando a faixa troca ou a reprodução começa. Desative para mantê-lo oculto até você abrir."
           }
         }
       }
