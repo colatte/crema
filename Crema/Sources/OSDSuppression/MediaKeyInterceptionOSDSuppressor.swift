@@ -121,6 +121,21 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         case timedOut
     }
 
+    /// A consumed key whose channel reports no capability is a no-op — as the
+    /// native handler is on the same hardware (an HDMI/USB output without a
+    /// volume or mute control, a Mac without a keyboard backlight, or the
+    /// private symbols never resolving). It is not a failure and does not
+    /// disengage, but the tap has already swallowed the key, so it must not be
+    /// silent: a genuinely dead channel would otherwise eat the press with zero
+    /// feedback and no trace. Logged once per channel so a degradation is
+    /// diagnosable without spamming the log on every autorepeat.
+    private var reportedUnavailable: Set<String> = []
+
+    private func passThroughUnavailable(_ channel: String) {
+        guard reportedUnavailable.insert(channel).inserted else { return }
+        logger.notice("consumed a \(channel, privacy: .public) key but its channel is unavailable — no-op pass-through, like the native handler")
+    }
+
     private func applyVerified(_ key: MediaKey, fine: Bool, generation: Int) async {
         guard generation == self.generation, isEngaged else { return }
         do {
@@ -128,12 +143,12 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
             case .mute:
                 // No mute control on this output (plenty of USB/HDMI devices):
                 // no-op like the native handler, never a failure.
-                guard volume.supportsMute() else { return }
+                guard volume.supportsMute() else { passThroughUnavailable("mute"); return }
                 guard let muted = volume.readMuted() else { throw ApplyFailure.currentValueUnreadable }
                 try await withDeadline { [volume] in try await volume.setMuted(!muted) }
                 guard volume.readMuted() == !muted else { throw ApplyFailure.verificationFailed }
             case .volumeUp, .volumeDown:
-                guard volume.isAvailable() else { return }
+                guard volume.isAvailable() else { passThroughUnavailable("volume"); return }
                 // Volume-up unmutes first, like the native handler — otherwise
                 // the key "does nothing" audible while the device stays muted.
                 // Verified like any write: a dead mute plane must disengage,
@@ -144,10 +159,10 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
                 }
                 try await step(volume, key: key, fine: fine)
             case .screenBrightnessUp, .screenBrightnessDown:
-                guard screen.isAvailable() else { return }
+                guard screen.isAvailable() else { passThroughUnavailable("screen brightness"); return }
                 try await step(screen, key: key, fine: fine)
             case .keyboardBrightnessUp, .keyboardBrightnessDown:
-                guard keyboard.isAvailable() else { return }
+                guard keyboard.isAvailable() else { passThroughUnavailable("keyboard brightness"); return }
                 try await step(keyboard, key: key, fine: fine)
             }
             // Re-check: the apply awaited, and a disengage may have landed.

@@ -383,6 +383,49 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         #expect(h.volume.applied.count == 1)
     }
 
+    @Test func aChannelDyingMidRunDisengagesRatherThanDroppingSilently() async {
+        // The stale-display-ID signature at the suppressor seam: the channel
+        // stays "available" (its private symbols resolved once and never
+        // un-resolve), yet its reads start failing mid-session as the captured
+        // display ID goes stale. A consumed key must surface that death —
+        // disengage and report — never swallow the key into a silent no-op; the
+        // CLAUDE.md contract forbids a consumed-and-dropped key. This also pins
+        // why a stale ID cannot produce the "volume fine, brightness native"
+        // asymmetry: any brightness death disengages EVERY key, volume included.
+        let h = Harness()
+        h.suppressor.setEngaged(true)
+
+        h.keys.press(.screenBrightnessUp)
+        #expect(await eventually { h.screen.applied.count == 1 })   // healthy first
+
+        h.screen.value = nil   // the display ID went stale: reads now fail
+        h.keys.press(.screenBrightnessUp)
+
+        #expect(await eventually { !h.suppressor.isEngaged })   // surfaced, not silent
+        #expect(!h.keys.isConsuming)                            // native restored for ALL keys
+        #expect(h.disengages.count == 1)
+    }
+
+    @Test func aConsumedKeyOnAnUnavailableScreenChannelNoOpsWithoutDisengaging() async {
+        // A channel whose capability is genuinely absent (private symbols never
+        // resolved) is a no-op like the native handler — never a disengage, and
+        // never a silent swallow: the pass-through is logged once. Behaviorally,
+        // nothing applies and suppression stays on for the working channels.
+        let h = Harness()
+        h.screen.available = false
+        h.suppressor.setEngaged(true)
+
+        h.keys.press(.screenBrightnessUp)
+        h.keys.press(.screenBrightnessUp)
+        await settle()
+
+        #expect(h.screen.applied.isEmpty)
+        #expect(h.suppressor.isEngaged)
+        // Box.count is a running counter, not a collection.
+        // swiftlint:disable:next empty_count
+        #expect(h.disengages.count == 0)
+    }
+
     @Test func anUnreadableCurrentValueDisengages() async {
         let h = Harness()
         h.keyboard.value = nil

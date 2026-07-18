@@ -4,6 +4,11 @@ import SwiftUI
 @main
 struct CremaApp: App {
     @State private var core = AppCore()
+    #if !DEBUG
+    // Constructed only in Release: the updater must never exist in dev builds,
+    // so the whole property (and its SPUStandardUpdaterController) is compiled out.
+    @StateObject private var updater = UpdaterModel()
+    #endif
 
     var body: some Scene {
         MenuBarExtra(
@@ -35,6 +40,11 @@ struct CremaApp: App {
                 Divider()
             }
             SettingsMenuButton()
+            #if !DEBUG
+            // Release-only: in Debug the item does not exist, matching a build
+            // that never constructs the updater nor contacts the feed.
+            UpdaterMenuButton(updater: updater)
+            #endif
             Divider()
             #if DEBUG
             DemoMenu(core: core)
@@ -66,3 +76,21 @@ private struct SettingsMenuButton: View {
         .keyboardShortcut(",")
     }
 }
+
+#if !DEBUG
+/// Triggers Sparkle's update check. Like SettingsMenuButton it activates the app
+/// first — an accessory (LSUIElement) app has no key window, so Sparkle's panel
+/// would otherwise open behind whatever is frontmost. Disabled while a check is
+/// already in flight (Sparkle's canCheckForUpdates).
+private struct UpdaterMenuButton: View {
+    @ObservedObject var updater: UpdaterModel
+
+    var body: some View {
+        Button(String(localized: "menu.checkForUpdates", defaultValue: "Check for Updates…")) {
+            NSApp.activate(ignoringOtherApps: true)
+            updater.checkForUpdates()
+        }
+        .disabled(!updater.canCheckForUpdates)
+    }
+}
+#endif

@@ -239,6 +239,23 @@
         }
       }
     },
+    "menu.checkForUpdates": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check for Updates…"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscar Atualizações…"
+          }
+        }
+      }
+    },
     "menu.grantAccessibility": {
       "extractionState": "manual",
       "localizations": {
