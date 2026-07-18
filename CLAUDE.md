@@ -246,6 +246,10 @@ coord.onPresentationChange = { [weak self] in self?.applyFrames() }
 - Nunca manter a supressão de OSD engajada com a tela bloqueada ou a sessão fora do console — não há caminho público pra desenhar sobre o lock shield (NO-GO provado por probes em hardware; docs/internal/LOCKSCREEN-INVESTIGATION.md): o usuário ficaria sem nenhum feedback. A suspensão lock-aware nunca altera a preferência persistida
 - Nunca pré-setar defaults de consentimento do Sparkle (`SUEnableAutomaticChecks`, `SUAutomaticallyUpdate`) nem compilar o updater em Debug — o consentimento é do próprio Sparkle, e o contrato Debug-sem-updater é pinado por teste (`SparkleUpdaterTests`)
 
+## Gaps conhecidos
+
+- **Auto-disengage da supressão é global e persiste a preferência (J5)** — hoje, qualquer falha de apply num canal (volume, brilho da tela ou do teclado) desengaja a supressão **inteira** e grava `suppressesNativeOSD = false` — a única escrita de preferência do app que não vem de ação direta do usuário. Deliberado até o redesenho do raio (PLAN T10.1; mapa exato de gatilhos e punição em docs/internal/BUG-CLASS-AUDIT.md §A1). Não "corrigir" de passagem: o comportamento é a rede de segurança S5 (o usuário nunca fica sem controle de volume) e qualquer mudança precisa preservar isso.
+
 ## Decisões em aberto
 
 - [ ] **`SWIFT_VERSION = 5.0` no pbxproj × `--swiftversion 6` no `.swiftformat`** — as duas configs divergem sobre o modo de linguagem (o formatter assume regras de Swift 6 que o compilador não está aplicando); alinhar: subir o projeto pra Swift 6 ou corrigir o `.swiftformat`?
