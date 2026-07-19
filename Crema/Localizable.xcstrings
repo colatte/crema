@@ -307,6 +307,40 @@
         }
       }
     },
+    "menu.osdSuspended.retry": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try to reactivate now"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tentar reativar agora"
+          }
+        }
+      }
+    },
+    "menu.osdSuspended.warning": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⚠️ System HUD restored for %@ — Crema couldn't apply the change"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⚠️ HUD do sistema restaurado para %@ — o Crema não conseguiu aplicar a mudança"
+          }
+        }
+      }
+    },
     "menu.quit": {
       "extractionState": "manual",
       "localizations": {
@@ -439,6 +473,57 @@
           "stringUnit": {
             "state": "translated",
             "value": "O Crema precisa de acesso de Acessibilidade"
+          }
+        }
+      }
+    },
+    "osd.domain.keyboardBrightness": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keyboard brightness"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brilho do teclado"
+          }
+        }
+      }
+    },
+    "osd.domain.screenBrightness": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen brightness"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brilho da tela"
+          }
+        }
+      }
+    },
+    "osd.domain.volume": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volume"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volume"
           }
         }
       }

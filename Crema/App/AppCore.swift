@@ -35,6 +35,9 @@ final class AppCore {
     let preferences: Preferences
     let permissionMonitor: AccessibilityPermissionMonitor
     let nowPlayingMonitor: NowPlayingMonitor
+    /// Menu signal for domains whose native-OSD suppression stayed
+    /// unrecoverable long enough to escalate (A1). Fed from the suppressor.
+    let osdSuppressionMonitor = OSDSuppressionMonitor()
     let mediaKeys: any MediaKeySource
     /// Zero-latency brightness HUD via the tap; nil when on demo sources.
     let mediaKeyRouter: MediaKeyHUDRouter?
@@ -180,6 +183,13 @@ final class AppCore {
                 keyboard: KeyboardBrightnessOSDChannel(backend: keyboardBackend, controller: graph.keyboardBrightnessController)
             )
             osdSuppressor = suppressor
+            // Surface long-suspended domains in the menu. The suppressor fires
+            // this on escalation and on recovery; the monitor is pull-read by
+            // CremaApp, so a transient suspension that heals never shows.
+            let monitor = osdSuppressionMonitor
+            suppressor.onSuspensionStateChange = { [weak suppressor] in
+                monitor.update(suppressor?.longSuspendedDomains ?? [])
+            }
             // Suppression is only ever engaged through the lock controller, so a
             // locked/off-console context suspends it (native OSD restored) and
             // the lock path never touches the persisted opt-in.
@@ -256,6 +266,12 @@ final class AppCore {
         } else {
             preferences.suppressesNativeOSD = enabled
         }
+    }
+
+    /// The menu's "try to reactivate now" action: forces an immediate recovery
+    /// probe of every suspended suppression domain, ahead of the backoff.
+    func retryOSDSuppression() {
+        osdSuppressor?.retrySuspendedNow()
     }
 
     // MARK: - Settings (live preference changes)

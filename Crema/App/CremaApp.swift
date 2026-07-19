@@ -39,6 +39,17 @@ struct CremaApp: App {
                 ))
                 Divider()
             }
+            let suspended = core.osdSuppressionMonitor.longSuspendedDomains
+            if !suspended.isEmpty {
+                Text(osdSuspendedWarning(suspended))
+                Button(String(
+                    localized: "menu.osdSuspended.retry",
+                    defaultValue: "Try to reactivate now"
+                )) {
+                    core.retryOSDSuppression()
+                }
+                Divider()
+            }
             SettingsMenuButton()
             #if !DEBUG
             // Release-only: in Debug the item does not exist, matching a build
@@ -58,6 +69,31 @@ struct CremaApp: App {
 
         Settings {
             SettingsView(core: core)
+        }
+    }
+
+    /// The menu line naming the domains whose native OSD is back. The names are
+    /// joined with a locale-aware list format (", " vs " e " vs " and ") in a
+    /// stable, enum-declared order.
+    private func osdSuspendedWarning(_ domains: Set<OSDSuppressionDomain>) -> String {
+        let names = OSDSuppressionDomain.allCases
+            .filter(domains.contains)
+            .map(localizedDomainName)
+            .formatted(.list(type: .and))
+        return String(
+            localized: "menu.osdSuspended.warning",
+            defaultValue: "⚠️ System HUD restored for \(names) — Crema couldn't apply the change"
+        )
+    }
+
+    private func localizedDomainName(_ domain: OSDSuppressionDomain) -> String {
+        switch domain {
+        case .volume:
+            String(localized: "osd.domain.volume", defaultValue: "Volume")
+        case .screenBrightness:
+            String(localized: "osd.domain.screenBrightness", defaultValue: "Screen brightness")
+        case .keyboardBrightness:
+            String(localized: "osd.domain.keyboardBrightness", defaultValue: "Keyboard brightness")
         }
     }
 }

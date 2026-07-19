@@ -7,12 +7,14 @@ import os
 ///
 /// Observation by default: with no consumer set, the callback returns every
 /// event untouched and the system processes every key normally (native OSD
-/// included). Setting a consumer (native-OSD suppression) makes the
-/// tap swallow the owned keys — both phases — and forward key-downs to the
-/// consumer, which becomes responsible for applying the change. The tap is
-/// created as `.defaultTap` even in observation mode: a listen-only tap can
-/// never swallow, and swapping tap types at toggle time would add an
-/// install/teardown failure mode.
+/// included). Setting a consumer (native-OSD suppression) routes every owned
+/// key — both phases — through the consumer, which decides per event whether
+/// to swallow it (and, on a key-down, becomes responsible for applying the
+/// change). The consumer can pass a key straight through (its Bool returns
+/// false), which is how one suspended domain falls back to the native OSD
+/// while the others stay suppressed. The tap is created as `.defaultTap` even
+/// in observation mode: a listen-only tap can never swallow, and swapping tap
+/// types at toggle time would add an install/teardown failure mode.
 ///
 /// Requires Accessibility. Without it, the source reports unavailable and the
 /// app keeps running; a polling task keeps re-checking and installs the tap
@@ -202,16 +204,20 @@ final class CGEventTapMediaKeySource: MediaKeySource, MediaKeyConsuming, @unchec
             continuation.yield(key)
         }
 
-        guard MediaKeyTranslation.ownedKey(ignoringPhaseFromData1: data1) != nil else { return false }
+        guard let ownedKey = MediaKeyTranslation.ownedKey(ignoringPhaseFromData1: data1) else { return false }
         lock.lock()
         let consumer = self.consumer
         lock.unlock()
         guard let consumer else { return false }
 
-        if let key = MediaKeyTranslation.mediaKey(fromData1: data1) {
-            let modifiers = systemEvent.modifierFlags
-            consumer(key, modifiers.contains(.option) && modifiers.contains(.shift))
-        }
-        return true
+        // The consumer decides per phase whether to swallow. `mediaKey(fromData1:)`
+        // is the down-only decode (nil on key-up), so its non-nil result is the
+        // key-down/repeat signal; the phase-blind `ownedKey` carries the key on
+        // both phases. Fine-step only rides the down (a key-up applies nothing);
+        // the consumer keeps the up consistent with the down it committed to.
+        let isDown = MediaKeyTranslation.mediaKey(fromData1: data1) != nil
+        let modifiers = systemEvent.modifierFlags
+        let fine = isDown && modifiers.contains(.option) && modifiers.contains(.shift)
+        return consumer(ownedKey, fine, isDown)
     }
 }

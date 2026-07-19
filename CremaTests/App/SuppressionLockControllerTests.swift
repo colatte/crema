@@ -97,31 +97,22 @@ struct SuppressionLockControllerTests {
         #expect(h.suppressor.engageHistory.isEmpty)   // never engaged, ever
     }
 
-    // MARK: - Auto-disengage inert while suspended
+    // MARK: - The preference is only ever written by the user (A1)
 
-    @Test func autoDisengageIsInertWhileLocked() async {
+    @Test func lockCycleNeverWritesThePref() async {
+        // A full suspend/re-engage cycle must not touch the persisted opt-in.
+        // The pre-A1 auto-disengage path (a failed apply flipping the pref off,
+        // routed through this controller) is gone: the suppressor now suspends
+        // the failing domain in place and no failure path writes the pref.
         let h = Harness(prefOn: true)
         h.controller.start()
 
         h.lock.set(safe: false)
         #expect(await eventually { !h.suppressor.isEngaged })
+        h.lock.set(safe: true)
+        #expect(await eventually { h.suppressor.isEngaged })
 
-        // A straggling apply failure races the lock edge and fires the report;
-        // suspended-by-lock, it must not persist the opt-in off.
-        h.suppressor.fireAutoDisengage()
-        await settle()
-        #expect(h.preferences.suppressesNativeOSD)   // pref survives
-    }
-
-    @Test func autoDisengageStillFlipsPrefWhileSafe() {
-        // The degradation path is preserved for a genuine failure while actively
-        // suppressing: the Settings toggle must stop lying "on".
-        let h = Harness(prefOn: true)
-        h.controller.start()
-        #expect(h.suppressor.isEngaged)
-
-        h.suppressor.fireAutoDisengage()
-        #expect(!h.preferences.suppressesNativeOSD)
+        #expect(h.preferences.suppressesNativeOSD)   // never rewritten by the app
     }
 
     // MARK: - Launch-while-locked

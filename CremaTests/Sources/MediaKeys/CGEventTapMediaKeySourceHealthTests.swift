@@ -50,7 +50,7 @@ struct CGEventTapMediaKeySourceHealthTests {
 
         // The unlock re-engage path sets the consumer; that must revive the tap
         // synchronously, not wait up to a full poll interval.
-        source.setConsumer { _, _ in }
+        source.setConsumer { _, _, _ in true }
 
         #expect(ops.isCurrentlyEnabled)
     }
@@ -59,7 +59,7 @@ struct CGEventTapMediaKeySourceHealthTests {
         let (source, ops, _) = await installedSource()
         ops.simulateSystemDisable()
 
-        source.setConsumer { _, _ in }
+        source.setConsumer { _, _, _ in true }
 
         // Reviving re-enables the existing port rather than tearing it down and
         // recreating it — a reinstall would drop the consumer just set.
