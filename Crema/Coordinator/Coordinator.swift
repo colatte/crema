@@ -379,7 +379,16 @@ final class Coordinator {
         guard case .hud(let hud) = state else { return }
         switch hud.kind {
         case .volume:
+            // A drag to any audible target unmutes first, mirroring the
+            // volume-up key and the native handler: writing a level onto a
+            // muted device raises the number to no sound — the exact "does
+            // nothing audible" the key path unmutes to avoid. A drag to 0
+            // leaves mute untouched (parity with volume-down). setMuted before
+            // setVolume in one Task keeps the key path's ordering; a duplicate
+            // unmute from a fast drag echoing a stale snapshot is idempotent.
+            let unmute = hud.isMuted && value > 0
             run("setVolume") { [volumeController] in
+                if unmute { try await volumeController.setMuted(false, on: hud.display) }
                 try await volumeController.setVolume(value, on: hud.display)
             }
         case .screenBrightness:
