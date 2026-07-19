@@ -1,3 +1,4 @@
+import Foundation
 @testable import Crema
 
 /// Shared harness for the suppressor suites: the production suppressor over
@@ -10,12 +11,18 @@ final class OSDSuppressorHarness {
     let screen = MockOSDChannel()
     let keyboard = MockOSDChannel()
     let clock = TestSleepClock()
+    /// Read deadlines sleep here, apart from `clock` (probe backoff + write
+    /// deadline), so a test can advance one without tripping the other — read
+    /// deadlines fire on the probe-recovery path too (A5). Never advanced by
+    /// tests with fast reads; the read-hang suite drives it directly.
+    let readClock = TestSleepClock()
     let suppressor: MediaKeyInterceptionOSDSuppressor
     private(set) var suspensionChanges = 0
 
     init() {
         suppressor = MediaKeyInterceptionOSDSuppressor(
-            keys: keys, volume: volume, screen: screen, keyboard: keyboard, clock: clock
+            keys: keys, volume: volume, screen: screen, keyboard: keyboard,
+            clock: clock, readClock: readClock
         )
         suppressor.onSuspensionStateChange = { [weak self] in self?.suspensionChanges += 1 }
     }
@@ -50,9 +57,38 @@ final class MockOSDChannel: OSDChannel, @unchecked Sendable {
     var applyHangs = false
     private(set) var applied: [Double] = []
 
+    /// The read-side analogue of applyHangs (A5): when true, read() blocks the
+    /// calling detached thread on a semaphore until releaseRead(), modeling a
+    /// blocked synchronous C read (a coreaudiod stall) that readWithDeadline
+    /// must race a deadline against without freezing the MainActor. Unlike
+    /// applyHangs (a cancellable Task.sleep), this is genuinely uncancellable —
+    /// like the real C call — so releaseRead() at test end frees the orphan.
+    /// `passReadsBeforeHang` lets the pre-read succeed and only the read-back
+    /// hang (set it to 1); 0 hangs the very first read.
+    var readHangs = false
+    var passReadsBeforeHang = 0
+    private let hangLock = NSLock()
+    private var readsSeen = 0
+    private let readGate = DispatchSemaphore(value: 0)
+
     func isAvailable() -> Bool { available }
 
-    func read() -> Double? { value }
+    func read() -> Double? {
+        let shouldHang: Bool = hangLock.withLock {
+            guard readHangs, readsSeen >= passReadsBeforeHang else {
+                readsSeen += 1
+                return false
+            }
+            readsSeen += 1
+            return true
+        }
+        if shouldHang { readGate.wait() }
+        return value
+    }
+
+    /// Frees one parked read so its orphaned detached task completes and its
+    /// thread is released — call once per hung read at test end.
+    func releaseRead() { readGate.signal() }
 
     func apply(_ newValue: Double) async throws {
         if applyHangs {
@@ -84,11 +120,31 @@ final class MockOSDVolumeChannel: OSDVolumeChannel, @unchecked Sendable {
     private(set) var applied: [Double] = []
     private(set) var mutedWrites: [Bool] = []
 
-    func isAvailable() -> Bool { available }
+    /// Volume reads and its IPC guards can each hang independently (A5): the
+    /// availability guard (defaultOutputDeviceID), the mute-capability guard
+    /// (AudioObjectHasProperty), the level read, and the mute-plane read are all
+    /// Core Audio IPC. Each blocks on the shared gate until releaseHang(); one
+    /// hangs per test, so one release frees it.
+    var availableHangs = false
+    var supportsMuteHangs = false
+    var readHangs = false
+    var readMutedHangs = false
+    private let hangGate = DispatchSemaphore(value: 0)
 
-    func supportsMute() -> Bool { muteSupported }
+    func isAvailable() -> Bool {
+        if availableHangs { hangGate.wait() }
+        return available
+    }
 
-    func read() -> Double? { value }
+    func supportsMute() -> Bool {
+        if supportsMuteHangs { hangGate.wait() }
+        return muteSupported
+    }
+
+    func read() -> Double? {
+        if readHangs { hangGate.wait() }
+        return value
+    }
 
     func apply(_ newValue: Double) async throws {
         if applyThrows { throw Failure() }
@@ -98,7 +154,13 @@ final class MockOSDVolumeChannel: OSDVolumeChannel, @unchecked Sendable {
         }
     }
 
-    func readMuted() -> Bool? { muted }
+    func readMuted() -> Bool? {
+        if readMutedHangs { hangGate.wait() }
+        return muted
+    }
+
+    /// Frees one parked read/guard so its orphaned detached task completes.
+    func releaseHang() { hangGate.signal() }
 
     func setMuted(_ newValue: Bool) async throws {
         if applyThrows { throw Failure() }

@@ -22,17 +22,19 @@ import os
 ///   volume-key) heals in seconds, silently. This replaced a global
 ///   auto-disengage that killed all three domains and persisted the opt-in off
 ///   on any single-channel failure (A1); no failure path writes the pref now.
-/// - Applies race a deadline on an unstructured background task: a hung
-///   actuator (a coreaudiod stall, a Bluetooth output dropping mid-write)
-///   that never returns — not even to cancellation — would otherwise strand
-///   the apply chain while keys keep being consumed. A structured child (task
-///   group / async let) is joined at scope exit, so the deadline could never
-///   return while the write hangs; running the write unstructured lets the
-///   timeout return and suspend the domain while the write finishes orphaned.
-///   Residual: a write that lands long after the deadline moves the value one
-///   step (the consumed press's own intent) with no HUD — bounded to that
-///   single press, because the domain is suspended and the queued keys fall
-///   through the suspension guard rather than starting new writes.
+/// - Both the writes and the border reads race a deadline off the MainActor
+///   (mechanism in OSDApplyDeadline). A hung actuator (coreaudiod stall,
+///   Bluetooth output dropping mid-write) would strand the apply chain while
+///   keys keep being consumed; a blocking synchronous C read
+///   (AudioObjectGetPropertyData, DisplayServicesGetBrightness) run inline would
+///   be worse — freezing the whole app (HUD, now playing, menu) and wedging the
+///   queue (A5 covers the pre-read, read-back, mute-plane reads and the volume
+///   capability guards; brightness guards stay inline as pure dlsym nil-checks
+///   that never block). On timeout the domain is suspended and the operation
+///   abandoned; a late orphan is bounded and pure — a write moves the value one
+///   step with no HUD (the consumed press's own intent), a read writes nothing —
+///   because the domain is suspended and the queued keys fall through the
+///   suspension guard rather than starting new work.
 /// - An absent capability is not a failure: outputs without a volume/mute
 ///   control and Macs without a keyboard backlight no-op (as the native
 ///   handler does) instead of suspending the domain on ordinary hardware.
@@ -66,6 +68,13 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     private let screen: any OSDChannel
     private let keyboard: any OSDChannel
     private let clock: any SleepClock
+    /// Clock the read deadline sleeps on. Separate from `clock` only for tests:
+    /// read deadlines fire on the recovery-probe path too (probeOutcome's
+    /// reads), which runs while a domain's backoff is scheduled on `clock`, so
+    /// keeping them apart lets a test advance the probe backoff without tripping
+    /// a read deadline and vice-versa. In production both are real clocks and
+    /// the split is immaterial.
+    private let readClock: any SleepClock
     private let applyDeadline: Double
 
     private(set) var isEngaged = false
@@ -109,6 +118,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         screen: any OSDChannel,
         keyboard: any OSDChannel,
         clock: any SleepClock = ContinuousSleepClock(),
+        readClock: any SleepClock = ContinuousSleepClock(),
         applyDeadline: Double = MediaKeyInterceptionOSDSuppressor.defaultApplyDeadline
     ) {
         self.keys = keys
@@ -116,6 +126,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         self.screen = screen
         self.keyboard = keyboard
         self.clock = clock
+        self.readClock = readClock
         self.applyDeadline = applyDeadline
     }
 
@@ -236,77 +247,77 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
 
     private func applyMute() async throws {
         // No mute control on this output (plenty of USB/HDMI devices): no-op
-        // like the native handler, never a failure.
-        guard volume.supportsMute() else { passThroughUnavailable("mute"); return }
-        guard let muted = volume.readMuted() else { throw ApplyFailure.currentValueUnreadable }
+        // like the native handler, never a failure. Reads are deadline-raced —
+        // supportsMute/readMuted are Core Audio IPC that can stall (A5).
+        guard try await readWithDeadline({ [volume] in volume.supportsMute() }) else {
+            passThroughUnavailable("mute"); return
+        }
+        guard let muted = try await readWithDeadline({ [volume] in volume.readMuted() }) else {
+            throw ApplyFailure.currentValueUnreadable
+        }
         try await withDeadline { [volume] in try await volume.setMuted(!muted) }
-        guard volume.readMuted() == !muted else { throw ApplyFailure.verificationFailed }
+        guard try await readWithDeadline({ [volume] in volume.readMuted() }) == !muted else {
+            throw ApplyFailure.verificationFailed
+        }
     }
 
     private func applyVolumeStep(_ key: MediaKey, fine: Bool) async throws {
-        guard volume.isAvailable() else { passThroughUnavailable("volume"); return }
+        // The availability/mute guards are Core Audio IPC (defaultOutputDeviceID)
+        // that can stall, so they race the deadline like the reads (A5).
+        guard try await readWithDeadline({ [volume] in volume.isAvailable() }) else {
+            passThroughUnavailable("volume"); return
+        }
         // Volume-up unmutes first, like the native handler — otherwise the key
         // "does nothing" audible while the device stays muted. Verified like any
         // write: a dead mute plane must suspend the domain, not leave the user
         // pressing a silent volume key.
-        if key == .volumeUp, volume.supportsMute(), volume.readMuted() == true {
+        if key == .volumeUp,
+           try await readWithDeadline({ [volume] in volume.supportsMute() }),
+           try await readWithDeadline({ [volume] in volume.readMuted() }) == true {
             try await withDeadline { [volume] in try await volume.setMuted(false) }
-            guard volume.readMuted() == false else { throw ApplyFailure.verificationFailed }
+            guard try await readWithDeadline({ [volume] in volume.readMuted() }) == false else {
+                throw ApplyFailure.verificationFailed
+            }
         }
         try await step(volume, key: key, fine: fine)
     }
 
     private func step(_ channel: any OSDChannel, key: MediaKey, fine: Bool) async throws {
-        guard let before = channel.read(),
+        // Pre-read and read-back are deadline-raced: a blocked C read on the
+        // MainActor would freeze the app and wedge the queue (A5).
+        guard let before = try await readWithDeadline({ [channel] in channel.read() }),
               let target = MediaKeyStepper.next(from: before, key: key, fine: fine) else {
             throw ApplyFailure.currentValueUnreadable
         }
         try await withDeadline { [channel] in try await channel.apply(target) }
-        guard OSDApplyVerification.verified(before: before, target: target, after: channel.read()) else {
+        let after = try await readWithDeadline { [channel] in channel.read() }
+        guard OSDApplyVerification.verified(before: before, target: target, after: after) else {
             throw ApplyFailure.verificationFailed
         }
     }
 
-    /// Races the write against the apply deadline so the deadline can always
-    /// return — even against a write that never completes and never observes
-    /// cancellation (a blocked synchronous C actuator call). The write runs on
-    /// an unstructured, detached task: unstructured so this scope is never
-    /// forced to join it (a task group or `async let` awaits every child at
-    /// scope exit, which a hung write would block forever, defeating the very
-    /// deadline this exists to enforce); detached so a blocked write parks on a
-    /// background thread, not the MainActor. On timeout the write is cancelled
-    /// (a no-op for a blocked C call, tidy-up for a cancellable one) and
-    /// abandoned; the caller's failure path then suspends the domain.
-    /// The deadline sleep always fires, so the continuation is resumed exactly
-    /// once whatever the write does.
+    /// Bounds a write by the apply deadline (mechanism in OSDApplyDeadline): a
+    /// hung actuator (coreaudiod stall, Bluetooth output dropping mid-write) that
+    /// never returns would otherwise strand the apply chain while keys keep being
+    /// consumed. Maps the timeout onto the domain-suspension path.
     private func withDeadline(_ operation: @escaping @Sendable () async throws -> Void) async throws {
-        let race = DeadlineRace()
-        let write = Task.detached {
-            do {
-                try await operation()
-                race.finish(.success(()))
-            } catch {
-                race.finish(.failure(error))
-            }
-        }
-        let deadline = Task.detached { [clock, applyDeadline] in
-            do {
-                try await clock.sleep(for: applyDeadline)
-                race.finish(.failure(ApplyFailure.timedOut))
-            } catch {
-                // The write won the race and this sleep was cancelled.
-            }
-        }
         do {
-            try await withCheckedThrowingContinuation { race.begin($0) }
-            deadline.cancel()
-        } catch {
-            write.cancel()
-            deadline.cancel()
-            if case ApplyFailure.timedOut = error {
-                logger.error("apply exceeded the \(self.applyDeadline, privacy: .public)s deadline — abandoning the hung write, suspending the domain")
-            }
-            throw error
+            try await raceWriteDeadline(seconds: applyDeadline, clock: clock, operation)
+        } catch is DeadlineExceeded {
+            logger.error("apply exceeded the \(self.applyDeadline, privacy: .public)s deadline — abandoning the hung write, suspending the domain")
+            throw ApplyFailure.timedOut
+        }
+    }
+
+    /// The read-side sibling (A5): bounds a blocking C read by the same deadline
+    /// so a stalled read never freezes the MainActor and wedges the queue. Reads
+    /// sleep on `readClock`, apart from the probe backoff on `clock`.
+    private func readWithDeadline<T: Sendable>(_ read: @escaping @Sendable () -> T) async throws -> T {
+        do {
+            return try await raceReadDeadline(seconds: applyDeadline, clock: readClock, read)
+        } catch is DeadlineExceeded {
+            logger.error("a channel read exceeded the \(self.applyDeadline, privacy: .public)s deadline — abandoning the hung read, suspending the domain")
+            throw ApplyFailure.timedOut
         }
     }
 
@@ -348,13 +359,21 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
             if !immediate {
                 do { try await clock.sleep(for: delay) } catch { return }   // cancelled: kick or disengage
             }
-            // Probe phase (synchronous). Re-fetch: a disengage/re-engage may
-            // have cleared the state across the await.
+            // Probe phase. Re-fetch: a disengage/re-engage may have cleared the
+            // state across the backoff await.
             guard generation == self.generation,
                   let probe = probes[domain],
                   decider.isSuspended(domain) else { return }
             if !immediate { probe.backoffAttempt += 1 }
-            switch probeOutcome(domain) {
+            let outcome = await probeOutcome(domain)
+            // probeOutcome awaits (its reads race the read deadline); a
+            // disengage/re-engage across it invalidates this probe. Re-validate
+            // before mutating suspension state — a stale probe must not re-arm a
+            // menu warning a disengage just cleared.
+            guard generation == self.generation,
+                  probes[domain] === probe,
+                  decider.isSuspended(domain) else { return }
+            switch outcome {
             case .recovered:
                 reengage(domain, generation: generation)
                 return
@@ -392,18 +411,31 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     /// under the user. `isAvailable()` separates a genuinely absent channel (a
     /// disconnected output — a device transition that must never escalate) from
     /// a present channel that still cannot be read.
-    private func probeOutcome(_ domain: OSDSuppressionDomain) -> ProbeOutcome {
+    private func probeOutcome(_ domain: OSDSuppressionDomain) async -> ProbeOutcome {
         let channel = channel(for: domain)
-        let present = channel.isAvailable()
-        let recovered: Bool
-        switch domain {
-        case .volume:
-            recovered = present && channel.read() != nil
-        case .screenBrightness, .keyboardBrightness:
-            recovered = channel.read() != nil
+        do {
+            switch domain {
+            case .volume:
+                // Volume isAvailable() is Core Audio IPC and can stall, so it is
+                // deadline-raced along with the read (A5).
+                let present = try await readWithDeadline { [channel] in channel.isAvailable() }
+                guard present else { return .failedChannelAbsent }
+                let value = try await readWithDeadline { [channel] in channel.read() }
+                return value != nil ? .recovered : .failedChannelPresent
+            case .screenBrightness, .keyboardBrightness:
+                // Brightness isAvailable() is a pure dlsym nil-check (never
+                // blocks); only the DisplayServices read can hang and is raced.
+                let present = channel.isAvailable()
+                let value = try await readWithDeadline { [channel] in channel.read() }
+                if value != nil { return .recovered }
+                return present ? .failedChannelPresent : .failedChannelAbsent
+            }
+        } catch {
+            // A probe read hung past the deadline: treat it as a present-but-
+            // unreadable channel (a persistent stall) so it escalates like any
+            // unrecoverable domain, never freezing the probe loop on the read.
+            return .failedChannelPresent
         }
-        if recovered { return .recovered }
-        return present ? .failedChannelPresent : .failedChannelAbsent
     }
 
     private func channel(for domain: OSDSuppressionDomain) -> any OSDChannel {
@@ -444,46 +476,5 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     private func cancelAllProbes() {
         for probe in probes.values { probe.task?.cancel() }
         probes.removeAll()
-    }
-}
-
-/// Single-resume guard for the write/deadline race in withDeadline. The
-/// abandoned write can land on any thread, so the guard is lock-based rather
-/// than MainActor-bound; whichever racer finishes first resumes the
-/// continuation and the rest no-op. If a racer finishes before begin installs
-/// the continuation, the first result is stashed and delivered on begin — so
-/// the continuation is resumed exactly once, never lost, never twice.
-private final class DeadlineRace: @unchecked Sendable {
-    private let lock = NSLock()
-    private var continuation: CheckedContinuation<Void, Error>?
-    private var pendingResult: Result<Void, Error>?
-    private var resumed = false
-
-    func begin(_ continuation: CheckedContinuation<Void, Error>) {
-        lock.lock()
-        if let result = pendingResult {
-            resumed = true
-            lock.unlock()
-            continuation.resume(with: result)
-        } else {
-            self.continuation = continuation
-            lock.unlock()
-        }
-    }
-
-    func finish(_ result: Result<Void, Error>) {
-        lock.lock()
-        guard !resumed else { lock.unlock(); return }
-        if let continuation {
-            resumed = true
-            self.continuation = nil
-            lock.unlock()
-            continuation.resume(with: result)
-        } else if pendingResult == nil {
-            pendingResult = result
-            lock.unlock()
-        } else {
-            lock.unlock()
-        }
     }
 }
