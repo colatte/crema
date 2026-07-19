@@ -119,21 +119,16 @@ final class JXANowPlayingSource: NowPlayingSource, StoppableSource, @unchecked S
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
 
-        return await withCheckedContinuation { continuation in
-            process.terminationHandler = { _ in
-                // Output is a single short JSON string; safe to read once the
-                // process has exited (never on the main thread).
-                let data = try? pipe.fileHandleForReading.readToEnd()
-                let output = data
-                    .flatMap { String(data: $0, encoding: .utf8) }?
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                continuation.resume(returning: output)
-            }
-            do {
-                try process.run()
-            } catch {
-                continuation.resume(returning: nil)
-            }
-        }
+        // The osascript reply is bounded by the AppleEvent timeout (~1-2 min),
+        // but a probe holding the chain's selection that long is still a stall;
+        // cap it so a stuck query can't wedge fallback (audit A6). nil output
+        // reads as "nothing playing" — the probe's honest degraded answer.
+        return await runChildProcess(
+            process,
+            readingStdout: pipe,
+            timeout: 10,
+            clock: ContinuousSleepClock(),
+            failureValue: nil
+        ) { _, output in output }
     }
 }

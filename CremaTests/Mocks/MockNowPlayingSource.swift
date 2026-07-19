@@ -3,8 +3,10 @@ import Foundation
 
 /// Test fake: the test drives the stream via `emit`/`finish` and controls
 /// availability. Lock-protected, so it is safe to drive from the test while
-/// the @MainActor Coordinator consumes it.
-final class MockNowPlayingSource: NowPlayingSource, @unchecked Sendable {
+/// the @MainActor Coordinator consumes it. Stoppable like the real sources, so
+/// the chain's promotion path (which stops a silent source to force a cutover)
+/// can be exercised with mocks.
+final class MockNowPlayingSource: NowPlayingSource, StoppableSource, @unchecked Sendable {
     let updates: AsyncStream<NowPlaying>
 
     private let continuation: AsyncStream<NowPlaying>.Continuation
@@ -27,4 +29,5 @@ final class MockNowPlayingSource: NowPlayingSource, @unchecked Sendable {
 
     func emit(_ value: NowPlaying) { continuation.yield(value) }
     func finish() { continuation.finish() }
+    func stop() { continuation.finish() }
 }

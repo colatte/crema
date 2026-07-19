@@ -451,6 +451,21 @@ final class Coordinator {
         let surfacesReactively = surfacingEvent && (update.isPlaying || !identityChanged)
         let contentChanged = previous?.layoutContent != update.layoutContent
 
+        // A surfacing event is a natural re-check point: restore optimism so a
+        // degraded control becomes usable again — otherwise the disabled
+        // control has no path back once flipped. Hoisted above every branch,
+        // the .hud one included (audit B2): a track change arriving while a HUD
+        // owns the surface must still re-enable the controls, or play/pause
+        // stays dead for the rest of the track. Independent of quiet vs
+        // reactive: quiet mode still has a live invoked surface with controls,
+        // so it recovers the same way, ahead of the self-surface gate.
+        if surfacingEvent, !commandsAvailable {
+            commandsAvailable = true
+        }
+        if surfacingEvent, !skipCommandsAvailable {
+            skipCommandsAvailable = true
+        }
+
         if case .hud = state {
             // HUD has priority; a pending event resurfaces on the revert —
             // as the new event's reactive appearance (its linger too), exactly
@@ -461,18 +476,6 @@ final class Coordinator {
                 currentLinger = nowPlayingLinger
             }
             return
-        }
-
-        // A new event is a natural re-check point: restore optimism so a
-        // degraded control becomes usable again — otherwise the disabled
-        // control has no path back once flipped. Independent of quiet vs
-        // reactive: quiet mode still has a live invoked surface with controls,
-        // so it must recover the same way, ahead of the self-surface gate.
-        if surfacingEvent, !commandsAvailable {
-            commandsAvailable = true
-        }
-        if surfacingEvent, !skipCommandsAvailable {
-            skipCommandsAvailable = true
         }
 
         // A refinement must preserve the current expansion: an invoked player
@@ -507,6 +510,19 @@ final class Coordinator {
     /// snapshot is a ghost — playing it back on hover (or keeping hover armed)
     /// would offer a frozen scrubber and dead controls.
     private func handleNowPlayingEnded() {
+        discardActiveMedia()
+    }
+
+    /// The active now-playing source ended without the outer stream finishing —
+    /// a chain failover, a total outage, or a deliberate A4 promotion (audit
+    /// S6). The consumer's outer stream stays alive across those, so it never
+    /// sees a finish; without this seam the last snapshot lingers as a ghost
+    /// with `mediaActive` true and click-invoke armed (invoke would resurrect an
+    /// expanded player of dead media). Drops it here; the next live source's
+    /// snapshots rebuild the state through the normal update path. Wired from
+    /// the chain in AppCore. A brief surface blip on a fast failover is
+    /// acceptable; showing dead media with armed controls is not.
+    func activeNowPlayingSourceEnded() {
         discardActiveMedia()
     }
 

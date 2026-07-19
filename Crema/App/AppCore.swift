@@ -129,6 +129,13 @@ final class AppCore {
             reactiveNowPlaying: preferences.reactiveNowPlaying
         )
 
+        // Route the chain's active-source-ended signal into the Coordinator so
+        // the ghost is dropped rather than resurrected (audit S6); wired here
+        // because the Coordinator is built after the chain (rationale on the seam).
+        if let chain {
+            Self.wireActiveSourceEnded(from: chain, to: coordinator)
+        }
+
         // The tap feeds only the brightness sources (see MediaKeyHUDRouter);
         // absent on demo sources, where there is nothing to poke.
         if let screenSampler = graph.screenBrightnessSampler,
@@ -254,6 +261,16 @@ final class AppCore {
         #if DEBUG
         startAdapterObservationIfRequested()
         #endif
+    }
+
+    /// Wires the chain's ghost-discard seam: when its active source dies without
+    /// the outer stream finishing, the Coordinator drops the ghost rather than
+    /// resurrect it (audit S6). Standalone and static so the exact production
+    /// wiring is pinned by a test — the isolated halves never exercise it.
+    static func wireActiveSourceEnded(from chain: ChainedNowPlayingSource, to coordinator: Coordinator) {
+        chain.setActiveSourceEndedHandler { [weak coordinator] in
+            Task { @MainActor in coordinator?.activeNowPlayingSourceEnded() }
+        }
     }
 
     /// Persists the opt-in and engages/disengages the suppressor. Called by the

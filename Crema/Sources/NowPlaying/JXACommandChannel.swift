@@ -50,19 +50,17 @@ struct JXACommandChannel: NowPlayingCommandChannel {
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
 
-        let output: String? = await withCheckedContinuation { continuation in
-            process.terminationHandler = { _ in
-                let data = try? pipe.fileHandleForReading.readToEnd()
-                continuation.resume(returning: data
-                    .flatMap { String(data: $0, encoding: .utf8) }?
-                    .trimmingCharacters(in: .whitespacesAndNewlines))
-            }
-            do {
-                try process.run()
-            } catch {
-                continuation.resume(returning: nil)
-            }
-        }
+        // Interactive: the user re-taps well before this, so a tight cap keeps a
+        // stuck osascript from parking a command forever. A timeout returns nil,
+        // which degrades the controls just like any other command failure below
+        // (audit A6).
+        let output = await runChildProcess(
+            process,
+            readingStdout: pipe,
+            timeout: 5,
+            clock: ContinuousSleepClock(),
+            failureValue: nil
+        ) { _, output in output }
         guard output == "true" else { throw NowPlayingCommandError.commandFailed }
     }
 }

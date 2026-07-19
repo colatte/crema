@@ -25,13 +25,8 @@
 		1A0000000000000000000021 /* CremaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CremaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		1A0000000000000000000015 /* Crema */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (57DD3800300176320099492A /* Exceptions for "Crema" folder in "Crema" target */, ); explicitFileTypes = {}; explicitFolders = (); path = Crema; sourceTree = "<group>"; };
-		1A0000000000000000000025 /* CremaTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = CremaTests; sourceTree = "<group>"; };
-/* End PBXFileSystemSynchronizedRootGroup section */
-
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		57DD3800300176320099492A /* Exceptions for "Crema" folder in "Crema" target */ = {
+		57DD3800300176320099492A /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -39,6 +34,11 @@
 			target = 1A0000000000000000000010 /* Crema */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		1A0000000000000000000015 /* Crema */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (57DD3800300176320099492A /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = Crema; sourceTree = "<group>"; };
+		1A0000000000000000000025 /* CremaTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = CremaTests; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		1A0000000000000000000013 /* Frameworks */ = {

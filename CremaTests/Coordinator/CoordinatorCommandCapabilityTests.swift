@@ -139,6 +139,33 @@ struct CoordinatorCommandCapabilityTests {
         #expect(h.coordinator.commandsAvailable)   // transient — not latched off
     }
 
+    @Test func aSurfacingEventDuringAHUDRestoresDegradedControls() async {
+        // The heal reaches every branch, the .hud one included (audit B2): a
+        // track change arriving while a HUD owns the surface must re-enable the
+        // controls, or play/pause stays dead for the rest of the track. Before
+        // the fix the .hud branch returned early, ahead of the restore.
+        let h = CoordinatorHarness()
+        h.media.shouldThrow = true
+        h.coordinator.nextTrack()
+        #expect(await eventually { !h.coordinator.skipCommandsAvailable })
+        h.coordinator.togglePlayPause()
+        #expect(await eventually { !h.coordinator.commandsAvailable })
+
+        // A HUD takes the surface.
+        h.hudSource.emit(SystemHUD(kind: .volume, value: 0.5))
+        #expect(await eventually { h.coordinator.state == .hud(SystemHUD(kind: .volume, value: 0.5)) })
+
+        // A surfacing media event lands DURING the HUD.
+        h.media.shouldThrow = false
+        h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(title: "Time"))
+
+        #expect(await eventually { h.coordinator.commandsAvailable })
+        #expect(await eventually { h.coordinator.skipCommandsAvailable })
+        // The HUD branch semantics are intact — it still owns the surface and
+        // the event is only armed to resurface on the revert.
+        #expect(h.coordinator.state == .hud(SystemHUD(kind: .volume, value: 0.5)))
+    }
+
     @Test func hudCommandFailureDoesNotDisableMediaControls() async {
         let h = CoordinatorHarness()
         h.volume.shouldThrow = true
