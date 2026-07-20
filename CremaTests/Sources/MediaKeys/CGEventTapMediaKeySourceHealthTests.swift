@@ -163,4 +163,56 @@ struct CGEventTapMediaKeySourceHealthTests {
         #expect(ops.installedUserInfos.count == 2)
         #expect(ops.installedUserInfos[0] == ops.installedUserInfos[1])
     }
+
+    /// (unlock reinstall) `reinstallTap` forces a brand-new port even when the
+    /// current one is healthy — valid AND enabled, the state where the
+    /// health-check deliberately no-ops. This is the ENABLED-but-deaf field
+    /// failure (valid, enabled, zero events) the two health checks cannot see.
+    /// It tears down before installing (paired, no orphan) and the fresh port
+    /// routes back to the same source, so the dynamically-read consumer survives.
+    @Test func reinstallTapForcesFreshPortEvenWhenHealthy() async {
+        let (source, ops, _) = await installedSource()
+        source.setConsumer { _, _, _ in true }
+        let firstToken = ops.currentToken
+        #expect(ops.installCount == 1)
+        #expect(ops.isCurrentlyEnabled)   // healthy: a health-check would no-op
+
+        source.reinstallTap()
+
+        #expect(ops.installCount == 2)                 // forced despite a healthy port
+        #expect(ops.isInstalled)
+        #expect(ops.isCurrentlyEnabled)
+        #expect(ops.currentToken !== firstToken)       // a genuinely fresh port
+        // Paired teardown: the old port is uninstalled before the fresh install,
+        // so no orphan port is left behind.
+        #expect(ops.operations == ["install", "uninstall", "install"])
+        // A reinstall, never a re-enable — setEnabled is untouched.
+        #expect(ops.setEnabledCalls.isEmpty)
+        // Same source pointer across the reinstall → the callback reads the same,
+        // unchanged consumer: suppression/observation preserved by construction.
+        #expect(ops.installedUserInfos.count == 2)
+        #expect(ops.installedUserInfos[0] == ops.installedUserInfos[1])
+        withExtendedLifetime(source) {}
+    }
+
+    /// `reinstallTap` no-ops while the permission is missing: nothing is
+    /// installed, and the poll installs the instant permission lands, so there
+    /// is nothing to force and no spurious install to leak.
+    @Test func reinstallTapNoOpsWithoutPermission() async {
+        let ops = FakeEventTapOperating()
+        let clock = TestSleepClock()
+        let source = CGEventTapMediaKeySource(
+            permission: MockAccessibilityPermission(granted: false),
+            clock: clock,
+            tapOps: ops
+        )
+        await clock.waitForSleep()   // first poll: permission missing, nothing installed
+        #expect(ops.installCount == 0)
+
+        source.reinstallTap()
+
+        #expect(ops.installCount == 0)
+        #expect(!ops.isInstalled)
+        withExtendedLifetime(source) {}
+    }
 }

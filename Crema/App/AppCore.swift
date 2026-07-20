@@ -3,6 +3,11 @@ import Foundation
 import os
 import SwiftUI
 
+// The composition root wires every source, actuator, observer, and cross-object
+// seam in one place — cohesive, but past the 500-line warning (like Coordinator
+// and the suppressor, which opt out the same way).
+// swiftlint:disable file_length
+
 /// Composition root: builds and retains the app's object graph for the whole
 /// app lifetime. The default path (Debug and Release) runs the real system
 /// sources — volume (Core Audio), both brightnesses, and the now-playing
@@ -68,6 +73,11 @@ final class AppCore {
     private let nowPlayingChain: ChainedNowPlayingSource?
     private var screenObservation: NSObjectProtocol?
     private var terminationObservation: NSObjectProtocol?
+    /// Display/system wake observers that reinstall the media-key tap (A8). A
+    /// display-sleep/wake with no lock fires no unlock edge, so the lock-edge
+    /// reinstall cannot see it; these close that gap. Retained for the app
+    /// lifetime alongside the tap.
+    private var wakeObservations: [NSObjectProtocol] = []
     private var onboardingWindow: NSWindow?
 
     // The composition root wires every source, actuator, and observer; long by nature.
@@ -81,7 +91,10 @@ final class AppCore {
 
         permissionMonitor = AccessibilityPermissionMonitor(permission: accessibilityPermission)
         permissionMonitor.start()
-        mediaKeys = CGEventTapMediaKeySource(permission: accessibilityPermission)
+        // Kept as the concrete type too: the unlock-edge tap reinstall (A8) needs
+        // to call `reinstallTap()`, which is not on the MediaKeySource protocol.
+        let tapSource = CGEventTapMediaKeySource(permission: accessibilityPermission)
+        mediaKeys = tapSource
 
         let nowPlayingMonitor = NowPlayingMonitor()
         self.nowPlayingMonitor = nowPlayingMonitor
@@ -180,6 +193,26 @@ final class AppCore {
             chain?.stop()
         }
 
+        // Recover the tap on display/system wake, independent of the lock edge and
+        // of the suppressor. The ENABLED-but-deaf failure (A8) also strikes after a
+        // plain display-sleep/wake with no lock — which fires no unlock edge, so
+        // the SuppressionLockController hook below cannot see it. reinstallTap is
+        // convergent — safe to call repeatedly (it mints a fresh port each call but
+        // preserves the consumer by construction) — and no-ops without permission,
+        // so an extra trigger is safe; it also recovers plain observation (the
+        // brightness HUD) when the suppressor is absent or the pref is off. Wired
+        // on the concrete tap, which always exists, so wake recovery never depends
+        // on the suppressor graph. Delivered on the main queue so it runs on the
+        // same thread as the tap's main-run-loop callback (reinstallTap's
+        // teardown/create never races a delivered event).
+        let workspaceCenter = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.screensDidWakeNotification, NSWorkspace.didWakeNotification] {
+            let observer = workspaceCenter.addObserver(forName: name, object: nil, queue: .main) { [weak tapSource] _ in
+                tapSource?.reinstallTap()
+            }
+            wakeObservations.append(observer)
+        }
+
         if let consuming = mediaKeys as? any MediaKeyConsuming,
            let screenBackend = graph.screenBrightnessBackend,
            let keyboardBackend = graph.keyboardBrightnessBackend {
@@ -200,11 +233,29 @@ final class AppCore {
             // Suppression is only ever engaged through the lock controller, so a
             // locked/off-console context suspends it (native OSD restored) and
             // the lock path never touches the persisted opt-in.
-            suppressionLockController = SuppressionLockController(
+            let lockController = SuppressionLockController(
                 suppressor: suppressor,
                 lockSource: DistributedNotificationScreenLockSource(),
                 preferences: preferences
             )
+            // Recover the ENABLED-but-deaf tap on the unlock edge (A8): after a
+            // lock/display-sleep/unlock the tap can keep a valid, enabled port
+            // that silently stops delivering events; reinstalling preventively on
+            // unlock is the deterministic fix. Runs even with the pref off (the
+            // deafness kills plain observation too). Pinned by
+            // SuppressionUnlockReinstallSeamTests.
+            //
+            // This unlock-edge hook lives inside the suppressor gate, so it is
+            // co-gated with the suppressor: in the real graph the router
+            // (observation) and the suppressor are minted together (makeRealGraph
+            // wires both samplers and both backends non-nil), so router-exists ⟺
+            // suppressor-exists and observation recovery is never actually stranded
+            // here despite the rationale being "covers observation". The wake-edge
+            // reinstall wired above is the unconditional path — tied to the tap,
+            // not the suppressor — so plain observation still recovers in a (future)
+            // graph that has a router but no suppressor.
+            Self.wireUnlockReinstall(from: lockController, to: tapSource)
+            suppressionLockController = lockController
         } else {
             osdSuppressor = nil
             suppressionLockController = nil
@@ -271,6 +322,16 @@ final class AppCore {
         chain.setActiveSourceEndedHandler { [weak coordinator] in
             Task { @MainActor in coordinator?.activeNowPlayingSourceEnded() }
         }
+    }
+
+    /// Wires the unlock-edge tap reinstall: on return from lock/off-console the
+    /// controller fires `onUnlocked`, which physically reinstalls the media-key
+    /// tap (fresh mach port, consumer preserved) before re-engaging suppression.
+    /// Standalone and static so a seam test pins the exact production wiring —
+    /// the isolated halves (the controller's edge, the source's reinstall) never
+    /// exercise the join. Recovers the ENABLED-but-deaf tap (BUG-CLASS-AUDIT A8).
+    static func wireUnlockReinstall(from controller: SuppressionLockController, to source: CGEventTapMediaKeySource) {
+        controller.onUnlocked = { [weak source] in source?.reinstallTap() }
     }
 
     /// Persists the opt-in and engages/disengages the suppressor. Called by the

@@ -22,11 +22,27 @@ import Foundation
 /// a probe re-engages on recovery) and the pref stays the user's intent. This
 /// controller therefore has nothing to guard against on the failure side; the
 /// lock invariant is all that remains.
+///
+/// Second responsibility: the unlock/return-to-console edge is also where the
+/// media-key tap is physically recovered. After a lock/display-sleep/unlock the
+/// tap can go ENABLED-but-deaf (valid, enabled, zero events — see A8), so on the
+/// safe edge the controller fires `onUnlocked` *before* re-engaging, letting the
+/// owner reinstall the tap ahead of the consumer being set. The stream is already
+/// this type's single consumer, which is why the hook is born here.
 @MainActor
 final class SuppressionLockController {
     private let suppressor: (any NativeOSDSuppressor)?
     private let lockSource: any ScreenLockSource
     private let preferences: Preferences
+
+    /// Fired on the unlock / return-to-console edge (safe false→true), BEFORE
+    /// re-engagement, so the owner can physically recover the media-key tap
+    /// ahead of the consumer being set — pinned order: unlock → reinstall →
+    /// re-engage. Fires on the edge, not the level (a redundant safe=true with
+    /// no lock in between does not re-fire), and independent of the preference:
+    /// the tap's deafness (A8) kills plain observation too, so a pref-off user
+    /// still needs the reinstall. Nil unless the owner wires a recovery.
+    var onUnlocked: (@MainActor () -> Void)?
 
     private var isSafe: Bool
     private var consumeTask: Task<Void, Never>?
@@ -49,7 +65,12 @@ final class SuppressionLockController {
         consumeTask = Task { [weak self] in
             guard let self else { return }
             for await safe in self.lockSource.updates {
+                // The unlock / return-to-console edge (not the level): recover
+                // the tap before re-engaging so the fresh port adopts the
+                // consumer applyEngagement is about to set.
+                let becameSafe = safe && !self.isSafe
                 self.isSafe = safe
+                if becameSafe { self.onUnlocked?() }
                 self.applyEngagement()
             }
         }

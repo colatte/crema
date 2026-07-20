@@ -1,6 +1,12 @@
 import Foundation
 import os
 
+// One cohesive class: apply + verify + per-domain suspension + the two recovery
+// axes (read-driven probe, write-health flap). Its collaborators (DomainProbe,
+// SuppressionDecider, the deadline machinery) are already split out; the rest is
+// tightly coupled and large.
+// swiftlint:disable file_length
+
 /// Suppresses the native volume/brightness OSD by consuming the media keys:
 /// the system never sees the key, so it never shows its HUD, and the app
 /// becomes the only applier (docs/osd-suppression-reference.md §3.1 — the
@@ -59,6 +65,16 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     /// key.
     static let escalationThreshold = 5
 
+    /// The write-health axis counts apply-failure *episodes* (a verified write
+    /// that never moved, or a write that hung past the deadline), reset only by a
+    /// verified apply — a different measure from `escalationThreshold`, which
+    /// counts *scheduled* backoff probes and so encodes the ~31 s recovery
+    /// window. They share the value 5 but do not share a meaning: one key press
+    /// drives at most one write-health episode, so this threshold is a count of
+    /// failed applies, not a span of time. Named separately so the two axes are
+    /// not silently coupled through one constant.
+    static let writeHealthEscalationThreshold = 5
+
     private static func probeBackoff(attempt: Int) -> Double {
         attempt < probeBackoffSchedule.count ? probeBackoffSchedule[attempt] : probeBackoffCap
     }
@@ -97,6 +113,28 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     /// Per-domain recovery-probe state; a domain has an entry iff it is
     /// suspended.
     private var probes: [OSDSuppressionDomain: DomainProbe] = [:]
+
+    /// Consecutive read-OK/write-dead apply failures not yet cleared by a
+    /// verified apply — the WRITE-health escalation axis, orthogonal to the
+    /// probe's read-driven `channelPresentFailures`. Fed only by the signatures a
+    /// read-only probe cannot detect: a write the actuator accepted that never
+    /// moved (`verificationFailed`) or a write that hung past the deadline
+    /// (`writeTimedOut`). A read-side failure — a nil read (`currentValueUnreadable`)
+    /// or a stalled read (`readTimedOut`) — deliberately does NOT feed this axis:
+    /// the recovery probe reads, so it already owns that failure, and counting it
+    /// here would both double-count it and mislabel a read stall as a dead write.
+    /// The recovery probe is read-only by design (re-driving a write would flip
+    /// the value under the user), so it proves only the READ path: a channel whose
+    /// read is healthy but whose write is persistently dead (the post-wake ramp
+    /// re-asserting brightness, True Tone overriding the value) is re-engaged by
+    /// every probe and re-suspended by the very next key — a flap
+    /// `channelPresentFailures` never escalates, since the probe keeps
+    /// "recovering" and each recovery discards the whole DomainProbe. This counter
+    /// survives the optimistic re-engage and is reset only by a verified apply
+    /// (the sole proof the write is alive), so a write-dead/read-OK channel
+    /// surfaces in the menu instead of flapping in silence (the reported
+    /// regression).
+    private var unconfirmedApplyFailures: [OSDSuppressionDomain: Int] = [:]
 
     /// Applies run strictly in key order: an autorepeat burst over async
     /// applies would otherwise read the same base value twice and lose steps.
@@ -137,6 +175,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         if engaged {
             // Fresh engagement: every domain healthy, no in-flight suspension.
             decider.reset()
+            unconfirmedApplyFailures.removeAll()
             // The generation is baked into the consumer at install time: a
             // key consumed under this engagement hops to the main actor
             // carrying it, so a disengage/re-engage landing before the hop
@@ -164,6 +203,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
             keys.setConsumer(nil)
             cancelAllProbes()
             decider.reset()
+            unconfirmedApplyFailures.removeAll()
             if !longSuspendedDomains.isEmpty {
                 longSuspendedDomains.removeAll()
                 onSuspensionStateChange?()
@@ -193,9 +233,29 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     }
 
     private enum ApplyFailure: Error {
+        /// A read returned nil (read-side). The recovery probe owns this.
         case currentValueUnreadable
+        /// A read stalled past the deadline (read-side). The probe owns this.
+        case readTimedOut
+        /// The actuator accepted the write but the value never moved
+        /// (read-OK/write-dead). Feeds the write-health axis.
         case verificationFailed
-        case timedOut
+        /// The write itself hung past the deadline (read-OK/write-hung). Feeds
+        /// the write-health axis.
+        case writeTimedOut
+    }
+
+    /// The read-OK/write-dead signatures the read-only recovery probe cannot
+    /// prove, and so the only ones that feed the write-health escalation axis. A
+    /// read-side failure is the probe's own axis (`channelPresentFailures`);
+    /// counting it here would double-count it and mislabel a read stall as a dead
+    /// write.
+    private static func isWriteHealthFailure(_ error: Error) -> Bool {
+        guard let failure = error as? ApplyFailure else { return false }
+        switch failure {
+        case .verificationFailed, .writeTimedOut: return true
+        case .currentValueUnreadable, .readTimedOut: return false
+        }
     }
 
     /// A consumed key whose channel reports no capability is a no-op — as the
@@ -223,6 +283,10 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
             try await apply(key, fine: fine)
             // Re-check: the apply awaited, and a disengage may have landed.
             if generation == self.generation {
+                // A verified apply is the only proof the write path is alive: it
+                // clears the write-flap axis and any menu warning a dead write had
+                // raised — genuine recovery the read-only probe could never prove.
+                confirmWriteHealthy(domain)
                 onApplied?(key)
             }
         } catch {
@@ -305,7 +369,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
             try await raceWriteDeadline(seconds: applyDeadline, clock: clock, operation)
         } catch is DeadlineExceeded {
             logger.error("apply exceeded the \(self.applyDeadline, privacy: .public)s deadline — abandoning the hung write, suspending the domain")
-            throw ApplyFailure.timedOut
+            throw ApplyFailure.writeTimedOut
         }
     }
 
@@ -317,7 +381,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
             return try await raceReadDeadline(seconds: applyDeadline, clock: readClock, read)
         } catch is DeadlineExceeded {
             logger.error("a channel read exceeded the \(self.applyDeadline, privacy: .public)s deadline — abandoning the hung read, suspending the domain")
-            throw ApplyFailure.timedOut
+            throw ApplyFailure.readTimedOut
         }
     }
 
@@ -332,7 +396,35 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         decider.suspend(domain)
         let name = String(describing: domain)
         logger.notice("\(name, privacy: .public) apply failed (\(error, privacy: .public)) — suspending it, native OSD restored")
+        // Write-health escalation axis: a read-OK/write-dead episode the
+        // read-only probe will optimistically re-engage flaps forever, so count
+        // those episodes here — reset only by a verified apply — to surface a
+        // persistently un-appliable channel in the menu. Only the write-side
+        // signatures feed it (a verified write that never moved, a hung write); a
+        // read-side failure is the probe's own axis, and counting it here would
+        // both double-count it and mislabel a read stall as a dead write. Never
+        // writes the pref (A1); only feeds the same long-suspended set the probe
+        // axis does.
+        if Self.isWriteHealthFailure(error) {
+            let flaps = (unconfirmedApplyFailures[domain] ?? 0) + 1
+            unconfirmedApplyFailures[domain] = flaps
+            if flaps >= Self.writeHealthEscalationThreshold, !longSuspendedDomains.contains(domain) {
+                longSuspendedDomains.insert(domain)
+                onSuspensionStateChange?()
+                logger.notice("\(name, privacy: .public) apply keeps failing with the read healthy — surfacing in the menu (dead write)")
+            }
+        }
         startProbe(domain, generation: generation)
+    }
+
+    /// A verified apply proved the write path alive: clear the flap axis and, if
+    /// a write-dead channel had escalated, drop its menu warning. The read-only
+    /// probe can never do this — only a real, verified write can.
+    private func confirmWriteHealthy(_ domain: OSDSuppressionDomain) {
+        guard unconfirmedApplyFailures.removeValue(forKey: domain) != nil else { return }
+        if longSuspendedDomains.remove(domain) != nil {
+            onSuspensionStateChange?()
+        }
     }
 
     private func startProbe(_ domain: OSDSuppressionDomain, generation: Int) {
@@ -451,7 +543,14 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         decider.resume(domain)
         probes[domain]?.task?.cancel()
         probes[domain] = nil
-        if longSuspendedDomains.remove(domain) != nil {
+        // A read-only probe recovering proves only the READ path. If the domain
+        // escalated because its WRITE keeps failing (flap axis at the threshold),
+        // keep the menu warning until a verified apply proves the write alive —
+        // clearing it on this optimistic re-engage would flicker it off every
+        // cycle. A read-driven escalation (flap axis below threshold) recovers
+        // genuinely on this read, so its warning clears as before.
+        let writeStillUnconfirmed = (unconfirmedApplyFailures[domain] ?? 0) >= Self.writeHealthEscalationThreshold
+        if !writeStillUnconfirmed, longSuspendedDomains.remove(domain) != nil {
             onSuspensionStateChange?()
         }
         logger.info("\(String(describing: domain), privacy: .public) recovered on a probe — re-engaged silently")
@@ -468,8 +567,37 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     }
 
     func retrySuspendedNow() {
-        for domain in OSDSuppressionDomain.allCases where decider.isSuspended(domain) {
-            kickProbe(domain)
+        for domain in OSDSuppressionDomain.allCases {
+            if decider.isSuspended(domain) {
+                // Still suspended: kick the read-only recovery probe ahead of its
+                // backoff, exactly as an active user's key press would.
+                kickProbe(domain)
+            } else if longSuspendedDomains.contains(domain) {
+                // Long-suspended in the menu, yet no longer suspended: the
+                // read-only probe re-engaged the domain but its warning is latched
+                // pending a verified apply (a write-dead/hung channel). There is no
+                // live probe to kick and the domain is already suppressing again,
+                // so the kick branch above cannot reach it — that is exactly why
+                // the menu button was a no-op here. An explicit user retry clears
+                // the latch and lets the next real apply re-prove the write: if it
+                // is still dead it re-escalates on its own over the next flaps, but
+                // the button now does something and a warning left stale by a
+                // silently-healed write (verified apply never triggered because the
+                // user stopped pressing) is dismissible.
+                clearWriteHealthLatch(domain)
+            }
+        }
+    }
+
+    /// Drops the write-health flap axis and any latched menu warning for a domain
+    /// WITHOUT a verified apply — the one path allowed to do so, since it is
+    /// driven by the explicit user retry, which consents to re-testing the write
+    /// through the normal apply path. (The passive clearer is `confirmWriteHealthy`,
+    /// which requires a real verified apply.)
+    private func clearWriteHealthLatch(_ domain: OSDSuppressionDomain) {
+        unconfirmedApplyFailures[domain] = nil
+        if longSuspendedDomains.remove(domain) != nil {
+            onSuspensionStateChange?()
         }
     }
 

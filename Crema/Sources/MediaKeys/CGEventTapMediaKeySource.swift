@@ -118,6 +118,51 @@ final class CGEventTapMediaKeySource: MediaKeySource, MediaKeyConsuming, @unchec
         lock.unlock()
     }
 
+    /// Forces a brand-new tap unconditionally: tears down the current mach port
+    /// and installs a fresh one regardless of `isEnabled`/`CFMachPortIsValid`.
+    /// The stored `consumer` is read dynamically by the callback, so the fresh
+    /// port adopts it — suppression *and* plain observation survive by
+    /// construction. Uninstall precedes install deliberately: if `tapCreate`
+    /// fails transiently (the WindowServer is briefly busy right after a wake),
+    /// leaving zero tap is the *recoverable* state — the poll reinstalls within
+    /// one interval — whereas keeping the old port would strand it, and a
+    /// deaf-but-valid port is exactly what the poll cannot detect. So a rare,
+    /// self-healing ≤pollInterval window is preferred over possibly stranding the
+    /// very deafness this method exists to cure. No orphan port lingers either way.
+    ///
+    /// This exists for a failure mode the health-check is structurally blind to.
+    /// After a lock / display-sleep / unlock the tap can stay `isEnabled == true`
+    /// and `CFMachPortIsValid == true` yet silently stop delivering events
+    /// (observed on hardware: brightness keys show the native OSD, the callback
+    /// fires zero times — no observed key, no apply/suspend/probe — and only a
+    /// relaunch, i.e. a fresh tap, cures it). Both health checks read PORT state,
+    /// not event ROUTING, one level below the accounting this needs, so a live,
+    /// enabled port that stopped routing is indistinguishable from a healthy one.
+    /// Detecting the deafness without any delivered event is not reliably
+    /// possible, so the recovery is deterministic instead: reinstall preventively
+    /// on the unlock edge and on display/system wake (SuppressionLockController
+    /// drives the unlock edge; AppCore observes the wake notifications — the wake
+    /// path also catches a display-sleep/wake with no lock, which fires no unlock
+    /// edge). It covers observation mode too, where the same deafness kills the
+    /// brightness HUD even with suppression off — hence unconditional, never
+    /// pref-gated.
+    func reinstallTap() {
+        lock.lock()
+        defer { lock.unlock() }
+        // Nothing is (or should be) installed while the permission is missing —
+        // the poll installs the instant it lands, so there is nothing to force.
+        guard permission.isGranted() else { return }
+        if let tap {
+            tapOps.uninstall(tap)
+            self.tap = nil
+        }
+        if installTapIfAuthorizedLocked() {
+            logger.notice("media-key tap reinstalled preventively")
+        } else {
+            logger.error("media-key tap reinstall failed; poll will retry")
+        }
+    }
+
     // MARK: - Tap installation (border)
 
     /// Returns true once the tap is installed. Acquires the lock; see

@@ -153,4 +153,83 @@ struct SuppressionLockControllerTests {
         #expect(h.suppressor.isEngaged)
         #expect(h.preferences.suppressesNativeOSD)
     }
+
+    // MARK: - Unlock-edge tap reinstall (ENABLED-but-deaf recovery, A8)
+
+    @Test func unlockEdgeFiresReinstallBeforeReengage() async {
+        // Order is load-bearing: the physical reinstall must run BEFORE the
+        // re-engage sets the consumer, so the fresh port adopts it. At the moment
+        // onUnlocked fires, the suppressor is therefore still disengaged.
+        let h = Harness(prefOn: true)
+        h.controller.start()
+        h.lock.set(safe: false)
+        #expect(await eventually { !h.suppressor.isEngaged })
+
+        var sawEngagedAtReinstall: Bool?
+        h.controller.onUnlocked = { sawEngagedAtReinstall = h.suppressor.isEngaged }
+        h.lock.set(safe: true)
+        #expect(await eventually { h.suppressor.isEngaged })
+        #expect(sawEngagedAtReinstall == false)   // reinstall ran before re-engage
+    }
+
+    @Test func repeatedSafeWithoutLockReinstallsOnce() async {
+        // The controller guards on the EDGE (isSafe false→true), not the level: a
+        // redundant safe=true with no lock in between must not reinstall again.
+        var reinstalls = 0
+        let h = Harness(prefOn: true)
+        h.controller.onUnlocked = { reinstalls += 1 }
+        h.controller.start()
+
+        h.lock.set(safe: false)
+        #expect(await eventually { !h.suppressor.isEngaged })
+        h.lock.set(safe: true)
+        #expect(await eventually { h.suppressor.isEngaged })
+        #expect(reinstalls == 1)
+
+        h.lock.set(safe: true)   // redundant, no lock edge in between
+        await settle()
+        #expect(reinstalls == 1)
+    }
+
+    @Test func prefOffUnlockStillReinstallsWithoutEngaging() async {
+        // Deafness kills observation too, so the reinstall must fire on unlock
+        // even with suppression off — the controller runs independent of the pref.
+        var reinstalls = 0
+        let h = Harness(prefOn: false)
+        h.controller.onUnlocked = { reinstalls += 1 }
+        h.controller.start()
+
+        h.lock.set(safe: false)
+        await settle()
+        h.lock.set(safe: true)
+        #expect(await eventually { reinstalls == 1 })
+        #expect(!h.suppressor.isEngaged)             // pref off → never engages
+        #expect(h.suppressor.engageHistory.isEmpty)
+    }
+
+    @Test func launchAlreadyUnlockedDoesNotReinstall() async {
+        // The tap is freshly installed at launch; only an unlock EDGE reinstalls,
+        // so a normal already-unlocked start must not fire a spurious one.
+        var reinstalls = 0
+        let h = Harness(prefOn: true)   // safe: true
+        h.controller.onUnlocked = { reinstalls += 1 }
+        h.controller.start()
+        await settle()
+
+        #expect(h.suppressor.isEngaged)
+        #expect(reinstalls == 0)
+    }
+
+    @Test func lockEdgeDoesNotReinstall() async {
+        // Going to safe=false (lock / off-console) never reinstalls — the
+        // recovery belongs to the return edge.
+        var reinstalls = 0
+        let h = Harness(prefOn: true)
+        h.controller.onUnlocked = { reinstalls += 1 }
+        h.controller.start()
+
+        h.lock.set(safe: false)
+        #expect(await eventually { !h.suppressor.isEngaged })
+        #expect(reinstalls == 0)
+    }
 }
