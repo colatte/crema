@@ -34,7 +34,7 @@ crema/                       # raiz do repositório
 │   ├── osd-suppression-reference.md # pesquisa: supressão do OSD nativo
 │   └── internal/            # gitignored (local-only): SPEC.md, PLAN.md, RELEASE-GUIDE.md, auditorias e investigações
 ├── scripts/
-│   └── release.sh           # build + assinatura (ad-hoc / self-signed / Developer ID + notarização) + DMG
+│   └── release.sh           # build + carimbo do build number + assinatura (ad-hoc / self-signed / Developer ID + notarização, incl. o código aninhado do Sparkle) + DMG + regeneração do docs/appcast.xml
 ├── ThirdParty/
 │   └── mediaremote-adapter/ # bridge de now playing vendorizada (BSD-3-Clause)
 ├── Crema.xcodeproj          # projeto Xcode
