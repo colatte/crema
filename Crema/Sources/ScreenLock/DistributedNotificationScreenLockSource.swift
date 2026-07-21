@@ -24,16 +24,21 @@ import os
 /// the media-key tap keeps observing (Crema HUD) while never swallowing (native
 /// OSD back for good), across every key, until the next clean lock cycle or a
 /// relaunch. The tap has a health-check poll for exactly this class of "we only
-/// re-checked on an event that lied"; this source now has its own equivalent.
-/// `handleEdge` reconciles immediately, then schedules a short finite backoff of
-/// extra authoritative re-reads for the sub-second common skew, and finally a
-/// slow periodic tail (`settleTailInterval`) that keeps re-reading so a skew that
-/// outlasts the backoff — or any future latch of this class — still converges
-/// instead of latching unsafe forever, the same unbounded belt-and-suspenders the
-/// tap poll provides (the finite backoff was probabilistic; the tail makes the
-/// closure deterministic). Each re-read feeds the same reconciler, so a redundant
-/// one is silent (dedup) and the first to see the settled truth emits the
-/// transition the edge missed. This never touches the reinstall path, the
+/// re-checked on an event that lied"; this source has its own equivalent. The
+/// slow periodic tail (`settleTailInterval`) runs from construction — like the
+/// tap poll, which health-checks from init — so the re-verification exists even
+/// in the [launch, first edge) window: if the session's very first lock
+/// notification is dropped (DistributedNotificationCenter is best-effort, with no
+/// redundancy for a plain lock), the tail still catches the flip instead of
+/// latching safe over a lock shield with no edge to correct it (A3). `handleEdge`
+/// reconciles the edge immediately, then restarts that same tail behind a short
+/// finite backoff of extra authoritative re-reads for the sub-second common skew.
+/// This is exact parity with the tap poll now — both re-verify from init; the
+/// backoff alone was probabilistic, the unbounded tail makes the closure
+/// deterministic for a skew that outlasts it, a future latch of this class, or a
+/// dropped first notification. Each re-read feeds the same reconciler, so a
+/// redundant one is silent (dedup) and the first to see the settled truth emits
+/// the transition the edge missed. This never touches the reinstall path, the
 /// reconciler's dedup, or the engagement policy — the pref is still only ever
 /// written by the user, and engagement still only follows a real safe=true.
 @MainActor
@@ -58,14 +63,17 @@ final class DistributedNotificationScreenLockSource: ScreenLockSource {
     /// silent (deduped) reads.
     private static let settleReReadBackoff: [Double] = [0.15, 0.5, 1.5]
 
-    /// After the finite backoff, keep re-reading forever on this slow interval
-    /// (until a newer edge restarts the chain, or deinit). This turns the
-    /// H-CONSUMER-NIL closure from probabilistic — a skew that lands inside the
-    /// backoff window — into deterministic: even a pathological skew that outlasts
-    /// the backoff eventually converges, the same unbounded belt-and-suspenders
-    /// the media-key tap's health-check poll provides. Slow on purpose — the
-    /// common skew is already caught sub-second, so the tail only guards the rare
-    /// residual latch; steady state is one silent deduped read per interval.
+    /// The slow periodic re-read interval. The tail runs from construction and
+    /// again after each edge's finite backoff (a newer start restarts it; deinit
+    /// ends it), so the re-verification never has a gap — not even the [launch,
+    /// first edge) window. This turns the H-CONSUMER-NIL closure from
+    /// probabilistic — a skew that lands inside the backoff window, or an edge
+    /// that never arrives because the first notification was dropped — into
+    /// deterministic: it eventually converges regardless, exact parity with the
+    /// media-key tap's health-check poll, which likewise re-verifies from init.
+    /// Slow on purpose — the common skew is caught sub-second, so the tail only
+    /// guards the rare residual latch or the pre-first-edge window; steady state
+    /// is one silent deduped read per interval.
     private static let settleTailInterval: Double = 30
 
     let updates: AsyncStream<Bool>
@@ -110,6 +118,13 @@ final class DistributedNotificationScreenLockSource: ScreenLockSource {
         var cont: AsyncStream<Bool>.Continuation!
         updates = AsyncStream { cont = $0 }
         continuation = cont
+
+        // Arm the slow tail from construction, not just from the first edge: the
+        // media-key tap health-checks from init, and this source must match, or a
+        // dropped first lock notification would strand suppression safe over the
+        // lock shield until some future edge (A3). The first edge cleanly replaces
+        // this launch tail with its full backoff-then-tail chain.
+        startSettleReReads(withBackoff: false)
 
         if usesRealReader { installObservers() }
     }
@@ -156,26 +171,32 @@ final class DistributedNotificationScreenLockSource: ScreenLockSource {
     /// edge took before the session dictionary settled.
     func handleEdge() {
         reconcileFromPoll()
-        scheduleSettleReReads()
+        startSettleReReads(withBackoff: true)
     }
 
-    /// Restarts the settle re-read chain: a fast finite backoff, then a slow
-    /// unbounded tail. At most one chain runs at a time, and a fresh edge gets a
-    /// fresh full window (a rapid lock→unlock does not stack chains).
-    /// Cancellation (a newer edge, or deinit) ends it cleanly. `clock` is
-    /// captured by value so the sleep never retains `self`.
-    private func scheduleSettleReReads() {
+    /// Starts the settle re-read chain: optionally a fast finite backoff, then a
+    /// slow unbounded tail. Called two ways — from construction with no backoff
+    /// (the launch tail, parity with the tap poll running from init: it covers the
+    /// [launch, first edge) window), and from each edge with the backoff in front
+    /// (the sub-second common skew). At most one chain runs at a time — a fresh
+    /// start cancels the previous — so the first edge cleanly replaces the launch
+    /// tail and a rapid lock→unlock never stacks chains. Cancellation (a newer
+    /// start, or deinit) ends it cleanly. `clock` is captured by value so the
+    /// sleep never retains `self`.
+    private func startSettleReReads(withBackoff: Bool) {
         settleTask?.cancel()
         settleTask = Task { @MainActor [weak self, clock = self.clock] in
-            for delay in Self.settleReReadBackoff {
-                do { try await clock.sleep(for: delay) } catch { return }   // cancelled
-                guard let self, !Task.isCancelled else { return }
-                self.reconcileFromPoll(caughtBySettle: true)
+            if withBackoff {
+                for delay in Self.settleReReadBackoff {
+                    do { try await clock.sleep(for: delay) } catch { return }   // cancelled
+                    guard let self, !Task.isCancelled else { return }
+                    self.reconcileFromPoll(caughtBySettle: true)
+                }
             }
-            // The backoff alone closes the common skew only probabilistically;
-            // this tail keeps re-reading until the next edge (or deinit) so a skew
-            // that outlasts the backoff still converges instead of latching unsafe
-            // forever — the same role the tap's health-check poll plays.
+            // The tail re-reads until the next start (or deinit) so a skew that
+            // outlasts the backoff, or a dropped first notification before any
+            // edge ever arrives, still converges instead of latching forever — the
+            // same role the tap's health-check poll plays, and likewise from init.
             while !Task.isCancelled {
                 do { try await clock.sleep(for: Self.settleTailInterval) } catch { return }
                 guard let self, !Task.isCancelled else { return }

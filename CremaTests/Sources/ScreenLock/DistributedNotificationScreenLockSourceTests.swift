@@ -261,6 +261,80 @@ struct DistributedNotificationScreenLockSourceTests {
         controller.stop()
         withExtendedLifetime((source, lockSource)) {}
     }
+
+    // MARK: - The launch tail — the [launch, first edge) gap (A3)
+
+    /// The NO-GO the launch tail closes: a session locks but its very first
+    /// `screenIsLocked` notification is DROPPED (DistributedNotificationCenter is
+    /// best-effort, no redundancy for a plain lock), so no edge ever fires. Before
+    /// A3 the settle re-reads were edge-gated — nothing re-verified until a future
+    /// edge — so `isSuppressionSafe` stayed latched true and suppression engaged
+    /// over the lock shield, the exact NO-GO the lock-aware policy exists to
+    /// prevent. Now the slow tail runs from construction (parity with the tap's
+    /// health-check poll): with the clock advanced it re-reads the authoritative
+    /// session, sees the lock, flips the source, and the consumer suspends — all
+    /// with no edge. Driven end to end through the real SuppressionLockController.
+    @Test func launchTailSuspendsTheConsumerOnAFirstLockWithNoEdge() async {
+        let box = SessionBox(locked: false, onConsole: true)   // unlocked at launch
+        let clock = TestSleepClock()
+        let source = makeSource(box, clock: clock)
+
+        let defaults = EphemeralDefaults()
+        let prefs = Preferences(defaults: defaults.defaults)
+        prefs.suppressesNativeOSD = true
+        let suppressor = RecordingOSDSuppressor()
+        let controller = SuppressionLockController(
+            suppressor: suppressor, lockSource: source, preferences: prefs
+        )
+        controller.start()
+        #expect(suppressor.isEngaged)              // engaged at a safe launch
+
+        // No edge ever fires — the launch tail, running since init, is the only
+        // re-verification. The authoritative session flips to locked.
+        await clock.waitForSleep()                 // the launch tail is parked from init
+        box.locked = true
+
+        #expect(await eventually {
+            clock.advance()
+            return !suppressor.isEngaged
+        }, "the launch tail never caught the first lock — the [launch, first edge) NO-GO gap")
+        #expect(!source.isSuppressionSafe)         // source latched to unsafe: consumer suspended
+
+        controller.stop()
+        withExtendedLifetime(source) {}
+    }
+
+    /// The symmetric case: launched while locked (engagement deferred), the first
+    /// `screenIsUnlocked` notification is dropped, so no edge fires. The launch
+    /// tail catches the unlock and re-engages — the source flips safe and the
+    /// consumer re-engages, again with no edge.
+    @Test func launchTailReengagesTheConsumerOnAFirstUnlockWithNoEdge() async {
+        let box = SessionBox(locked: true, onConsole: true)    // locked at launch
+        let clock = TestSleepClock()
+        let source = makeSource(box, clock: clock)
+
+        let defaults = EphemeralDefaults()
+        let prefs = Preferences(defaults: defaults.defaults)
+        prefs.suppressesNativeOSD = true
+        let suppressor = RecordingOSDSuppressor()
+        let controller = SuppressionLockController(
+            suppressor: suppressor, lockSource: source, preferences: prefs
+        )
+        controller.start()
+        #expect(!suppressor.isEngaged)             // launched locked: engagement deferred
+
+        await clock.waitForSleep()                 // the launch tail is parked from init
+        box.locked = false
+
+        #expect(await eventually {
+            clock.advance()
+            return suppressor.isEngaged
+        }, "the launch tail never caught the first unlock with no edge")
+        #expect(source.isSuppressionSafe)          // source flipped safe: consumer re-engaged
+
+        controller.stop()
+        withExtendedLifetime(source) {}
+    }
 }
 
 /// data1 for a volume-down press: NX_KEYTYPE_SOUND_DOWN (1) in the high word,

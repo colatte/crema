@@ -173,14 +173,11 @@ final class AppCore {
         windowManager.updateScreens(ScreenTranslation.describeAll())
 
         let windowManager = self.windowManager
-        screenObservation = NotificationCenter.default.addObserver(
-            forName: NSApplication.didChangeScreenParametersNotification,
-            object: nil,
-            queue: .main
-        ) { _ in
-            Task { @MainActor in
-                windowManager.updateScreens(ScreenTranslation.describeAll())
-            }
+        screenObservation = Self.wireScreenParameterReinstall(
+            center: .default,
+            reinstalling: tapSource
+        ) {
+            windowManager.updateScreens(ScreenTranslation.describeAll())
         }
 
         // Kill the adapter's Perl process on quit — deinit does not run reliably
@@ -332,6 +329,35 @@ final class AppCore {
     /// exercise the join. Recovers the ENABLED-but-deaf tap (BUG-CLASS-AUDIT A8).
     static func wireUnlockReinstall(from controller: SuppressionLockController, to source: CGEventTapMediaKeySource) {
         controller.onUnlocked = { [weak source] in source?.reinstallTap() }
+    }
+
+    /// Wires the display-topology observer: `didChangeScreenParameters` refreshes
+    /// the panels (`onScreenChange`) and reinstalls the media-key tap. A display
+    /// hotplug with no sleep fires only this notification — no wake, no lock/unlock
+    /// edge — yet the WindowServer reconfiguration can re-route event delivery the
+    /// same ENABLED-but-deaf way display-sleep/wake does (A8/J7), so this is the
+    /// 4th reinstall trigger of that family (didWake, screensDidWake, and the
+    /// unlock edge being the other three). reinstallTap is convergent, idempotent
+    /// and permission-gated, so the extra trigger carries no risk and closes a gap
+    /// no wake or lock edge would reach. Standalone and static so a seam test pins
+    /// the reinstall trigger (post the notification → reinstall) without booting
+    /// the whole graph. Returns the observer token AppCore retains.
+    static func wireScreenParameterReinstall(
+        center: NotificationCenter,
+        reinstalling source: CGEventTapMediaKeySource,
+        onScreenChange: @escaping @MainActor () -> Void
+    ) -> NSObjectProtocol {
+        center.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak source] _ in
+            // Delivered on the main queue so the reinstall runs on the tap's own
+            // thread — its teardown/create never races a delivered event, the same
+            // reason the wake observers reinstall on `.main`.
+            source?.reinstallTap()
+            Task { @MainActor in onScreenChange() }
+        }
     }
 
     /// Persists the opt-in and engages/disengages the suppressor. Called by the
