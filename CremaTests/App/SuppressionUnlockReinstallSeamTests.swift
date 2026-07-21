@@ -3,9 +3,10 @@ import Testing
 @testable import Crema
 
 /// The tap-reinstall seams AppCore installs against the ENABLED-but-deaf failure
-/// (BUG-CLASS-AUDIT A8 / J7): after a lock/display-sleep/wake or a topology
-/// change the tap can keep a valid, enabled port that silently stops delivering
-/// events, which neither health check can see. reinstallTap is the deterministic
+/// (docs/DECISIONS.md: J7-estado-do-outro-lado / preventive-reinstall): after a
+/// lock/display-sleep/wake or a topology change the tap can keep a valid, enabled
+/// port that silently stops delivering events, which neither health check can
+/// see. reinstallTap is the deterministic
 /// recovery, and it has FOUR convergent triggers. Each trigger→reinstall join is
 /// pinned across the suites; the arming call in AppCore.init that installs them is
 /// not (init boots the graph and system APIs, so no unit test constructs it):
@@ -13,7 +14,7 @@ import Testing
 ///   1. NSWorkspace.didWake           — wired inline in AppCore.init
 ///   2. NSWorkspace.screensDidWake    — wired inline in AppCore.init
 ///   3. the unlock / return edge      — AppCore.wireUnlockReinstall (below)
-///   4. didChangeScreenParameters     — AppCore.wireScreenParameterReinstall (A1)
+///   4. didChangeScreenParameters     — AppCore.wireScreenParameterReinstall
 ///
 /// The wake pair and the reinstall behavior itself are exercised by
 /// PostWakeConsumerReproTests / CGEventTapMediaKeySourceHealthTests; this suite
@@ -64,8 +65,9 @@ struct SuppressionUnlockReinstallSeamTests {
         withExtendedLifetime(source) {}
     }
 
-    /// The 4th reinstall trigger (A1): a display topology change (hotplug with no
-    /// sleep) posts didChangeScreenParameters, which must reinstall the tap the
+    /// The 4th reinstall trigger (docs/DECISIONS.md: preventive-reinstall): a
+    /// display topology change (hotplug with no sleep) posts
+    /// didChangeScreenParameters, which must reinstall the tap the
     /// same convergent way the wake and unlock triggers do — the topology
     /// reconfiguration can re-route delivery into the same ENABLED-but-deaf state,
     /// and no wake or lock edge would reach it. Driven over the SAME wiring AppCore

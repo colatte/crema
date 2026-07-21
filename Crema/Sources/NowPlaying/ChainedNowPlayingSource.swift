@@ -7,11 +7,12 @@ import Foundation
 /// it never sits dead lying about availability. When nothing is available it
 /// retries on an interval, so a recovered adapter is picked back up.
 ///
-/// It also preempts (audit A4): while a lower-priority source is active it
-/// probes the preferred one periodically and, when it recovers, promotes at the
-/// next quiet boundary (never mid-track). Every source death — failover, total
-/// outage, or a deliberate promotion — fires `onActiveSourceEnded` so the
-/// consumer drops the ghost snapshot rather than resurrect dead media (audit S6).
+/// It also preempts: while a lower-priority source is active it probes the
+/// preferred one periodically and, when it recovers, promotes at the next quiet
+/// boundary — never mid-track (docs/DECISIONS.md: promotion-quiet-boundary).
+/// Every source death — failover, total outage, or a deliberate promotion —
+/// fires `onActiveSourceEnded` so the consumer drops the ghost snapshot rather
+/// than resurrect dead media (docs/DECISIONS.md: ghost-discard).
 final class ChainedNowPlayingSource: NowPlayingSource, StoppableSource, @unchecked Sendable {
     let updates: AsyncStream<NowPlaying>
 
@@ -20,8 +21,8 @@ final class ChainedNowPlayingSource: NowPlayingSource, StoppableSource, @uncheck
     private let clock: any SleepClock
     private let retryInterval: Double
     /// How often to re-probe the preferred candidate while a lower-priority
-    /// source is active. Re-promotion is not urgent (audit A4), so this is
-    /// coarse — the cost (a probe spawn with the A6 timeout) stays trivial.
+    /// source is active. Re-promotion is not urgent, so this is coarse — the cost
+    /// (a probe spawn with the child-process timeout) stays trivial.
     private let promotionProbeInterval: Double
     /// Reports whether a source is currently active (false = feature off), so
     /// the menu can signal the degraded state.
@@ -42,7 +43,8 @@ final class ChainedNowPlayingSource: NowPlayingSource, StoppableSource, @uncheck
     private var hasEmittedSinceSelect = false
     /// Fired (off-main) when the active source's forwarding ends — its process
     /// died (failover/outage) or a promotion cut it over. The last snapshot the
-    /// consumer holds is a ghost; this is the signal to drop it (audit S6/A4).
+    /// consumer holds is a ghost; this is the signal to drop it
+    /// (docs/DECISIONS.md: ghost-discard).
     /// Settable post-construction because the Coordinator it feeds is built
     /// after the chain (AppCore wires it once both exist).
     private var _onActiveSourceEnded: (@Sendable () -> Void)?
@@ -138,10 +140,10 @@ final class ChainedNowPlayingSource: NowPlayingSource, StoppableSource, @uncheck
 
             // The active source ended — its process died (failover/outage) or a
             // deliberate promotion broke the loop. Its last snapshot is a ghost:
-            // signal the consumer to drop it (audit S6); the next selected
-            // source rebuilds the state from its own snapshots. Distinct from
-            // the older pinned-latent behavior, where a mid-chain failover left
-            // that ghost armed until quit.
+            // signal the consumer to drop it (docs/DECISIONS.md: ghost-discard);
+            // the next selected source rebuilds the state from its own snapshots.
+            // Distinct from the older pinned-latent behavior, where a mid-chain
+            // failover left that ghost armed until quit.
             fireActiveSourceEnded()
 
             // Backoff before re-selecting: avoids a spawn spin when a source
@@ -155,7 +157,8 @@ final class ChainedNowPlayingSource: NowPlayingSource, StoppableSource, @uncheck
     /// Forwards the active source's snapshots to the outer stream until it ends.
     /// While a higher-priority candidate exists (`activeIndex > 0`) a background
     /// probe watches for it to recover and arms a promotion; an armed promotion
-    /// cuts over only at a quiet boundary — never mid-track (audit A4).
+    /// cuts over only at a quiet boundary — never mid-track
+    /// (docs/DECISIONS.md: promotion-quiet-boundary).
     private func forwardUpdates(from source: any NowPlayingSource, activeIndex: Int) async {
         let probe = activeIndex > 0 ? startPromotionProbe(activeIndex: activeIndex) : nil
         lock.lock(); promotionProbeTask = probe; lock.unlock()

@@ -2,8 +2,9 @@ import Foundation
 import Testing
 @testable import Crema
 
-/// The pure subprocess-deadline race (audit A6): a fast operation returns its
-/// value untouched, a hung one is abandoned at the deadline (and the "kill"
+/// The pure subprocess-deadline race (docs/DECISIONS.md: child-process-deadline):
+/// a fast operation returns its value untouched, a hung one is abandoned at the
+/// deadline (and the "kill"
 /// runs), and the single-resume guard never delivers twice. No real process —
 /// the operation is a fake the test controls; the real Process wiring is the
 /// thin border in runChildProcess.

@@ -5,8 +5,9 @@
 /// gives the feedback) while the app keeps observing, and a cheap read-only
 /// probe re-engages it the moment the channel recovers.
 ///
-/// No failure path ever writes the persisted opt-in (A1): the preference is
-/// the user's intent, written only by an explicit toggle. A relaunch therefore
+/// No failure path ever writes the persisted opt-in (docs/DECISIONS.md:
+/// pref-sacred): the preference is the user's intent, written only by an
+/// explicit toggle. A relaunch therefore
 /// starts fresh — the pref is intact, so a healthy engagement is re-formed.
 /// A domain that keeps failing with the channel present escalates to
 /// long-suspended and surfaces in the menu; that is the only user-visible

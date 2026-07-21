@@ -15,8 +15,9 @@ import os
 /// The probe in docs/internal/LOCKSCREEN-INVESTIGATION.md validated exactly this
 /// stack on hardware (edges fired, the poll flipped, onConsole stayed stable).
 ///
-/// Settle re-reads (H-CONSUMER-NIL): the unlock notification can be delivered a
-/// hair before `CGSessionCopyCurrentDictionary` reflects the change, so the
+/// Settle re-reads (docs/DECISIONS.md: settle-rereads / J6-latch-do-edge): the
+/// unlock notification can be delivered a hair before
+/// `CGSessionCopyCurrentDictionary` reflects the change, so the
 /// single unlock edge can re-read a still-locked session. The reconciler
 /// deduplicates that stale reading (the return-to-safe never emits) and, on a
 /// plain lock/unlock, there is no second edge to correct it — the state latches
@@ -30,7 +31,7 @@ import os
 /// in the [launch, first edge) window: if the session's very first lock
 /// notification is dropped (DistributedNotificationCenter is best-effort, with no
 /// redundancy for a plain lock), the tail still catches the flip instead of
-/// latching safe over a lock shield with no edge to correct it (A3). `handleEdge`
+/// latching safe over a lock shield with no edge to correct it. `handleEdge`
 /// reconciles the edge immediately, then restarts that same tail behind a short
 /// finite backoff of extra authoritative re-reads for the sub-second common skew.
 /// This is exact parity with the tap poll now — both re-verify from init; the
@@ -66,7 +67,7 @@ final class DistributedNotificationScreenLockSource: ScreenLockSource {
     /// The slow periodic re-read interval. The tail runs from construction and
     /// again after each edge's finite backoff (a newer start restarts it; deinit
     /// ends it), so the re-verification never has a gap — not even the [launch,
-    /// first edge) window. This turns the H-CONSUMER-NIL closure from
+    /// first edge) window. This turns the stale-edge latch from
     /// probabilistic — a skew that lands inside the backoff window, or an edge
     /// that never arrives because the first notification was dropped — into
     /// deterministic: it eventually converges regardless, exact parity with the
@@ -122,8 +123,9 @@ final class DistributedNotificationScreenLockSource: ScreenLockSource {
         // Arm the slow tail from construction, not just from the first edge: the
         // media-key tap health-checks from init, and this source must match, or a
         // dropped first lock notification would strand suppression safe over the
-        // lock shield until some future edge (A3). The first edge cleanly replaces
-        // this launch tail with its full backoff-then-tail chain.
+        // lock shield until some future edge (docs/DECISIONS.md: settle-rereads).
+        // The first edge cleanly replaces this launch tail with its full
+        // backoff-then-tail chain.
         startSettleReReads(withBackoff: false)
 
         if usesRealReader { installObservers() }
@@ -211,9 +213,9 @@ final class DistributedNotificationScreenLockSource: ScreenLockSource {
         isSuppressionSafe = safe
         if caughtBySettle {
             // The edge read a stale session and a settle re-read caught the
-            // missed transition — the H-CONSUMER-NIL latch in the act. The
-            // field discriminator: a late flip with no notification edge
-            // immediately before it.
+            // missed transition — the stale-edge latch in the act. The field
+            // discriminator: a late flip with no notification edge immediately
+            // before it.
             logger.notice("settle re-read caught a missed lock transition → safe=\(safe, privacy: .public)")
         }
         logger.info("suppression-safe → \(safe, privacy: .public) (locked=\(session.locked, privacy: .public) onConsole=\(session.onConsole, privacy: .public))")

@@ -4,7 +4,7 @@ import Testing
 /// The production suppressor over mocked channels and a captured consumer:
 /// stepping, ordering, mute, capability no-ops, the post-apply hook, the
 /// generation guard, and the uncancellable-hang deadline. Per-domain
-/// suspension and recovery (A1) live in OSDSuppressionDomainSuspensionTests;
+/// suspension and recovery live in OSDSuppressionDomainSuspensionTests;
 /// the sacred-preference pins in OSDSuppressionPrefSacredTests.
 @MainActor
 struct MediaKeyInterceptionOSDSuppressorTests {
@@ -119,8 +119,8 @@ struct MediaKeyInterceptionOSDSuppressorTests {
     }
 
     @Test func verifiedAppliesReportThroughOnApplied() async {
-        // A1 matrix #8: onApplied keeps firing for a healthy domain — this is
-        // what refreshes the brightness HUD with the applied value.
+        // onApplied keeps firing for a healthy domain — this is what refreshes
+        // the brightness HUD with the applied value.
         let h = OSDSuppressorHarness()
         let seen = CounterBox()
         h.suppressor.onApplied = { [seen] _ in seen.count += 1 }

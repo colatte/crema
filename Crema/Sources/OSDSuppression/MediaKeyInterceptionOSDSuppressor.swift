@@ -27,16 +27,18 @@ import os
 ///   the moment the channel recovers — a device swap (AirPods dropping mid
 ///   volume-key) heals in seconds, silently. This replaced a global
 ///   auto-disengage that killed all three domains and persisted the opt-in off
-///   on any single-channel failure (A1); no failure path writes the pref now.
+///   on any single-channel failure; no failure path writes the pref now.
+///   (docs/DECISIONS.md: per-domain-suspension / pref-sacred)
 /// - Both the writes and the border reads race a deadline off the MainActor
 ///   (mechanism in OSDApplyDeadline). A hung actuator (coreaudiod stall,
 ///   Bluetooth output dropping mid-write) would strand the apply chain while
 ///   keys keep being consumed; a blocking synchronous C read
 ///   (AudioObjectGetPropertyData, DisplayServicesGetBrightness) run inline would
 ///   be worse — freezing the whole app (HUD, now playing, menu) and wedging the
-///   queue (A5 covers the pre-read, read-back, mute-plane reads and the volume
-///   capability guards; brightness guards stay inline as pure dlsym nil-checks
-///   that never block). On timeout the domain is suspended and the operation
+///   queue (the deadline covers the pre-read, read-back, mute-plane reads and the
+///   volume capability guards; brightness guards stay inline as pure dlsym
+///   nil-checks that never block; docs/DECISIONS.md: read-deadline-pool-rule).
+///   On timeout the domain is suspended and the operation
 ///   abandoned; a late orphan is bounded and pure — a write moves the value one
 ///   step with no HUD (the consumed press's own intent), a read writes nothing —
 ///   because the domain is suspended and the queued keys fall through the
@@ -312,7 +314,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     private func applyMute() async throws {
         // No mute control on this output (plenty of USB/HDMI devices): no-op
         // like the native handler, never a failure. Reads are deadline-raced —
-        // supportsMute/readMuted are Core Audio IPC that can stall (A5).
+        // supportsMute/readMuted are Core Audio IPC that can stall.
         guard try await readWithDeadline({ [volume] in volume.supportsMute() }) else {
             passThroughUnavailable("mute"); return
         }
@@ -327,7 +329,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
 
     private func applyVolumeStep(_ key: MediaKey, fine: Bool) async throws {
         // The availability/mute guards are Core Audio IPC (defaultOutputDeviceID)
-        // that can stall, so they race the deadline like the reads (A5).
+        // that can stall, so they race the deadline like the reads.
         guard try await readWithDeadline({ [volume] in volume.isAvailable() }) else {
             passThroughUnavailable("volume"); return
         }
@@ -348,7 +350,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
 
     private func step(_ channel: any OSDChannel, key: MediaKey, fine: Bool) async throws {
         // Pre-read and read-back are deadline-raced: a blocked C read on the
-        // MainActor would freeze the app and wedge the queue (A5).
+        // MainActor would freeze the app and wedge the queue.
         guard let before = try await readWithDeadline({ [channel] in channel.read() }),
               let target = MediaKeyStepper.next(from: before, key: key, fine: fine) else {
             throw ApplyFailure.currentValueUnreadable
@@ -373,9 +375,10 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         }
     }
 
-    /// The read-side sibling (A5): bounds a blocking C read by the same deadline
-    /// so a stalled read never freezes the MainActor and wedges the queue. Reads
-    /// sleep on `readClock`, apart from the probe backoff on `clock`.
+    /// The read-side sibling of the write deadline: bounds a blocking C read by
+    /// the same deadline so a stalled read never freezes the MainActor and wedges
+    /// the queue. Reads sleep on `readClock`, apart from the probe backoff on
+    /// `clock`. (docs/DECISIONS.md: read-deadline-pool-rule)
     private func readWithDeadline<T: Sendable>(_ read: @escaping @Sendable () -> T) async throws -> T {
         do {
             return try await raceReadDeadline(seconds: applyDeadline, clock: readClock, read)
@@ -396,15 +399,15 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         decider.suspend(domain)
         let name = String(describing: domain)
         logger.notice("\(name, privacy: .public) apply failed (\(error, privacy: .public)) — suspending it, native OSD restored")
-        // Write-health escalation axis: a read-OK/write-dead episode the
-        // read-only probe will optimistically re-engage flaps forever, so count
-        // those episodes here — reset only by a verified apply — to surface a
-        // persistently un-appliable channel in the menu. Only the write-side
-        // signatures feed it (a verified write that never moved, a hung write); a
-        // read-side failure is the probe's own axis, and counting it here would
-        // both double-count it and mislabel a read stall as a dead write. Never
-        // writes the pref (A1); only feeds the same long-suspended set the probe
-        // axis does.
+        // Write-health escalation axis (docs/DECISIONS.md: write-health-axis): a
+        // read-OK/write-dead episode the read-only probe will optimistically
+        // re-engage flaps forever, so count those episodes here — reset only by a
+        // verified apply — to surface a persistently un-appliable channel in the
+        // menu. Only the write-side signatures feed it (a verified write that never
+        // moved, a hung write); a read-side failure is the probe's own axis, and
+        // counting it here would both double-count it and mislabel a read stall as
+        // a dead write. Never writes the pref (docs/DECISIONS.md: pref-sacred);
+        // only feeds the same long-suspended set the probe axis does.
         if Self.isWriteHealthFailure(error) {
             let flaps = (unconfirmedApplyFailures[domain] ?? 0) + 1
             unconfirmedApplyFailures[domain] = flaps
@@ -509,7 +512,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
             switch domain {
             case .volume:
                 // Volume isAvailable() is Core Audio IPC and can stall, so it is
-                // deadline-raced along with the read (A5).
+                // deadline-raced along with the read.
                 let present = try await readWithDeadline { [channel] in channel.isAvailable() }
                 guard present else { return .failedChannelAbsent }
                 let value = try await readWithDeadline { [channel] in channel.read() }

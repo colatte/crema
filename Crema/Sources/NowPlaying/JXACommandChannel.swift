@@ -52,8 +52,7 @@ struct JXACommandChannel: NowPlayingCommandChannel {
 
         // Interactive: the user re-taps well before this, so a tight cap keeps a
         // stuck osascript from parking a command forever. A timeout returns nil,
-        // which degrades the controls just like any other command failure below
-        // (audit A6).
+        // which degrades the controls just like any other command failure below.
         let output = await runChildProcess(
             process,
             readingStdout: pipe,

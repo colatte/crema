@@ -1,8 +1,8 @@
 /// The three independent channels the native-OSD suppressor consumes. Each
 /// recovers on its own: a failed volume apply must not strand brightness
 /// suppression, and a dead keyboard-backlight write must not kill volume
-/// suppression (the pre-A1 behavior — one failure disengaged all three and
-/// persisted the opt-in off).
+/// suppression (the old behavior this replaced — one failure disengaged all
+/// three and persisted the opt-in off; docs/DECISIONS.md: per-domain-suspension).
 ///
 /// This is the fine-grained, per-domain health axis that lives *inside* one
 /// engagement. It is orthogonal to — and coarser than — the lock-aware

@@ -1,7 +1,8 @@
 import Testing
 @testable import Crema
 
-/// The settle re-read fix for H-CONSUMER-NIL, driven through the REAL
+/// The settle re-read fix for the stale-unlock-read latch (docs/DECISIONS.md:
+/// settle-rereads), driven through the REAL
 /// `DistributedNotificationScreenLockSource` over an injected session reader and
 /// an injected clock — no real CoreGraphics lock APIs, no real notifications.
 ///
@@ -262,12 +263,13 @@ struct DistributedNotificationScreenLockSourceTests {
         withExtendedLifetime((source, lockSource)) {}
     }
 
-    // MARK: - The launch tail — the [launch, first edge) gap (A3)
+    // MARK: - The launch tail — the [launch, first edge) gap
 
-    /// The NO-GO the launch tail closes: a session locks but its very first
-    /// `screenIsLocked` notification is DROPPED (DistributedNotificationCenter is
-    /// best-effort, no redundancy for a plain lock), so no edge ever fires. Before
-    /// A3 the settle re-reads were edge-gated — nothing re-verified until a future
+    /// The NO-GO the launch tail closes (docs/DECISIONS.md: settle-rereads): a
+    /// session locks but its very first `screenIsLocked` notification is DROPPED
+    /// (DistributedNotificationCenter is best-effort, no redundancy for a plain
+    /// lock), so no edge ever fires. Before the tail was armed from init, the
+    /// settle re-reads were edge-gated — nothing re-verified until a future
     /// edge — so `isSuppressionSafe` stayed latched true and suppression engaged
     /// over the lock shield, the exact NO-GO the lock-aware policy exists to
     /// prevent. Now the slow tail runs from construction (parity with the tap's

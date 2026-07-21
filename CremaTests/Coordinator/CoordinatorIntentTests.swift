@@ -72,9 +72,9 @@ struct CoordinatorIntentTests {
         #expect(h.keyboard.commands.isEmpty)
     }
 
-    /// Parity pin (audit §A3): a muted device dragged to an audible target
-    /// unmutes before the volume write, in that order — the same sequence the
-    /// volume-up key produces, so a drag never raises the number onto silence.
+    /// Parity pin: a muted device dragged to an audible target unmutes before
+    /// the volume write, in that order — the same sequence the volume-up key
+    /// produces, so a drag never raises the number onto silence.
     @Test func mutedVolumeSliderDraggedUpUnmutesBeforeSettingVolume() async {
         let h = CoordinatorHarness()
         h.hudSource.emit(SystemHUD(kind: .volume, value: 0.0, isMuted: true))

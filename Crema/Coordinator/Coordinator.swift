@@ -454,9 +454,9 @@ final class Coordinator {
         // A surfacing event is a natural re-check point: restore optimism so a
         // degraded control becomes usable again — otherwise the disabled
         // control has no path back once flipped. Hoisted above every branch,
-        // the .hud one included (audit B2): a track change arriving while a HUD
-        // owns the surface must still re-enable the controls, or play/pause
-        // stays dead for the rest of the track. Independent of quiet vs
+        // the .hud one included: a track change arriving while a HUD owns the
+        // surface must still re-enable the controls, or play/pause stays dead
+        // for the rest of the track. Independent of quiet vs
         // reactive: quiet mode still has a live invoked surface with controls,
         // so it recovers the same way, ahead of the self-surface gate.
         if surfacingEvent, !commandsAvailable {
@@ -514,8 +514,9 @@ final class Coordinator {
     }
 
     /// The active now-playing source ended without the outer stream finishing —
-    /// a chain failover, a total outage, or a deliberate A4 promotion (audit
-    /// S6). The consumer's outer stream stays alive across those, so it never
+    /// a chain failover, a total outage, or a deliberate promotion
+    /// (docs/DECISIONS.md: ghost-discard). The consumer's outer stream stays
+    /// alive across those, so it never
     /// sees a finish; without this seam the last snapshot lingers as a ghost
     /// with `mediaActive` true and click-invoke armed (invoke would resurrect an
     /// expanded player of dead media). Drops it here; the next live source's

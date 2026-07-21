@@ -13,7 +13,7 @@ final class OSDSuppressorHarness {
     let clock = TestSleepClock()
     /// Read deadlines sleep here, apart from `clock` (probe backoff + write
     /// deadline), so a test can advance one without tripping the other — read
-    /// deadlines fire on the probe-recovery path too (A5). Never advanced by
+    /// deadlines fire on the probe-recovery path too. Never advanced by
     /// tests with fast reads; the read-hang suite drives it directly.
     let readClock = TestSleepClock()
     let suppressor: MediaKeyInterceptionOSDSuppressor
@@ -57,7 +57,7 @@ final class MockOSDChannel: OSDChannel, @unchecked Sendable {
     var applyHangs = false
     private(set) var applied: [Double] = []
 
-    /// The read-side analogue of applyHangs (A5): when true, read() blocks the
+    /// The read-side analogue of applyHangs: when true, read() blocks the
     /// calling detached thread on a semaphore until releaseRead(), modeling a
     /// blocked synchronous C read (a coreaudiod stall) that readWithDeadline
     /// must race a deadline against without freezing the MainActor. Unlike
@@ -120,7 +120,7 @@ final class MockOSDVolumeChannel: OSDVolumeChannel, @unchecked Sendable {
     private(set) var applied: [Double] = []
     private(set) var mutedWrites: [Bool] = []
 
-    /// Volume reads and its IPC guards can each hang independently (A5): the
+    /// Volume reads and its IPC guards can each hang independently: the
     /// availability guard (defaultOutputDeviceID), the mute-capability guard
     /// (AudioObjectHasProperty), the level read, and the mute-plane read are all
     /// Core Audio IPC. Each blocks on the shared gate until releaseHang(); one

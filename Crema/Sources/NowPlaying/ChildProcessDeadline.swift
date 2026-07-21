@@ -52,7 +52,7 @@ final class SingleResumeRace<T>: @unchecked Sendable {
 /// the process → its termination handler fires → the parked continuation
 /// resumes). Single-resume, so the loser's late completion is discarded. This is
 /// the pure race logic tested with fake operations; the real subprocess wiring
-/// lives in `runChildProcess` (audit A6).
+/// lives in `runChildProcess` (docs/DECISIONS.md: child-process-deadline).
 func raceAgainstDeadline<T: Sendable>(
     _ operation: @escaping @Sendable () async -> T,
     timeout: Double,
@@ -94,7 +94,7 @@ private let childProcessKillGrace: Double = 0.5
 /// grace if it ignores SIGTERM, so a genuinely stuck child's termination handler
 /// is guaranteed to fire) and `failureValue` is returned; a spawn failure
 /// returns `failureValue` too. This is the thin border around the child wait;
-/// the race it delegates to is pure (audit A6).
+/// the race it delegates to is pure (docs/DECISIONS.md: child-process-deadline).
 func runChildProcess<T: Sendable>(
     _ process: Process,
     readingStdout pipe: Pipe? = nil,

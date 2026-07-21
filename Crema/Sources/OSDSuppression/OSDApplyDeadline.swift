@@ -25,9 +25,10 @@ import Foundation
 ///   every backoff cycle, so leaked orphans accumulate without bound and starve
 ///   the pool. The deadline sleep resumes on that same pool, so an exhausted
 ///   pool stops the deadline firing — a fresh apply on a healthy domain would
-///   then hang forever with its keys still consumed (A5-followup). GCD's global
-///   queue overcommits (it spawns threads when all block), so a leaked read
-///   orphan there never reduces capacity for live work or for the deadline.
+///   then hang forever with its keys still consumed. GCD's global queue
+///   overcommits (it spawns threads when all block), so a leaked read orphan
+///   there never reduces capacity for live work or for the deadline.
+///   (docs/DECISIONS.md: read-deadline-pool-rule)
 
 /// Thrown when the operation outlives its deadline. The caller maps it onto its
 /// own suspension path.

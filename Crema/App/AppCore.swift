@@ -29,8 +29,8 @@ final class AppCore {
         /// Poked at a volume scale boundary, where the Core Audio write is a
         /// no-op and emits no echo; nil on demo sources.
         let volumeSampler: (any ManuallySampledSource)?
-        /// Read-side borders for the OSD-suppression spike (a consumed key
-        /// needs the current value to step from); nil on demo sources.
+        /// Read-side borders for the OSD suppressor (a consumed key needs the
+        /// current value to step from); nil on demo sources.
         let screenBrightnessBackend: (any ScreenBrightnessBackend)?
         let keyboardBrightnessBackend: (any KeyboardBrightnessBackend)?
     }
@@ -41,7 +41,8 @@ final class AppCore {
     let permissionMonitor: AccessibilityPermissionMonitor
     let nowPlayingMonitor: NowPlayingMonitor
     /// Menu signal for domains whose native-OSD suppression stayed
-    /// unrecoverable long enough to escalate (A1). Fed from the suppressor.
+    /// unrecoverable long enough to escalate — a failed apply suspends only its
+    /// own domain, not all three. (docs/DECISIONS.md: per-domain-suspension)
     let osdSuppressionMonitor = OSDSuppressionMonitor()
     let mediaKeys: any MediaKeySource
     /// Zero-latency brightness HUD via the tap; nil when on demo sources.
@@ -73,10 +74,11 @@ final class AppCore {
     private let nowPlayingChain: ChainedNowPlayingSource?
     private var screenObservation: NSObjectProtocol?
     private var terminationObservation: NSObjectProtocol?
-    /// Display/system wake observers that reinstall the media-key tap (A8). A
-    /// display-sleep/wake with no lock fires no unlock edge, so the lock-edge
-    /// reinstall cannot see it; these close that gap. Retained for the app
-    /// lifetime alongside the tap.
+    /// Display/system wake observers that reinstall the media-key tap: a
+    /// display-sleep/wake can leave the tap enabled with a valid port yet
+    /// silently not delivering, and it fires no unlock edge for the lock-edge
+    /// reinstall to see — these close that gap. Retained for the app lifetime
+    /// alongside the tap. (docs/DECISIONS.md: J7-estado-do-outro-lado)
     private var wakeObservations: [NSObjectProtocol] = []
     private var onboardingWindow: NSWindow?
 
@@ -91,8 +93,8 @@ final class AppCore {
 
         permissionMonitor = AccessibilityPermissionMonitor(permission: accessibilityPermission)
         permissionMonitor.start()
-        // Kept as the concrete type too: the unlock-edge tap reinstall (A8) needs
-        // to call `reinstallTap()`, which is not on the MediaKeySource protocol.
+        // Kept as the concrete type too: the unlock-edge tap reinstall needs to
+        // call `reinstallTap()`, which is not on the MediaKeySource protocol.
         let tapSource = CGEventTapMediaKeySource(permission: accessibilityPermission)
         mediaKeys = tapSource
 
@@ -143,8 +145,9 @@ final class AppCore {
         )
 
         // Route the chain's active-source-ended signal into the Coordinator so
-        // the ghost is dropped rather than resurrected (audit S6); wired here
-        // because the Coordinator is built after the chain (rationale on the seam).
+        // a dead source's stale snapshot is dropped rather than resurrected;
+        // wired here because the Coordinator is built after the chain (rationale
+        // on the seam). (docs/DECISIONS.md: ghost-discard)
         if let chain {
             Self.wireActiveSourceEnded(from: chain, to: coordinator)
         }
@@ -191,9 +194,11 @@ final class AppCore {
         }
 
         // Recover the tap on display/system wake, independent of the lock edge and
-        // of the suppressor. The ENABLED-but-deaf failure (A8) also strikes after a
-        // plain display-sleep/wake with no lock — which fires no unlock edge, so
-        // the SuppressionLockController hook below cannot see it. reinstallTap is
+        // of the suppressor. The ENABLED-but-deaf failure (tap valid and enabled
+        // yet silently unregistered server-side, invisible to any local check)
+        // also strikes after a plain display-sleep/wake with no lock — which fires
+        // no unlock edge, so the SuppressionLockController hook below cannot see
+        // it (docs/DECISIONS.md: J7-estado-do-outro-lado). reinstallTap is
         // convergent — safe to call repeatedly (it mints a fresh port each call but
         // preserves the consumer by construction) — and no-ops without permission,
         // so an extra trigger is safe; it also recovers plain observation (the
@@ -235,22 +240,20 @@ final class AppCore {
                 lockSource: DistributedNotificationScreenLockSource(),
                 preferences: preferences
             )
-            // Recover the ENABLED-but-deaf tap on the unlock edge (A8): after a
+            // Recover the ENABLED-but-deaf tap on the unlock edge: after a
             // lock/display-sleep/unlock the tap can keep a valid, enabled port
-            // that silently stops delivering events; reinstalling preventively on
-            // unlock is the deterministic fix. Runs even with the pref off (the
+            // that silently stops delivering events, so reinstalling preventively
+            // on unlock is the deterministic fix. Runs even with the pref off (the
             // deafness kills plain observation too). Pinned by
             // SuppressionUnlockReinstallSeamTests.
+            // (docs/DECISIONS.md: J7-estado-do-outro-lado / preventive-reinstall)
             //
-            // This unlock-edge hook lives inside the suppressor gate, so it is
-            // co-gated with the suppressor: in the real graph the router
-            // (observation) and the suppressor are minted together (makeRealGraph
-            // wires both samplers and both backends non-nil), so router-exists ⟺
-            // suppressor-exists and observation recovery is never actually stranded
-            // here despite the rationale being "covers observation". The wake-edge
-            // reinstall wired above is the unconditional path — tied to the tap,
-            // not the suppressor — so plain observation still recovers in a (future)
-            // graph that has a router but no suppressor.
+            // This hook is co-gated with the suppressor, but the real graph mints
+            // router and suppressor together (makeRealGraph wires both), so
+            // observation is never actually stranded here — and the wake-edge
+            // reinstall above, tied to the tap not the suppressor, is the
+            // unconditional path that would still cover a future
+            // router-without-suppressor graph.
             Self.wireUnlockReinstall(from: lockController, to: tapSource)
             suppressionLockController = lockController
         } else {
@@ -301,9 +304,9 @@ final class AppCore {
         }
         // The preference persists across launches: suppression is a real
         // opt-in feature, and its reversibility never depends on state — the
-        // tap dies with the process. The controller wires the auto-disengage
-        // report and engages to the correct initial state (suspended when
-        // launched while locked; off unless the opt-in is set).
+        // tap dies with the process. start() engages to the correct initial
+        // state (suspended when launched while locked; off unless the opt-in is
+        // set) and begins consuming lock transitions.
         suppressionLockController?.start()
 
         #if DEBUG
@@ -312,9 +315,10 @@ final class AppCore {
     }
 
     /// Wires the chain's ghost-discard seam: when its active source dies without
-    /// the outer stream finishing, the Coordinator drops the ghost rather than
-    /// resurrect it (audit S6). Standalone and static so the exact production
-    /// wiring is pinned by a test — the isolated halves never exercise it.
+    /// the outer stream finishing, the Coordinator drops the stale snapshot
+    /// rather than resurrect dead media. Standalone and static so the exact
+    /// production wiring is pinned by a test — the isolated halves never exercise
+    /// it. (docs/DECISIONS.md: ghost-discard)
     static func wireActiveSourceEnded(from chain: ChainedNowPlayingSource, to coordinator: Coordinator) {
         chain.setActiveSourceEndedHandler { [weak coordinator] in
             Task { @MainActor in coordinator?.activeNowPlayingSourceEnded() }
@@ -326,7 +330,10 @@ final class AppCore {
     /// tap (fresh mach port, consumer preserved) before re-engaging suppression.
     /// Standalone and static so a seam test pins the exact production wiring —
     /// the isolated halves (the controller's edge, the source's reinstall) never
-    /// exercise the join. Recovers the ENABLED-but-deaf tap (BUG-CLASS-AUDIT A8).
+    /// exercise the join. A lock/display-sleep cycle can leave the tap enabled
+    /// with a valid port yet silently unregistered server-side — no local check
+    /// can see it, so reinstall preventively on this edge.
+    /// (docs/DECISIONS.md: J7-estado-do-outro-lado)
     static func wireUnlockReinstall(from controller: SuppressionLockController, to source: CGEventTapMediaKeySource) {
         controller.onUnlocked = { [weak source] in source?.reinstallTap() }
     }
@@ -335,8 +342,9 @@ final class AppCore {
     /// the panels (`onScreenChange`) and reinstalls the media-key tap. A display
     /// hotplug with no sleep fires only this notification — no wake, no lock/unlock
     /// edge — yet the WindowServer reconfiguration can re-route event delivery the
-    /// same ENABLED-but-deaf way display-sleep/wake does (A8/J7), so this is the
-    /// 4th reinstall trigger of that family (didWake, screensDidWake, and the
+    /// same ENABLED-but-deaf way display-sleep/wake does (valid enabled port that
+    /// silently stops delivering), so this is the 4th reinstall trigger of that
+    /// family (docs/DECISIONS.md: J7-estado-do-outro-lado) — didWake, screensDidWake, and the
     /// unlock edge being the other three). reinstallTap is convergent, idempotent
     /// and permission-gated, so the extra trigger carries no risk and closes a gap
     /// no wake or lock edge would reach. Standalone and static so a seam test pins

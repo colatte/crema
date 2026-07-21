@@ -97,13 +97,14 @@ struct SuppressionLockControllerTests {
         #expect(h.suppressor.engageHistory.isEmpty)   // never engaged, ever
     }
 
-    // MARK: - The preference is only ever written by the user (A1)
+    // MARK: - The preference is only ever written by the user
 
     @Test func lockCycleNeverWritesThePref() async {
         // A full suspend/re-engage cycle must not touch the persisted opt-in.
-        // The pre-A1 auto-disengage path (a failed apply flipping the pref off,
+        // The old auto-disengage path (a failed apply flipping the pref off,
         // routed through this controller) is gone: the suppressor now suspends
         // the failing domain in place and no failure path writes the pref.
+        // (docs/DECISIONS.md: pref-sacred)
         let h = Harness(prefOn: true)
         h.controller.start()
 
@@ -154,7 +155,7 @@ struct SuppressionLockControllerTests {
         #expect(h.preferences.suppressesNativeOSD)
     }
 
-    // MARK: - Unlock-edge tap reinstall (ENABLED-but-deaf recovery, A8)
+    // MARK: - Unlock-edge tap reinstall (ENABLED-but-deaf recovery; docs/DECISIONS.md: J7-estado-do-outro-lado)
 
     @Test func unlockEdgeFiresReinstallBeforeReengage() async {
         // Order is load-bearing: the physical reinstall must run BEFORE the

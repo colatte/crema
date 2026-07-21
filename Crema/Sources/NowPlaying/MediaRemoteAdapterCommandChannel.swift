@@ -44,8 +44,7 @@ struct MediaRemoteAdapterCommandChannel: NowPlayingCommandChannel {
 
         // Interactive: a stuck send (the MediaRemote XPC never returning) must
         // not park the command forever — the user re-taps first. A timeout
-        // reports -1, degrading the controls exactly like a non-zero exit
-        // (audit A6).
+        // reports -1, degrading the controls exactly like a non-zero exit.
         let status = await runChildProcess(process, timeout: 5, clock: ContinuousSleepClock(), failureValue: Int32(-1)) { finished, _ in
             finished.terminationStatus
         }

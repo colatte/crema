@@ -1,10 +1,11 @@
 import Testing
 @testable import Crema
 
-/// A1 core: an apply failure suspends only its own domain (volume, screen
-/// brightness, keyboard brightness) with the native OSD restored for it, a
-/// read-only probe self-heals it on recovery, and a channel that stays broken
-/// with its device present escalates to the menu. No global disengage, ever.
+/// Per-domain suspension (docs/DECISIONS.md: per-domain-suspension): an apply
+/// failure suspends only its own domain (volume, screen brightness, keyboard
+/// brightness) with the native OSD restored for it, a read-only probe self-heals
+/// it on recovery, and a channel that stays broken with its device present
+/// escalates to the menu. No global disengage, ever.
 @MainActor
 struct OSDSuppressionDomainSuspensionTests {
 
@@ -42,8 +43,9 @@ struct OSDSuppressionDomainSuspensionTests {
         h.keys.press(.screenBrightnessUp)
         #expect(await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) })
 
-        // Volume keeps being consumed and applied — the pre-A1 bug was a
-        // brightness failure killing volume suppression too.
+        // Volume keeps being consumed and applied — the old bug, before
+        // per-domain suspension, was a brightness failure killing volume
+        // suppression too.
         h.keys.press(.volumeUp)
         #expect(await eventually { h.volume.applied == [0.5 + OSDTest.step] })
         #expect(h.suppressor.isEngaged)
@@ -385,8 +387,8 @@ struct OSDSuppressionDomainSuspensionTests {
         // The stale-display-ID signature at the suppressor seam: the channel
         // stays "available" yet its reads start failing mid-session. A consumed
         // key must surface that death — suspend that domain, never swallow the
-        // key into a silent no-op. Post-A1 the radius is one domain: volume
-        // keeps working while screen brightness suspends.
+        // key into a silent no-op. The radius is one domain: volume keeps
+        // working while screen brightness suspends.
         let h = OSDSuppressorHarness()
         h.suppressor.setEngaged(true)
 

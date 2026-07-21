@@ -121,8 +121,8 @@ final class JXANowPlayingSource: NowPlayingSource, StoppableSource, @unchecked S
 
         // The osascript reply is bounded by the AppleEvent timeout (~1-2 min),
         // but a probe holding the chain's selection that long is still a stall;
-        // cap it so a stuck query can't wedge fallback (audit A6). nil output
-        // reads as "nothing playing" — the probe's honest degraded answer.
+        // cap it so a stuck query can't wedge fallback. nil output reads as
+        // "nothing playing" — the probe's honest degraded answer.
         return await runChildProcess(
             process,
             readingStdout: pipe,

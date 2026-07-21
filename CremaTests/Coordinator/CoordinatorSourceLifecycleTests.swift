@@ -1,11 +1,11 @@
 import Testing
 @testable import Crema
 
-/// The ghost-discard seam (audit S6): when the active now-playing source ends
-/// without the outer stream finishing — a chain failover, a total outage, or a
-/// deliberate A4 promotion — the Coordinator drops the stale snapshot rather
-/// than keep it armed for hover/click. The chain fires this in production; here
-/// it is driven directly, with mocks.
+/// The ghost-discard seam (docs/DECISIONS.md: ghost-discard): when the active
+/// now-playing source ends without the outer stream finishing — a chain
+/// failover, a total outage, or a deliberate promotion — the Coordinator drops
+/// the stale snapshot rather than keep it armed for hover/click. The chain fires
+/// this in production; here it is driven directly, with mocks.
 @MainActor
 struct CoordinatorSourceLifecycleTests {
 

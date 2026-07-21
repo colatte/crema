@@ -1,6 +1,7 @@
 /// Decides whether a forwarded now-playing snapshot is a quiet boundary at
 /// which the chain may cut a lower-priority source over to a recovered
-/// higher-priority one without a visible mid-track flicker (audit A4).
+/// higher-priority one without a visible mid-track flicker.
+/// (docs/DECISIONS.md: promotion-quiet-boundary)
 ///
 /// Quiet boundaries: the track is paused/stopped (a), or its identity changed
 /// from the previous snapshot (b). A still-playing continuation of the same

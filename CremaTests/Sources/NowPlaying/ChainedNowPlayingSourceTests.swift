@@ -70,9 +70,9 @@ struct ChainedNowPlayingSourceTests {
     }
 
     @Test func failoverDoesNotEmitAStopOnTheOuterStream_pinnedLatentS6() async {
-        // Fence (audit S6): a mid-chain inner-stream failover surfaces NO
-        // synthetic "stopped" snapshot on the OUTER stream — the chain never
-        // fakes a NowPlaying to represent "no media". The ghost is dropped
+        // Fence (docs/DECISIONS.md: ghost-discard): a mid-chain inner-stream
+        // failover surfaces NO synthetic "stopped" snapshot on the OUTER stream —
+        // the chain never fakes a NowPlaying to represent "no media". The ghost is dropped
         // out-of-band instead, via the onActiveSourceEnded callback (see
         // firesActiveSourceEndedWhenTheActiveSourceDies); this test is
         // constructed WITHOUT that handler, so it pins the stream contract in
@@ -125,7 +125,7 @@ struct ChainedNowPlayingSourceTests {
         chain.stop()
     }
 
-    // MARK: - A4: preemption back to a recovered preferred source
+    // MARK: - Preemption back to a recovered preferred source
 
     /// A chain stuck on the JXA fallback with the adapter recovering on demand
     /// (flip `adapterUp`). Distinct command channels stand in for the two
@@ -252,8 +252,8 @@ struct ChainedNowPlayingSourceTests {
     }
 
     @Test func doesNotPromoteWhenTheProbeFindsThePreferredStillUnavailable() async {
-        // Negative of the A4 gate: the 30 s probe fires while the adapter is
-        // still down, so preferredCandidateAvailable rejects it and nothing arms
+        // Negative of the promotion gate: the 30 s probe fires while the adapter
+        // is still down, so preferredCandidateAvailable rejects it and nothing arms
         // — a following quiet boundary must NOT cut over. Guards against a probe
         // that promotes to a dead preferred source (the gate armed unconditionally).
         let fixture = FallbackFixture()
@@ -303,7 +303,7 @@ struct ChainedNowPlayingSourceTests {
     }
 
     @Test func firesActiveSourceEndedOnAPromotion() async {
-        // The deliberate A4 promotion uses the same ghost-discard seam as a
+        // The deliberate promotion uses the same ghost-discard seam as a
         // failover — no zombie snapshot survives the cutover. A silent JXA is
         // promoted deterministically (boundary c: the probe forces the stop),
         // which ends the source and fires the seam.

@@ -1,8 +1,9 @@
 import Testing
 @testable import Crema
 
-/// A5: the read-side sibling of the write's deadline (J3/S5). Every blocking C
-/// read on the apply path — the pre-read, the read-back, the mute-plane reads,
+/// The read-side sibling of the write's deadline (docs/DECISIONS.md:
+/// read-deadline-pool-rule). Every blocking C read on the apply path — the
+/// pre-read, the read-back, the mute-plane reads,
 /// the volume IPC guards — and the recovery probe's reads race the apply
 /// deadline on a detached task, so a stalled read (a coreaudiod hang) suspends
 /// the domain instead of freezing the whole MainActor and wedging the apply
@@ -98,9 +99,9 @@ struct OSDSuppressionReadDeadlineTests {
 
     @Test func aHungSupportsMuteGuardSuspendsTheVolumeDomain() async {
         // supportsMute() is AudioObjectHasProperty — Core Audio IPC that can
-        // stall like the reads (A5), so the mute plan races it against the
-        // deadline before ever reading the mute state. A hung capability guard
-        // must suspend the domain, not freeze the MainActor.
+        // stall like the reads, so the mute plan races it against the deadline
+        // before ever reading the mute state. A hung capability guard must
+        // suspend the domain, not freeze the MainActor.
         let h = OSDSuppressorHarness()
         h.volume.supportsMuteHangs = true   // the mute-capability guard stalls
         h.suppressor.setEngaged(true)
@@ -120,9 +121,9 @@ struct OSDSuppressionReadDeadlineTests {
     @Test func aHungReadMutedInVolumeUpUnmuteFirstSuspendsTheVolumeDomain() async {
         // volumeUp unmutes first when the device is muted (like the native
         // handler); that mute-plane read is Core Audio IPC and races the deadline
-        // too (A5) — the unmute-first branch, distinct from the .mute plan
-        // covered above. A stall there must suspend the domain, never leave the
-        // user pressing a silent volume key.
+        // too — the unmute-first branch, distinct from the .mute plan covered
+        // above. A stall there must suspend the domain, never leave the user
+        // pressing a silent volume key.
         let h = OSDSuppressorHarness()
         h.volume.muted = true            // volumeUp takes the unmute-first branch
         h.volume.readMutedHangs = true   // its mute read stalls before the step

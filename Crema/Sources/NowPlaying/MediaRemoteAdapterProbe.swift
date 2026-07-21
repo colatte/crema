@@ -10,7 +10,7 @@ struct MediaRemoteAdapterProbe {
     let paths: MediaRemoteAdapterPaths
     /// A generous ceiling: cold-start off disk is legitimately slow, so this
     /// only bounds the rare hang (the MediaRemote XPC never returning), keeping
-    /// a stuck probe from wedging the chain's selection forever (audit A6).
+    /// a stuck probe from wedging the chain's selection forever.
     var timeout: Double = 10
     var clock: any SleepClock = ContinuousSleepClock()
 

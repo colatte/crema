@@ -225,13 +225,13 @@ final class PostWakeSeamHarness {
 /// the remaining tests pin the two structural explanations of the symptom that
 /// do NOT go through reinstallation, and the observable difference between them.
 ///
-/// H-CONSUMER-NIL (the stale unlock read that strands the consumer) is FIXED at
-/// its source — a settle re-read in `DistributedNotificationScreenLockSource` —
+/// The stale-unlock-read latch — the unlock edge reads a still-locked session
+/// and strands the consumer — is FIXED at its source (a settle re-read in
+/// `DistributedNotificationScreenLockSource`; docs/DECISIONS.md: settle-rereads),
 /// and the recovery is pinned end-to-end in
 /// `DistributedNotificationScreenLockSourceTests`. What stays here is the pure
 /// proof of the reconciler dedup that made the stale read dangerous (the reason
-/// the settle re-read must exist), plus H-SUSPENSAO-DESENHO, the by-design
-/// transient symptom.
+/// the settle re-read must exist), plus the by-design transient symptom.
 @MainActor
 struct PostWakeConsumerReproTests {
 
@@ -366,7 +366,7 @@ struct PostWakeConsumerReproTests {
         withExtendedLifetime(h.source) {}
     }
 
-    // MARK: - H-CONSUMER-NIL — the reconciler dedup the settle re-read fixes
+    // MARK: - The stale-unlock-read latch — the reconciler dedup the settle re-read fixes
 
     /// Mechanism proof (pure, no system API): the reconciler DEDUPLICATES a
     /// return-to-safe whose only unlock edge re-read a session dictionary that was
@@ -384,11 +384,11 @@ struct PostWakeConsumerReproTests {
         #expect(r.lastSafe == false)                                   // stuck unsafe absent a re-read
     }
 
-    // MARK: - H-SUSPENSAO-DESENHO — the by-design transient symptom
+    // MARK: - The by-design transient symptom
 
     /// A volume apply that fails in the post-wake window (the audio stack still
-    /// waking — the noOutputDevice window in the A1 map, modeled as a read that
-    /// returns nil) suspends the VOLUME domain in place. The result is the exact
+    /// waking — the noOutputDevice window, modeled as a read that returns nil)
+    /// suspends the VOLUME domain in place. The result is the exact
     /// field symptom — the next volume key passes through (native OSD) while the
     /// tap observes (Crema HUD) — but BY DESIGN: it is domain-scoped and self-heals
     /// via the read-only recovery probe when the channel comes back.
@@ -412,7 +412,7 @@ struct PostWakeConsumerReproTests {
         await settle()
         #expect(h.observedCount > before)               // observation alive
 
-        // DISCRIMINATOR vs H-CONSUMER-NIL: this is domain-scoped and still engaged.
+        // DISCRIMINATOR vs the stale-unlock-read latch: this is domain-scoped and still engaged.
         #expect(h.suppressor.isEngaged)
         #expect(h.suppressor.suspendedDomains == [.volume])       // ONLY volume
         #expect(h.press(.screenBrightnessDown) == true)           // brightness STILL consumed

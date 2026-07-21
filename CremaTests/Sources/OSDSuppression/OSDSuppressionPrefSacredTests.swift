@@ -1,8 +1,9 @@
 import Testing
 @testable import Crema
 
-/// A1 #3: the persisted opt-in is sacred — no failure path writes it. Each of
-/// the four documented triggers (throwing apply, failed verification,
+/// The persisted opt-in is sacred — no failure path writes it (docs/DECISIONS.md:
+/// pref-sacred). Each of the four documented triggers (throwing apply, failed
+/// verification,
 /// unreadable read, deadline timeout) is fired through the real suppressor
 /// wired to the real lock controller — the only object that ever wrote the pref
 /// (via the now-removed auto-disengage). If any path writes it, these catch it.

@@ -7,9 +7,10 @@
 /// swallowed. The decision has to be synchronous, per key, and consistent
 /// across the two phases: swallowing a down while leaking its up (or the
 /// reverse) leaves an orphaned half-press in the system's key pairing. With
-/// per-domain suspension (A1) the suppressor passes a suspended domain's keys
-/// straight through, so this per-event Bool is what lets one domain fall back
-/// to the native OSD while the others stay suppressed.
+/// per-domain suspension the suppressor passes a suspended domain's keys straight
+/// through, so this per-event Bool is what lets one domain fall back to the
+/// native OSD while the others stay suppressed.
+/// (docs/DECISIONS.md: per-domain-suspension)
 protocol MediaKeyConsuming: AnyObject, Sendable {
     /// `isDown` is true for a key-down or autorepeat, false for a key-up.
     /// The return value is whether to swallow the event.

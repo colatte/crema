@@ -232,8 +232,10 @@ final class CGEventTapMediaKeySource: MediaKeySource, MediaKeyConsuming, @unchec
     ///   dynamically, so suppression survives by construction. Validity is
     ///   definitive (unlike a transient disable), so there is deliberately no
     ///   counter/backoff here — one detection, one reinstall.
-    /// - Port valid but disabled: a re-enable restores it (the J1 secure-input /
-    ///   timeout path), keeping the same port and its consumer wiring intact.
+    /// - Port valid but disabled: a re-enable restores it (the secure-input or
+    ///   tap-timeout disable, delivered as a tapDisabledBy* event), keeping the
+    ///   same port and its consumer wiring intact.
+    ///   (docs/DECISIONS.md: J1-tap-zumbi)
     private func healTapLocked(reason: String) {
         guard let tap else { return }
         if !tapOps.isValid(tap) {
