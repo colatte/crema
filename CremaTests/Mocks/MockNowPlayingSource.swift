@@ -12,10 +12,26 @@ final class MockNowPlayingSource: NowPlayingSource, StoppableSource, @unchecked 
     private let continuation: AsyncStream<NowPlaying>.Continuation
     private let lock = NSLock()
     private var _available: Bool
+    private var _seeks: [Double] = []
+    private var _seekFailures = 0
 
     var available: Bool {
         get { lock.withLock { _available } }
         set { lock.withLock { _available = newValue } }
+    }
+
+    /// Every noteSeek target, in order — pins that the Coordinator's scrub
+    /// hints the source (overriding the protocol's no-op default).
+    var seeks: [Double] { lock.withLock { _seeks } }
+    /// How many failed-seek rollbacks the Coordinator reported.
+    var seekFailures: Int { lock.withLock { _seekFailures } }
+
+    func noteSeek(to seconds: Double) {
+        lock.withLock { _seeks.append(seconds) }
+    }
+
+    func noteSeekFailed() {
+        lock.withLock { _seekFailures += 1 }
     }
 
     init(available: Bool = true) {

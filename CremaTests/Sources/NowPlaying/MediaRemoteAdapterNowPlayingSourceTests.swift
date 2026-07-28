@@ -49,6 +49,93 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         #expect(ticked?.title == "Breathe")   // same track, position advanced
     }
 
+    @Test func noteSeekReanchorsTheTickerAndInvalidatesInFlightTicks() async {
+        let (lines, feed) = AsyncStream<String>.makeStream()
+        let source = MediaRemoteAdapterNowPlayingSource(
+            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1
+        )
+        var iterator = source.updates.makeAsyncIterator()
+
+        feed.yield(line(position: 10, playing: true))          // generation 1
+        #expect(await iterator.next()?.position == 10)
+
+        source.noteSeek(to: 120)                               // re-anchor, generation 2
+        source.tick(ifCurrent: 1)                              // in-flight pre-seek tick: dropped
+        source.tick(ifCurrent: 2)                              // the fresh ticker counts from the target
+        #expect(await iterator.next()?.position == 121)
+    }
+
+    @Test func noteSeekBeyondTheDurationClampsToIt() async {
+        let (lines, feed) = AsyncStream<String>.makeStream()
+        let source = MediaRemoteAdapterNowPlayingSource(
+            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1
+        )
+        var iterator = source.updates.makeAsyncIterator()
+
+        feed.yield(line(position: 10, playing: true))
+        #expect(await iterator.next()?.position == 10)
+
+        source.noteSeek(to: 500)                               // fixture duration is 169
+        source.tick(ifCurrent: 2)
+        #expect(await iterator.next()?.position == 169)        // anchored and tick-clamped at the end
+    }
+
+    @Test func aPendingSeekEchoOvercomesTheJitterHold() async {
+        let (lines, feed) = AsyncStream<String>.makeStream()
+        let source = MediaRemoteAdapterNowPlayingSource(
+            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1
+        )
+        var iterator = source.updates.makeAsyncIterator()
+
+        feed.yield(line(position: 100, playing: true))
+        #expect(await iterator.next()?.position == 100)
+
+        // Micro backward scrub: the player's echo lands a shade behind the
+        // re-anchored target — a sub-tolerance regression the plain rules
+        // would hold; the pending seek lets it land.
+        source.noteSeek(to: 98.5)
+        feed.yield(line(position: 98.2, playing: true))
+        #expect(await iterator.next()?.position == 98.2)
+    }
+
+    @Test func aFailedSeekRestoresThePreSeekLine() async {
+        let (lines, feed) = AsyncStream<String>.makeStream()
+        let source = MediaRemoteAdapterNowPlayingSource(
+            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1
+        )
+        var iterator = source.updates.makeAsyncIterator()
+
+        feed.yield(line(position: 10, playing: true))          // generation 1
+        #expect(await iterator.next()?.position == 10)
+
+        source.noteSeek(to: 120)                               // generation 2
+        source.noteSeekFailed()                                // generation 3, back to the pre-seek line
+        #expect(await iterator.next()?.position == 10)
+        source.tick(ifCurrent: 3)
+        #expect(await iterator.next()?.position == 11)         // ticking from the restored anchor
+    }
+
+    @Test func theHintExpiresAfterItsAnchorBudget() async {
+        let (lines, feed) = AsyncStream<String>.makeStream()
+        let source = MediaRemoteAdapterNowPlayingSource(
+            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1
+        )
+        var iterator = source.updates.makeAsyncIterator()
+
+        feed.yield(line(position: 100, playing: true))
+        #expect(await iterator.next()?.position == 100)
+        source.noteSeek(to: 50)                                // backward seek; echo never comes
+
+        // Three stale far anchors are held at the re-anchored line (the
+        // budget), then the hint expires and the plain rules resume.
+        for anchor in [101.0, 102.0, 103.0] {
+            feed.yield(line(position: anchor, playing: true))
+            #expect(await iterator.next()?.position == 50, "anchor \(anchor) should be held")
+        }
+        feed.yield(line(position: 104, playing: true))
+        #expect(await iterator.next()?.position == 104)        // budget spent: stream rules
+    }
+
     @Test func doesNotTickWhilePaused() async {
         let (lines, feed) = AsyncStream<String>.makeStream()
         let clock = TestSleepClock()

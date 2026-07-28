@@ -11,6 +11,11 @@ import os
 /// and actuators are injected by protocol — never a concrete implementation.
 @MainActor
 @Observable
+// Cohesive past the 400-line body ceiling for the same reason the file opts
+// out of file_length above: priority and timers live ONLY here by design
+// (CLAUDE.md, Fluxo de estado), so every presentation feature lands in this
+// type. Pure decisions still get extracted (ScrubGrace, PresentationState).
+// swiftlint:disable:next type_body_length
 final class Coordinator {
     /// Default time the HUD stays up after the last event (~1.5 s,
     /// restarting on every key press). The single place this number lives.
@@ -127,6 +132,7 @@ final class Coordinator {
     @ObservationIgnored private let invokedLinger: Double
     @ObservationIgnored private let hoverIntentDelay: Double
     @ObservationIgnored private let hoverOutDebounce: Double
+    @ObservationIgnored private let scrubGraceWindow: Double
     /// Browser media is ignored by default (MediaSourceFilter): autoplay
     /// videos surface the now-playing for every feed scroll. The Settings
     /// "include browsers" toggle flips this live (setIgnoresBrowserMedia).
@@ -177,6 +183,10 @@ final class Coordinator {
     @ObservationIgnored private var hudRevertTask: Task<Void, Never>?
     @ObservationIgnored private var lingerTask: Task<Void, Never>?
     @ObservationIgnored private var hoverIntentTask: Task<Void, Never>?
+    /// The seek-in-flight authority window (pure decision in ScrubGrace);
+    /// the timer that expires it honestly lives here, on the injected clock.
+    @ObservationIgnored private var scrubGrace: ScrubGrace
+    @ObservationIgnored private var scrubGraceTask: Task<Void, Never>?
 
     @ObservationIgnored private let logger = Logger.crema("Coordinator")
 
@@ -193,6 +203,8 @@ final class Coordinator {
         invokedLinger: Double = Coordinator.defaultInvokedLinger,
         hoverIntentDelay: Double = Coordinator.defaultHoverIntentDelay,
         hoverOutDebounce: Double = Coordinator.defaultHoverOutDebounce,
+        scrubGraceWindow: Double = ScrubGrace.defaultWindow,
+        scrubConfirmTolerance: Double = ScrubGrace.defaultConfirmTolerance,
         ignoresBrowserMedia: Bool = true,
         reactiveNowPlaying: Bool = true
     ) {
@@ -208,6 +220,8 @@ final class Coordinator {
         self.invokedLinger = invokedLinger
         self.hoverIntentDelay = hoverIntentDelay
         self.hoverOutDebounce = hoverOutDebounce
+        self.scrubGraceWindow = scrubGraceWindow
+        scrubGrace = ScrubGrace(confirmTolerance: scrubConfirmTolerance)
         self.ignoresBrowserMedia = ignoresBrowserMedia
         self.reactiveNowPlaying = reactiveNowPlaying
         currentLinger = nowPlayingLinger
@@ -266,6 +280,7 @@ final class Coordinator {
         lingerTask = nil
         hoverIntentTask?.cancel()
         hoverIntentTask = nil
+        endScrubGrace()
     }
 
     // MARK: - View intents (views report; the Coordinator decides)
@@ -407,9 +422,49 @@ final class Coordinator {
     }
 
     func scrub(to seconds: Double) {
-        runMediaCommand("seek") { [nowPlayingController] in
-            try await nowPlayingController.seek(to: seconds)
+        // The release of a drag (the view sends ONE scrub per gesture). The
+        // player's echo is inherently late — the seek travels a one-shot
+        // subprocess while the source keeps emitting from its pre-seek anchor
+        // — so the user's value takes authority NOW: optimistic position
+        // (position-only, S7 — `state` untouched), the source re-anchors its
+        // ticker, and a grace window holds stale echoes off until the stream
+        // flows at the target or the window expires. Clamped ONCE here so the
+        // grace target, the source anchor and the command all carry the same
+        // number (the floor survives a nil duration on purpose).
+        let floored = max(0, seconds)
+        let target = nowPlaying?.duration.map { min(floored, $0) } ?? floored
+        if nowPlaying != nil {
+            nowPlaying?.position = target
+            scrubGrace.begin(target: target)
+            nowPlayingSource.noteSeek(to: target)
+            scrubGraceTask?.cancel()
+            scrubGraceTask = scheduleTimer(after: scrubGraceWindow) { [weak self] in self?.endScrubGrace() }
         }
+        // A failed (or never-delivered) seek means the player stays where it
+        // was: the optimism has to roll back — end the grace and let the
+        // source undo its fabricated anchor, or the ticker would keep
+        // counting from a position the player never reached until the next
+        // real payload (which, on the adapter, only comes on a change).
+        runMediaCommand(
+            "seek",
+            onFailure: { [weak self] in
+                self?.endScrubGrace()
+                self?.nowPlayingSource.noteSeekFailed()
+            },
+            { [nowPlayingController] in
+                try await nowPlayingController.seek(to: target)
+            }
+        )
+    }
+
+    /// The stream takes back authority over the shown position: discard, a
+    /// failed seek, and the honest timeout come here directly; confirmation
+    /// and track change end inside ScrubGrace and the update path reaps the
+    /// timer through here right after — every exit cancels the task.
+    private func endScrubGrace() {
+        scrubGrace.end()
+        scrubGraceTask?.cancel()
+        scrubGraceTask = nil
     }
 
     func nextTrack() {
@@ -471,6 +526,16 @@ final class Coordinator {
         nowPlaying = update
         if skipSupportedByTrack != update.supportsSkip {
             skipSupportedByTrack = update.supportsSkip
+        }
+        // Scrub grace: the update lands whole first (the thresholds below and
+        // mediaActive read it), then its POSITION is weighed against a seek in
+        // flight — a stale echo must not clobber what the user just set
+        // (ScrubGrace; confirmation and track change end the window there,
+        // and the reap below collects the timeout timer they leave behind).
+        if let held = scrubGrace.heldPosition(update: update, previous: previous) {
+            nowPlaying?.position = held
+        } else if scrubGraceTask != nil, scrubGrace.target == nil {
+            endScrubGrace()
         }
         // mediaActive lands after the state decision (on every exit path): each
         // write runs a synchronous frame pass, and a pass seeing new
@@ -580,8 +645,10 @@ final class Coordinator {
 
     /// Drops the active snapshot and everything armed on it: surface, click
     /// zone, hover. Shared by stream end and the browser filter — both mean
-    /// "there is no media the app should represent".
+    /// "there is no media the app should represent". A scrub in flight dies
+    /// with it: a dead snapshot cannot retain a position target.
     private func discardActiveMedia() {
+        endScrubGrace()
         nowPlaying = nil
         if mediaActive {
             mediaActive = false
@@ -712,6 +779,7 @@ final class Coordinator {
     private func runMediaCommand(
         _ name: StaticString,
         updating availability: ReferenceWritableKeyPath<Coordinator, Bool> = \.commandsAvailable,
+        onFailure: (@MainActor () -> Void)? = nil,
         _ command: @escaping @Sendable () async throws -> Void
     ) {
         Task { @MainActor in
@@ -720,11 +788,15 @@ final class Coordinator {
                 if !self[keyPath: availability] { self[keyPath: availability] = true }
             } catch NowPlayingCommandError.noActiveSource {
                 // Transient: nothing is active to command right now (the chain
-                // may be mid re-selection). Don't latch the controls off.
+                // may be mid re-selection). Don't latch the controls off — but
+                // the command never reached a player, so a caller's optimism
+                // still has to roll back.
                 logger.debug("media command \(name, privacy: .public) skipped: no active source")
+                onFailure?()
             } catch {
                 logger.error("media command \(name, privacy: .public) failed: \(error, privacy: .public)")
                 if self[keyPath: availability] { self[keyPath: availability] = false }
+                onFailure?()
             }
         }
     }

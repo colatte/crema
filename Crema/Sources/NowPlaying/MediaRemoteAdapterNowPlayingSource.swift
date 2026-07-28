@@ -27,6 +27,19 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
     private var tickerTask: Task<Void, Never>?
     private var consumerTask: Task<Void, Never>?
     private var process: MediaRemoteAdapterProcess?
+    /// A user seek awaiting the player's echo (noteSeek). While armed, the
+    /// reconciliation obeys an anchor near the target (even where the plain
+    /// rules would hold it — the sub-tolerance backward step, the paused
+    /// freeze) and HOLDS any other anchor as a stale pre-seek echo. Three
+    /// honest exits, so the hold is always bounded: confirmation (anchor ≈
+    /// target), track change, or the anchor budget running out (the echo
+    /// never came — plain rules resume); a failed command also rolls it back
+    /// (noteSeekFailed, restoring the pre-seek line).
+    private var pendingSeek: (target: Double, anchorsLeft: Int, preSeekPosition: Double)?
+    /// How many real anchors may arrive without confirming before the hint
+    /// expires. Bounds the hold the same way the Coordinator's grace window
+    /// bounds the display override.
+    private static let pendingSeekAnchorBudget = 3
 
     init(
         lines: AsyncStream<String>,
@@ -94,13 +107,71 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
     // Safe: yield never blocks with .bufferingNewest, and yield never invokes
     // onTermination (only finish/cancel do, and those run outside the lock).
 
+    /// The user sought (the scrubber's release): re-anchor `latest` to the
+    /// target so the ticker counts from where the user landed instead of the
+    /// pre-seek position — without this, the 1 Hz tick keeps emitting old+1s
+    /// until the player's echo arrives, which is the "rewinds then corrects"
+    /// symptom. The generation bump invalidates in-flight ticks and the ticker
+    /// restarts on the fresh anchor. No yield: the Coordinator already shows
+    /// the target optimistically; echoing it here would be a duplicate.
+    func noteSeek(to seconds: Double) {
+        lock.lock()
+        guard var nowPlaying = latest else { lock.unlock(); return }
+        let floored = max(0, seconds)
+        let target = nowPlaying.duration.map { min(floored, $0) } ?? floored
+        pendingSeek = (target, Self.pendingSeekAnchorBudget, nowPlaying.position)
+        nowPlaying.position = target
+        latest = nowPlaying
+        tickerGeneration += 1
+        let generation = tickerGeneration
+        let playing = nowPlaying.isPlaying
+        lock.unlock()
+        restartTicker(playing: playing, generation: generation)
+    }
+
+    /// The seek command failed or never reached a player: restore the
+    /// pre-seek line — the honest position is where the player kept playing
+    /// from, not the target the re-anchor fabricated. The restored anchor is
+    /// stale by the command's flight time (bounded by its deadline); the next
+    /// real payload trues it up.
+    func noteSeekFailed() {
+        lock.lock()
+        guard let pending = pendingSeek else { lock.unlock(); return }
+        pendingSeek = nil
+        guard var nowPlaying = latest else { lock.unlock(); return }
+        nowPlaying.position = pending.preSeekPosition
+        latest = nowPlaying
+        tickerGeneration += 1
+        let generation = tickerGeneration
+        let playing = nowPlaying.isPlaying
+        continuation.yield(nowPlaying)
+        lock.unlock()
+        restartTicker(playing: playing, generation: generation)
+    }
+
     private func consume(_ line: String) {
         guard var nowPlaying = AdapterPayloadTranslation.nowPlaying(fromLine: line, at: now()) else {
             markNothingPlaying()
             return
         }
         lock.lock()
-        nowPlaying.position = PositionReconciliation.position(for: nowPlaying, replacing: latest)
+        let rawAnchor = nowPlaying.position
+        nowPlaying.position = PositionReconciliation.position(
+            for: nowPlaying, replacing: latest, pendingSeek: pendingSeek?.target
+        )
+        // The hint's exits, in order: confirmation (the RAW anchor near the
+        // target — within tolerance, stale and echo are numerically the same
+        // thing), track change, or the anchor budget running out (the echo
+        // never came; plain rules resume, bounding the stale-hold above).
+        if let pending = pendingSeek {
+            let identityChanged = latest?.title != nowPlaying.title || latest?.artist != nowPlaying.artist
+            let confirmed = abs(rawAnchor - pending.target) <= PositionReconciliation.seekConfirmTolerance
+            if identityChanged || confirmed || pending.anchorsLeft <= 1 {
+                pendingSeek = nil
+            } else {
+                pendingSeek = (pending.target, pending.anchorsLeft - 1, pending.preSeekPosition)
+            }
+        }
         latest = nowPlaying
         tickerGeneration += 1
         let generation = tickerGeneration
@@ -124,11 +195,16 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
         ticker?.cancel()
     }
 
-    /// stop() racing a mid-flight consume can see this install a ticker after
-    /// stop already cancelled everything. That orphan is reaped by
-    /// finishFromEOF (stop cancelled the consumer, so its loop exits there) —
-    /// its ticker-cancel is not redundant with stop()'s; removing it would
-    /// leak a self-retaining ticker.
+    /// The install only lands while its generation is still current: consume
+    /// (serial, on the consumer task) and noteSeek/noteSeekFailed (MainActor)
+    /// can race here, and an out-of-order install would leave a ticker whose
+    /// generation never matches — every tick a no-op, the position frozen
+    /// until the next payload. The same guard retires the stop() race: stop
+    /// cancels the ticker it sees, and a late installer either loses the
+    /// generation check or its orphan is reaped by finishFromEOF (stop
+    /// cancelled the consumer, so its loop exits there) — that ticker-cancel
+    /// is not redundant with stop()'s; removing it would leak a
+    /// self-retaining ticker.
     private func restartTicker(playing: Bool, generation: Int) {
         let newTicker = playing ? Task { [weak self] in
             guard let self else { return }
@@ -138,6 +214,11 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
             }
         } : nil
         lock.lock()
+        guard generation == tickerGeneration else {
+            lock.unlock()
+            newTicker?.cancel()
+            return
+        }
         let oldTicker = tickerTask
         tickerTask = newTicker
         lock.unlock()

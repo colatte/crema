@@ -18,6 +18,8 @@ struct CoordinatorHarness {
         invokedLinger: Double = Coordinator.defaultInvokedLinger,
         hoverIntentDelay: Double = Coordinator.defaultHoverIntentDelay,
         hoverOutDebounce: Double = Coordinator.defaultHoverOutDebounce,
+        scrubGraceWindow: Double = ScrubGrace.defaultWindow,
+        scrubConfirmTolerance: Double = ScrubGrace.defaultConfirmTolerance,
         ignoresBrowserMedia: Bool = true,
         reactiveNowPlaying: Bool = true
     ) {
@@ -34,6 +36,8 @@ struct CoordinatorHarness {
             invokedLinger: invokedLinger,
             hoverIntentDelay: hoverIntentDelay,
             hoverOutDebounce: hoverOutDebounce,
+            scrubGraceWindow: scrubGraceWindow,
+            scrubConfirmTolerance: scrubConfirmTolerance,
             ignoresBrowserMedia: ignoresBrowserMedia,
             reactiveNowPlaying: reactiveNowPlaying
         )

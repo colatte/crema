@@ -22,6 +22,20 @@ struct ChainedNowPlayingSourceTests {
         #expect(await iterator.next() == track("A"))
     }
 
+    @Test func noteSeekReachesTheActiveSource() async {
+        let adapter = MockNowPlayingSource()
+        let chain = ChainedNowPlayingSource(
+            candidates: [.init(isAvailable: { true }, makeSource: { adapter }, commandChannel: MockCommandChannel())],
+            clock: TestSleepClock()
+        )
+        var iterator = chain.updates.makeAsyncIterator()
+        adapter.emit(track("A"))
+        _ = await iterator.next()   // selection settled: the adapter is active
+
+        chain.noteSeek(to: 55)
+        #expect(adapter.seeks == [55])
+    }
+
     @Test func fallsToTheSecondCandidateWhenTheFirstIsUnavailable() async {
         let jxa = MockNowPlayingSource()
         let chain = ChainedNowPlayingSource(

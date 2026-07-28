@@ -217,6 +217,24 @@ and an appearance scoped per branch would flip the palette mid HUD↔now-playing
 morph — one appearance per surface, always. Consequence: the artwork accent
 needs a single brightness band (the light band was deleted with it).
 
+### scrub-grace
+The now-playing scrubber's release once fought its own stream: every drag
+delta fired a real seek (one subprocess per pixel), the 1 Hz ticker kept
+counting from the pre-seek anchor and pulled the thumb back until the
+player's echo landed, and PositionReconciliation ate deliberate
+sub-tolerance backward seeks as anchor jitter (J4 — the brightness drag's
+cousin). Decision (2026-07-28): the drag owns the gesture — a view-local
+draft shows under the finger, ONE seek fires on release, and a value set
+outside an edit session seeks immediately so tap-to-seek never depends on
+the stock Slider's callback order. On release the user's value takes
+authority: optimistic position write (S7-safe, position-only), the source
+re-anchors its ticker (`noteSeek`, a no-op default for sources with no
+local extrapolation), and a grace window holds stale echoes off until the
+stream itself flows at ≈ the target. Both the display override and the
+source hint are bounded by honest exits — confirmation, track change, a
+failed command (`noteSeekFailed` restores the pre-seek line), and a
+timeout/anchor budget — so neither can ever be left stuck.
+
 ### shared-skin-skeleton
 The three skin views each carried a private copy of the non-visual skeleton
 (~120 identical lines: the layout enum, the empty-freeze rule, per-state

@@ -94,6 +94,19 @@ final class ChainedNowPlayingSource: NowPlayingSource, StoppableSource, @uncheck
         return activeChannel
     }
 
+    /// Forwarded to the active source — without these overrides the protocol's
+    /// no-op defaults would swallow the hints before they reached the
+    /// adapter's ticker re-anchor.
+    func noteSeek(to seconds: Double) {
+        lock.lock(); let active = activeSource; lock.unlock()
+        active?.noteSeek(to: seconds)
+    }
+
+    func noteSeekFailed() {
+        lock.lock(); let active = activeSource; lock.unlock()
+        active?.noteSeekFailed()
+    }
+
     /// Wires the ghost-discard seam after construction. Used by AppCore, which
     /// builds the Coordinator (the handler's target) after the chain.
     func setActiveSourceEndedHandler(_ handler: @escaping @Sendable () -> Void) {

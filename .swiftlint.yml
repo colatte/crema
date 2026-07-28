@@ -121,6 +121,9 @@ cyclomatic_complexity:
 # Ceilings sized for this app's larger files. Coordinator.swift (625 lines) already
 # exceeds the 500 file_length warning and opts out inline via
 # `// swiftlint:disable file_length`; WindowManagerTests opts out the same way (~500, grown by pinning fences).
+# The Coordinator CLASS also opts out of type_body_length inline (scrub-grace round):
+# priority and timers live only there by design, so its body grows with every
+# presentation feature while pure decisions keep being extracted alongside.
 file_length:
   warning: 500
   error: 1200
