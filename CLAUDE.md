@@ -271,6 +271,6 @@ coord.onPresentationChange = { [weak self] in self?.applyFrames() }
 
 ## Decisões em aberto
 
-- [x] **`SWIFT_VERSION = 5.0` no pbxproj × `--swiftversion 6` no `.swiftformat`** — resolvido: projeto elevado ao modo de linguagem Swift 6 (`SWIFT_VERSION = 6.0`; o formatter já o assumia). Custo pontual, provado por build: `withLock` escopado nos `NSLock` usados em contexto async (cadeia do now playing, demo), `T: Sendable` no `SingleResumeRace`, `nonisolated(unsafe)` nos arrays de observers lidos só no `deinit` (bracket de ciclo de vida documentado no local), `nonisolated static let` nas constantes do suppressor e a chave AX literal no lugar do global C sem anotação do SDK; suíte completa verde — 613 testes em 76 suítes (2026-07-27).
+- [x] **`SWIFT_VERSION = 5.0` no pbxproj × `--swiftversion 6` no `.swiftformat`** — resolvido: projeto elevado ao modo de linguagem Swift 6 (`SWIFT_VERSION = 6.0`; o formatter já o assumia). Custo pontual, provado por build: `withLock` escopado nos `NSLock` usados em contexto async (cadeia do now playing, demo), `T: Sendable` no `SingleResumeRace`, `nonisolated(unsafe)` nos arrays de observers lidos só no `deinit` (bracket de ciclo de vida documentado no local), `nonisolated static let` nas constantes do suppressor e a chave AX literal no lugar do global C sem anotação do SDK; suíte completa verde — 613 testes em 76 suítes (rodada swift6, 2026-07-27).
 
 Nenhuma pendente.
