@@ -178,10 +178,7 @@ final class Coordinator {
     @ObservationIgnored private var lingerTask: Task<Void, Never>?
     @ObservationIgnored private var hoverIntentTask: Task<Void, Never>?
 
-    @ObservationIgnored private let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "com.colatte.crema",
-        category: "Coordinator"
-    )
+    @ObservationIgnored private let logger = Logger.crema("Coordinator")
 
     init(
         nowPlayingSource: any NowPlayingSource,
@@ -325,16 +322,7 @@ final class Coordinator {
         if hovering { cancelLinger() }
         hoverIntentTask?.cancel()
         let delay = hovering ? hoverIntentDelay : hoverOutDebounce
-        hoverIntentTask = Task { [weak self, clock, delay, hovering] in
-            do {
-                try await clock.sleep(for: delay)
-            } catch {
-                return // cancelled: a newer hover event superseded this one
-            }
-            // A cancel landing between the sleep's expiry and this hop is
-            // silent (Task.sleep only throws while pending) — a stale fire
-            // would act on a successor's state.
-            guard !Task.isCancelled else { return }
+        hoverIntentTask = scheduleTimer(after: delay) { [weak self] in
             self?.applyHoverIntent(expanded: hovering)
         }
     }
@@ -616,19 +604,29 @@ final class Coordinator {
         if !pointerInside { restartHUDRevertTimer() }
     }
 
+    /// The one home for the cancellable display-timer idiom: sleep on the
+    /// injected clock, then fire — with the two silences that make a timer
+    /// safe to restart under a burst. The catch swallows a cancel landing
+    /// while the sleep is pending; the isCancelled guard swallows one landing
+    /// between the sleep's expiry and this hop, where a stale fire would act
+    /// on a successor's state (dismiss its HUD, tuck its appearance). Every
+    /// display timer goes through here — the guard is a correctness invariant,
+    /// and hand-rolled copies are how it gets lost.
+    private func scheduleTimer(after delay: Double, fire: @escaping @MainActor () -> Void) -> Task<Void, Never> {
+        Task { [clock] in
+            do {
+                try await clock.sleep(for: delay)
+            } catch {
+                return // cancelled: a newer event superseded this timer
+            }
+            guard !Task.isCancelled else { return }
+            fire()
+        }
+    }
+
     private func restartHUDRevertTimer() {
         hudRevertTask?.cancel()
-        hudRevertTask = Task { [weak self, clock, hudRevertDelay] in
-            do {
-                try await clock.sleep(for: hudRevertDelay)
-            } catch {
-                return // cancelled: a newer event restarted the timer, or we stopped
-            }
-            // A cancel landing between the sleep's expiry and this hop is
-            // silent — a stale fire would dismiss the successor HUD instantly.
-            guard !Task.isCancelled else { return }
-            self?.revertHUD()
-        }
+        hudRevertTask = scheduleTimer(after: hudRevertDelay) { [weak self] in self?.revertHUD() }
     }
 
     private func revertHUD() {
@@ -656,17 +654,7 @@ final class Coordinator {
     private func restartLingerTimer(duration: Double? = nil) {
         let delay = duration ?? currentLinger
         lingerTask?.cancel()
-        lingerTask = Task { [weak self, clock, delay] in
-            do {
-                try await clock.sleep(for: delay)
-            } catch {
-                return // cancelled: hover held the appearance, or a newer event restarted it
-            }
-            // A cancel landing between the sleep's expiry and this hop is
-            // silent — a stale fire would tuck the successor appearance instantly.
-            guard !Task.isCancelled else { return }
-            self?.tuckNowPlaying()
-        }
+        lingerTask = scheduleTimer(after: delay) { [weak self] in self?.tuckNowPlaying() }
     }
 
     private func cancelLinger() {

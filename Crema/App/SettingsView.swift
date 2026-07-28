@@ -96,16 +96,15 @@ private struct GeneralSettingsView: View {
             }
 
             Section {
-                // A custom binding (not onChange): the setter applies the change
-                // and then reflects the real status, so a throw snaps it back and
-                // a "requires approval" result keeps it on with the note below —
-                // and mutating state in the setter can't re-fire itself.
+                // A custom binding (not onChange): the setter routes the intent
+                // through AppCore and reflects the real status it returns, so a
+                // failed registration snaps it back and a "requires approval"
+                // result keeps it on with the note below — and mutating state
+                // in the setter can't re-fire itself.
                 Toggle(isOn: Binding(
                     get: { launchesAtLogin },
                     set: { wanted in
-                        try? core.loginItem.setEnabled(wanted)
-                        launchesAtLogin = core.loginItem.isEnabled || core.loginItem.requiresApproval
-                        loginNeedsApproval = core.loginItem.requiresApproval
+                        (launchesAtLogin, loginNeedsApproval) = core.setLaunchesAtLogin(wanted)
                     }
                 )) {
                     Text(String(localized: "settings.general.launchAtLogin", defaultValue: "Open Crema at login"))

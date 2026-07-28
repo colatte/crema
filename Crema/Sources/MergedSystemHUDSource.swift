@@ -1,5 +1,9 @@
 /// Fans several SystemHUDSources into one stream, so the Coordinator consumes a
 /// single injected source while volume + both brightnesses run independently.
+///
+/// @unchecked because `forwarders` is mutable: the invariant making it safe is
+/// that it is written only in init and read only in deinit — never touched
+/// concurrently. Adding any other access requires a lock.
 final class MergedSystemHUDSource: SystemHUDSource, @unchecked Sendable {
     let updates: AsyncStream<SystemHUD>
 

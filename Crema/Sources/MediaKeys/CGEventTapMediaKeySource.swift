@@ -34,10 +34,7 @@ final class CGEventTapMediaKeySource: MediaKeySource, MediaKeyConsuming, @unchec
     private var pollTask: Task<Void, Never>?
     private var consumer: Consumer?
 
-    private let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "com.colatte.crema",
-        category: "MediaKeys"
-    )
+    private let logger = Logger.crema("MediaKeys")
 
     init(
         permission: any AccessibilityPermission,
@@ -69,18 +66,26 @@ final class CGEventTapMediaKeySource: MediaKeySource, MediaKeyConsuming, @unchec
         // outright — dead permanently, no re-enable can bring it back, so the
         // health-check reinstalls from scratch. Left unhandled either way, keys
         // reach the system and the native OSD comes back alongside ours.
-        pollTask = Task { [weak self] in
+        // clock/interval captured by value so the sleep never retains self —
+        // a strong ref parked across the await would make deinit (which owns
+        // the tap uninstall and this task's cancel) unreachable.
+        pollTask = Task { [weak self, clock, pollInterval] in
             while !Task.isCancelled {
-                guard let self else { return }
-                if self.permission.isGranted() {
-                    if self.installTapIfAuthorized() {
-                        self.healTapIfNeeded(reason: "poll")
-                    }
-                } else {
-                    self.tearDownTapIfInstalled()
-                }
-                try? await self.clock.sleep(for: self.pollInterval)
+                self?.pollTick()
+                try? await clock.sleep(for: pollInterval)
             }
+        }
+    }
+
+    /// One health-check pass, synchronous so the poll loop holds self only for
+    /// the tick — never across its sleep.
+    private func pollTick() {
+        if permission.isGranted() {
+            if installTapIfAuthorized() {
+                healTapIfNeeded(reason: "poll")
+            }
+        } else {
+            tearDownTapIfInstalled()
         }
     }
 

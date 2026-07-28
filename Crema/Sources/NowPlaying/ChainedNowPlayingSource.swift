@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Composite NowPlaying source implementing the fallback chain (adapter → JXA →
 /// off) behind the same NowPlayingSource protocol, so the Coordinator consumes
@@ -28,6 +29,7 @@ final class ChainedNowPlayingSource: NowPlayingSource, StoppableSource, @uncheck
     /// the menu can signal the degraded state.
     private let onActiveChange: (@Sendable (Bool) -> Void)?
     private let lock = NSLock()
+    private let logger = Logger.crema("NowPlaying")
     private var activeSource: (any NowPlayingSource)?
     private var activeChannel: (any NowPlayingCommandChannel)?
     private var controlTask: Task<Void, Never>?
@@ -135,8 +137,16 @@ final class ChainedNowPlayingSource: NowPlayingSource, StoppableSource, @uncheck
                 armedPromotion = false
             }
             onActiveChange?(true)
+            let name = selection.candidate.label.isEmpty
+                ? "#\(selection.index)" : selection.candidate.label
+            logger.info("now-playing chain selected \(name, privacy: .public) (priority \(selection.index, privacy: .public))")
 
-            await forwardUpdates(from: source, activeIndex: selection.index)
+            let promoted = await forwardUpdates(from: source, activeIndex: selection.index)
+            if promoted {
+                logger.notice("now-playing source \(name, privacy: .public) promoted away at a quiet boundary — cutting over to the preferred candidate")
+            } else {
+                logger.notice("now-playing source \(name, privacy: .public) ended (process death or outage) — re-selecting")
+            }
 
             // The active source ended — its process died (failover/outage) or a
             // deliberate promotion broke the loop. Its last snapshot is a ghost:
@@ -158,8 +168,10 @@ final class ChainedNowPlayingSource: NowPlayingSource, StoppableSource, @uncheck
     /// While a higher-priority candidate exists (`activeIndex > 0`) a background
     /// probe watches for it to recover and arms a promotion; an armed promotion
     /// cuts over only at a quiet boundary — never mid-track
-    /// (docs/DECISIONS.md: promotion-quiet-boundary).
-    private func forwardUpdates(from source: any NowPlayingSource, activeIndex: Int) async {
+    /// (docs/DECISIONS.md: promotion-quiet-boundary). Returns whether a
+    /// promotion (not the source's own death) ended the forwarding, so the
+    /// caller can log the two exits distinctly.
+    private func forwardUpdates(from source: any NowPlayingSource, activeIndex: Int) async -> Bool {
         let probe = activeIndex > 0 ? startPromotionProbe(activeIndex: activeIndex) : nil
         lock.withLock { promotionProbeTask = probe }
 
@@ -189,6 +201,7 @@ final class ChainedNowPlayingSource: NowPlayingSource, StoppableSource, @uncheck
         // stop its process so no orphan survives (idempotent if it already
         // ended by EOF).
         if promoted { (source as? StoppableSource)?.stop() }
+        return promoted
     }
 
     /// Probes the preferred candidate on an interval; when it recovers, arms a

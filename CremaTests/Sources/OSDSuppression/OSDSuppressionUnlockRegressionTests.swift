@@ -14,40 +14,10 @@ import Testing
 @MainActor
 struct OSDSuppressionUnlockRegressionTests {
 
-    // A lock/unlock harness that owns the real SuppressionLockController over a
-    // mock lock source, so we exercise the actual engage/disengage policy the
-    // report goes through — not a bare setEngaged.
-    @MainActor
-    final class LockHarness {
-        let keys = MockMediaKeyConsuming()
-        let volume = MockOSDVolumeChannel()
-        let screen = MockOSDChannel()
-        let keyboard = MockOSDChannel()
-        let clock = TestSleepClock()
-        let readClock = TestSleepClock()
-        let lock = MockScreenLockSource(safe: true)
-        let defaults = EphemeralDefaults()
-        let prefs: Preferences
-        let suppressor: MediaKeyInterceptionOSDSuppressor
-        let controller: SuppressionLockController
-        private(set) var suspensionChanges = 0
-
-        init() {
-            prefs = Preferences(defaults: defaults.defaults)
-            prefs.suppressesNativeOSD = true
-            suppressor = MediaKeyInterceptionOSDSuppressor(
-                keys: keys, volume: volume, screen: screen, keyboard: keyboard,
-                clock: clock, readClock: readClock
-            )
-            controller = SuppressionLockController(
-                suppressor: suppressor, lockSource: lock, preferences: prefs
-            )
-            // Set after every stored property is initialized: the [weak self]
-            // capture needs a fully-formed self, and `controller` is the last.
-            suppressor.onSuspensionStateChange = { [weak self] in self?.suspensionChanges += 1 }
-            controller.start()
-        }
-    }
+    // The lock/unlock harness (OSDSuppressorLockHarness, CremaTests/Mocks/)
+    // owns the real SuppressionLockController over a mock lock source, so these
+    // suites exercise the actual engage/disengage policy the report goes
+    // through — not a bare setEngaged.
 
     // MARK: - V1 · MUST PASS: read-nil suspension self-heals when the read heals
 
@@ -75,7 +45,7 @@ struct OSDSuppressionUnlockRegressionTests {
     // so its read heals post-wake; this pins that the seam recovers.
 
     @Test func MUST_PASS_lockUnlockThenReadNilSuspendThenHealReengages() async {
-        let h = LockHarness()
+        let h = OSDSuppressorLockHarness()
         #expect(h.suppressor.isEngaged)              // safe + opted-in
 
         h.lock.set(safe: false)                      // screen locks / display sleeps
@@ -303,7 +273,7 @@ struct OSDSuppressionUnlockRegressionTests {
     // long-suspended domain, then unlock — the re-engage must be born healthy.
 
     @Test func HUNT_lockWhileLongSuspendedThenUnlockRecovers() async {
-        let h = LockHarness()
+        let h = OSDSuppressorLockHarness()
         h.screen.value = nil
         h.keys.press(.screenBrightnessUp)
         #expect(await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) })
@@ -374,7 +344,7 @@ struct OSDSuppressionUnlockRegressionTests {
     // the first flap after unlock would re-escalate instantly instead of taking a
     // fresh full run — so this catches a removal of the engage/disengage reset.
     @Test func MUST_PASS_writeDeadEscalationThroughLockResetsTheWriteAxis() async {
-        let h = LockHarness()
+        let h = OSDSuppressorLockHarness()
         #expect(h.suppressor.isEngaged)              // safe + opted-in
 
         h.screen.writeIsDead = true                  // write records but never moves

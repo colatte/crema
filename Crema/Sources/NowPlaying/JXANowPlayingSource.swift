@@ -84,30 +84,24 @@ final class JXANowPlayingSource: NowPlayingSource, StoppableSource, @unchecked S
         continuation.yield(nowPlaying)
     }
 
-    /// Real probe: reads the current track from Spotify/Music via JXA. Spotify
-    /// reports duration in milliseconds, Music in seconds — normalized here.
+    /// Real probe: reads the current track from the active player (the shared
+    /// JXAPlayerScript preamble — the same selection the command side uses).
+    /// Spotify reports duration in milliseconds, Music in seconds — normalized
+    /// here via the preamble's isSpotify flag.
     private static let probeSource = """
     (function() {
-      function track(name, durationInMs) {
-        try {
-          const app = Application(name);
-          if (!app.running()) return null;
-          const state = app.playerState();
-          if (state === 'stopped') return null;
-          const t = app.currentTrack;
-          const dur = t.duration();
-          return {
-            title: t.name(),
-            artist: t.artist(),
-            duration: durationInMs ? dur / 1000 : dur,
-            position: app.playerPosition(),
-            playing: state === 'playing'
-          };
-        } catch (e) {
-          return null;   // app not installed / not scriptable
-        }
-      }
-      return JSON.stringify(track('Spotify', true) || track('Music', false) || {});
+    \(JXAPlayerScript.preamble)
+      return JSON.stringify(withActivePlayer(function(app, state, isSpotify) {
+        const t = app.currentTrack;
+        const dur = t.duration();
+        return {
+          title: t.name(),
+          artist: t.artist(),
+          duration: isSpotify ? dur / 1000 : dur,
+          position: app.playerPosition(),
+          playing: state === 'playing'
+        };
+      }) || {});
     })();
     """
 

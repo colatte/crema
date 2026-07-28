@@ -147,10 +147,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     /// key consumed just before a disengage apply after a rapid re-engage.
     private var generation = 0
 
-    private let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "com.colatte.crema",
-        category: "OSD"
-    )
+    private let logger = Logger.crema("OSD")
 
     init(
         keys: any MediaKeyConsuming,
@@ -268,6 +265,9 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     /// silent: a genuinely dead channel would otherwise eat the press with zero
     /// feedback and no trace. Logged once per channel so a degradation is
     /// diagnosable without spamming the log on every autorepeat.
+    /// Channel names match the domain's camelCase spelling so one Console
+    /// filter catches both — plus "mute", which is a channel of its own here
+    /// even though it rides with volume as a suspension domain.
     private var reportedUnavailable: Set<String> = []
 
     private func passThroughUnavailable(_ channel: String) {
@@ -303,10 +303,10 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         case .volumeUp, .volumeDown:
             try await applyVolumeStep(key, fine: fine)
         case .screenBrightnessUp, .screenBrightnessDown:
-            guard screen.isAvailable() else { passThroughUnavailable("screen brightness"); return }
+            guard screen.isAvailable() else { passThroughUnavailable("screenBrightness"); return }
             try await step(screen, key: key, fine: fine)
         case .keyboardBrightnessUp, .keyboardBrightnessDown:
-            guard keyboard.isAvailable() else { passThroughUnavailable("keyboard brightness"); return }
+            guard keyboard.isAvailable() else { passThroughUnavailable("keyboardBrightness"); return }
             try await step(keyboard, key: key, fine: fine)
         }
     }

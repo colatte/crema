@@ -98,10 +98,7 @@ final class DistributedNotificationScreenLockSource: ScreenLockSource {
     /// The in-flight settle re-read chain; at most one, restarted per edge.
     private var settleTask: Task<Void, Never>?
 
-    private let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "com.colatte.crema",
-        category: "ScreenLock"
-    )
+    private let logger = Logger.crema("ScreenLock")
 
     init(
         clock: any SleepClock = ContinuousSleepClock(),

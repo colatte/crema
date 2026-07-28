@@ -22,22 +22,16 @@ struct JXACommandChannel: NowPlayingCommandChannel {
     }
 
     /// Wraps a control statement so it runs against whichever of Spotify/Music
-    /// is currently playing, returning "true" on success.
+    /// is currently playing (the shared JXAPlayerScript preamble — the same
+    /// player selection the read side uses), returning "true" on success.
     private static func control(_ statement: String) -> String {
         """
         (function() {
-          function act(name) {
-            try {
-              const app = Application(name);
-              if (!app.running()) return false;
-              if (app.playerState() === 'stopped') return false;
-              \(statement)
-              return true;
-            } catch (e) {
-              return false;
-            }
-          }
-          return String(act('Spotify') || act('Music'));
+        \(JXAPlayerScript.preamble)
+          return String(Boolean(withActivePlayer(function(app, state, isSpotify) {
+            \(statement)
+            return true;
+          })));
         })();
         """
     }

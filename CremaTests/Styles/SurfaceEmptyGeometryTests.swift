@@ -71,6 +71,12 @@ struct SurfaceEmptyGeometryTests {
         #expect(ClassicView.surfaceSize(for: kind, in: sizes, showsControls: true) == sizes.compact)
     }
 
+    @Test func classicVisibleLayoutsPresentThemselves() {
+        #expect(ClassicView.effectiveLayoutKind(layout: .hud, lastVisible: .compact) == .hud)
+        #expect(ClassicView.effectiveLayoutKind(layout: .compact, lastVisible: .hud) == .compact)
+        #expect(ClassicView.effectiveLayoutKind(layout: .expanded, lastVisible: .hud) == .expanded)
+    }
+
     @Test func classicViewOnlyExpandedDropsTheControlsSection() {
         let full = ClassicView.surfaceSize(for: .expanded, in: sizes, showsControls: true)
         let trimmed = ClassicView.surfaceSize(for: .expanded, in: sizes, showsControls: false)

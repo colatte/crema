@@ -126,6 +126,10 @@ enum NotchMetrics {
     /// the height of the usable content band (the frame is `safeTop + drop`):
     /// compact/HUD get a small band; expanded gets the media block.
     static let compactDrop: CGFloat = 44
+    /// One inset for BOTH compact and HUD content: the two states share the
+    /// exact frame, so differing insets would jiggle edges during the
+    /// crossfade — the shared constant is what pins them together.
+    static let contentPaddingHorizontal: CGFloat = 12
     /// Expanded: the cutout stretching down (Dynamic Island). The width never
     /// changes (see the frame rule); the drop is derived from the reference
     /// layout's stacked sections (header, thin scrubber, transport) — like the

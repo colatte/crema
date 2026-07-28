@@ -205,6 +205,21 @@ and an appearance scoped per branch would flip the palette mid HUD↔now-playing
 morph — one appearance per surface, always. Consequence: the artwork accent
 needs a single brightness band (the light band was deleted with it).
 
+### shared-skin-skeleton
+The three skin views each carried a private copy of the non-visual skeleton
+(~120 identical lines: the layout enum, the empty-freeze rule, per-state
+sizes, content derivation and intent passthroughs). Copies are how the
+empty-boundary freeze once landed on two skins and missed the Notch — and the
+mirrored test suites had already diverged the same way (Classic was missing
+two pins its siblings had). Decision (2026-07-28): the skeleton lives once in
+SurfaceStyleCore (`SurfaceLayoutKind` + `SurfaceLayout` + `SurfaceStyleBody`);
+each view keeps only its visual body, the provenance @State the freeze
+contract binds to, and one-line statics that pin the per-skin Metrics
+parameter (which the per-view tests still exercise). This supersedes the
+earlier "each skin's private LayoutKind stays private" choice once recorded at
+SurfaceAnimation.geometryAnimation — whose boolean interface stays for its own
+reason: the motion gate reads exactly two provenance facts, never the enum.
+
 ### hover-follows-the-eye
 Hover and clicks derive from the same rendered truth, on every skin. The hover
 exit region used to be a state-blind union of the compact and expanded frames

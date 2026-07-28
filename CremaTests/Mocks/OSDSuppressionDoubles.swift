@@ -28,6 +28,44 @@ final class OSDSuppressorHarness {
     }
 }
 
+/// The lock-aware superset of OSDSuppressorHarness: the production suppressor
+/// wired to the real SuppressionLockController over a mock lock source and
+/// ephemeral prefs (opted in, started), so a suite exercises the actual
+/// engage/disengage policy — not a bare setEngaged. Keeps `clock` and
+/// `readClock` apart for the same reason the base harness does: read deadlines
+/// must not trip when a test advances the probe/backoff clock.
+@MainActor
+final class OSDSuppressorLockHarness {
+    let keys = MockMediaKeyConsuming()
+    let volume = MockOSDVolumeChannel()
+    let screen = MockOSDChannel()
+    let keyboard = MockOSDChannel()
+    let clock = TestSleepClock()
+    let readClock = TestSleepClock()
+    let lock = MockScreenLockSource(safe: true)
+    let defaults = EphemeralDefaults()
+    let prefs: Preferences
+    let suppressor: MediaKeyInterceptionOSDSuppressor
+    let controller: SuppressionLockController
+    private(set) var suspensionChanges = 0
+
+    init() {
+        prefs = Preferences(defaults: defaults.defaults)
+        prefs.suppressesNativeOSD = true
+        suppressor = MediaKeyInterceptionOSDSuppressor(
+            keys: keys, volume: volume, screen: screen, keyboard: keyboard,
+            clock: clock, readClock: readClock
+        )
+        controller = SuppressionLockController(
+            suppressor: suppressor, lockSource: lock, preferences: prefs
+        )
+        // Set after every stored property is initialized: the [weak self]
+        // capture needs a fully-formed self, and `controller` is the last.
+        suppressor.onSuspensionStateChange = { [weak self] in self?.suspensionChanges += 1 }
+        controller.start()
+    }
+}
+
 /// A running counter safe to capture in a @MainActor closure — used where the
 /// thing being counted is not a collection (so `isEmpty` does not apply).
 @MainActor

@@ -44,109 +44,12 @@ private func keyCode(_ key: MediaKey) -> Int {
     }
 }
 
-/// Injectable event-tap border: like FakeEventTapOperating (same install /
-/// enable / validate / uninstall bookkeeping) but it also CAPTURES the C callback
-/// and userInfo of every install. A test can then fire a synthetic media-key
-/// event through the real source's callback — and aim it at an OLD install to
-/// model an event delivered to the stale port during an uninstall→install swap.
-final class InjectableEventTapOperating: EventTapOperating, @unchecked Sendable {
-    final class Token {}
-    private struct Install {
-        let token: Token
-        let callback: CGEventTapCallBack
-        let userInfo: UnsafeMutableRawPointer
-    }
-
-    private let lock = NSLock()
-    private var installs: [Install] = []
-    private var current: Token?
-    private var _enabled = false
-    private var _valid = false
-    private var _installCount = 0
-    private var _operations: [String] = []
-
-    var installCount: Int { lock.withLock { _installCount } }
-    var isInstalled: Bool { lock.withLock { current != nil } }
-    var isCurrentlyEnabled: Bool { lock.withLock { _enabled } }
-    var operations: [String] { lock.withLock { _operations } }
-    /// Number of installs captured so far — the index of the current one is
-    /// captureCount − 1; a prior index targets an already-uninstalled port.
-    var captureCount: Int { lock.withLock { installs.count } }
-
-    func simulateSystemDisable() { lock.withLock { _enabled = false } }
-    func simulateSystemInvalidate() { lock.withLock { _valid = false } }
-
-    func install(
-        mask: CGEventMask,
-        callback: @escaping CGEventTapCallBack,
-        userInfo: UnsafeMutableRawPointer
-    ) -> AnyObject? {
-        lock.withLock {
-            let token = Token()
-            installs.append(Install(token: token, callback: callback, userInfo: userInfo))
-            current = token
-            _enabled = true
-            _valid = true
-            _installCount += 1
-            _operations.append("install")
-            return token
-        }
-    }
-
-    func isEnabled(_ token: AnyObject) -> Bool { lock.withLock { (token as AnyObject) === current && _enabled } }
-    func isValid(_ token: AnyObject) -> Bool { lock.withLock { (token as AnyObject) === current && _valid } }
-    func setEnabled(_ token: AnyObject, _ enabled: Bool) {
-        lock.withLock { if (token as AnyObject) === current { _enabled = enabled } }
-    }
-
-    func uninstall(_ token: AnyObject) {
-        lock.withLock {
-            _operations.append("uninstall")
-            if (token as AnyObject) === current { current = nil; _enabled = false; _valid = false }
-        }
-    }
-
-    /// Fire a synthetic media-key event through a captured install's callback.
-    /// `index` nil = the current (last) install. Returns whether the callback
-    /// swallowed it (true) or passed it through (false); nil if no such install.
-    /// The install is looked up regardless of whether the port was later
-    /// uninstalled — that is the whole point of the old-port delivery probe: the
-    /// captured callback routes through the same source pointer either way.
-    func deliver(data1: Int, index: Int? = nil) -> Bool? {
-        let install: Install? = lock.withLock {
-            guard !installs.isEmpty else { return nil }
-            let i = index ?? (installs.count - 1)
-            return installs.indices.contains(i) ? installs[i] : nil
-        }
-        guard let install, let event = Self.makeSystemDefinedEvent(data1: data1) else { return nil }
-        // The proxy is never dereferenced by the callback (it reads userInfo); a
-        // bogus non-null pointer is fine, and bitPattern: 0x1 is never nil.
-        guard let proxy = OpaquePointer(bitPattern: 0x1) else { return nil }
-        let result = install.callback(proxy, event.type, event, install.userInfo)
-        return result == nil   // nil ⇒ swallowed
-    }
-
-    /// An NX_SYSDEFINED aux-control CGEvent (subtype 8) built via NSEvent — the
-    /// only reliable way to synthesize one; its .type carries rawValue 14, which
-    /// the callback reads directly (CGEventType has no named case for 14).
-    static func makeSystemDefinedEvent(data1: Int) -> CGEvent? {
-        NSEvent.otherEvent(
-            with: .systemDefined,
-            location: .zero,
-            modifierFlags: [],
-            timestamp: 0,
-            windowNumber: 0,
-            context: nil,
-            subtype: MediaKeyTranslation.auxiliaryControlSubtype,
-            data1: data1,
-            data2: -1
-        )?.cgEvent
-    }
-}
-
 @MainActor
 final class PostWakeSeamHarness {
-    let ops = InjectableEventTapOperating()
+    /// The canonical tap fake (CremaTests/Mocks/) — its callback capture and
+    /// `deliver(data1:index:)` let the probes below fire synthetic events
+    /// through the REAL source callback, including at an old install.
+    let ops = FakeEventTapOperating()
     let permission = MockAccessibilityPermission(granted: true)
     /// The source's own poll clock — parked after the first install; never
     /// advanced by the tests, so the poll never interferes with the probe.
@@ -344,13 +247,13 @@ struct PostWakeConsumerReproTests {
         await h.installed()
         h.start()
         await settle()
-        let oldIndex = h.ops.captureCount - 1
+        let oldIndex = h.ops.installCount - 1
         #expect(h.ops.deliver(data1: mediaData1(1, down: true), index: oldIndex) == true)
         _ = h.ops.deliver(data1: mediaData1(1, down: false), index: oldIndex)
 
         h.wake()                                        // reinstall: old port uninstalled
         await settle()
-        #expect(h.ops.captureCount == 2)
+        #expect(h.ops.installCount == 2)
 
         // Delivered to the OLD callback while a new port exists: still swallows,
         // because it consults the live consumer through the same source.

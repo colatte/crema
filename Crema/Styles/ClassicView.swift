@@ -7,7 +7,11 @@ import SwiftUI
 /// bottom-anchored inside the fixed window — the block sits on the native
 /// OSD's line and grows upward.
 @MainActor
-struct ClassicView: View {
+struct ClassicView: View, SurfaceStyleBody {
+    /// The shared surface vocabulary (SurfaceStyleCore); aliased so call sites
+    /// and tests keep the per-skin spelling.
+    typealias LayoutKind = SurfaceLayoutKind
+
     let coordinator: Coordinator
     var displayPolicy = SurfaceDisplayPolicy()
 
@@ -135,116 +139,28 @@ struct ClassicView: View {
         return Self.surfaceSize(for: effectiveLayoutKind, in: stateSizes, showsControls: showsControls)
     }
 
+    // One-line delegates into SurfaceLayout (the shared implementation): the
+    // per-skin fact is only which Metrics feeds controlsSectionHeight, and the
+    // per-view spelling is what SurfaceEmptyGeometryTests pins.
     nonisolated static func surfaceSize(
         for kind: LayoutKind,
         in stateSizes: SurfaceStateSizes,
         showsControls: Bool
     ) -> CGSize {
-        switch kind {
-        case .empty, .compact: stateSizes.compact
-        case .expanded: expandedSurfaceSize(stateSizes.expanded, showsControls: showsControls)
-        case .hud: stateSizes.hud
-        }
-    }
-
-    /// View-only shrinks the expanded block by exactly the controls section, so
-    /// the visible sections fill it with no dead space; the fixed window is
-    /// unchanged (always larger than any state).
-    nonisolated static func expandedSurfaceSize(_ full: CGSize, showsControls: Bool) -> CGSize {
-        guard !showsControls else { return full }
-        return CGSize(width: full.width, height: full.height - ClassicMetrics.controlsSectionHeight)
-    }
-
-    enum LayoutKind: Equatable {
-        case empty, compact, expanded, hud
-    }
-
-    private var layoutKind: LayoutKind {
-        switch contentKind {
-        case .empty: .empty
-        case .nowPlayingCompact: .compact
-        case .nowPlayingExpanded: .expanded
-        case .hud: .hud
-        }
-    }
-
-    /// The layout whose geometry the surface presents: visible layouts are
-    /// themselves; a hidden surface FREEZES the last-visible layout so every
-    /// fade-out sits on the rect it is leaving (no snap to the compact block
-    /// behind a fading HUD, no mirror shrink on dismissal). Initial falls back to
-    /// compact. Pure and testable.
-    private var effectiveLayoutKind: LayoutKind {
-        Self.effectiveLayoutKind(layout: layoutKind, lastVisible: lastVisibleLayoutKind)
+        SurfaceLayout.surfaceSize(
+            for: kind, in: stateSizes, showsControls: showsControls,
+            controlsSectionHeight: ClassicMetrics.controlsSectionHeight
+        )
     }
 
     nonisolated static func effectiveLayoutKind(layout: LayoutKind, lastVisible: LayoutKind) -> LayoutKind {
-        layout == .empty ? lastVisible : layout
+        SurfaceLayout.effectiveLayoutKind(layout: layout, lastVisible: lastVisible)
     }
 
-    private var isExpanded: Bool {
-        if case .nowPlaying(_, expanded: true) = coordinator.state { return true }
-        return false
-    }
-
-    /// Artwork bytes driving the accent — from the state payload (ticks never
-    /// rewrite it); nil outside now-playing, so the tone fades out with the
-    /// surface.
-    private var accentArtwork: [UInt8]? {
-        switch contentKind {
-        case .nowPlayingCompact(let track), .nowPlayingExpanded(let track):
-            track.artworkData
-        case .empty, .hud:
-            nil
-        }
-    }
-
-    // MARK: - Content derivation (state in)
-
-    var contentKind: StyleContent {
-        StyleContent(state: coordinator.state, showsNowPlaying: displayPolicy.showsNowPlaying)
-    }
-
-    /// Live scrubber position — read from `nowPlaying`, never from `state`.
-    var scrubberPosition: Double {
-        coordinator.nowPlaying?.position ?? 0
-    }
-
-    var scrubberDuration: Double? {
-        coordinator.nowPlaying?.duration
-    }
-
-    var controlsEnabled: Bool {
-        coordinator.commandsAvailable
-    }
-
-    var skipControlsEnabled: Bool {
-        coordinator.skipControlsEnabled
-    }
-
-    var showsControls: Bool {
-        displayPolicy.showsControls
-    }
-
-    // MARK: - Intents (methods out) — unit tests invoke these directly.
-
-    func playPauseTapped() {
-        coordinator.togglePlayPause()
-    }
-
-    func previousTapped() {
-        coordinator.previousTrack()
-    }
-
-    func nextTapped() {
-        coordinator.nextTrack()
-    }
-
-    func scrubbed(to seconds: Double) {
-        coordinator.scrub(to: seconds)
-    }
-
-    func hudSliderMoved(to value: Double) {
-        coordinator.hudSliderChanged(to: value)
+    /// Binds the shared freeze rule to this view's provenance @State
+    /// (see SurfaceLayout.effectiveLayoutKind for the contract).
+    private var effectiveLayoutKind: LayoutKind {
+        Self.effectiveLayoutKind(layout: layoutKind, lastVisible: lastVisibleLayoutKind)
     }
 
     // MARK: - Rendering

@@ -194,7 +194,7 @@ struct DistributedNotificationScreenLockSourceTests {
     /// return-to-safe, the controller reinstalls + re-engages, and the tap
     /// swallows again. This is the pin that the orphan-consumer path is closed.
     @Test func staleUnlockReadRecoversTheConsumerEndToEnd() async {
-        let ops = InjectableEventTapOperating()
+        let ops = FakeEventTapOperating()
         let tapClock = TestSleepClock()
         let source = CGEventTapMediaKeySource(
             permission: MockAccessibilityPermission(granted: true),
@@ -350,7 +350,7 @@ private func volumeDownData1(down: Bool) -> Int {
 /// returns the key-down swallow decision (the meaningful one).
 @discardableResult
 @MainActor
-private func pressVolumeDown(_ ops: InjectableEventTapOperating) -> Bool? {
+private func pressVolumeDown(_ ops: FakeEventTapOperating) -> Bool? {
     let down = ops.deliver(data1: volumeDownData1(down: true))
     _ = ops.deliver(data1: volumeDownData1(down: false))
     return down

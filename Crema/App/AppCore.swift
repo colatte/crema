@@ -31,22 +31,26 @@ final class AppCore {
         let volumeSampler: (any ManuallySampledSource)?
         /// Read-side borders for the OSD suppressor (a consumed key needs the
         /// current value to step from); nil on demo sources.
-        let screenBrightnessBackend: (any ScreenBrightnessBackend)?
-        let keyboardBrightnessBackend: (any KeyboardBrightnessBackend)?
+        let screenBrightnessBackend: (any BrightnessBackend)?
+        let keyboardBrightnessBackend: (any BrightnessBackend)?
     }
 
     let coordinator: Coordinator
-    let windowManager: WindowManager
-    let preferences: Preferences
+    // The collaborators below are wiring detail, private so no second consumer
+    // can appear: mediaKeys.updates is a single-consumer AsyncStream — another
+    // `for await` would silently split events with the router — and preferences
+    // must be written through this core's setters only.
+    private let windowManager: WindowManager
+    private let preferences: Preferences
     let permissionMonitor: AccessibilityPermissionMonitor
     let nowPlayingMonitor: NowPlayingMonitor
     /// Menu signal for domains whose native-OSD suppression stayed
     /// unrecoverable long enough to escalate — a failed apply suspends only its
     /// own domain, not all three. (docs/DECISIONS.md: per-domain-suspension)
     let osdSuppressionMonitor = OSDSuppressionMonitor()
-    let mediaKeys: any MediaKeySource
+    private let mediaKeys: any MediaKeySource
     /// Zero-latency brightness HUD via the tap; nil when on demo sources.
-    let mediaKeyRouter: MediaKeyHUDRouter?
+    private let mediaKeyRouter: MediaKeyHUDRouter?
     /// Native-OSD suppression (opt-in): nil when the graph lacks the
     /// real borders (demo sources) or the key source cannot consume — the
     /// Settings toggle then persists the wish but nothing engages.
@@ -433,6 +437,22 @@ final class AppCore {
         windowManager.refreshPresentation()
     }
 
+    /// Applies the launch-at-login intent and returns the real resulting state
+    /// (the view stays an intent-reporter, like every other Settings control).
+    /// `enabled` includes requires-approval so the toggle stays on with the
+    /// approval note instead of snapping off. The SMAppService error is logged
+    /// here: the snap-back tells the user it failed, the log says why —
+    /// registration failures are a real field scenario under self-signed
+    /// distribution, and the toggle alone cannot distinguish the causes.
+    func setLaunchesAtLogin(_ enabled: Bool) -> (enabled: Bool, needsApproval: Bool) {
+        do {
+            try loginItem.setEnabled(enabled)
+        } catch {
+            Logger.crema("App").error("login-item registration failed: \(error, privacy: .public)")
+        }
+        return (loginItem.isEnabled || loginItem.requiresApproval, loginItem.requiresApproval)
+    }
+
     // MARK: - Accessibility onboarding
 
     /// Requests the permission (system prompt registers the app in the
@@ -491,10 +511,10 @@ final class AppCore {
         let volumeSource = CoreAudioVolumeSource()
 
         let screenBridge = DisplayServicesBridge()
-        let screenSource = DisplayServicesScreenBrightnessSource(backend: screenBridge)
+        let screenSource = PolledBrightnessSource(kind: .screenBrightness, backend: screenBridge)
 
         let keyboardBridge = CoreBrightnessKeyboardBridge()
-        let keyboardSource = CoreBrightnessKeyboardBrightnessSource(backend: keyboardBridge)
+        let keyboardSource = PolledBrightnessSource(kind: .keyboardBrightness, backend: keyboardBridge)
 
         return SystemGraph(
             nowPlayingSource: nowPlayingSource,
@@ -527,14 +547,22 @@ final class AppCore {
             candidates.append(NowPlayingCandidate(
                 isAvailable: { adapterDisabled ? false : await probe.isAvailable() },
                 makeSource: { MediaRemoteAdapterNowPlayingSource(paths: paths) },
-                commandChannel: MediaRemoteAdapterCommandChannel(paths: paths)
+                commandChannel: MediaRemoteAdapterCommandChannel(paths: paths),
+                label: "adapter"
             ))
+        } else {
+            // A missing vendored adapter (broken embed phase, stripped Resources)
+            // silently reduces the chain to JXA while the menu still reads
+            // "active" — this line is the only trace a field report can start from.
+            Logger.crema("NowPlaying")
+                .error("mediaremote-adapter resources missing from the bundle; now-playing chain degrades to JXA only")
         }
 
         candidates.append(NowPlayingCandidate(
             isAvailable: { await JXANowPlayingSource.probeAvailability() },
             makeSource: { JXANowPlayingSource() },
-            commandChannel: JXACommandChannel()
+            commandChannel: JXACommandChannel(),
+            label: "jxa"
         ))
 
         return ChainedNowPlayingSource(candidates: candidates, onActiveChange: onActiveChange)
@@ -566,10 +594,7 @@ final class AppCore {
         guard UserDefaults.standard.bool(forKey: "CremaObserveAdapter"),
               let paths = MediaRemoteAdapterPaths.inBundle() else { return }
 
-        let logger = Logger(
-            subsystem: Bundle.main.bundleIdentifier ?? "com.colatte.crema",
-            category: "NowPlaying"
-        )
+        let logger = Logger.crema("NowPlaying")
         let observer = MediaRemoteAdapterProcess(paths: paths)
         adapterObserver = observer
 

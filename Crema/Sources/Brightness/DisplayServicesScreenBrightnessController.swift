@@ -2,9 +2,9 @@
 /// the optional integration's job, never DDC here — the `on display:`
 /// signature is preserved but a non-nil display is rejected.
 struct DisplayServicesScreenBrightnessController: ScreenBrightnessController {
-    private let backend: any ScreenBrightnessBackend
+    private let backend: any BrightnessBackend
 
-    init(backend: any ScreenBrightnessBackend = DisplayServicesBridge()) {
+    init(backend: any BrightnessBackend = DisplayServicesBridge()) {
         self.backend = backend
     }
 

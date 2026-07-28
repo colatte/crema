@@ -7,7 +7,7 @@ import ObjectiveC.runtime
 /// path is testable without instantiating the real client. The built-in
 /// keyboard ID is enumerated (copyKeyboardBacklightIDs + isKeyboardBuiltIn:),
 /// never hardcoded.
-final class CoreBrightnessKeyboardBridge: KeyboardBrightnessBackend, @unchecked Sendable {
+final class CoreBrightnessKeyboardBridge: BrightnessBackend, @unchecked Sendable {
     typealias ClassResolver = (_ name: String) -> AnyClass?
 
     private typealias GetFn = @convention(c) (AnyObject, Selector, UInt64) -> Float

@@ -32,10 +32,11 @@ enum SurfaceAnimation {
     /// on the geometry alone is why a HUD born from hidden lands at 210×42 instead
     /// of gliding down from the last now-playing rect.
     ///
-    /// Expressed over `fromEmpty`/`toEmpty` booleans rather than a shared layout
-    /// enum, so each skin's private LayoutKind stays private (CLAUDE.md: skins
-    /// independent). `expanding` picks the same spring the views already pick by
-    /// `isExpanded`.
+    /// Expressed over `fromEmpty`/`toEmpty` booleans rather than the shared
+    /// SurfaceLayoutKind (SurfaceStyleCore): the motion gate depends on exactly
+    /// two provenance facts, and taking the enum would couple it to layout
+    /// vocabulary it never reads. `expanding` picks the same spring the views
+    /// already pick by `isExpanded`.
     ///
     /// Reduce Motion contract (app-wide, MG5): with the preference on every
     /// geometry/content/width morph resolves to nil so layouts land dry and only

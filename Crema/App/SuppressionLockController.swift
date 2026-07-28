@@ -65,9 +65,12 @@ final class SuppressionLockController {
     /// start, which must not engage — and starts consuming lock transitions.
     func start() {
         applyEngagement()
-        consumeTask = Task { [weak self] in
-            guard let self else { return }
-            for await safe in self.lockSource.updates {
+        // lockSource captured by value so the for-await never retains self —
+        // a strong ref parked on the stream would keep the controller alive
+        // for the stream's whole life. The binding below lasts one iteration.
+        consumeTask = Task { [weak self, lockSource] in
+            for await safe in lockSource.updates {
+                guard let self else { return }
                 // The unlock / return-to-console edge (not the level): recover
                 // the tap before re-engaging so the fresh port adopts the
                 // consumer applyEngagement is about to set.

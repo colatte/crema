@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 @testable import Crema
@@ -5,27 +6,39 @@ import Foundation
 /// Test fake for the CGEventTap border: records install/uninstall and lets a
 /// test flip either the enabled flag (system disable) or the port's validity
 /// (system invalidate) behind the source's back — the two distinct failure
-/// modes the health-check must tell apart. Lock-protected — the source's poll
-/// task and the test thread both touch it.
+/// modes the health-check must tell apart. It also CAPTURES the C callback and
+/// userInfo of every install, so a test can fire a synthetic media-key event
+/// through the real source's callback — including at an OLD install, modeling
+/// an event delivered to a stale port during an uninstall→install swap.
+/// Lock-protected — the source's poll task and the test thread both touch it.
 final class FakeEventTapOperating: EventTapOperating, @unchecked Sendable {
     /// The opaque token the source stores; identity distinguishes reinstalls.
     final class Token {}
 
+    /// One captured install: the token plus the callback/userInfo pair, kept
+    /// even after the port is uninstalled — that persistence is the whole
+    /// point of the old-port delivery probe.
+    private struct Install {
+        let token: Token
+        let callback: CGEventTapCallBack
+        let userInfo: UnsafeMutableRawPointer
+    }
+
     private let lock = NSLock()
+    private var _installs: [Install] = []
     private var _token: Token?
     private var _enabled = false
     /// A freshly installed port is valid; an invalidated one is dead until the
     /// health-check reinstalls (unlike disable, no re-enable recovers it).
     private var _valid = false
-    private var _installCount = 0
     private var _setEnabledCalls: [Bool] = []
-    private var _userInfos: [UnsafeMutableRawPointer] = []
     private var _operations: [String] = []
 
     /// How many times a tap was installed (a revive must not increment this —
     /// re-enabling keeps the same port and its consumer wiring; a reinstall
-    /// after an invalidation does increment).
-    var installCount: Int { lock.withLock { _installCount } }
+    /// after an invalidation does increment). The index of the current install
+    /// is installCount − 1; a prior index targets an already-uninstalled port.
+    var installCount: Int { lock.withLock { _installs.count } }
     /// Whether the currently installed tap is enabled.
     var isCurrentlyEnabled: Bool { lock.withLock { _enabled } }
     /// Whether a tap is installed at all.
@@ -39,7 +52,7 @@ final class FakeEventTapOperating: EventTapOperating, @unchecked Sendable {
     /// reinstall prove the fresh port routes back to the same source — and thus
     /// the same, unchanged `consumer`, which the callback reads dynamically.
     /// This is the by-construction pin that a reinstall never drops suppression.
-    var installedUserInfos: [UnsafeMutableRawPointer] { lock.withLock { _userInfos } }
+    var installedUserInfos: [UnsafeMutableRawPointer] { lock.withLock { _installs.map(\.userInfo) } }
     /// Every install/uninstall in call order — pins a forced reinstall as a
     /// paired uninstall→install (old port torn down first, no orphan) rather
     /// than a bare re-create over a still-live port.
@@ -65,11 +78,10 @@ final class FakeEventTapOperating: EventTapOperating, @unchecked Sendable {
     ) -> AnyObject? {
         lock.withLock {
             let token = Token()
+            _installs.append(Install(token: token, callback: callback, userInfo: userInfo))
             _token = token
             _enabled = true
             _valid = true
-            _installCount += 1
-            _userInfos.append(userInfo)
             _operations.append("install")
             return token
         }
@@ -99,5 +111,44 @@ final class FakeEventTapOperating: EventTapOperating, @unchecked Sendable {
                 _valid = false
             }
         }
+    }
+
+    // MARK: - Synthetic delivery through the captured callback
+
+    /// Fire a synthetic media-key event through a captured install's callback.
+    /// `index` nil = the current (last) install. Returns whether the callback
+    /// swallowed it (true) or passed it through (false); nil if no such install.
+    /// The install is looked up regardless of whether the port was later
+    /// uninstalled — that is the whole point of the old-port delivery probe: the
+    /// captured callback routes through the same source pointer either way.
+    func deliver(data1: Int, index: Int? = nil) -> Bool? {
+        let install: Install? = lock.withLock {
+            guard !_installs.isEmpty else { return nil }
+            let i = index ?? (_installs.count - 1)
+            return _installs.indices.contains(i) ? _installs[i] : nil
+        }
+        guard let install, let event = Self.makeSystemDefinedEvent(data1: data1) else { return nil }
+        // The proxy is never dereferenced by the callback (it reads userInfo); a
+        // bogus non-null pointer is fine, and bitPattern: 0x1 is never nil.
+        guard let proxy = OpaquePointer(bitPattern: 0x1) else { return nil }
+        let result = install.callback(proxy, event.type, event, install.userInfo)
+        return result == nil   // nil ⇒ swallowed
+    }
+
+    /// An NX_SYSDEFINED aux-control CGEvent (subtype 8) built via NSEvent — the
+    /// only reliable way to synthesize one; its .type carries rawValue 14, which
+    /// the callback reads directly (CGEventType has no named case for 14).
+    static func makeSystemDefinedEvent(data1: Int) -> CGEvent? {
+        NSEvent.otherEvent(
+            with: .systemDefined,
+            location: .zero,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            subtype: MediaKeyTranslation.auxiliaryControlSubtype,
+            data1: data1,
+            data2: -1
+        )?.cgEvent
     }
 }

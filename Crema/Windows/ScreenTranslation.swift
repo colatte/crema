@@ -1,4 +1,5 @@
 import AppKit
+import os
 
 /// AppKit border: translates NSScreen into pure ScreenDescription values.
 ///
@@ -20,15 +21,25 @@ enum ScreenTranslation {
         NSScreen.screens.compactMap(describe)
     }
 
+    private static let logger = Logger.crema("Windows")
+
     @MainActor
     static func describe(_ screen: NSScreen) -> ScreenDescription? {
+        // A screen this translation drops never gets a panel — no HUD, no now
+        // playing on that display. compactMap erases the evidence, so each
+        // drop logs the reason (virtual displays and screen-sharing sessions
+        // are the known offenders).
         guard let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
+            logger.notice("screen \(screen.localizedName, privacy: .public) has no NSScreenNumber — dropped from the panel roster")
             return nil
         }
         let displayID = CGDirectDisplayID(number.uint32Value)
         // displayID → UUID happens here, at the border: Preferences and the
         // domain only ever see the stable UUID, never the numeric ID.
         guard let uuidRef = CGDisplayCreateUUIDFromDisplayID(displayID)?.takeRetainedValue() else {
+            logger.notice(
+                "display \(displayID, privacy: .public) (\(screen.localizedName, privacy: .public)) has no resolvable UUID — dropped from the panel roster"
+            )
             return nil
         }
         let uuid = CFUUIDCreateString(nil, uuidRef) as String

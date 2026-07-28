@@ -7,38 +7,14 @@ import Testing
 /// unreadable read, deadline timeout) is fired through the real suppressor
 /// wired to the real lock controller — the only object that ever wrote the pref
 /// (via the now-removed auto-disengage). If any path writes it, these catch it.
+/// Uses the shared OSDSuppressorLockHarness (CremaTests/Mocks/), whose separate
+/// readClock keeps a future read-path case deterministic instead of falling
+/// back to the production clock.
 @MainActor
 struct OSDSuppressionPrefSacredTests {
 
-    @MainActor
-    private struct Harness {
-        let defaults = EphemeralDefaults()
-        let prefs: Preferences
-        let keys = MockMediaKeyConsuming()
-        let volume = MockOSDVolumeChannel()
-        let screen = MockOSDChannel()
-        let keyboard = MockOSDChannel()
-        let clock = TestSleepClock()
-        let suppressor: MediaKeyInterceptionOSDSuppressor
-        let controller: SuppressionLockController
-
-        init() {
-            prefs = Preferences(defaults: defaults.defaults)
-            prefs.suppressesNativeOSD = true
-            suppressor = MediaKeyInterceptionOSDSuppressor(
-                keys: keys, volume: volume, screen: screen, keyboard: keyboard, clock: clock
-            )
-            controller = SuppressionLockController(
-                suppressor: suppressor,
-                lockSource: MockScreenLockSource(safe: true),
-                preferences: prefs
-            )
-            controller.start()
-        }
-    }
-
     @Test func throwingApplyLeavesThePrefUntouched() async {
-        let h = Harness()
+        let h = OSDSuppressorLockHarness()
         h.screen.applyThrows = true
         h.keys.press(.screenBrightnessUp)
 
@@ -48,7 +24,7 @@ struct OSDSuppressionPrefSacredTests {
     }
 
     @Test func failedVerificationLeavesThePrefUntouched() async {
-        let h = Harness()
+        let h = OSDSuppressorLockHarness()
         h.volume.writeIsDead = true   // write "succeeds" but the value never moves
         h.keys.press(.volumeUp)
 
@@ -58,7 +34,7 @@ struct OSDSuppressionPrefSacredTests {
     }
 
     @Test func unreadableReadLeavesThePrefUntouched() async {
-        let h = Harness()
+        let h = OSDSuppressorLockHarness()
         h.keyboard.value = nil
         h.keys.press(.keyboardBrightnessUp)
 
@@ -67,7 +43,7 @@ struct OSDSuppressionPrefSacredTests {
     }
 
     @Test func deadlineTimeoutLeavesThePrefUntouched() async {
-        let h = Harness()
+        let h = OSDSuppressorLockHarness()
         h.screen.applyHangs = true
         h.keys.press(.screenBrightnessUp)
         await h.clock.waitForSleep(delay: OSDTest.deadline)

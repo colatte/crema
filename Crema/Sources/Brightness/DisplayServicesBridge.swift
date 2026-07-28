@@ -5,12 +5,14 @@ import Foundation
 /// (see BrightnessConversion.swift for the full spike rationale, including why
 /// CoreDisplay and IOKit were discarded). The symbol resolver is injectable so
 /// the "symbol missing → degrade" path is testable without the real framework.
-final class DisplayServicesBridge: ScreenBrightnessBackend, @unchecked Sendable {
+final class DisplayServicesBridge: BrightnessBackend, Sendable {
     typealias SymbolResolver = (_ name: String) -> UnsafeMutableRawPointer?
     typealias DisplayProvider = @Sendable () -> UInt32
 
-    private typealias GetFn = @convention(c) (UInt32, UnsafeMutablePointer<Float>) -> Int32
-    private typealias SetFn = @convention(c) (UInt32, Float) -> Int32
+    // @Sendable on the C function types lets the compiler verify this class's
+    // Sendable conformance (all storage is `let`) instead of taking @unchecked.
+    private typealias GetFn = @Sendable @convention(c) (UInt32, UnsafeMutablePointer<Float>) -> Int32
+    private typealias SetFn = @Sendable @convention(c) (UInt32, Float) -> Int32
 
     private static let frameworkPath =
         "/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices"

@@ -8,6 +8,11 @@
 /// volume source already emits the instant the key lands; poking it would just
 /// double-fire. Without Accessibility the tap stays silent and brightness still
 /// surfaces via its poll (with latency) — graceful degradation, not a failure.
+///
+/// @unchecked because `task` is mutable without a lock: the invariant making it
+/// safe is that start()/stop() are called only from the MainActor (AppCore owns
+/// the router and drives it from the main thread). Calling them off-main
+/// requires adding a lock.
 final class MediaKeyHUDRouter: @unchecked Sendable {
     private let mediaKeys: any MediaKeySource
     private let screenBrightness: any ManuallySampledSource
