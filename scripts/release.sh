@@ -183,14 +183,27 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
         || fail "Signing identity not in the keychain: '$SIGN_IDENTITY'. List them with: security find-identity -v -p codesigning"
     if [[ "$SIGN_IDENTITY" == "Developer ID Application"* ]]; then
         TIMESTAMP_FLAG=--timestamp   # Apple recommends a timestamp for Developer ID/notarization
+        RUNTIME_FLAG="--options runtime"   # notarization requires hardened runtime; the real Team ID satisfies library validation
         info "Developer ID: $SIGN_IDENTITY"
     else
         TIMESTAMP_FLAG=--timestamp=none   # self-signed: a timestamp adds a network dependency with no Gatekeeper/notarization benefit
+        # NO hardened runtime for self-signed: the runtime flag turns on dyld
+        # library validation, which demands a REAL matching Team ID between the
+        # process and every non-platform library it maps — a self-signed cert
+        # has no Team ID, so the app CRASHES AT LAUNCH loading
+        # Sparkle.framework ("mapping process and mapped file (non-platform)
+        # have different Team IDs"), even with every component signed by the
+        # same identity. codesign --verify never checks this (it is load
+        # policy, not integrity) — the launch smoke below is what pins it.
+        # Hardened runtime buys nothing here anyway: no notarization, and
+        # Gatekeeper treats self-signed as unidentified either way. The TCC
+        # identity stability (the reason this mode exists) comes from the
+        # cert, not the runtime flag.
+        RUNTIME_FLAG=""
         info "Self-signed: $SIGN_IDENTITY"
         info "Signing with a self-signed identity (stable code identity, Accessibility grant persists across releases)."
         info "Skipping notarization (Apple only notarizes Developer ID; Gatekeeper first-launch flow still applies)."
     fi
-    # Hardened runtime stays on for self-signed too: costs nothing (no entitlements exceptions needed) and keeps the build identical to the future Developer ID path.
     # Sign inside-out; NEVER --deep with entitlements (mis-applies the app's options to nested code).
 
     # Sparkle (SPM, Release-only) embeds Sparkle.framework, and inside it ships an XPC pair, an
@@ -211,7 +224,7 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
         )
         for item in "${SPARKLE_NESTED[@]}"; do
             [[ -e "$item" ]] || fail "Expected Sparkle nested code missing: $item (did Sparkle's layout change?)"
-            codesign --force --options runtime $TIMESTAMP_FLAG --sign "$SIGN_IDENTITY" "$item" \
+            codesign --force $RUNTIME_FLAG $TIMESTAMP_FLAG --sign "$SIGN_IDENTITY" "$item" \
                 || fail "codesign failed on Sparkle nested code: $item"
         done
     fi
@@ -220,25 +233,63 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     # seal covers the re-signed helpers above.
     if [[ -d "$APP/Contents/Frameworks" ]]; then
         while IFS= read -r -d '' item; do
-            codesign --force --options runtime $TIMESTAMP_FLAG --sign "$SIGN_IDENTITY" "$item" \
+            codesign --force $RUNTIME_FLAG $TIMESTAMP_FLAG --sign "$SIGN_IDENTITY" "$item" \
                 || fail "codesign failed on: $item"
         done < <(find "$APP/Contents/Frameworks" -depth \( -name '*.framework' -o -name '*.dylib' \) -print0)
     fi
     # The two vendored Mach-O in Contents/Resources, which a top-level codesign never reaches.
     for item in "${NESTED_MACHO[@]}"; do
         [[ -e "$item" ]] || fail "Expected nested binary missing: $item"
-        codesign --force --options runtime $TIMESTAMP_FLAG --sign "$SIGN_IDENTITY" "$item" \
+        codesign --force $RUNTIME_FLAG $TIMESTAMP_FLAG --sign "$SIGN_IDENTITY" "$item" \
             || fail "codesign failed on: $item"
     done
-    codesign --force --options runtime $TIMESTAMP_FLAG \
+    codesign --force $RUNTIME_FLAG $TIMESTAMP_FLAG \
         --entitlements "$ENTITLEMENTS" --sign "$SIGN_IDENTITY" "$APP" \
         || fail "codesign failed on $APP_NAME"
     codesign --verify --deep --strict --verbose=2 "$APP" \
         || fail "signature did not verify on $APP_NAME"
+
+    # Signing CONSISTENCY across every Mach-O the process maps: dyld's
+    # load-time policy (same authority/Team as the app, for non-platform code)
+    # is NOT covered by --verify, which checks integrity of each signature in
+    # isolation — a foreign or stale identity on one nested binary verifies
+    # green and still refuses to load. Compare the leaf Authority + Team of
+    # each component against the app's and fail loudly on any mismatch.
+    step "Verifying signing consistency (the load-time check --verify does not make)"
+    # awk consumes the whole stream on purpose: an early `exit` would SIGPIPE
+    # codesign under `set -o pipefail` and abort the script with 141.
+    sig_leaf() { codesign -dvv "$1" 2>&1 | awk -F= '/^Authority=/ && !done { print $2; done = 1 }'; }
+    sig_team() { codesign -dvv "$1" 2>&1 | awk -F= '/^TeamIdentifier=/ && !done { print $2; done = 1 }'; }
+    APP_LEAF="$(sig_leaf "$APP")"
+    APP_TEAM="$(sig_team "$APP")"
+    [[ -n "$APP_LEAF" ]] || fail "could not read the app's signing authority"
+    CONSISTENCY_ITEMS=("${NESTED_MACHO[@]}")
+    if [[ -d "$SPARKLE_FW" ]]; then
+        # Through the REAL versioned path (readlink), never the Current
+        # symlink: dyld maps Versions/B/Sparkle, so that exact binary is the
+        # one whose identity matters.
+        SPARKLE_REAL="$(readlink "$SPARKLE_FW/Versions/Current" || true)"
+        [[ -n "$SPARKLE_REAL" ]] || fail "Sparkle.framework/Versions/Current is not a symlink — the framework layout was materialized by a broken copy; aborting."
+        CONSISTENCY_ITEMS+=(
+            "$SPARKLE_FW/Versions/$SPARKLE_REAL/Sparkle"
+            "$SPARKLE_FW/Versions/$SPARKLE_REAL/XPCServices/Downloader.xpc"
+            "$SPARKLE_FW/Versions/$SPARKLE_REAL/XPCServices/Installer.xpc"
+            "$SPARKLE_FW/Versions/$SPARKLE_REAL/Autoupdate"
+            "$SPARKLE_FW/Versions/$SPARKLE_REAL/Updater.app"
+        )
+    fi
+    for item in "${CONSISTENCY_ITEMS[@]}"; do
+        ITEM_LEAF="$(sig_leaf "$item")"
+        ITEM_TEAM="$(sig_team "$item")"
+        [[ "$ITEM_LEAF" == "$APP_LEAF" && "$ITEM_TEAM" == "$APP_TEAM" ]] \
+            || fail "signing inconsistency: ${item#"$APP"/} carries '$ITEM_LEAF' (team '$ITEM_TEAM') but the app carries '$APP_LEAF' (team '$APP_TEAM') — dyld refuses this at LOAD even though --verify passes. Re-run; if it persists, the artifact layout changed."
+    done
+    info "All ${#CONSISTENCY_ITEMS[@]} nested binaries match the app: $APP_LEAF (team ${APP_TEAM:-none})"
+
     if [[ "$SIGN_IDENTITY" == "Developer ID Application"* ]]; then
         info "Signed with Developer ID (hardened runtime + entitlements + timestamp)."
     else
-        info "Signed self-signed (hardened runtime + entitlements, no timestamp)."
+        info "Signed self-signed (entitlements, no hardened runtime, no timestamp)."
     fi
 else
     info "Ad-hoc signing $APP_NAME (CREMA_SIGN_IDENTITY unset — local/testing build)."
@@ -300,6 +351,44 @@ if [[ "$SIGN_IDENTITY" == "Developer ID Application"* ]]; then
     # Final Gatekeeper check — should report "accepted" / "Notarized Developer ID".
     spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG_OUT" 2>&1 | sed 's/^/    /' || true
     info "Notarized + stapled."
+fi
+
+# 4.5 Launch smoke — the guard no static check can replace
+
+# Install the app FROM THE FINAL DMG into a temp dir, run it, and require the
+# process to survive ~5 s. This is the only stage that exercises dyld's
+# LOAD-time policy (library validation, Team consistency): a bundle can pass
+# codesign --verify --deep --strict on every component and still be
+# unlaunchable — the self-signed + hardened-runtime combination shipped
+# exactly that once (dyld: "mapping process and mapped file (non-platform)
+# have different Team IDs"). Runs in EVERY mode, after the dmg is final
+# (post-staple on Developer ID, since stapling rewrites the file).
+step "Launch smoke (install from $DMG_NAME, must survive 5 s)"
+SMOKE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/crema-launch-smoke.XXXXXX")"
+SMOKE_MOUNT="$SMOKE_DIR/mnt"
+mkdir -p "$SMOKE_MOUNT"
+hdiutil attach "$DMG_OUT" -nobrowse -readonly -noautoopen -mountpoint "$SMOKE_MOUNT" >/dev/null \
+    || fail "launch smoke: could not mount $DMG_NAME"
+cp -R "$SMOKE_MOUNT/$APP_NAME" "$SMOKE_DIR/$APP_NAME"
+hdiutil detach "$SMOKE_MOUNT" >/dev/null 2>&1 || hdiutil detach "$SMOKE_MOUNT" -force >/dev/null 2>&1 || true
+# The raw executable, not `open`: same dyld load path, and the pid is ours to
+# watch and kill without LaunchServices in the middle.
+"$SMOKE_DIR/$APP_NAME/Contents/MacOS/Crema" > "$SMOKE_DIR/launch.log" 2>&1 &
+SMOKE_PID=$!
+sleep 5
+if kill -0 "$SMOKE_PID" 2>/dev/null; then
+    kill "$SMOKE_PID" 2>/dev/null || true
+    wait "$SMOKE_PID" 2>/dev/null || true
+    rm -rf "$SMOKE_DIR"
+    info "Launch smoke passed: the installed app survived 5 s."
+else
+    SMOKE_STATUS=0; wait "$SMOKE_PID" 2>/dev/null || SMOKE_STATUS=$?
+    printf '%s\n' "----- launch.log (tail) -----" >&2
+    tail -n 12 "$SMOKE_DIR/launch.log" >&2 || true
+    fail "launch smoke FAILED: the app from $DMG_NAME died within 5 s (exit $SMOKE_STATUS).
+    A dyld 'Library not loaded / different Team IDs' tail means a signing/load-policy
+    problem the consistency check above should explain; do NOT publish this dmg.
+    (Artifacts kept at $SMOKE_DIR for inspection.)"
 fi
 
 # 5. Regenerate the Sparkle appcast (identity builds only)
