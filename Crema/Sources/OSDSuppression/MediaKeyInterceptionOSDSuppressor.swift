@@ -51,7 +51,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     /// Generous against slow-but-alive devices (Bluetooth volume writes can
     /// take hundreds of ms); a genuinely hung actuator still fails soon
     /// enough for the user to associate cause and effect.
-    static let defaultApplyDeadline: Double = 2.0
+    nonisolated static let defaultApplyDeadline: Double = 2.0
 
     /// Recovery-probe backoff: 1, 2, 4, 8, 16 s, then 30 s forever. The first
     /// three cover the typical AirPods/output-swap window (<5 s), re-engaging
@@ -65,7 +65,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     /// immediate probe counts toward it — kicks only speed recovery, so letting
     /// them count would collapse this window to sub-second on a hammered dead
     /// key.
-    static let escalationThreshold = 5
+    nonisolated static let escalationThreshold = 5
 
     /// The write-health axis counts apply-failure *episodes* (a verified write
     /// that never moved, or a write that hung past the deadline), reset only by a

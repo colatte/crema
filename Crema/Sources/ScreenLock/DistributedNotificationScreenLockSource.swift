@@ -82,8 +82,13 @@ final class DistributedNotificationScreenLockSource: ScreenLockSource {
 
     private let continuation: AsyncStream<Bool>.Continuation
     private var reconciler: ScreenLockReconciler
-    private var distributedObservers: [NSObjectProtocol] = []
-    private var workspaceObservers: [NSObjectProtocol] = []
+    // nonisolated(unsafe): written only while `init` runs (installObservers)
+    // and read only in `deinit`, after every other access has ended — the
+    // lifecycle brackets rule out the concurrent access the attribute waives;
+    // a nonisolated deinit can't see that bracket, and removeObserver itself
+    // is thread-safe.
+    private nonisolated(unsafe) var distributedObservers: [NSObjectProtocol] = []
+    private nonisolated(unsafe) var workspaceObservers: [NSObjectProtocol] = []
     /// The authoritative session read, injectable so a test can drive it
     /// (and the edges, via `handleEdge`) deterministically without the real
     /// CoreGraphics call.

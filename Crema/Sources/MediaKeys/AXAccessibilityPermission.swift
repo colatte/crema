@@ -9,7 +9,10 @@ struct AXAccessibilityPermission: AccessibilityPermission {
     /// Shows the system prompt and registers the app in System Settings →
     /// Privacy & Security → Accessibility, so the user finds it pre-listed.
     func requestAccess() {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        // The literal stands in for kAXTrustedCheckOptionPrompt: the SDK leaves
+        // that C global without concurrency annotations, so Swift 6 rejects any
+        // reference to it; the key's documented value is this stable string.
+        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
         AXIsProcessTrustedWithOptions(options)
     }
 }

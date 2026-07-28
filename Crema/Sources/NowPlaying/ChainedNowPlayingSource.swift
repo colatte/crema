@@ -128,12 +128,12 @@ final class ChainedNowPlayingSource: NowPlayingSource, StoppableSource, @uncheck
                 (source as? StoppableSource)?.stop()
                 break
             }
-            lock.lock()
-            activeSource = source
-            activeChannel = selection.candidate.commandChannel
-            hasEmittedSinceSelect = false
-            armedPromotion = false
-            lock.unlock()
+            lock.withLock {
+                activeSource = source
+                activeChannel = selection.candidate.commandChannel
+                hasEmittedSinceSelect = false
+                armedPromotion = false
+            }
             onActiveChange?(true)
 
             await forwardUpdates(from: source, activeIndex: selection.index)
@@ -161,14 +161,14 @@ final class ChainedNowPlayingSource: NowPlayingSource, StoppableSource, @uncheck
     /// (docs/DECISIONS.md: promotion-quiet-boundary).
     private func forwardUpdates(from source: any NowPlayingSource, activeIndex: Int) async {
         let probe = activeIndex > 0 ? startPromotionProbe(activeIndex: activeIndex) : nil
-        lock.lock(); promotionProbeTask = probe; lock.unlock()
+        lock.withLock { promotionProbeTask = probe }
 
         var previous: NowPlaying?
         for await nowPlaying in source.updates {
-            lock.lock()
-            hasEmittedSinceSelect = true
-            let armed = armedPromotion
-            lock.unlock()
+            let armed = lock.withLock {
+                hasEmittedSinceSelect = true
+                return armedPromotion
+            }
             if armed, PromotionBoundary.isQuiet(nowPlaying, previous: previous) {
                 break // promote at this quiet boundary; drop the boundary snapshot
             }
@@ -176,14 +176,14 @@ final class ChainedNowPlayingSource: NowPlayingSource, StoppableSource, @uncheck
             previous = nowPlaying
         }
 
-        lock.lock()
-        let probeToCancel = promotionProbeTask
-        promotionProbeTask = nil
-        let promoted = armedPromotion
-        activeSource = nil
-        activeChannel = nil
-        armedPromotion = false
-        lock.unlock()
+        let (probeToCancel, promoted) = lock.withLock {
+            let drained = (promotionProbeTask, armedPromotion)
+            promotionProbeTask = nil
+            activeSource = nil
+            activeChannel = nil
+            armedPromotion = false
+            return drained
+        }
         probeToCancel?.cancel()
         // A promotion broke the loop without the source finishing on its own —
         // stop its process so no orphan survives (idempotent if it already

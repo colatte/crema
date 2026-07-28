@@ -7,7 +7,7 @@ import Foundation
 /// stashed and delivered on begin, so the continuation resumes exactly once —
 /// never lost, never twice. The value-returning sibling of the OSD suppressor's
 /// throwing DeadlineRace.
-final class SingleResumeRace<T>: @unchecked Sendable {
+final class SingleResumeRace<T: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<T, Never>?
     private var pending: T?

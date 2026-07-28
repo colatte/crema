@@ -308,7 +308,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.colatte.crema;
 				PRODUCT_NAME = Crema;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
 		};
@@ -334,7 +334,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.colatte.crema;
 				PRODUCT_NAME = Crema;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Release;
 		};
@@ -349,7 +349,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.colatte.cremaTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Crema.app/Contents/MacOS/Crema";
 			};
 			name = Debug;
@@ -365,7 +365,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.colatte.cremaTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Crema.app/Contents/MacOS/Crema";
 			};
 			name = Release;

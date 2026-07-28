@@ -67,10 +67,11 @@ final class JXANowPlayingSource: NowPlayingSource, StoppableSource, @unchecked S
             markNothingPlaying()
             return
         }
-        lock.lock()
-        let changed = nowPlaying != last
-        last = nowPlaying
-        lock.unlock()
+        let changed = lock.withLock {
+            let didChange = nowPlaying != last
+            last = nowPlaying
+            return didChange
+        }
         if changed { continuation.yield(nowPlaying) }
     }
 
