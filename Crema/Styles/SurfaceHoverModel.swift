@@ -20,7 +20,13 @@ struct SurfaceHoverRegions: Equatable {
     /// pixels (the menu bar flanking the notch), below it hangs over app
     /// content, and a top-anchored surface's top edge never moves. Every
     /// band on an edge that can move must absorb the open spring's overshoot
-    /// (comfort + margin ≥ SurfaceAnimation.overshootHeadroom — pinned).
+    /// (comfort + margin ≥ SurfaceAnimation.overshootHeadroom — pinned). The
+    /// obligation is per moving EDGE, not per style: a top-anchored top edge
+    /// never moves, and a width-invariant surface (the notch, pinned to its
+    /// slit) has static lateral edges — neither owes headroom. The pin
+    /// derives edge mobility from the frame rule itself
+    /// (stickyBandsAbsorbTheOpenSpringOvershoot), which is what admits the
+    /// notch's tight 5 pt lateral band.
     struct Margins: Equatable {
         var top: CGFloat
         var lateral: CGFloat

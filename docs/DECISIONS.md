@@ -171,9 +171,10 @@ without collaterals, or the ecosystem demonstrating a new path on Tahoe.
 The HUD level indicator is drawn by Crema, not by the stock `Slider`
 (2026-07-27, live pixel measurement of the Tahoe OSD/Control Center on
 hardware). Crema replaces the system's HUD, so it must track the system's
-*HUD* look — a thumbless 4 pt capsule whose fill ends flat inside the clip —
-not the system's *control*, whose pill thumb was exactly the misalignment
-reported; owning the drawing also removes the exposure that produced the bug
+*HUD* look — a thumbless 4 pt capsule whose fill ends flat inside the clip
+(the flat end has since been deliberately deviated from — see the amendment
+below) — not the system's *control*, whose pill thumb was exactly the
+misalignment reported; owning the drawing also removes the exposure that produced the bug
 (Apple restyling the stock control underneath us). The capsule sits centered in
 a 16 pt hit row (the stock Slider's measured height): the drag target does not
 regress and no surrounding layout moves. A knob (17.5×14 pt, the measured
@@ -190,6 +191,17 @@ and an active drag keeps it. Scope: the knob belongs to the capsule
 16-segment bar filled by width (design-reference §4.4 — its documented
 identity) and stays bare; the now-playing scrubber deliberately keeps the stock
 Slider (precision gesture, wants a permanent grab handle).
+Two amendments from the hardware follow-up (2026-07-28): (1) the fill's end is
+now CURVED — a capsule, not the native flat cut — a deliberate deviation by
+author taste (the iOS Music/players language); the fill width floors at the
+4 pt thickness so a low value reads as a circle-capped nub, never a squashed
+vertical oval, and exactly 0% stays empty. (2) The knob no longer clamps to
+the fill boundary: the boundary-clamp mapping froze it for the last ~half-knob
+of travel at each extreme while the value and the fill kept following the
+pointer — the jam reported from hardware at 0/100%. It now travels the inset
+track [halfKnob, width − halfKnob] linearly with the value (the native thumb
+mapping); the fill boundary never escapes the knob's own body
+(|boundary − center| ≤ halfKnob), so the capsule still reads as one piece.
 
 ### hud-fixed-dark-palette
 Every skin surface commits to one fixed dark palette, in every state and under
@@ -237,10 +249,13 @@ drag-exit, closing the unbounded wait; drags themselves are deliberately NOT
 sampled — a live drag on the surface's own control overshoots the edge and
 must not release the hold mid-gesture), and arming runs last in every apply
 path. The band is directional
-on the notch (lateral 8 over the clickable menu bar, bottom 16 over app
-content, top 0 at the pinned screen edge; comfort 6 on enter everywhere) and
-uniform 10 elsewhere; every band on a movable edge absorbs the open spring's
-overshoot (pinned). Calibration-in-test: any finished hover re-arms the
+on the notch (lateral 5 over the clickable menu bar — tightened 8→5 by
+hardware calibration, 2026-07-28 — bottom 16 over app content, top 0 at the
+pinned screen edge; comfort 6 on enter everywhere) and uniform 10 elsewhere;
+every band on a movable edge absorbs the open spring's overshoot (pinned,
+with the exemption derived from the frame rule itself: the notch's width is
+invariant across the visible states, so its static lateral edges owe no
+headroom — which is what admits the 5). Calibration-in-test: any finished hover re-arms the
 REACTIVE linger at 1.5 s instead of a fresh 3 s (the invoked appearance keeps
 its full tail, provenance-flagged rather than value-compared — its pointer is
 born on the surface from the click, so a cap would make the invoked linger

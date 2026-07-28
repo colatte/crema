@@ -6,12 +6,16 @@ import SwiftUI
 /// values arrive from `ScreenTranslation`); the content is `NotchView`.
 struct NotchStyle: PresentationStyle {
     /// Directional exit band: laterally the region sits on the clickable menu
-    /// bar flanking the slit (keep it tight); below it hangs over app content
-    /// (a little more forgiveness); the top edge is the screen edge — pinned,
-    /// only reachable where another display stacks above, and the comfort
-    /// band alone covers that rare crossing.
+    /// bar flanking the slit — kept tight (5 pt, hardware-calibrated), which
+    /// the overshoot pin admits because the lateral edges are static: the
+    /// width is invariant across the VISIBLE states (the morph only travels
+    /// height), and the empty crossing never travels geometry at all (a fade
+    /// at the final rect — CLAUDE.md, animation contract 1). Below, the band
+    /// hangs over app content (a little more forgiveness); the top edge is
+    /// the screen edge — pinned, only reachable where another display stacks
+    /// above, and the comfort band alone covers that rare crossing.
     var hoverExitMargins: SurfaceHoverRegions.Margins {
-        SurfaceHoverRegions.Margins(top: 0, lateral: 8, bottom: 16)
+        SurfaceHoverRegions.Margins(top: 0, lateral: 5, bottom: 16)
     }
 
     func frame(for state: PresentationState, on geometry: ScreenGeometry) -> CGRect {

@@ -268,6 +268,7 @@ coord.onPresentationChange = { [weak self] in self?.applyFrames() }
 
 ## Gaps conhecidos
 
+- [ ] **Dois testes de timing real flakam raro sob a suíte paralela** — `ChildProcessDeadlineTests.aHungOperationIsAbandonedAtTheDeadlineAndKilled` e `ChainedNowPlayingSourceTests.firesActiveSourceEndedOnAPromotion` falharam 1× cada em runs completos (rodada qualidade4-e-calibragem) e passam isolados e em re-runs — ambos esperam timing de processo real/`pollUntil` sob carga. Paliativo: re-run do run completo (o veredito segue a linha `Test run with N tests`); se reincidirem na CI, robustecer as esperas desses dois testes.
 - [x] **Auto-disengage da supressão era global e persistia a preferência (J5)** — fechado na rodada round1-a1-a3: falha de apply agora suspende **só o domínio afetado** (as teclas dele voltam ao sistema; probe read-only re-engaja na recuperação) e **nenhum caminho de falha escreve preferência** — o único writer de `suppressesNativeOSD` é a ação do usuário, pinado por `OSDSuppressionPrefSacredTests`. A rede de segurança S5 (usuário nunca sem controle) foi preservada por desenho. Aceitação manual pendente (PLAN T10.1). Histórico e mapa de raio: docs/internal/BUG-CLASS-AUDIT.md §A1.
 
 ## Decisões em aberto

@@ -118,8 +118,8 @@ struct SurfaceHoverModelTests {
         // (docs/DECISIONS.md: hover-follows-the-eye).
         let compact = style.frame(for: .nowPlaying(track, expanded: false), on: notched)
         #expect(regions.enter == compact.insetBy(dx: -comfort, dy: -comfort))
-        #expect(regions.exit.minX == regions.enter.minX - 8)     // lateral: menu bar pixels
-        #expect(regions.exit.maxX == regions.enter.maxX + 8)
+        #expect(regions.exit.minX == regions.enter.minX - 5)     // lateral: menu bar pixels
+        #expect(regions.exit.maxX == regions.enter.maxX + 5)
         #expect(regions.exit.minY == regions.enter.minY - 16)    // below: app content
         #expect(regions.exit.maxY == regions.enter.maxY)         // top: screen edge, no band
     }
@@ -183,14 +183,40 @@ struct SurfaceHoverModelTests {
 
     /// Every band on an edge that can move during the open spring must absorb
     /// its overshoot, or the sweeping edge re-creates the flicker the regions
-    /// exist to kill. The exemption is per-anchor, not app-wide: notch/card
-    /// are top-anchored (and the notch's top is the screen edge), but the
-    /// bottom-anchored classic grows UPWARD — its top band must absorb too.
+    /// exist to kill. The exemption is per-edge, derived from the frame rule
+    /// itself over the VISIBLE states — hidden is excluded on purpose: its
+    /// rule width is 0, but geometry never travels across the empty boundary
+    /// (appearance/disappearance is a fade at the final rect — CLAUDE.md,
+    /// animation contract 1), so that "width change" moves no edge. Notch and
+    /// card are top-anchored (and the notch's top is the screen edge), but
+    /// the bottom-anchored classic grows UPWARD — its top band must absorb
+    /// too. Laterally the rule decides: the notch's slit width is invariant
+    /// across visible states on a NOTCHED display — the only geometry where
+    /// WindowManager.resolvedStyle lets the notch skin run (without a slit it
+    /// resolves to card, whose own lateral check is live below) — so its
+    /// static lateral edges owe no headroom, which is what admits the
+    /// hardware-calibrated 5 pt; if the width ever starts morphing, this
+    /// derivation reinstates the requirement by itself.
     @Test func stickyBandsAbsorbTheOpenSpringOvershoot() {
         let comfort = SurfaceHoverRegions.comfortMargin
+        let track = CoordinatorHarness.playingTrack()
+        // Visible states only — see the doc above for why hidden stays out.
+        let states: [PresentationState] = [
+            .nowPlaying(track, expanded: false),
+            .nowPlaying(track, expanded: true),
+            .hud(SystemHUD(kind: .volume, value: 0.5)),
+        ]
         for style in Style.allCases {
             let margins = style.hoverExitMargins
-            #expect(comfort + margins.lateral >= SurfaceAnimation.overshootHeadroom, "\(style) lateral")
+            let widths = Set(states.map { style.frame(for: $0, on: notched).width })
+            if widths.count > 1 {
+                #expect(comfort + margins.lateral >= SurfaceAnimation.overshootHeadroom, "\(style) lateral (moving edge)")
+            }
+            // The derivation must not silently weaken the pin: the floating
+            // skins DO morph width today, so their lateral check must be live.
+            if style != .notch {
+                #expect(widths.count > 1, "\(style) width expected to morph across states")
+            }
             #expect(comfort + margins.bottom >= SurfaceAnimation.overshootHeadroom, "\(style) bottom")
             if style.surfaceVerticalAnchor != .top {
                 #expect(comfort + margins.top >= SurfaceAnimation.overshootHeadroom, "\(style) top (moving edge)")
@@ -273,7 +299,7 @@ struct SurfaceHoverModelTests {
     /// menu bar, no top band at the screen edge); floating styles uniform.
     @Test func exitMarginsAreDirectionalOnTheNotchAndUniformElsewhere() {
         let notchMargins = Style.notch.hoverExitMargins
-        #expect(notchMargins == SurfaceHoverRegions.Margins(top: 0, lateral: 8, bottom: 16))
+        #expect(notchMargins == SurfaceHoverRegions.Margins(top: 0, lateral: 5, bottom: 16))
         #expect(Style.card.hoverExitMargins == .uniform)
         #expect(Style.classic.hoverExitMargins == .uniform)
     }

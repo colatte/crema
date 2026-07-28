@@ -15,10 +15,12 @@ import SwiftUI
 /// Motion gate, the kind-snap, accessibility — live once, shared by all three:
 /// - `.capsule` — the default every skin gets: the Tahoe banner's bar, drawn by
 ///   us. Owning the drawing is the point — Crema replaces the system's HUD, so
-///   it tracks the system's HUD look (thumbless 4 pt capsule, flat fill end),
-///   not the system's control, whose stock thumb was the misalignment being
-///   replaced (docs/DECISIONS.md: hud-capsule-track). A knob fades in under the
-///   pointer, the measured Control Center affordance-on-demand.
+///   it tracks the system's HUD look (thumbless 4 pt capsule), not the system's
+///   control, whose stock thumb was the misalignment being replaced. One
+///   deliberate deviation: the fill's end is CURVED (a capsule, the iOS
+///   Music/players language), not the native flat cut (docs/DECISIONS.md:
+///   hud-capsule-track). A knob fades in under the pointer, the measured
+///   Control Center affordance-on-demand.
 /// - `.segmented` — the Classic bezel's 16-segment bar filled by width
 ///   (design-reference §4.4): Classic is deliberate pre-Tahoe nostalgia, so it
 ///   keeps the bezel's own indicator and shows no hover knob.
@@ -54,11 +56,12 @@ struct HUDLevelSlider: View {
     @Environment(\.layoutDirection) private var layoutDirection
 
     // The capsule cites the live-measured Tahoe banner (macOS 26.5.2): 4 pt
-    // track with semicircular caps, white fill ending flat inside the clip, a
-    // subtle recess, and a 17.5×14 pt knob only under the pointer. The 16 pt
-    // hit row is the measured height of the stock Slider this body replaced —
-    // the drag target must not regress and no surrounding layout may move
-    // (docs/DECISIONS.md: hud-capsule-track).
+    // track with semicircular caps, a subtle recess, and a 17.5×14 pt knob
+    // only under the pointer. The banner's fill ends flat — Crema's
+    // deliberately does not (see capsule() and docs/DECISIONS.md:
+    // hud-capsule-track). The 16 pt hit row is the measured height of the
+    // stock Slider this body replaced — the drag target must not regress and
+    // no surrounding layout may move.
     static let trackHitHeight: CGFloat = 16
     static let trackThickness: CGFloat = 4
     // The recess is anchored — a black base under the white wash — so the
@@ -139,17 +142,25 @@ struct HUDLevelSlider: View {
         }
     }
 
-    /// The fill is a leading rectangle inside the capsule clip, so its end is
-    /// flat and only the track's own caps round it — the measured native
-    /// anatomy; a spring overshoot is cropped by the same clip.
+    /// The fill is a leading capsule: its end is CURVED — a deliberate
+    /// deviation from the measured native flat cut, the iOS Music/players
+    /// language the author prefers (docs/DECISIONS.md: hud-capsule-track).
+    /// Its leading cap coincides with the track's own leading cap (same
+    /// radius, same anchor), so only the trailing end reads differently; a
+    /// spring overshoot is cropped by the clip because the stack is
+    /// width-pinned below (a bare ZStack would report the union of its
+    /// children and grow with the oversized animated fill instead of
+    /// cropping it). The width floor (capsuleFillWidth) keeps a low value a
+    /// round nub, never a squashed vertical oval.
     private func capsule(width: CGFloat, height: CGFloat) -> some View {
         ZStack(alignment: .leading) {
             Capsule().fill(Self.trackBase)
             Capsule().fill(Self.trackWash)
-            Rectangle()
+            Capsule()
                 .fill(Self.fillColor)
-                .frame(width: Self.fillWidth(for: value, trackWidth: width))
+                .frame(width: Self.capsuleFillWidth(for: value, trackWidth: width))
         }
+        .frame(width: width)
         .clipShape(Capsule())
         .frame(height: Self.trackThickness)
         .frame(maxHeight: .infinity)
@@ -159,12 +170,12 @@ struct HUDLevelSlider: View {
     }
 
     /// The measured Control Center affordance: no knob at rest, an oval fading
-    /// in under the pointer, centered on the fill boundary (clamped inside the
-    /// row at the extremes). Hover holds the HUD — the pointer's arrival
-    /// cancels the revert timer (Coordinator.publishPointer), introduced with
-    /// the knob so its premise is real: a hovered HUD is not transient, which
-    /// is exactly when a drag affordance earns its place (docs/DECISIONS.md:
-    /// hud-capsule-track).
+    /// in under the pointer, riding the inset track with the value (the native
+    /// thumb mapping — see knobCenterX). Hover holds the HUD — the pointer's
+    /// arrival cancels the revert timer (Coordinator.publishPointer),
+    /// introduced with the knob so its premise is real: a hovered HUD is not
+    /// transient, which is exactly when a drag affordance earns its place
+    /// (docs/DECISIONS.md: hud-capsule-track).
     @ViewBuilder private func knob(trackWidth: CGFloat, rowHeight: CGFloat) -> some View {
         let visible = Self.showsKnob(appearance: appearance, isHovered: isHovered, isEditing: isEditing)
         Capsule()
@@ -241,18 +252,41 @@ struct HUDLevelSlider: View {
         max(0, min(value, 1)) * trackWidth
     }
 
+    /// The curved fill's width: the proportional width floored at the track
+    /// thickness, so the smallest visible fill is a circle-capped nub — a fill
+    /// narrower than it is tall would draw as a squashed vertical oval. Exactly
+    /// zero stays empty: 0% shows the bare track, never a phantom dot. (The
+    /// spring can still interpolate through sub-floor widths on a glide out of
+    /// zero — one brief frame, accepted.)
+    nonisolated static func capsuleFillWidth(for value: Double, trackWidth: CGFloat) -> CGFloat {
+        let fill = fillWidth(for: value, trackWidth: trackWidth)
+        guard fill > 0 else { return 0 }
+        return max(fill, trackThickness)
+    }
+
     nonisolated static func animatesLevel(isEditing: Bool, reduceMotion: Bool) -> Bool {
         !isEditing && !reduceMotion
     }
 
-    /// The knob rides the fill boundary, clamped so it never exits the row at
-    /// the extremes (a slider knob, not a floating pill); `.position` is
-    /// physical coordinates, so it mirrors by hand like the fraction above.
+    /// The knob travels the inset track [halfKnob, width − halfKnob] linearly
+    /// with the value — the native thumb mapping on the OUTPUT side only: the
+    /// pointer→value mapping (`fraction`) deliberately stays over the full
+    /// width, so tap-to-set still reaches 0/1 at the row's very ends and the
+    /// FILL boundary (not the knob center) is what follows the finger; do not
+    /// inset `fraction` to match. The knob never exits the row AND never
+    /// stops responding: the previous boundary-clamp mapping froze it for the
+    /// last ~halfKnob of travel at each extreme while the value (and the
+    /// fill) kept following the pointer — the visual jam reported from
+    /// hardware at 0/100%. The fill boundary never escapes the knob's body:
+    /// |boundary − center| = halfKnob·|2·value − 1| — zero at mid-scale, the
+    /// halfKnob bound touched exactly at 0/1 — independent of trackWidth.
+    /// `.position` is physical coordinates, so it mirrors by hand like the
+    /// fraction above.
     nonisolated static func knobCenterX(for value: Double, trackWidth: CGFloat, layoutDirection: LayoutDirection) -> CGFloat {
         let halfKnob = knobSize.width / 2
-        let fill = fillWidth(for: value, trackWidth: trackWidth)
-        let clamped = min(max(fill, halfKnob), max(trackWidth - halfKnob, halfKnob))
-        return layoutDirection == .rightToLeft ? trackWidth - clamped : clamped
+        let travel = max(trackWidth - knobSize.width, 0)
+        let x = halfKnob + CGFloat(min(max(value, 0), 1)) * travel
+        return layoutDirection == .rightToLeft ? trackWidth - x : x
     }
 
     /// Capsule-only, shown under the pointer or during a drag — the affordance
