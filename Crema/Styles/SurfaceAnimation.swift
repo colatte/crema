@@ -12,7 +12,9 @@ enum SurfaceAnimation {
     /// instability.
     static let openResponse: Double = 0.42
     static let openDamping: Double = 0.8
-    static let closeResponse: Double = 0.45
+    // 0.35 from the hover round's release-latency budget (t90 279 → 217 ms);
+    // damping stays 1.0 — still no overshoot against the menu bar.
+    static let closeResponse: Double = 0.35
     static let closeDamping: Double = 1.0
 
     /// Surface morph springs, chosen by direction: the destination state selects
@@ -109,6 +111,8 @@ enum SurfaceAnimation {
     /// How long a shrinking surface's old extent stays click-interactive: the
     /// close spring's visible settle (≥ 1.5 × response). Tightening earlier
     /// would forward clicks through still-visible pixels to the window below.
+    /// Held at 0.7 deliberately after close dropped to 0.35 — headroom over
+    /// the floor, not a live derivation.
     static let interactiveSettle: Double = 0.7
 
     /// Post-close suppression window (design-reference §2.3): the time to ignore

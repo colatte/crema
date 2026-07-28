@@ -5,6 +5,15 @@ import SwiftUI
 /// expands. The frame rule is a pure function of ScreenGeometry (the real notch
 /// values arrive from `ScreenTranslation`); the content is `NotchView`.
 struct NotchStyle: PresentationStyle {
+    /// Directional exit band: laterally the region sits on the clickable menu
+    /// bar flanking the slit (keep it tight); below it hangs over app content
+    /// (a little more forgiveness); the top edge is the screen edge — pinned,
+    /// only reachable where another display stacks above, and the comfort
+    /// band alone covers that rare crossing.
+    var hoverExitMargins: SurfaceHoverRegions.Margins {
+        SurfaceHoverRegions.Margins(top: 0, lateral: 8, bottom: 16)
+    }
+
     func frame(for state: PresentationState, on geometry: ScreenGeometry) -> CGRect {
         // No physical notch here → behave like the card. Defensive: the
         // WindowManager also resolves notch→card on non-notch displays, so this
@@ -23,8 +32,9 @@ struct NotchStyle: PresentationStyle {
         // Every state stays at the slit width (+ corner bleed): the surface
         // reads as the physical cutout stretching down, Dynamic Island style,
         // and never covers the clickable menu bar that flanks the notch.
-        // Expanded only grows the drop; its taller rect is still the hover-exit
-        // boundary, so the spatial hysteresis remains.
+        // Expanded only grows the drop; hover exit tracks the current state's
+        // rect plus its band, so the hysteresis holds without a state-blind
+        // union (docs/DECISIONS.md: hover-follows-the-eye).
         let slitWidth = geometry.frame.width - geometry.auxLeft - geometry.auxRight
         let compactSize = CGSize(
             width: slitWidth - 2 * NotchMetrics.lateralInset,

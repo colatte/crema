@@ -164,7 +164,9 @@ Valores observados (fatos, projetos GPL descritos em prosa):
 | DynamicNotchKit (MIT) | notch: `.bouncy(0.4)`; pílula: `.snappy(0.4)` | `.smooth(0.4)`                      | hover `.snappy(0.4)`                                                   |
 
 **Síntese:** abrir com response/duration **0.35–0.45 s** e bounce **0.15–0.3**
-(card no piso, notch no teto); fechar com **0.4–0.45 s** e bounce **0** —
+(card no piso, notch no teto); fechar com **0.4–0.45 s** e bounce **0**
+_(shipped: 0.35 — orçamento de latência de saída; docs/DECISIONS.md:
+hover-follows-the-eye)_ —
 **nunca bounce no recolhimento** (overshoot contra a borda da tela lê como
 instabilidade). O iOS usa mais bounce no Dynamic Island (recriações convergem
 em dampingFraction ~0.6), mas o consenso no macOS é conter, porque a superfície
@@ -186,6 +188,10 @@ Padrão convergente (boring.notch/Atoll, em prosa) + pesquisa de UX:
   dentro da janela cancela o fechamento (elimina o "piscar" na borda).
 - **Histerese espacial de graça**: a fronteira de saída é a superfície
   expandida (maior que a de entrada) — histerese geométrica + temporal.
+  _(Shipped diverge: a fronteira de saída segue a superfície do ESTADO
+  atual/renderizada + banda por aresta — a fronteira presa ao expandido criava
+  uma zona grudenta invisível de ~100 pt sob a notch compacta;
+  docs/DECISIONS.md: hover-follows-the-eye.)_
 - **Supressão pós-ação**: janela de ~0.35 s sem hover-open após fechamento
   programático (ex.: HUD assumiu a superfície), senão reabre porque o mouse
   ainda está lá.
@@ -376,7 +382,7 @@ Medidas do original (engenharia reversa, [ffried.codes](https://ffried.codes/201
 | Alargamento do desenho da fenda | +4 pt de largura (2 pt/lado)                                                                                    | §1.3  |
 | Nível de janela (estilo notch)  | `.mainMenu + 3`, canJoinAllSpaces + fullScreenAuxiliary + stationary                                            | §1.3  |
 | Spring de abrir                 | response 0.42 / damping 0.8 (notch) · `.snappy(0.4)` (card)                                                     | §2.2  |
-| Spring de fechar                | response 0.45 / damping 1.0 (ou `.smooth(0.4)`) — **sem bounce**                                                | §2.2  |
+| Spring de fechar                | pesquisa 0.45 / damping 1.0 — **sem bounce**; shipped 0.35 (hover-follows-the-eye)                              | §2.2  |
 | Hover-intent delay              | 0.3 s (preferência 0–1 s), task cancelável + recheck                                                            | §2.3  |
 | Hover-out debounce              | ~100 ms, cancelável                                                                                             | §2.3  |
 | Supressão pós-fechamento        | ~0.35 s                                                                                                         | §2.3  |

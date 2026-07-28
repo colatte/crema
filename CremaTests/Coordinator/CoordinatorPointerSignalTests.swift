@@ -39,6 +39,21 @@ struct CoordinatorPointerSignalTests {
         #expect(!h.coordinator.pointerInside)
     }
 
+    @Test func hoverExitBuysTheShortRelingerNotAFullOne() async {
+        // R5, calibration-in-test: a graze must not re-arm the full 3 s linger
+        // — the exit buys hoverExitRelinger (1.5 s) before the tuck.
+        let h = CoordinatorHarness()
+        h.nowPlayingSource.emit(CoordinatorHarness.playingTrack())
+        _ = await eventually { h.coordinator.state != .hidden }
+
+        h.coordinator.hover(true)
+        h.coordinator.hover(false)
+        await h.clock.waitForSleep(delay: Coordinator.hoverExitRelinger)
+        #expect(h.clock.delays.last == Coordinator.hoverExitRelinger)
+        h.clock.advance(delay: Coordinator.hoverExitRelinger)
+        #expect(await eventually { h.coordinator.state == .hidden })
+    }
+
     @Test func pointerHoldsTheHUDAndExitRestartsTheRevert() async {
         let h = CoordinatorHarness()
         h.hudSource.emit(SystemHUD(kind: .volume, value: 0.5))

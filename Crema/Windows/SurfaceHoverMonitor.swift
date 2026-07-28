@@ -9,8 +9,26 @@ import AppKit
 /// Thin by design: the decision is the pure, unit-tested model; this only samples
 /// `NSEvent.mouseLocation` and forwards transitions. Real NSEvent monitors are a
 /// border — smoke-tested on hardware.
+///
+/// UNVERIFIED hypothesis (hover round, kept deliberately unimplemented): while
+/// the panel is interactive (ignoresMouseEvents == false) and the app is an
+/// inactive accessory, macOS may throttle mouseMoved delivery to the global
+/// monitor. Confirm with counters on hardware before adding any safety
+/// re-sample — no speculative timer here.
 @MainActor
 final class SurfaceHoverMonitor {
+    /// Plain moves plus the three mouse-ups — the ups are the re-sync point
+    /// after a drag. `.mouseMoved` alone went blind the moment a button was
+    /// down, deferring a drag-exit unboundedly; the release now samples the
+    /// resting point (docs/DECISIONS.md: hover-follows-the-eye). Drags are
+    /// deliberately NOT sampled: a live drag that started on the surface's own
+    /// control keeps overshooting the edge (the HUD slider clamps while the
+    /// cursor travels past), and releasing the hover hold mid-gesture would
+    /// tuck the control out from under the finger — the same rule the panel's
+    /// mouse-routing monitor documents.
+    static let sampleEventMask: NSEvent.EventTypeMask = [
+        .mouseMoved, .leftMouseUp, .rightMouseUp, .otherMouseUp,
+    ]
     private var model: SurfaceHoverModel
     private let report: (Bool) -> Void
     private var localMonitor: Any?
@@ -68,11 +86,11 @@ final class SurfaceHoverMonitor {
         // The local monitor catches moves over our own panel (events dispatched
         // to us); the global one catches moves elsewhere, so we still see the
         // cursor leave the surface. Both fire on the main run loop.
-        localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved]) { [weak self] event in
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: Self.sampleEventMask) { [weak self] event in
             MainActor.assumeIsolated { self?.sample() }
             return event
         }
-        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved]) { [weak self] _ in
+        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: Self.sampleEventMask) { [weak self] _ in
             MainActor.assumeIsolated { self?.sample() }
         }
     }

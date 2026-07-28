@@ -204,3 +204,32 @@ dark, the rest light) and inactive-gray control chrome in a never-key panel;
 and an appearance scoped per branch would flip the palette mid HUD↔now-playing
 morph — one appearance per surface, always. Consequence: the artwork accent
 needs a single brightness band (the light band was deleted with it).
+
+### hover-follows-the-eye
+Hover and clicks derive from the same rendered truth, on every skin. The hover
+exit region used to be a state-blind union of the compact and expanded frames
++24 pt, never retargeted outside the Card: with the notch compact or showing a
+HUD, a 233×100 pt invisible sticky band hung below the visible surface — and
+because the monitor reports only transitions, a cursor RESTING there emitted
+no exit, so no dismissal timer ran: the surface (and a held HUD) stayed
+forever. Measured live, then fixed: regions retarget on every panel apply and size
+report (exit = enter plus a per-edge band) — the apply-time retarget errs
+TIGHT, rule frame ∩ last rendered, because the reported size predates the
+state change (either stale rect alone re-created a closed bug: the previous
+silhouette held the stuck band, the bare ceiling re-armed the card's dead
+air) — the monitor's event mask gained the mouse-ups (the release re-syncs a
+drag-exit, closing the unbounded wait; drags themselves are deliberately NOT
+sampled — a live drag on the surface's own control overshoots the edge and
+must not release the hold mid-gesture), and arming runs last in every apply
+path. The band is directional
+on the notch (lateral 8 over the clickable menu bar, bottom 16 over app
+content, top 0 at the pinned screen edge; comfort 6 on enter everywhere) and
+uniform 10 elsewhere; every band on a movable edge absorbs the open spring's
+overshoot (pinned). Calibration-in-test: any finished hover re-arms the
+REACTIVE linger at 1.5 s instead of a fresh 3 s (the invoked appearance keeps
+its full tail, provenance-flagged rather than value-compared — its pointer is
+born on the surface from the click, so a cap would make the invoked linger
+unreachable again, a production bug already pinned), and the close spring
+tightened 0.45→0.35. Two
+hypotheses stay deliberately unimplemented pending a hardware probe: the
+multi-display pointer mirror and mouseMoved delivery to an inactive accessory.

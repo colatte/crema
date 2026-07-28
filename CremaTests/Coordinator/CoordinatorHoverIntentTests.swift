@@ -111,8 +111,9 @@ struct CoordinatorHoverIntentTests {
         h.coordinator.hoverIntent(false)
         await h.clock.waitForSleep(delay: Coordinator.defaultHoverOutDebounce)
         h.clock.advance(delay: Coordinator.defaultHoverOutDebounce)
-        await h.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
-        h.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
+        // Hover-out buys the short re-linger, not a fresh full one (R5).
+        await h.clock.waitForSleep(delay: Coordinator.hoverExitRelinger)
+        h.clock.advance(delay: Coordinator.hoverExitRelinger)
         #expect(await eventually { h.coordinator.state == .hidden })
 
         // Resume with no pointer on the notch: it must return compact.

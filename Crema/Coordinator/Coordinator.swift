@@ -38,6 +38,13 @@ final class Coordinator {
     /// live with the style (`SurfaceAnimation`).
     static let defaultHoverIntentDelay: Double = 0.3
     static let defaultHoverOutDebounce: Double = 0.1
+    /// What any finished hover on the REACTIVE appearance buys before the
+    /// tuck, in place of a fresh full linger — a graze must not re-arm the
+    /// whole 3 s (the invoked appearance keeps its full tail; see
+    /// commitHover). Calibration-in-test (hover round): if it reads short on
+    /// hardware, replace the tail expression with `currentLinger` at the
+    /// commitHover call site.
+    static let hoverExitRelinger: Double = 1.5
 
     /// Layout-driving state. The views observe this; it is written only when
     /// the presented shape or content actually changes. The WindowManager gets
@@ -140,6 +147,12 @@ final class Coordinator {
     /// moment the cursor arrives. Flips are rare, so the observation cost is
     /// nil. The per-display knob reads the panel-local
     /// `SurfaceDisplayPolicy.pointerInside` instead.
+    ///
+    /// UNVERIFIED hypothesis (hover round, kept deliberately unimplemented):
+    /// on multi-display setups every panel's monitor writes this single global
+    /// mirror, and the last writer could in principle mask another display's
+    /// state. Needs a two-panel hardware probe before any change — no
+    /// speculative set-of-displays here.
     private(set) var pointerInside = false
     /// Whether the current hover gesture entered through the intent path — the
     /// routing guard in `hover(_:)` reads it so a gesture leaves the way it
@@ -151,6 +164,11 @@ final class Coordinator {
     /// replaces the initial timer, and a restart that hardcoded the reactive
     /// duration would silently downgrade every invoked appearance to ~3 s.
     @ObservationIgnored private var currentLinger: Double
+    /// Provenance of `currentLinger` — true only for a click-invoked
+    /// appearance. A flag, not a value compare against `invokedLinger`:
+    /// injected durations that happened to coincide would silently turn every
+    /// re-linger into a full tail.
+    @ObservationIgnored private var lingerIsInvoked = false
     /// Whether the HUD interrupted a visible now-playing appearance (or a media
     /// event arrived during the HUD): the revert resurfaces it. A HUD over a
     /// tucked surface must revert to hidden, not resurrect the appearance.
@@ -196,6 +214,7 @@ final class Coordinator {
         self.ignoresBrowserMedia = ignoresBrowserMedia
         self.reactiveNowPlaying = reactiveNowPlaying
         currentLinger = nowPlayingLinger
+        lingerIsInvoked = false
     }
 
     // MARK: - Settings (live preference changes)
@@ -271,6 +290,7 @@ final class Coordinator {
         // (the click that got here landed in that exact rect) and re-enters
         // the hover path — which must already see the invoked duration.
         currentLinger = invokedLinger
+        lingerIsInvoked = true
         state = .nowPlaying(track, expanded: true)
         restartLingerTimer()
     }
@@ -359,7 +379,17 @@ final class Coordinator {
             if expanded {
                 state = .nowPlaying(track, expanded: false)
             }
-            restartLingerTimer()
+            // Any finished hover on the REACTIVE appearance buys the short
+            // re-linger, not a fresh full one (calibration-in-test — see
+            // hoverExitRelinger). The invoked appearance keeps its full tail
+            // (provenance flag): its pointer sits on the surface from the
+            // click itself, so a capped re-linger would make the invoked
+            // linger unreachable again — the exact production bug the
+            // invoked-linger tests pin.
+            let tail = lingerIsInvoked
+                ? currentLinger
+                : min(currentLinger, Self.hoverExitRelinger)
+            restartLingerTimer(duration: tail)
         }
     }
 
@@ -379,6 +409,7 @@ final class Coordinator {
         pointerInside = false
         enteredViaHoverIntent = false
         currentLinger = nowPlayingLinger
+        lingerIsInvoked = false
     }
 
     func togglePlayPause() {
@@ -504,6 +535,7 @@ final class Coordinator {
             if surfacesReactively, reactiveNowPlaying {
                 resumeNowPlayingAfterHUD = true
                 currentLinger = nowPlayingLinger
+                lingerIsInvoked = false
             }
             return
         }
@@ -527,6 +559,7 @@ final class Coordinator {
         // (artwork arriving) keeps the appearance's current duration.
         if surfacingEvent {
             currentLinger = nowPlayingLinger
+            lingerIsInvoked = false
         }
         state = .nowPlaying(update, expanded: surfacingEvent ? isHovering : (isHovering || wasExpanded))
         if isHovering {
@@ -620,8 +653,8 @@ final class Coordinator {
         }
     }
 
-    private func restartLingerTimer() {
-        let delay = currentLinger
+    private func restartLingerTimer(duration: Double? = nil) {
+        let delay = duration ?? currentLinger
         lingerTask?.cancel()
         lingerTask = Task { [weak self, clock, delay] in
             do {

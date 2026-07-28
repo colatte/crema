@@ -89,8 +89,9 @@ struct CoordinatorLingerTests {
 
         h.coordinator.hover(false)
         #expect(h.coordinator.state == .nowPlaying(track, expanded: false))
-        await h.clock.waitForSleep(delay: linger)
-        h.clock.advance(delay: linger)
+        // Hover-out buys the short re-linger, not a fresh full one (R5).
+        await h.clock.waitForSleep(delay: Coordinator.hoverExitRelinger)
+        h.clock.advance(delay: Coordinator.hoverExitRelinger)
         #expect(await eventually { h.coordinator.state == .hidden })
     }
 

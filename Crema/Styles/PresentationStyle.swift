@@ -22,6 +22,11 @@ protocol PresentationStyle {
     /// extension method) so a style with a different anchor — classic pins its
     /// bottom — dispatches dynamically through `any PresentationStyle` too.
     func windowFrame(on geometry: ScreenGeometry) -> CGRect
+
+    /// Per-edge hover exit band. A protocol requirement for the same reason as
+    /// `windowFrame`: the notch's directional override must dispatch
+    /// dynamically when the extension's own `hoverRegions` reads it.
+    var hoverExitMargins: SurfaceHoverRegions.Margins { get }
 }
 
 /// Throwaway payloads for probing the frame rule: every rule sizes purely from
@@ -30,26 +35,24 @@ private let referenceTrack = NowPlaying(title: "", isPlaying: true, position: 0)
 private let referenceHUD = SystemHUD(kind: .volume, value: 0)
 
 extension PresentationStyle {
-    /// Stable hover regions in screen coordinates: `enter` is the compact
-    /// surface, `exit` the union of the compact and expanded surfaces widened
-    /// by `expandMargin`. Hover detection reads these, never the animating
-    /// window frame. Nil when the style has no distinct expanded
-    /// surface to hover into (compact == expanded).
-    func hoverRegions(
-        on geometry: ScreenGeometry,
-        expandMargin: CGFloat = SurfaceHoverRegions.defaultExitMargin
-    ) -> SurfaceHoverRegions? {
+    /// The per-edge sticky exit band this style's regions use. Uniform by
+    /// default; a style whose edges sit on different neighbors (the notch,
+    /// flanked by live menu bar) overrides with directional values.
+    var hoverExitMargins: SurfaceHoverRegions.Margins { .uniform }
+
+    /// Initial hover regions in screen coordinates — a seed only: the panel
+    /// retargets to the CURRENT state/rendered surface on every apply and size
+    /// report, so the exit band always hugs what the eye sees. Exit contains
+    /// enter by construction (`around`), preserving the hysteresis; the old
+    /// union across states left a 100 pt invisible sticky band below the
+    /// compact notch where a resting cursor held the surface forever
+    /// (docs/DECISIONS.md: hover-follows-the-eye). Nil when the style has no
+    /// distinct expanded surface to hover into (compact == expanded).
+    func hoverRegions(on geometry: ScreenGeometry) -> SurfaceHoverRegions? {
         let compact = frame(for: .nowPlaying(referenceTrack, expanded: false), on: geometry)
         let expanded = frame(for: .nowPlaying(referenceTrack, expanded: true), on: geometry)
         guard !compact.isEmpty, !expanded.isEmpty, compact != expanded else { return nil }
-        // Exit spans both states: nothing guarantees a skin's expanded frame
-        // contains its compact one on every axis, and an exit region that
-        // doesn't contain enter would collapse the hysteresis into the
-        // open/close loop it exists to kill.
-        return SurfaceHoverRegions(
-            enter: compact,
-            exit: compact.union(expanded).insetBy(dx: -expandMargin, dy: -expandMargin)
-        )
+        return .around(compact, margins: hoverExitMargins)
     }
 
     /// The click-invoke zone: where a click surfaces a tucked appearance.
