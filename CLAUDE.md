@@ -29,9 +29,12 @@ crema/                       # raiz do repositório
 ├── CONTRIBUTING.md          # como contribuir
 ├── LICENSE                  # GPL-3.0
 ├── CLAUDE.md                # este arquivo — convenções de código
-├── docs/                    # docs de pesquisa (público)
+├── docs/                    # documentação pública; também a raiz do GitHub Pages (publicado da main)
+│   ├── README.md                    # mapa da documentação; o Pages o renderiza como homepage do site — links de repositório absolutos, nunca relativos
+│   ├── DECISIONS.md                 # memória de design: decisões nomeadas e jurisprudência de classes de bug (âncoras citadas em comentários de código)
 │   ├── design-reference.md          # pesquisa: estilos e polish visual
 │   ├── osd-suppression-reference.md # pesquisa: supressão do OSD nativo
+│   ├── appcast.xml                  # feed do Sparkle (placeholder vazio até o primeiro release; regenerado pelo release.sh, nunca editado à mão)
 │   └── internal/            # gitignored (local-only): SPEC.md, PLAN.md, RELEASE-GUIDE.md, auditorias e investigações
 ├── scripts/
 │   └── release.sh           # build + carimbo do build number + assinatura (ad-hoc / self-signed / Developer ID + notarização, incl. o código aninhado do Sparkle) + DMG + regeneração do docs/appcast.xml
@@ -155,7 +158,7 @@ Permanente. Um comentário desatualizado é **bug de doc**, não detalhe menor �
 
 ### Capacidade por build-config
 
-- Capacidades que só fazem sentido numa configuração compilam **só nela**: a infra de demo é `#if DEBUG` (`DemoMenu`, `DemoSources`); o updater Sparkle é `#if !DEBUG` (`UpdaterModel` em Debug é uma casca inerte e o item de menu nem compila — evita rodar updater em build de desenvolvimento). O source-of-truth é um `static isSupported` de compile-time, e **testes de contrato pinam o comportamento** (`SparkleUpdaterTests`: `isSupported == false` em Debug; feed URL e chave EdDSA presentes no Info.plist; nenhum default de consentimento pré-setado).
+- Capacidades que só fazem sentido numa configuração compilam **só nela**: a infra de demo é `#if DEBUG` (`DemoMenu`, `DemoSources`); o updater Sparkle é `#if !DEBUG` (`UpdaterModel` em Debug é uma casca inerte e o item de menu nem compila — evita rodar updater em build de desenvolvimento; o gate é sobre o **código** do updater — o binário do Sparkle.framework embarca em todas as configurações, pois o link SPM não é condicionado por configuração). O source-of-truth é um `static isSupported` de compile-time, e **testes de contrato pinam o comportamento** (`SparkleUpdaterTests`: `isSupported == false` em Debug; feed URL e chave EdDSA presentes no Info.plist; nenhum default de consentimento pré-setado).
 
 ### Internacionalização
 

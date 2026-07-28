@@ -16,18 +16,23 @@ could cover external displays too, while staying entirely optional for everyone 
 
 ## Automatic updates
 
-Crema ships as a direct download, so updates are manual for now. Built-in
-automatic updates — through [Sparkle](https://sparkle-project.org) — would let it
-keep itself current without a trip back to the releases page.
+Crema ships as a direct download, and updates are manual for now: new versions
+mean a trip back to the releases page. The groundwork for built-in automatic
+updates — through [Sparkle](https://sparkle-project.org) — is already in place:
+release builds embed Sparkle, and the release pipeline generates a signed update
+feed (served, empty for now, from GitHub Pages). What remains is shipping a first
+release into that feed and validating an update end to end — then Crema can keep
+itself current.
 
 ## Signing and notarization
 
 Crema ships signed with a self-signed certificate — enough for a stable code
 identity across versions, but not trusted by Apple, so macOS still flags it as
 coming from an unidentified developer the first time you open it (the
-[installation notes](README.md#installation) explain how to get past that). A
-Developer ID certificate and notarization would let it open without that step — a
-natural thing to add as the project matures.
+[installation notes](README.md#installation) explain how to get past that). The
+release pipeline already implements the full Developer ID + notarization path;
+what's missing is the Apple Developer account behind it. Once that exists, the
+first-launch warning goes away.
 
 ## More languages
 

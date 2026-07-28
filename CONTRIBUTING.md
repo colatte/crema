@@ -78,10 +78,11 @@ file isn't formatted.
 [`.swiftlint.yml`](.swiftlint.yml)) catches correctness and style issues that go
 beyond layout. CI runs it in strict mode, so it needs to pass.
 
-Both tools are pinned to a specific version in CI; if a local run is clean but CI
-flags something (or vice versa), a version mismatch is the likely cause. Match
-the pinned versions with `brew install swiftformat swiftlint` (or check
-[`ci.yml`](.github/workflows/ci.yml) for the exact versions).
+Both tools are pinned to specific versions in CI; if a local run is clean but CI
+flags something (or vice versa), a version mismatch is the likely cause. Homebrew
+(`brew install swiftformat swiftlint`) installs the latest versions, which may be
+newer than the pins — when results disagree, use the exact versions from
+[`ci.yml`](.github/workflows/ci.yml) (it downloads the release binaries directly).
 
 SwiftFormat parses Swift on its own and needs nothing extra. SwiftLint, though,
 loads `sourcekitd`; if it fails to, point it at a full Xcode rather than the

@@ -60,8 +60,9 @@ Curious what might come next? See the [roadmap](ROADMAP.md).
 - A Mac with a notch for the _notch_ style. On Macs without one, the _card_ and
   _classic_ styles float near the top of the screen and work just the same.
 - The **Accessibility** permission, if you want Crema to handle the volume and
-  brightness keys (see [Usage](#usage)). Crema runs without it — you just keep the
-  system's own HUDs.
+  brightness keys (see [Usage](#usage)). Crema runs without it — its HUDs still
+  appear (brightness with a slight delay), but it can't intercept the keys, so
+  the system's own HUDs can't be replaced.
 
 ## Installation
 
@@ -75,10 +76,10 @@ Curious what might come next? See the [roadmap](ROADMAP.md).
 ### First launch
 
 > [!NOTE]
-> Crema isn't notarized by Apple (it's open source and distributed for free),
-> so the first time you open it macOS warns that it's from an "unidentified
-> developer." That's expected — nothing is wrong with the app, and you only need to
-> do this once.
+> Crema isn't notarized by Apple yet (that needs a paid Apple Developer
+> account — it's on the [roadmap](ROADMAP.md)), so the first time you open it
+> macOS warns that it's from an "unidentified developer." That's expected —
+> nothing is wrong with the app, and you only need to do this once.
 
 There are two ways to get past it:
 
@@ -107,19 +108,21 @@ The Terminal command is the more reliable of the two.
   **Settings → System HUD**. It's off by default, reversible at any time, and
   needs the Accessibility permission. Turn it off (or quit Crema) and the native
   HUDs come right back.
-- The **menu bar icon** opens Settings (`⌘,`) or quits.
+- The **menu bar icon** opens Settings (`⌘,`), checks for updates, or quits.
 
 ## Privacy
 
 Crema runs entirely on your Mac. It reads now-playing information locally through
 a vendored out-of-process bridge and, with your permission, watches the volume and
-brightness keys. There are no accounts, no analytics, and no network calls —
-nothing is collected, and nothing leaves your machine.
+brightness keys. There are no accounts and no analytics. The only network access
+is the optional update check: **Check for Updates…** in the menu bar (or automatic
+checks, if you consent when asked) fetches the release feed from GitHub Pages.
+Nothing else leaves your machine.
 
 ## Build from source
 
-Requirements: **Xcode 16** or later (Crema's tests use Swift Testing) and the
-macOS 14 SDK.
+Requirements: **Xcode 16** or later (Crema's tests use Swift Testing). The app
+targets macOS 14 and builds with the macOS SDK bundled with Xcode.
 
 ```bash
 git clone https://github.com/vctorgriggi/crema.git
