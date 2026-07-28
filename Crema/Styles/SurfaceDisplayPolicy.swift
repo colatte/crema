@@ -17,4 +17,9 @@ final class SurfaceDisplayPolicy {
     /// The HUD level-indicator appearance (Card only). Render context like the
     /// flags above; the panel updates it on each frame pass from Preferences.
     var hudIndicatorStyle: HUDIndicatorStyle = .slider
+    /// This panel's raw pointer signal, set by its own SurfaceHoverMonitor
+    /// dispatch: the capsule knob reads it, so hovering one display's surface
+    /// reveals the knob only there. The Coordinator's `pointerInside` stays
+    /// the global mirror the timers key on.
+    var pointerInside = false
 }

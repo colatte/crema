@@ -13,7 +13,6 @@ struct ScrubberRow: View {
     let onScrub: (Double) -> Void
 
     @Environment(\.artworkAccent) private var accent
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack(spacing: 8) {
@@ -25,7 +24,7 @@ struct ScrubberRow: View {
             .controlSize(.mini)
             // The elapsed fill takes the cover's tone; nil keeps the system
             // default. Labels stay neutral — the tint is a suggestion.
-            .tint(accent?.color(for: colorScheme))
+            .tint(accent?.color)
             .disabled(duration == nil || !enabled)
             if showsDuration, let duration {
                 Text(timeLabel(duration))

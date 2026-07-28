@@ -144,6 +144,10 @@ struct CardView: View {
         // across every visible transition), so its animation choice never touches
         // a visible→visible morph.
         .animation(isExpanded ? SurfaceAnimation.open : SurfaceAnimation.close, value: layoutKind)
+        // Pinned dark ENCLOSING vibrantSurface (the environment reaches the
+        // AppKit-backed material): per-branch scoping would flip the palette
+        // mid HUD↔now-playing morph (docs/DECISIONS.md: hud-fixed-dark-palette).
+        .environment(\.colorScheme, .dark)
     }
 
     /// The HUD gets its own smaller radius (rounded rectangle, not capsule); every
@@ -454,7 +458,7 @@ struct CardView: View {
         let presentation = HUDPresentation(hud: hud)
         switch displayPolicy.hudIndicatorStyle {
         case .slider:
-            // Icon beside a padded slider — the shared HUD layout every skin uses.
+            // Icon beside the capsule row (the Notch's layout too); Classic keeps its bezel's segmented bar.
             HStack(spacing: CardMetrics.contentGap) {
                 Image(systemName: presentation.iconSystemName)
                     .frame(width: 22)
@@ -463,7 +467,8 @@ struct CardView: View {
                     kind: hud.kind,
                     value: presentation.value,
                     onChange: { hudSliderMoved(to: $0) },
-                    variant: .slider
+                    appearance: HUDLevelSlider.appearance(for: displayPolicy.hudIndicatorStyle),
+                    isHovered: displayPolicy.pointerInside
                 )
             }
             .padding(.horizontal, CardMetrics.contentPaddingHorizontal)
@@ -476,7 +481,7 @@ struct CardView: View {
                 kind: hud.kind,
                 value: presentation.value,
                 onChange: { hudSliderMoved(to: $0) },
-                variant: .filled
+                appearance: .filled
             )
             .overlay(alignment: .leading) {
                 Image(systemName: presentation.iconSystemName)

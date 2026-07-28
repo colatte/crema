@@ -89,6 +89,17 @@ enum SurfaceAnimation {
     static let hudLevelDamping: Double = 0.86
     static let hudLevel: Animation = .spring(response: hudLevelResponse, dampingFraction: hudLevelDamping)
 
+    /// The capsule knob's reveal — an opacity fade under the pointer, the
+    /// measured Control Center affordance-on-demand. Value-scoped like the
+    /// level spring: it never reaches the surface morph. Under Reduce Motion
+    /// the knob snaps in and out — a deliberate over-restriction (value
+    /// animations suspend under RM; the opacity-fade allowance belongs to
+    /// surface appear/dismiss).
+    static let knobRevealDuration: Double = 0.15
+    static func knobReveal(reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : .easeOut(duration: knobRevealDuration)
+    }
+
     /// Headroom the fixed window keeps past the expanded frame (sideways and
     /// down; the top anchor stays pinned): the open spring's overshoot carries
     /// the surface a few points past its target, and without headroom the

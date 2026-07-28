@@ -106,6 +106,10 @@ struct ClassicView: View {
             // every visible transition — so its choice never touches a
             // visible→visible morph.
             .animation(isExpanded ? SurfaceAnimation.open : SurfaceAnimation.close, value: layoutKind)
+            // Pinned dark ENCLOSING vibrantSurface — same contract and same
+            // placement rationale as CardView (docs/DECISIONS.md:
+            // hud-fixed-dark-palette).
+            .environment(\.colorScheme, .dark)
     }
 
     /// The accent rides above the branches so its state survives
@@ -310,7 +314,7 @@ struct ClassicView: View {
                 .foregroundStyle(.secondary)
                 .symbolReplace(on: presentation.iconSystemName)
             Spacer(minLength: 0)
-            HUDLevelSlider(kind: hud.kind, value: presentation.value, onChange: { hudSliderMoved(to: $0) })
+            HUDLevelSlider(kind: hud.kind, value: presentation.value, onChange: { hudSliderMoved(to: $0) }, appearance: .segmented)
         }
         .padding(ClassicMetrics.contentPadding + 8)
     }

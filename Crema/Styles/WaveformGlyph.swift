@@ -29,7 +29,6 @@ struct WaveformGlyph: View {
     @State private var dancing = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.artworkAccent) private var accent
-    @Environment(\.colorScheme) private var colorScheme
 
     /// Settle time when playback pauses: quick enough to read as an
     /// immediate freeze, slow enough not to snap. The only waveform timing
@@ -62,9 +61,9 @@ struct WaveformGlyph: View {
         }
         .frame(height: config.peakHeight)
         // The bars take the cover's tone (the styling moved in here so all
-        // skins tint identically), resolved against this subtree's scheme —
-        // the notch forces dark. No usable tone ⇒ the neutral secondary.
-        .foregroundStyle(accent.map { AnyShapeStyle($0.color(for: colorScheme)) } ?? AnyShapeStyle(.secondary))
+        // skins tint identically), clamped into the single dark-surface band.
+        // No usable tone ⇒ the neutral secondary.
+        .foregroundStyle(accent.map { AnyShapeStyle($0.color) } ?? AnyShapeStyle(.secondary))
         .onAppear { dancing = animating && !reduceMotion }
         .onChange(of: animating) { _, playing in
             dancing = playing && !reduceMotion

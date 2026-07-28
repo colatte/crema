@@ -99,7 +99,11 @@ final class NSPanelPresentationPanel: PresentationPanel {
         // Coordinator. The notch debounces (top edge); the others commit at once.
         if let regions = style.hoverRegions(on: screen.geometry) {
             let commit = style.hoverCommit
-            hoverMonitor = SurfaceHoverMonitor(regions: regions) { [weak coordinator] inside in
+            hoverMonitor = SurfaceHoverMonitor(regions: regions) { [weak coordinator, displayPolicy] inside in
+                // Panel-local first: the capsule knob is per-display, so only
+                // the hovered surface reveals it; the Coordinator keeps the
+                // global mirror its timers key on.
+                displayPolicy.pointerInside = inside
                 switch commit {
                 case .immediate: coordinator?.hover(inside)
                 case .debounced: coordinator?.hoverIntent(inside)

@@ -7,31 +7,31 @@ import SwiftUI
 /// picking policy is unit-testable; nil means "no usable tone" and every
 /// consumer falls back to its neutral style.
 enum ArtworkAccent {
-    /// The picked tone: hue and saturation are appearance-independent (and
-    /// already clamped); brightness is kept raw and resolved per color
-    /// scheme at display time — one band cannot read on both the notch's
-    /// black and the light-mode vibrancy material.
+    /// The picked tone: hue and saturation already clamped; brightness is kept
+    /// raw and resolved into the single display band. One band suffices because
+    /// every skin surface pins dark in every state and appearance
+    /// (docs/DECISIONS.md: hud-fixed-dark-palette) — the band is tuned to read
+    /// on the notch's black and the dark vibrancy material.
     struct Tone: Equatable, Sendable {
         var hue: Double
         var saturation: Double
         var rawBrightness: Double
 
-        func displayBrightness(for scheme: ColorScheme) -> Double {
-            let band = scheme == .dark
-                ? ArtworkAccent.darkBrightnessRange
-                : ArtworkAccent.lightBrightnessRange
-            return min(max(rawBrightness, band.lowerBound), band.upperBound)
+        var displayBrightness: Double {
+            min(
+                max(rawBrightness, ArtworkAccent.displayBrightnessRange.lowerBound),
+                ArtworkAccent.displayBrightnessRange.upperBound
+            )
         }
 
-        func color(for scheme: ColorScheme) -> Color {
-            Color(hue: hue, saturation: saturation, brightness: displayBrightness(for: scheme))
+        var color: Color {
+            Color(hue: hue, saturation: saturation, brightness: displayBrightness)
         }
     }
 
-    // Calibration. The clamp bands are the contrast guarantee: bright enough
-    // to read on the notch's black (dark band), dark enough not to wash out
-    // on the light material (light band), saturation capped so the tone
-    // suggests rather than shouts.
+    // Calibration. The clamp band is the contrast guarantee: bright enough to
+    // read on the notch's black and the dark material, saturation capped so
+    // the tone suggests rather than shouts.
     static let sampleSide = 16
     /// A pixel must be at least this colorful to vote — grays and whites
     /// abstain (white is bright but has no saturation, so the floor below
@@ -43,8 +43,7 @@ enum ArtworkAccent {
     /// effectively monochrome and gets no tone (B&W covers stay neutral).
     static let minColorfulFraction: Double = 0.08
     static let displaySaturationRange: ClosedRange<Double> = 0.35...0.65
-    static let darkBrightnessRange: ClosedRange<Double> = 0.6...0.85
-    static let lightBrightnessRange: ClosedRange<Double> = 0.35...0.55
+    static let displayBrightnessRange: ClosedRange<Double> = 0.6...0.85
     /// 12 hue buckets, rotated half a bucket so red (the wraparound hue)
     /// lands centered in one bucket instead of split across two.
     static let hueBuckets = 12

@@ -166,3 +166,41 @@ KeepAlive) — and SIGSTOP leaves an orphan that strands the entire system OSD
 under a crash, violating crash-reversibility. The consuming architecture stays.
 Reopening gate: a future macOS routing the per-key OSD to a freezable process
 without collaterals, or the ecosystem demonstrating a new path on Tahoe.
+
+### hud-capsule-track
+The HUD level indicator is drawn by Crema, not by the stock `Slider`
+(2026-07-27, live pixel measurement of the Tahoe OSD/Control Center on
+hardware). Crema replaces the system's HUD, so it must track the system's
+*HUD* look — a thumbless 4 pt capsule whose fill ends flat inside the clip —
+not the system's *control*, whose pill thumb was exactly the misalignment
+reported; owning the drawing also removes the exposure that produced the bug
+(Apple restyling the stock control underneath us). The capsule sits centered in
+a 16 pt hit row (the stock Slider's measured height): the drag target does not
+regress and no surrounding layout moves. A knob (17.5×14 pt, the measured
+native size) appears **only under the pointer** — this supersedes the earlier
+"no knob" deviation: the original refusal assumed a transient HUD, so the hold
+was introduced with the knob to make its premise real — the pointer's arrival
+cancels the HUD revert timer and its exit restarts the full delay
+(`Coordinator.publishPointer`), so a hovered HUD is genuinely not transient —
+precisely when the affordance matters, and exactly the Control Center's own
+affordance-on-demand. The knob signal is per display
+(`SurfaceDisplayPolicy.pointerInside`): only the hovered surface reveals it,
+and an active drag keeps it. Scope: the knob belongs to the capsule
+(Notch/Card); Classic renders the pre-Tahoe bezel's
+16-segment bar filled by width (design-reference §4.4 — its documented
+identity) and stays bare; the now-playing scrubber deliberately keeps the stock
+Slider (precision gesture, wants a permanent grab handle).
+
+### hud-fixed-dark-palette
+Every skin surface commits to one fixed dark palette, in every state and under
+either system appearance: Card and Classic pin `.colorScheme = .dark`
+**enclosing** `vibrantSurface` (the environment reaches the AppKit-backed
+material; one level lower it would darken only the ink over light glass), with
+the `NSVisualEffectView` appearance also pinned as belt-and-braces — the same
+commitment the notch's opaque black always made. Rationale: the hudWindow
+material follows the window appearance (measured: light frosted glass under
+aqua), so a system-following surface renders per-style inconsistency (Notch
+dark, the rest light) and inactive-gray control chrome in a never-key panel;
+and an appearance scoped per branch would flip the palette mid HUD↔now-playing
+morph — one appearance per surface, always. Consequence: the artwork accent
+needs a single brightness band (the light band was deleted with it).

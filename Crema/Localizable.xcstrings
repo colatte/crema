@@ -619,13 +619,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Filled bar"
+            "value": "Filled"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Barra"
+            "value": "Preenchido"
           }
         }
       }
@@ -653,13 +653,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Slider"
+            "value": "Line"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Slider"
+            "value": "Linha"
           }
         }
       }

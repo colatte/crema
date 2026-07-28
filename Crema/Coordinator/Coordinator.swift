@@ -134,7 +134,17 @@ final class Coordinator {
     /// hover-intent delay `pointerInside` is already true but `isHovering` stays
     /// false, so a track update mid-delay does not expand ahead of the intent.
     @ObservationIgnored private var isHovering = false
-    @ObservationIgnored private var pointerInside = false
+    /// The raw pointer mirror, published — the global signal the timers key on
+    /// (the HUD hold). Written by BOTH hover paths via `publishPointer`; on the
+    /// debounced path it flips before the intent delay, so holding starts the
+    /// moment the cursor arrives. Flips are rare, so the observation cost is
+    /// nil. The per-display knob reads the panel-local
+    /// `SurfaceDisplayPolicy.pointerInside` instead.
+    private(set) var pointerInside = false
+    /// Whether the current hover gesture entered through the intent path — the
+    /// routing guard in `hover(_:)` reads it so a gesture leaves the way it
+    /// came. Split from `pointerInside`, which both paths now write.
+    @ObservationIgnored private var enteredViaHoverIntent = false
     /// The active appearance's linger — a property of the appearance, not of
     /// the restart site: the invoke click lands with the pointer inside the
     /// zone, so the monitor's re-entrant hover-in/out cycle immediately
@@ -275,7 +285,7 @@ final class Coordinator {
         if hovering, state == .hidden { return }
         // A gesture that entered through the intent path leaves through it,
         // keeping the recheck and the pointer mirror consistent.
-        if !hovering, pointerInside || hoverIntentTask != nil {
+        if !hovering, enteredViaHoverIntent || hoverIntentTask != nil {
             hoverIntent(false)
             return
         }
@@ -287,7 +297,8 @@ final class Coordinator {
     /// cancels the pending one, and the fired task rechecks the pointer before
     /// committing (the pointer may have moved during the wait).
     func hoverIntent(_ hovering: Bool) {
-        pointerInside = hovering
+        enteredViaHoverIntent = hovering
+        publishPointer(hovering)
         // The pointer's arrival already holds the appearance — the linger must
         // not tuck the surface out from under a cursor waiting out the intent
         // delay.
@@ -319,7 +330,25 @@ final class Coordinator {
     /// holds the appearance and expands the visible compact; hover-out
     /// collapses and resumes the tuck timer. A hidden state stays hidden —
     /// hover never invokes (that is the click's job).
+    /// Single writer of the published pointer mirror, shared by both hover
+    /// paths (idempotent when the debounced path already published). The
+    /// pointer also holds a visible HUD — the knob's premise made real: its
+    /// arrival cancels the revert timer, its exit restarts the full delay
+    /// (docs/DECISIONS.md: hud-capsule-track).
+    private func publishPointer(_ inside: Bool) {
+        guard pointerInside != inside else { return }
+        pointerInside = inside
+        guard case .hud = state else { return }
+        if inside {
+            hudRevertTask?.cancel()
+            hudRevertTask = nil
+        } else {
+            restartHUDRevertTimer()
+        }
+    }
+
     private func commitHover(_ hovering: Bool) {
+        publishPointer(hovering)
         isHovering = hovering
         if hovering {
             cancelLinger()
@@ -348,6 +377,7 @@ final class Coordinator {
         hoverIntentTask = nil
         isHovering = false
         pointerInside = false
+        enteredViaHoverIntent = false
         currentLinger = nowPlayingLinger
     }
 
@@ -548,7 +578,9 @@ final class Coordinator {
         }
         cancelLinger()
         state = .hud(hud)
-        restartHUDRevertTimer()
+        // A key while the pointer holds the HUD must not re-arm the revert —
+        // the hold owns dismissal until the pointer leaves.
+        if !pointerInside { restartHUDRevertTimer() }
     }
 
     private func restartHUDRevertTimer() {
