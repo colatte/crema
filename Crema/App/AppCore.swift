@@ -73,6 +73,8 @@ final class AppCore {
     #endif
 
     private let accessibilityPermission = AXAccessibilityPermission()
+    /// Read only when the menu is opened — see `appReceivingMediaKeysFirst()`.
+    private let eventTapRegistry: any EventTapRegistry = LiveEventTapRegistry()
     /// The now-playing chain (real graph only); stopped on quit so its Perl
     /// process dies with the app.
     private let nowPlayingChain: ChainedNowPlayingSource?
@@ -704,5 +706,45 @@ extension AppCore {
     /// comparison total (and reads as "changed" against any recorded build).
     private static var currentBuild: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
+    }
+}
+
+// MARK: - Media-key chain
+
+@MainActor
+extension AppCore {
+    /// The app that is fed the media keys before Crema, when there is one. Nil
+    /// means nothing is positioned to take them from us — or that we have no tap
+    /// to speak of, in which case the Accessibility warning already says so.
+    ///
+    /// Pull-based, evaluated as the menu is drawn, for two reasons: the answer
+    /// lives entirely outside our process and changes whenever any app installs a
+    /// tap, and reading the registry costs the neighbours their latency readings,
+    /// so it happens at a rare user-initiated moment instead of on a poll.
+    ///
+    /// Losing the position is not a failure Crema repairs. Taking it back would
+    /// mean out-inserting a neighbour forever, or moving to the HID location and
+    /// silently stealing keys from every other app that wants them — so the app
+    /// names who won and leaves the choice to the user, which is the only place
+    /// it can be made (docs/DECISIONS.md: media-key-chain-contention).
+    func appReceivingMediaKeysFirst() -> String? {
+        Self.appReceivingMediaKeysFirst(
+            registry: eventTapRegistry,
+            ourPID: ProcessInfo.processInfo.processIdentifier
+        )
+    }
+
+    /// The composition, standalone and static so a test pins it without booting
+    /// the graph (same reason as the login-item seam). A contender the system
+    /// has no display name for stays unnamed: a bare pid at the user would be
+    /// noise, and an unnamed warning is worse than none.
+    static func appReceivingMediaKeysFirst(registry: any EventTapRegistry, ourPID: pid_t) -> String? {
+        let chain = MediaKeyChainReconciler.chain(
+            ourPID: ourPID,
+            mask: MediaKeyTranslation.systemDefinedMask,
+            in: registry.entries()
+        )
+        guard case .precededBy(let pid) = chain else { return nil }
+        return registry.appName(forPID: pid)
     }
 }

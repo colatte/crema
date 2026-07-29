@@ -154,6 +154,13 @@ xattr -dr com.apple.quarantine /Applications/Crema.app
   elsewhere — Control Center, another app, a keyboard Crema can't intercept —
   still show the system's own HUD. Turn it off (or quit Crema) and the native
   HUDs come right back.
+- **If one kind of key seems ignored** — say the volume HUD appears but the
+  brightness one never does — another app is most likely taking those keys before
+  Crema. Utilities that drive brightness themselves do this by design
+  (BetterDisplay's combined brightness, MonitorControl and friends), and which app
+  wins is decided at login, so it can differ from one boot to the next. Crema
+  names the app in its menu when it happens. Two apps can't own the same key:
+  either turn that feature off in the other app, or let it keep the key.
 - The **menu bar icon** opens Settings (`⌘,`), checks for updates, or quits.
 
 ## Privacy

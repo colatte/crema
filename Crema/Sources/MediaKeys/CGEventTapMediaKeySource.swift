@@ -196,7 +196,7 @@ final class CGEventTapMediaKeySource: MediaKeySource, MediaKeyConsuming, @unchec
             return source.handle(type: type, event: event) ? nil : Unmanaged.passUnretained(event)
         }
 
-        let mask = CGEventMask(1 << MediaKeyTranslation.systemDefinedEventType)
+        let mask = CGEventMask(MediaKeyTranslation.systemDefinedMask)
         guard let newTap = tapOps.install(
             mask: mask,
             callback: callback,

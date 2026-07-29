@@ -30,6 +30,18 @@ struct CremaApp: App {
                 }
                 Divider()
             }
+            // Another app's filter tap sits in front of ours and asked for the
+            // same events, so it can take a key before Crema ever sees it. Stated
+            // as the fact it is — a position in the chain, not a malfunction —
+            // because from inside the app the symptom is indistinguishable from a
+            // broken tap, and no user can diagnose it unaided.
+            if let app = core.appReceivingMediaKeysFirst() {
+                Text(String(
+                    localized: "menu.mediaKeysPrecededBy",
+                    defaultValue: "⚠️ \(app) receives the media keys before Crema — some HUDs may not appear"
+                ))
+                Divider()
+            }
             if !core.nowPlayingMonitor.isActive {
                 Text(String(
                     localized: "menu.nowPlayingUnavailable",

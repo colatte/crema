@@ -460,6 +460,23 @@
         }
       }
     },
+    "menu.mediaKeysPrecededBy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⚠️ %@ receives the media keys before Crema — some HUDs may not appear"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⚠️ %@ recebe as teclas de mídia antes do Crema — alguns HUDs podem não aparecer"
+          }
+        }
+      }
+    },
     "menu.nowPlayingUnavailable": {
       "extractionState": "manual",
       "localizations": {

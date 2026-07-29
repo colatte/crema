@@ -338,6 +338,40 @@ not the one you approved"), and re-registering behind the user would contradict
 the app's own rule of never adding a login item uninvited. Measured and ruled
 out along the way: the DMG's quarantine attribute does not block registration.
 
+### media-key-chain-contention
+Session event taps are a chain, and `.headInsertEventTap` means the app that
+inserted LAST is served FIRST. Two apps can legitimately want the same key — a
+display utility driving brightness with its own curve, Crema drawing the HUD —
+and at login the winner is decided by a race nobody can see. Field evidence
+(2026-07-29): Crema started at 10:52:06 and had its tap up at 10:52:07.0; the
+neighbouring display app started at 10:52:07 and inserted after us. The system's
+registry then listed it ahead of us, and the persisted log shows the exact
+signature — `media key observed: volumeUp/volumeDown` flowing, not one
+`screenBrightness` line, native OSD on screen. Quitting the neighbour restored
+Crema's HUD; reopening it broke it again; relaunching Crema cured it (a fresh
+tap goes back to the head). Note what this class is NOT: the tap was healthy and
+delivering the whole time, so the J7 deafness cure — preventive reinstall — is a
+placebo here, and an earlier broken instance did reinstall three times without
+curing, consistent with the neighbour re-inserting on the same physical edge that
+triggered our own reinstall. Before suspecting our own port, ask who is in front
+of it. `CGGetEventTapList` is the only view of that from outside the process;
+list order is insertion order and therefore delivery order — verified on hardware
+in both directions, but NOT documented (what the SDK does promise is that a HID
+tap precedes every session tap, and that each read resets every tap's min/max
+latencies, so it is read only when the menu is opened, never on a poll).
+Decision: **Crema does not fight for the position.** Re-inserting periodically is
+an arms race decided by whoever moved last, with a key-loss window on every
+reinstall; moving to `kCGHIDEventTap` wins deterministically but silently takes
+the keys from every third-party app that legitimately wants them — including the
+very app the external-display integration is meant to cooperate with. So the app
+names who is ahead and leaves the choice where it belongs. The naming errs toward
+silence: listen-only taps, disabled taps, taps with a disjoint mask, a chain we
+have no tap in, and a contender macOS has no display name for all produce no
+warning — a missed line costs a diagnostic, a false one accuses a neighbour.
+The real resolution is the roadmap's BetterDisplay OSD integration: the neighbour
+keeps the keys and Crema draws the HUD from its notification, so there is nothing
+left to contend for.
+
 ### sample-dont-integrate
 A UI ticker that adds a fixed step per tick is a clock that runs slow. Timers are
 not real time — they fire late under load, App Nap, battery coalescing — and the

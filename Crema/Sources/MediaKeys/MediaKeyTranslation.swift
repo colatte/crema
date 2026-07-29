@@ -4,6 +4,10 @@
 enum MediaKeyTranslation {
     /// CGEvent type of NX_SYSDEFINED events (the tap's event mask).
     static let systemDefinedEventType: UInt32 = 14
+    /// The same type as a CGEventMask bit. Stated once so the tap we install and
+    /// the chain check that looks for rivals over the same events can never
+    /// drift apart.
+    static let systemDefinedMask: UInt64 = 1 << UInt64(systemDefinedEventType)
     /// NSEvent subtype for aux control buttons (NX_SUBTYPE_AUX_CONTROL_BUTTONS).
     static let auxiliaryControlSubtype: Int16 = 8
 
