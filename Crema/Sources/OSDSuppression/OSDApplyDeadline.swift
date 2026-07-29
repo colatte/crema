@@ -18,6 +18,11 @@ import Foundation
 ///   unstructured lets the timeout return while the call finishes orphaned on a
 ///   background thread, off the MainActor. On timeout it is cancelled (tidy-up
 ///   for a cancellable call, a no-op for a blocked one) and abandoned.
+///   Precondition, and the whole reason `blockingCall` exists: the operation
+///   must genuinely SUSPEND while it waits. An `async` signature is no proof of
+///   that — an actuator whose body is a straight-line C call runs to completion
+///   on the pool thread that picked it up, and then this detached task is the
+///   pool-starving orphan the read rule below was written to prevent.
 /// - A read is a blocking synchronous C call, so it runs on a GCD global queue,
 ///   never a detached task. The cooperative pool has a fixed width (one thread
 ///   per core) and never overcommits: a read that blocks forever would consume a
@@ -25,10 +30,11 @@ import Foundation
 ///   every backoff cycle, so leaked orphans accumulate without bound and starve
 ///   the pool. The deadline sleep resumes on that same pool, so an exhausted
 ///   pool stops the deadline firing — a fresh apply on a healthy domain would
-///   then hang forever with its keys still consumed. GCD's global queue
-///   overcommits (it spawns threads when all block), so a leaked read orphan
-///   there never reduces capacity for live work or for the deadline.
-///   (docs/DECISIONS.md: read-deadline-pool-rule)
+///   then hang forever with its keys still consumed. GCD's global queue spawns
+///   threads when its own block, so an orphan parked there costs a thread out of
+///   that queue's own ceiling instead of the app's concurrency — bounded, not
+///   free. (docs/DECISIONS.md: read-deadline-pool-rule,
+///   async-signature-is-not-a-suspension-point)
 
 /// Thrown when the operation outlives its deadline. The caller maps it onto its
 /// own suspension path.

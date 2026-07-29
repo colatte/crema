@@ -139,9 +139,33 @@ A blocking sync operation raced against a deadline runs on `DispatchQueue.global
 — never the cooperative pool, nor `Task.detached`. The cooperative pool has fixed
 width and does not overcommit, so blocked orphans accumulate and the deadline,
 resuming on the same pool, strangles itself; the GCD global pool grows when
-threads block, so an orphan there never steals capacity from live work. Async
-operations use unstructured detached tasks instead. (The applied form of
-J3-deadline-cooperativo.)
+threads block, so an orphan there costs a thread out of that queue's own ceiling
+instead of the app's concurrency. Async operations use unstructured detached
+tasks instead. (The applied form of J3-deadline-cooperativo. Which side of the
+rule an operation falls on is decided by its BODY, not its signature — see
+async-signature-is-not-a-suspension-point.)
+
+### async-signature-is-not-a-suspension-point
+The rule above was written for reads and quietly broken for writes, because the
+three actuators *looked* async: `func setVolume(…) async throws` whose body is a
+straight-line Core Audio or dlsym'd C call, with no `await` anywhere in it. Such
+a function never suspends — it runs to completion on the thread that picked it
+up — and since a nonisolated `async` function hops off its caller's actor onto
+the global concurrent executor, that thread is a cooperative-pool thread whether
+the call came from `Task.detached` or from `Task { @MainActor in … }`. So the
+write path was the exact pool-starving orphan the read rule exists to prevent,
+and the file stating the rule was the file breaking it. All three legs measured
+on a 12-core machine: an `async` body with no `await` called from a `@MainActor`
+task reports `pthread_main_np() == 0` on another thread id (it hops); 12 blocked
+orphans leave a fresh `Task` never scheduled AND the deadline's own
+`Task.detached` sleep never firing; 24 blocked blocks on `DispatchQueue.global()`
+still let a new one run.
+Decision: the hop belongs at the border that owns the blocking call, not at the
+one caller that happens to bound it — the actuators wrap their C call in
+`blockingCall`, so both the deadline-raced key path and the Coordinator's slider
+drag are covered by construction. Reviewing "is this async?" means reading the
+body: a signature is a promise about the caller, never evidence about the
+callee.
 
 ### child-process-deadline
 Every one-shot subprocess interaction is time-bounded: waiting on a
