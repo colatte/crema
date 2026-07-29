@@ -1,6 +1,108 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "about.credits": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Built with Sparkle and mediaremote-adapter."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desenvolvido com Sparkle e mediaremote-adapter."
+          }
+        }
+      }
+    },
+    "about.link.github": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GitHub"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GitHub"
+          }
+        }
+      }
+    },
+    "about.link.kofi": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Support on Ko-fi"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apoiar no Ko-fi"
+          }
+        }
+      }
+    },
+    "about.link.reportIssue": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Report an issue"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reportar um problema"
+          }
+        }
+      }
+    },
+    "about.signature": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "made with ☕ by Colatte"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "feito com ☕ por Colatte"
+          }
+        }
+      }
+    },
+    "about.version": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version %1$@ (%2$@)"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versão %1$@ (%2$@)"
+          }
+        }
+      }
+    },
     "app.menubar.title": {
       "extractionState": "manual",
       "localizations": {
@@ -898,6 +1000,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Não concedido"
+          }
+        }
+      }
+    },
+    "settings.tab.about": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sobre"
           }
         }
       }

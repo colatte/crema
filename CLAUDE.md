@@ -37,14 +37,14 @@ crema/                       # raiz do repositório
 │   ├── appcast.xml                  # feed do Sparkle (placeholder vazio até o primeiro release; regenerado pelo release.sh, nunca editado à mão)
 │   └── internal/            # gitignored (local-only): SPEC.md, PLAN.md, RELEASE-GUIDE.md, auditorias e investigações
 ├── design/
-│   └── icon/                # arte-fonte do ícone: master 4096 (sem máscara), makeicon.swift (aplica o squircle do template macOS e gera o appiconset), icns completo; proveniência no README local
+│   └── icon/                # arte-fonte do ícone: master 4096 (sem máscara), makeicon.swift (aplica o squircle do template macOS e gera o appiconset), makemenubaricon.swift (deriva o TEMPLATE da barra de menus — pill + linha de crema), icns completo
 ├── scripts/
 │   └── release.sh           # build + carimbo do build number + assinatura (ad-hoc / self-signed / Developer ID + notarização, incl. o código aninhado do Sparkle) + DMG + regeneração do docs/appcast.xml
 ├── ThirdParty/
 │   └── mediaremote-adapter/ # bridge de now playing vendorizada (BSD-3-Clause)
 ├── Crema.xcodeproj          # projeto Xcode
 ├── Crema/                   # código do app
-│   ├── Assets.xcassets/     # AppIcon (slots gerados por design/icon/makeicon.swift — regenerar lá, nunca editar os PNGs à mão)
+│   ├── Assets.xcassets/     # AppIcon (gerado por design/icon/makeicon.swift) + MenuBarIcon (template da barra, gerado por design/icon/makemenubaricon.swift, incl. o Contents.json com o template-rendering-intent obrigatório) — regenerar lá, nunca editar à mão
 │   ├── App/                 # entry point (LSUIElement), menu da barra, Settings, onboarding de Acessibilidade, Preferences, login item, updater Sparkle (Release-only), política lock-aware da supressão, demo infra (#if DEBUG)
 │   ├── Domain/              # tipos próprios do app (NowPlaying, SystemHUD, MediaKey, PresentationState, DisplayUUID) — nada da Apple vaza pra cima
 │   ├── Sources/             # camada Fontes: integração com o sistema (a parte frágil); PROTOCOLOS e fontes compostas na raiz, implementações por tecnologia nos subdiretórios
