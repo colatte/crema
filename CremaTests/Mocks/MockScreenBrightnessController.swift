@@ -22,6 +22,12 @@ final class MockScreenBrightnessController: ScreenBrightnessController, @uncheck
         lock.withLock { refusing = true }
     }
 
+    /// Back to accepting: lets a test put a SUCCESSFUL write after a failed one,
+    /// which is the only ordered way to prove the failure produced no echo.
+    func acceptEverything() {
+        lock.withLock { refusing = false }
+    }
+
     func setBrightness(_ value: Double, on display: DisplayUUID?) async throws {
         let refuse = lock.withLock {
             recorded.append(.setBrightness(value, display: display))

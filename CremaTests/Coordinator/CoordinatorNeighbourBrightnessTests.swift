@@ -49,6 +49,35 @@ struct CoordinatorNeighbourBrightnessTests {
         #expect(h.coordinator.state == .hud(neighbourHUD(0.9)))   // already, synchronously
     }
 
+    @Test func aWriteThatFailedIsNeverEchoedAsApplied() async {
+        // The echo exists to close the HUD loop, and it must close it on the
+        // truth: reporting a failed write as applied pokes the sampler, which
+        // re-reads and draws a level the display never went to — a bar that lies
+        // about a control that did nothing.
+        let h = CoordinatorHarness()
+        let applied = Applied()
+        h.coordinator.onBrightnessApplied = { applied.record($0) }
+        h.screen.refuseEverything()
+        h.hudSource.emit(SystemHUD(kind: .screenBrightness, value: 0.5))
+        #expect(await eventually { h.coordinator.state != .hidden })
+
+        h.coordinator.hudSliderChanged(to: 0.8)
+        #expect(await eventually { h.screen.commands.count == 1 })
+
+        // A SUCCESSFUL write afterwards is the synchronisation point: its echo
+        // cannot arrive before the failed one's catch has already run, so if the
+        // failure had echoed it would be sitting in front of this one. Asserting
+        // "nothing echoed" straight after the failure would race the catch and
+        // pass either way — which is exactly how this test first shipped green
+        // against the very mutation it exists to catch.
+        h.screen.acceptEverything()
+        h.coordinator.hudSliderChanged(to: 0.6)
+        #expect(await eventually { applied.last != nil })
+
+        #expect(applied.all.count == 1)
+        #expect(applied.last?.value == 0.6)
+    }
+
     @Test func afterAFallbackTheEchoIsCreditedToTheSystem() async {
         // The fallback wrote through the system actuator, so what goes back into
         // the HUD stream has to say so: AppCore routes the echo by authority, and
@@ -71,8 +100,9 @@ struct CoordinatorNeighbourBrightnessTests {
 
     @MainActor
     private final class Applied {
-        private(set) var last: SystemHUD?
-        func record(_ hud: SystemHUD) { last = hud }
+        private(set) var all: [SystemHUD] = []
+        var last: SystemHUD? { all.last }
+        func record(_ hud: SystemHUD) { all.append(hud) }
     }
 
     @Test func aNeighbourThatRefusesStillMovesTheScreen() async {

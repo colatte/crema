@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import Crema
 
@@ -104,6 +105,34 @@ struct BetterDisplayOSDSourceTests {
 
         source.noteBetterDisplayTerminated()
         #expect(!source.hasReported)                     // the claim never outlives its source
+    }
+
+    /// The observer wired the way production wires it, driven by a real
+    /// distributed notification.
+    ///
+    /// Asserting the name CONSTANT proves nothing about what the observer
+    /// actually subscribed to — a mutation pointing it at the legacy prefix left
+    /// the constant right, the suite green, and the integration deaf. And this is
+    /// the one border where a wrong subscription is invisible from inside: the
+    /// app cannot tell "nobody posted" from "we are not listening", which is
+    /// exactly how two probe rounds were lost to a wildcard observer macOS never
+    /// delivers.
+    @Test func theInstalledObserverReceivesWhatBetterDisplayActuallyPosts() async {
+        let source = BetterDisplayOSDSource()   // no injection: the real observer
+        let collector = Collector(source.updates)
+        defer { collector.stop() }
+
+        // No displayID: the built-in screen, so this holds on any machine.
+        DistributedNotificationCenter.default().postNotificationName(
+            Notification.Name(BetterDisplayOSDSource.notificationName),
+            object: #"{"controlTarget":"combinedBrightness","maxValue":64,"value":16}"#,
+            userInfo: nil,
+            deliverImmediately: true
+        )
+
+        #expect(await eventually { collector.values.count == 1 })
+        #expect(collector.values.first?.value == 0.25)
+        #expect(collector.values.first?.authority == .betterDisplay)
     }
 
     @Test func theNameSubscribedToIsTheCurrentOneOnly() {
