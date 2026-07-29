@@ -82,3 +82,37 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY=""
+
+      - name: Release build, signed as the project says
+        # Debug alone leaves the Sparkle updater outside the gate: its code is
+        # behind `#if !DEBUG`, so only a Release build ever compiles it. Signing
+        # is deliberately NOT disabled here — ad-hoc needs no identity, and
+        # applying the project's real signing settings is the whole point of the
+        # check below.
+        run: |
+          xcodebuild build \
+            -project Crema.xcodeproj \
+            -scheme Crema \
+            -configuration Release \
+            -destination 'platform=macOS' \
+            -derivedDataPath build-release
+
+      - name: Reject ad-hoc plus hardened runtime
+        # dyld's library validation refuses a hardened-runtime process mapping a
+        # non-platform library whose Team ID differs, and an ad-hoc (or
+        # self-signed) signature has no Team at all — so this pairing yields an
+        # app that aborts at launch loading Sparkle.framework, which is how it
+        # once shipped broken (docs/DECISIONS.md: signed-without-hardened-runtime).
+        # `codesign --verify` passes that exact bundle, because it checks
+        # integrity and not load policy; the flag pairing, however, is right there
+        # in the code directory. Cheap and deterministic, so it belongs here —
+        # release.sh still launches the real artifact from the dmg, which is the
+        # only way to catch load failures this check cannot name in advance.
+        run: |
+          APP=build-release/Build/Products/Release/Crema.app
+          FLAGS=$(codesign -d --verbose=2 "$APP" 2>&1 | grep -oE 'flags=0x[0-9a-f]+\([^)]*\)' || true)
+          echo "signature $FLAGS"
+          if grep -q runtime <<<"$FLAGS" && grep -qE 'adhoc' <<<"$FLAGS"; then
+            echo "::error file=Crema.xcodeproj/project.pbxproj::ENABLE_HARDENED_RUNTIME with an ad-hoc/self-signed identity: dyld will abort this app at launch on Sparkle.framework. Set ENABLE_HARDENED_RUNTIME = NO; release.sh adds --options runtime only on the Developer ID path, where a real Team ID satisfies library validation."
+            exit 1
+          fi

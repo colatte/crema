@@ -324,13 +324,21 @@ certificate has none, so the app crashes at launch loading Sparkle.framework
 ("mapping process and mapped file (non-platform) have different Team IDs"),
 even with every component signed by the same identity. This is the J7 lesson
 on another frontier: load policy lives on dyld's side of the boundary, and
-`codesign --verify --deep --strict` passes the exact bundle that cannot launch
-(it checks integrity, not load policy) — no local verification can see it.
-Covered by action at the edge instead: release.sh sets the runtime flag only on
-the Developer ID path, the consistency check compares authority + Team across
-the nested Mach-Os, and the launch smoke boots the installed app from the
-final dmg and requires it to survive 5 s. Shipped broken exactly once — the
-v1.2 E2E caught the crash before publish, which is why the smoke exists.
+`codesign --verify --deep --strict` passes the exact bundle that cannot launch,
+because it checks integrity and not load policy.
+Covered at three edges. release.sh sets the runtime flag only on the Developer ID
+path, compares authority + Team across the nested Mach-Os, and boots the
+installed app from the final dmg requiring it to survive 5 s. CI rejects the
+pairing statically: `adhoc` and `runtime` together in the code directory is
+enough to condemn a build, and unlike the load failure itself that pairing is
+plainly readable from `codesign -d`. And the project no longer sets
+`ENABLE_HARDENED_RUNTIME`, which is what made Xcode's own Product → Archive
+produce the unlaunchable app while release.sh escaped by archiving unsigned.
+Shipped broken exactly once — the v1.2 E2E caught the crash before publish, which
+is why the smoke exists; reproduced again on 2026-07-29 straight from the project
+settings (`flags=0x10002(adhoc,runtime)`, `TeamIdentifier=not set`, dyld:
+"mapping process and mapped file (non-platform) have different Team IDs",
+SIGABRT), which is why the static gate now exists too.
 
 ### key-origin-brightness-gate
 The brightness HUDs show only for changes the USER made. Brightness has no
