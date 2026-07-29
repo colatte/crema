@@ -111,9 +111,17 @@ final class SurfaceHoverMonitor {
     }
 
     private func install() {
-        // The local monitor catches moves over our own panel (events dispatched
-        // to us); the global one catches moves elsewhere, so we still see the
-        // cursor leave the surface. Both fire on the main run loop.
+        // BOTH are needed because they are mutually exclusive by design: the local
+        // monitor sees only this app's own event stream, and the global one
+        // explicitly does NOT observe the application it is installed in. So local
+        // catches moves over our panel, global catches the cursor leaving it —
+        // either alone is half a hover.
+        //
+        // `MainActor.assumeIsolated` below is a trap if the delivery is ever off the
+        // main thread, so it rests on a guarantee and not on a habit: Apple's Event
+        // Handling Guide states "The handlers are always called on the main thread"
+        // for both monitors. The AppKit HEADER does not say it — reading only the
+        // header makes this look like an assumption, which is how it got questioned.
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: Self.sampleEventMask) { [weak self] event in
             MainActor.assumeIsolated { self?.sample() }
             return event

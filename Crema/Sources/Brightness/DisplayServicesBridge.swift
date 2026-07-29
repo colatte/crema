@@ -26,7 +26,13 @@ final class DisplayServicesBridge: BrightnessBackend, Sendable {
     /// Displays → Arrange, and one an external monitor commonly holds. Measured on
     /// an external: `DisplayServicesGetBrightness` returns 1000, so read() answered
     /// nil and write() false for every key and every drag, silently, with a
-    /// perfectly controllable panel sitting right there. The stability: CGDisplayID
+    /// perfectly controllable panel sitting right there. This is a known trap
+    /// outside this project too — "DisplayServicesSetBrightness(CGMainDisplayID())
+    /// does nothing because the main display is an external monitor", with
+    /// `CGDisplayIsBuiltin` named as the discriminator (PowerMateReborn's brightness
+    /// research notes); the framework only ever governs Apple-controlled panels,
+    /// which is also why external brightness belongs to the neighbour integration
+    /// and not here. The stability: CGDisplayID
     /// values are reassigned across sleep/wake and reconfiguration, so a captured
     /// ID goes stale and rots the path until relaunch (which is why a restart once
     /// "cured" it and a toggle did not).
