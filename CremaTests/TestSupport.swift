@@ -3,32 +3,58 @@ import Foundation
 // A few test helpers force-unwrap known-good values (e.g. UserDefaults(suiteName:)).
 // swiftlint:disable force_unwrapping
 
-/// Spins the main actor until `condition` holds, without ever really sleeping.
-/// Returns the final evaluation so call sites can `#expect(await eventually { … })`.
-/// One budget for every bounded wait (here, the off-actor sibling and
-/// waitForSleep): at suite cold-start the parallel runner floods both
-/// executors, and a 2k budget starved out real progress — 20k is still
-/// bounded (tens of ms), so a genuine wedge fails loud, never hangs.
+/// How every bounded wait in the suite is bounded: by WALL CLOCK, never by a
+/// yield count. A scheduler-slot budget starves on a saturated machine (at
+/// parallel-suite cold start, real fixture progress outlived any yield count),
+/// while wall time passes no matter who holds the CPU. Hot path: pure yields,
+/// so a healthy wait resolves in microseconds. Starved path: 1 ms real sleeps
+/// up to the deadline — the deliberate, narrow exception to "tests never
+/// really sleep" (production timers stay on SleepClock; this is executor
+/// backoff inside the wait helper, not timer synchronization), and sleeping
+/// frees the actor/thread for exactly the starved tasks the condition waits
+/// on. Still bounded: a genuine wedge fails loud, never hangs the suite.
+let boundedWaitDeadline: Duration = .seconds(5)
+let boundedWaitHotSpins = 2000
+
+/// Spins the main actor until `condition` holds, bounded by wall clock (see
+/// boundedWaitDeadline). Returns the final evaluation so call sites can
+/// `#expect(await eventually { … })`.
 @MainActor
 func eventually(_ condition: @MainActor () -> Bool) async -> Bool {
-    for _ in 0..<20_000 {
+    let clock = ContinuousClock()
+    let deadline = clock.now.advanced(by: boundedWaitDeadline)
+    var spins = 0
+    while clock.now < deadline {
         if condition() { return true }
-        await Task.yield()
+        spins += 1
+        if spins < boundedWaitHotSpins {
+            await Task.yield()
+        } else {
+            try? await Task.sleep(for: .milliseconds(1))
+        }
     }
     return condition()
 }
 
 /// The off-actor sibling, for conditions flipped by NON-MainActor work (stream
 /// consumer tasks, lock-protected sinks). Deliberately separate from
-/// `eventually`: an off-actor yield loop burns its budget on the global
-/// executor before parked MainActor tasks ever get a slot (the TestSleepClock
-/// lesson), so waits on MainActor progress must use `eventually` — and this
-/// one exists so the distinction is a choice, not a private copy per suite.
-/// Same budget as `eventually` (see its header for the rationale).
+/// `eventually`: an off-actor yield loop hands slots to the global executor
+/// while parked MainActor tasks starve (the TestSleepClock lesson), so waits
+/// on MainActor progress must use `eventually` — and this one exists so the
+/// distinction is a choice, not a private copy per suite. Same wall-clock
+/// bound (see boundedWaitDeadline).
 func eventuallyOffActor(_ condition: () -> Bool) async -> Bool {
-    for _ in 0..<20_000 {
+    let clock = ContinuousClock()
+    let deadline = clock.now.advanced(by: boundedWaitDeadline)
+    var spins = 0
+    while clock.now < deadline {
         if condition() { return true }
-        await Task.yield()
+        spins += 1
+        if spins < boundedWaitHotSpins {
+            await Task.yield()
+        } else {
+            try? await Task.sleep(for: .milliseconds(1))
+        }
     }
     return condition()
 }

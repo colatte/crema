@@ -81,20 +81,31 @@ final class TestSleepClock: SleepClock, @unchecked Sendable {
     }
 
     /// Suspends until a sleep requested with `delay` is parked (nil = any).
-    /// Bounded yield-polling, not a parked continuation: a handshake that
-    /// drifts out of alignment (waiting for a park that can never come) must
-    /// surface as a loud downstream assertion failure, never wedge the suite
-    /// forever — the deviceAbsent probe test deadlocked exactly that way.
+    /// Bounded polling, not a parked continuation: a handshake that drifts
+    /// out of alignment (waiting for a park that can never come) must surface
+    /// as a loud downstream assertion failure, never wedge the suite forever —
+    /// the deviceAbsent probe test deadlocked exactly that way. The bound is
+    /// WALL CLOCK, not a yield count (a slot budget starves on a saturated
+    /// machine — see TestSupport.boundedWaitDeadline for the shared rule).
     /// MainActor-isolated on purpose: the sleepers it awaits are parked by
-    /// MainActor tasks (Coordinator timers, suppressor probes), so yielding
-    /// must hand the MainActor over FIFO-fair — an off-actor yield loop burns
-    /// its budget on the global executor before those tasks ever get a slot.
+    /// MainActor tasks (Coordinator timers, suppressor probes), so the hot
+    /// spin must hand the MainActor over FIFO-fair — an off-actor yield loop
+    /// burns its slots on the global executor before those tasks ever run —
+    /// and the backoff sleeps free the actor for them entirely.
     @MainActor
     func waitForSleep(delay: Double?) async {
-        for _ in 0..<20_000 {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: boundedWaitDeadline)
+        var spins = 0
+        while clock.now < deadline {
             let satisfied = lock.withLock { sleepers.contains { delay == nil || $0.delay == delay } }
             if satisfied { return }
-            await Task.yield()
+            spins += 1
+            if spins < boundedWaitHotSpins {
+                await Task.yield()
+            } else {
+                try? await Task.sleep(for: .milliseconds(1))
+            }
         }
     }
 }

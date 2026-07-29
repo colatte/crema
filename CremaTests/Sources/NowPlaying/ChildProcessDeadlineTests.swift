@@ -52,7 +52,11 @@ struct ChildProcessDeadlineTests {
             return killed.value               // terminate ran
         })
         #expect(await raceTask.value == -1)   // the timed-out value, not 42
-        #expect(hang.wasReleased)             // and it unwound the operation
+        // The unwind is awaited, not read directly: the race commits its value
+        // BEFORE the kill (by design — the hung path must deterministically
+        // return timedOutValue), so the result can resolve while the deadline
+        // thread is still between killed and release.
+        #expect(await eventuallyOffActor { hang.wasReleased })
     }
 
     @Test func singleResumeDeliversTheFirstStashedResultOnly() async {
