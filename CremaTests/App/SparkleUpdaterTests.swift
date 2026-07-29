@@ -13,6 +13,8 @@ struct SparkleUpdaterTests {
     /// The partial Info.plist merges into the generated one, so both Sparkle keys
     /// reach the shipped bundle with the exact feed URL and public EdDSA key. A
     /// regressed merge (dropped INFOPLIST_FILE, wrong values) fails here loudly.
+    /// This pins plist-vs-expectation COHERENCE, not reachability — whether the
+    /// host actually serves the feed is proved by curl in the release ritual.
     @Test func infoPlistCarriesFeedURL() {
         let feed = Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") as? String
         #expect(feed == "https://colatte.github.io/crema/appcast.xml")
