@@ -119,6 +119,40 @@ struct CGEventTapMediaKeySourceHealthTests {
     /// reinstall) is the load-bearing contrast the revoked phase is measured
     /// against — without it the invalidation would be inert here, the teardown
     /// firing identically on a still-valid port.
+    /// Revocation ALONE, with nothing wrong with the port — the case the test
+    /// below cannot see, because there the invalidation reaches the same end
+    /// state by the other path (heal → uninstall → install refused). A mutation
+    /// deleting the permission check from the poll left the whole suite green.
+    ///
+    /// What it costs to skip the teardown is not the revocation itself (macOS
+    /// stops delivering either way) but the RE-GRANT: `installTapIfAuthorized`
+    /// returns early while a token is stored, and the health-check only acts on
+    /// an invalid or disabled port — so a stale token that still reads healthy
+    /// means the fresh tap is never created and the keys never come back without
+    /// a relaunch.
+    @Test func revocationTearsDownAHealthyTapSoARegrantCanInstallAFreshOne() async {
+        let permission = MockAccessibilityPermission(granted: true)
+        let (source, ops, clock) = await installedSource(permission: permission)
+        #expect(ops.isInstalled)
+        #expect(ops.isCurrentlyEnabled)      // valid port, enabled: nothing to heal
+
+        permission.granted = false
+        clock.advance()
+        await clock.waitForSleep()
+
+        #expect(!ops.isInstalled)
+        #expect(ops.operations.contains("uninstall"))
+
+        // And the state is honest enough for the grant to be actionable again.
+        permission.granted = true
+        clock.advance()
+        await clock.waitForSleep()
+
+        #expect(ops.isInstalled)
+        #expect(ops.installCount == 2)
+        withExtendedLifetime(source) {}
+    }
+
     @Test func invalidatedTapUnderRevokedPermissionTearsDownWithoutReinstallLoop() async {
         let permission = MockAccessibilityPermission(granted: true)
         let (source, ops, clock) = await installedSource(permission: permission)

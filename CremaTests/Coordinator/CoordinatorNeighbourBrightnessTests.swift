@@ -49,6 +49,32 @@ struct CoordinatorNeighbourBrightnessTests {
         #expect(h.coordinator.state == .hud(neighbourHUD(0.9)))   // already, synchronously
     }
 
+    @Test func afterAFallbackTheEchoIsCreditedToTheSystem() async {
+        // The fallback wrote through the system actuator, so what goes back into
+        // the HUD stream has to say so: AppCore routes the echo by authority, and
+        // an echo still credited to the neighbour would poke the neighbour's own
+        // source — re-drawing a level nobody applied, on the scale the bar is not
+        // in. It is also what makes the NEXT drag go straight to the system.
+        let h = CoordinatorHarness(withExternalBrightness: true)
+        let applied = Applied()
+        h.coordinator.onBrightnessApplied = { applied.record($0) }
+        h.external?.refuseEverything()
+        h.hudSource.emit(neighbourHUD())
+        #expect(await eventually { h.coordinator.state != .hidden })
+
+        h.coordinator.hudSliderChanged(to: 0.8)
+
+        #expect(await eventually { applied.last != nil })
+        #expect(applied.last?.authority == .system)
+        #expect(applied.last?.value == 0.8)
+    }
+
+    @MainActor
+    private final class Applied {
+        private(set) var last: SystemHUD?
+        func record(_ hud: SystemHUD) { last = hud }
+    }
+
     @Test func aNeighbourThatRefusesStillMovesTheScreen() async {
         // Its command channel is a separate setting from its OSD one, so
         // "reports but refuses commands" is a real configuration. A control that

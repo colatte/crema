@@ -55,6 +55,21 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// back (the WindowManager pushes everything it needs through apply).
     private weak var coordinator: Coordinator?
 
+    /// Window facts for the tests that pin the fixed-window model. This class is
+    /// opaque by design — reconciliation, frame math and style resolution live
+    /// above it — but these two are invariants a one-line change breaks in
+    /// silence, and until these existed no test could see them at all: mutations
+    /// handing SwiftUI the power to size the window, and dropping the fixed
+    /// frame entirely, both left the whole suite green.
+    /// (CLAUDE.md "Nunca fazer"; design-reference §1.3.)
+    var currentWindowFrame: CGRect { panel.frame }
+
+    /// Read back from the real hosting view at construction, where its concrete
+    /// (modifier-chained) type is still known. False means the content view can
+    /// drive the window's size — the window-vs-render race the fixed window
+    /// exists to kill.
+    private(set) var contentIsBarredFromSizingTheWindow = false
+
     init(screen: ScreenDescription, style: Style, coordinator: Coordinator) {
         self.style = style
         self.coordinator = coordinator
@@ -125,7 +140,7 @@ final class NSPanelPresentationPanel: PresentationPanel {
         // SwiftUI must never drive the window frame: the default
         // sizingOptions (.standardBounds) install min/intrinsic/max constraints
         // that can resize the panel from the view's layout.
-        hostingView.sizingOptions = []
+        contentIsBarredFromSizingTheWindow = Self.barContentFromSizingTheWindow(hostingView)
         panel.contentView = hostingView
 
         if let fixedWindowFrame {
@@ -279,6 +294,17 @@ final class NSPanelPresentationPanel: PresentationPanel {
         if displayPolicy.hudIndicatorStyle != hudIndicatorStyle {
             displayPolicy.hudIndicatorStyle = hudIndicatorStyle
         }
+    }
+
+    /// SwiftUI must never drive the window frame: the default sizingOptions
+    /// (.standardBounds) install min/intrinsic/max constraints that can resize
+    /// the panel from the view's layout — the window-vs-render race the fixed
+    /// window model exists to kill (design-reference §1.3).
+    /// Returns whether the bar took, read back from the view itself — the only
+    /// place its concrete (modifier-chained) type is still known.
+    private static func barContentFromSizingTheWindow(_ hostingView: NSHostingView<some View>) -> Bool {
+        hostingView.sizingOptions = []
+        return hostingView.sizingOptions.isEmpty
     }
 
     private func applyDirectFrame(_ frame: CGRect) {

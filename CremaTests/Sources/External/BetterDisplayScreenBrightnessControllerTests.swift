@@ -59,6 +59,62 @@ struct BetterDisplayScreenBrightnessControllerTests {
         #expect(channel.written.isEmpty)
     }
 
+    /// A channel that parks its first call until the test lets go, so a second
+    /// write can arrive while the first is genuinely in flight.
+    private final class ParkingChannel: BetterDisplayCommanding, @unchecked Sendable {
+        private let lock = NSLock()
+        private var calls: [Double] = []
+        private var release: CheckedContinuation<Void, Never>?
+        private var parked = false
+
+        var written: [Double] { lock.withLock { calls } }
+        var callCount: Int { lock.withLock { calls.count } }
+
+        func setBrightness(_ value: Double, displayID: Int) async throws {
+            let shouldPark = lock.withLock {
+                calls.append(value)
+                let first = !parked
+                parked = true
+                return first
+            }
+            guard shouldPark else { return }
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                lock.withLock { release = continuation }
+            }
+        }
+
+        func letGo() {
+            let continuation = lock.withLock { () -> CheckedContinuation<Void, Never>? in
+                defer { release = nil }
+                return release
+            }
+            continuation?.resume()
+        }
+    }
+
+    @Test func writesCoalesceToTheLatestWithOnlyOneInFlight() async {
+        // A drag fires on every frame and each write here is a round-trip to
+        // another process. Without coalescing a two-second drag puts dozens in
+        // the air at once, resolving out of order — the display lands on
+        // whichever answered last instead of where the finger stopped.
+        let channel = ParkingChannel()
+        let controller = BetterDisplayScreenBrightnessController(channel: channel, displayID: { _ in 1 })
+
+        let first = Task { try? await controller.setBrightness(0.2, on: nil) }
+        #expect(await eventuallyOffActor { channel.callCount == 1 })
+
+        // Three more frames of the same gesture, while the first is in flight.
+        for value in [0.4, 0.6, 0.8] {
+            try? await controller.setBrightness(value, on: nil)
+        }
+        #expect(channel.callCount == 1)      // none of them reached the channel
+
+        channel.letGo()
+        await first.value
+
+        #expect(await eventuallyOffActor { channel.written == [0.2, 0.8] })
+    }
+
     @Test func theNeighboursRefusalTravelsBackToTheCaller() async {
         // A failed apply must read as failure so the drag reports it, exactly
         // like the system actuator's own failures.

@@ -53,17 +53,41 @@ struct BetterDisplayOSDSourceTests {
         #expect(collector.values.map(\.value) == [1])
     }
 
-    @Test func aReportedLevelTellsTheKeyDrivenSourceToStandDown() {
-        // Suppression off: Crema's tap observed the key and armed the polled
-        // source, but the neighbour is the one applying and reporting. Without
-        // this hand-off both draw for one press.
-        var standDowns = 0
-        let source = BetterDisplayOSDSource(target: { $0 == 1 ? .builtIn : nil }, onReport: { standDowns += 1 })
+    @Test func aReportedLevelSilencesTheKeyDrivenSourceForThatPress() async {
+        // Suppression off: Crema's tap OBSERVED the key and armed the polled
+        // source, and the neighbour is the one that applies and reports. Without
+        // the hand-off both draw for one press — and the polled one, arriving
+        // later on the hardware scale, wins the bar with the wrong number.
+        //
+        // Asserted through the polled source's own stream rather than through a
+        // call count: counting the closure only proves the closure was called,
+        // which is true even when `standDown()` does nothing at all (its
+        // protocol default is a no-op, so gutting the real one is not even a
+        // compile error).
+        let backend = FakeBrightnessBackend(value: 0.5)
+        let clock = TestSleepClock()
+        let polled = PolledBrightnessSource(
+            kind: .screenBrightness, backend: backend, clock: clock, pollInterval: 0.5
+        )
+        let collector = Collector(polled.updates)
+        defer { collector.stop() }
 
+        let source = BetterDisplayOSDSource(
+            target: { $0 == 1 ? .builtIn : nil },
+            onReport: { polled.standDown() }
+        )
+
+        polled.sample()                 // the observed key arms the window
+        await clock.waitForSleep()
         source.handle(json: #"{"controlTarget":"combinedBrightness","maxValue":64,"value":32}"#)
-        source.handle(json: #"{"controlTarget":"contrast","maxValue":64,"value":32}"#)   // not ours
 
-        #expect(standDowns == 1)
+        // The neighbour applied it: the hardware value moves a beat later, and
+        // the armed poll would emit it on top of the bar already drawn.
+        backend.value = 0.34
+        clock.advance()
+        await clock.waitForSleep()
+
+        #expect(collector.values.isEmpty)
     }
 
     @Test func onlyADeliveredPayloadCountsAsAWorkingIntegration() {

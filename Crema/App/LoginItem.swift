@@ -33,10 +33,30 @@ extension LoginItemManaging {
 /// intrusive and surprising; the user turns it on in Settings, and the same rule
 /// holds when macOS revokes an existing registration (docs/DECISIONS.md:
 /// login-item-intent — the app then asks, it does not re-register itself).
+/// The three SMAppService calls are injected rather than called inline, so the
+/// MAPPING is testable without a real registration. That mapping is the part
+/// that can be quietly wrong — swap the two calls and "open at login" silently
+/// UNREGISTERS the app — and a fake standing in for the whole type (the earlier
+/// shape) proves nothing about it: it only proves the fake was called. Same
+/// idiom as the tap source's `tapOps` and the lock source's `sessionReader`.
 @MainActor
 struct SMAppServiceLoginItem: LoginItemManaging {
+    private let readStatus: @MainActor () -> SMAppService.Status
+    private let register: @MainActor () throws -> Void
+    private let unregister: @MainActor () throws -> Void
+
+    init(
+        readStatus: @escaping @MainActor () -> SMAppService.Status = { SMAppService.mainApp.status },
+        register: @escaping @MainActor () throws -> Void = { try SMAppService.mainApp.register() },
+        unregister: @escaping @MainActor () throws -> Void = { try SMAppService.mainApp.unregister() }
+    ) {
+        self.readStatus = readStatus
+        self.register = register
+        self.unregister = unregister
+    }
+
     var status: LoginItemStatus {
-        switch SMAppService.mainApp.status {
+        switch readStatus() {
         case .enabled: .enabled
         case .requiresApproval: .requiresApproval
         default: .notRegistered
@@ -45,9 +65,9 @@ struct SMAppServiceLoginItem: LoginItemManaging {
 
     func setEnabled(_ enabled: Bool) throws {
         if enabled {
-            try SMAppService.mainApp.register()
+            try register()
         } else {
-            try SMAppService.mainApp.unregister()
+            try unregister()
         }
     }
 }

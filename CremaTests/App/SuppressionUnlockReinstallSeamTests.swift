@@ -25,6 +25,37 @@ import Testing
 @MainActor
 struct SuppressionUnlockReinstallSeamTests {
 
+    /// The wake seam wired the way AppCore wires it — no center argument, so the
+    /// DEFAULT is under test — and driven through the center the system really
+    /// posts these on.
+    ///
+    /// The sibling test below injects its own center, which pins the join and
+    /// says nothing about which center is joined: a mutation pointing the wiring
+    /// at a throwaway `NotificationCenter()` left the whole suite green while, in
+    /// production, no wake would ever reinstall the tap. That failure has no
+    /// local symptom — a tap that stopped delivering reads exactly like an idle
+    /// one — so this is the only place it can be seen.
+    @Test func theWakeSeamListensOnTheCenterTheSystemPostsOn() async {
+        let ops = FakeEventTapOperating()
+        let clock = TestSleepClock()
+        let source = CGEventTapMediaKeySource(
+            permission: MockAccessibilityPermission(granted: true),
+            clock: clock,
+            tapOps: ops
+        )
+        await clock.waitForSleep()
+        #expect(ops.installCount == 1)
+
+        let tokens = AppCore.wireWakeReinstall(reinstalling: source)
+        defer { tokens.forEach(NSWorkspace.shared.notificationCenter.removeObserver) }
+
+        NSWorkspace.shared.notificationCenter.post(name: NSWorkspace.screensDidWakeNotification, object: nil)
+        #expect(await eventually { ops.installCount == 2 })
+
+        NSWorkspace.shared.notificationCenter.post(name: NSWorkspace.didWakeNotification, object: nil)
+        #expect(await eventually { ops.installCount == 3 })
+    }
+
     @Test func unlockEdgeReinstallsTheTapThroughTheRealSeam() async {
         let ops = FakeEventTapOperating()
         let clock = TestSleepClock()

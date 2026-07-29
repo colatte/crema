@@ -221,10 +221,9 @@ final class AppCore {
         // brightness HUD) when the suppressor is absent or the pref is off. Wired
         // on the concrete tap, which always exists, so wake recovery never depends
         // on the suppressor graph.
-        wakeObservations = Self.wireWakeReinstall(
-            center: NSWorkspace.shared.notificationCenter,
-            reinstalling: tapSource
-        )
+        // No center argument: the default IS the production one, so the wiring
+        // cannot be pointed at a center nobody posts to by editing this line.
+        wakeObservations = Self.wireWakeReinstall(reinstalling: tapSource)
 
         if let consuming = mediaKeys as? any MediaKeyConsuming,
            let screenBackend = graph.screenBrightnessBackend,
@@ -331,11 +330,21 @@ final class AppCore {
     /// the main queue so the reinstall runs on the tap's own thread —
     /// teardown/create never races a delivered event. Returns the observer
     /// tokens AppCore retains.
+    /// The two wake edges, named once. They are workspace notifications: they are
+    /// posted on NSWorkspace's own center and never appear on
+    /// `NotificationCenter.default`, so wiring them to the wrong center arms
+    /// nothing — and arms it silently, since a tap that stopped delivering looks
+    /// identical to an idle one from inside this process.
+    static let wakeReinstallNames = [
+        NSWorkspace.screensDidWakeNotification,
+        NSWorkspace.didWakeNotification,
+    ]
+
     static func wireWakeReinstall(
-        center: NotificationCenter,
+        center: NotificationCenter = NSWorkspace.shared.notificationCenter,
         reinstalling source: CGEventTapMediaKeySource
     ) -> [NSObjectProtocol] {
-        [NSWorkspace.screensDidWakeNotification, NSWorkspace.didWakeNotification].map { name in
+        wakeReinstallNames.map { name in
             center.addObserver(forName: name, object: nil, queue: .main) { [weak source] _ in
                 source?.reinstallTap()
             }
