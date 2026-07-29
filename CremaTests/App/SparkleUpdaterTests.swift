@@ -15,7 +15,7 @@ struct SparkleUpdaterTests {
     /// regressed merge (dropped INFOPLIST_FILE, wrong values) fails here loudly.
     @Test func infoPlistCarriesFeedURL() {
         let feed = Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") as? String
-        #expect(feed == "https://vctorgriggi.github.io/crema/appcast.xml")
+        #expect(feed == "https://colatte.github.io/crema/appcast.xml")
     }
 
     @Test func infoPlistCarriesPublicEDKey() {

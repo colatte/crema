@@ -300,8 +300,8 @@ private struct PermissionsSettingsView: View {
 /// use. Everything display-side comes from the bundle (icon and versions are
 /// never hardcoded), so a release build shows its stamped numbers.
 private struct AboutSettingsView: View {
-    private static let githubURL = URL(string: "https://github.com/vctorgriggi/Crema")
-    private static let issuesURL = URL(string: "https://github.com/vctorgriggi/Crema/issues")
+    private static let githubURL = URL(string: "https://github.com/colatte/crema")
+    private static let issuesURL = URL(string: "https://github.com/colatte/crema/issues")
     private static let kofiURL = URL(string: "https://ko-fi.com/colatteio")
 
     var body: some View {

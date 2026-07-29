@@ -125,7 +125,7 @@ Requirements: **Xcode 16** or later (Crema's tests use Swift Testing). The app
 targets macOS 14 and builds with the macOS SDK bundled with Xcode.
 
 ```bash
-git clone https://github.com/vctorgriggi/crema.git
+git clone https://github.com/colatte/crema.git
 cd crema
 open Crema.xcodeproj
 ```
@@ -160,7 +160,7 @@ them. Thanks to the people behind
 
 ---
 
-Made by [Victor](https://github.com/vctorgriggi), under
+Made by Victor, under
 **[Colatte](https://colatte.io)** · [github.com/colatte](https://github.com/colatte)
 
 If Crema is useful to you, you can support the work:

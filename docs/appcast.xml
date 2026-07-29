@@ -8,7 +8,7 @@
   exactly one item — the latest release. Update history lives in the GitHub Releases,
   not here.
 
-  It is served at https://vctorgriggi.github.io/crema/appcast.xml — the SUFeedURL baked
+  It is served at https://colatte.github.io/crema/appcast.xml — the SUFeedURL baked
   into the app's Info.plist — because GitHub Pages publishes this /docs folder from main.
   Publishing a new appcast is therefore a commit + push of this file to main; the release
   script writes it but never commits (see docs/internal/RELEASE-GUIDE.md).
@@ -21,7 +21,7 @@
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
     <title>Crema</title>
-    <link>https://vctorgriggi.github.io/crema/appcast.xml</link>
+    <link>https://colatte.github.io/crema/appcast.xml</link>
     <description>Updates for Crema.</description>
     <language>en</language>
   </channel>

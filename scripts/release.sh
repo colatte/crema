@@ -438,7 +438,7 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     cp "$DMG_OUT" "$STAGING_DIR/Crema-$VERSION.dmg"
     STAGED_APPCAST="$STAGING_DIR/appcast.xml"   # fresh each run; the committed feed is never the merge base
     "$GENERATE_APPCAST" \
-        --download-url-prefix "https://github.com/vctorgriggi/crema/releases/download/$TAG/" \
+        --download-url-prefix "https://github.com/colatte/crema/releases/download/$TAG/" \
         -o "$STAGED_APPCAST" \
         "$STAGING_DIR" \
         || fail "generate_appcast failed. Is your Sparkle EdDSA private key in the Keychain?"
@@ -504,7 +504,7 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     info "3. Publish the appcast (a push to main; Pages serves /docs) — this script did NOT commit:"
     info "   git add docs/appcast.xml && git commit -m \"chore(release): appcast $VERSION\" && git push"
     info "4. Confirm it is live and points at this release:"
-    info "   curl -fsS https://vctorgriggi.github.io/crema/appcast.xml | grep -E 'sparkle:version|Crema-$VERSION\\.dmg'"
+    info "   curl -fsS https://colatte.github.io/crema/appcast.xml | grep -E 'sparkle:version|Crema-$VERSION\\.dmg'"
 else
     printf '\n%sNote%s — ad-hoc test build: no appcast, no enclosure (set CREMA_SIGN_IDENTITY for a real release).\n' "$BOLD" "$RESET"
     info "open \"$DMG_OUT\"   → drag Crema into Applications, confirm it launches."
