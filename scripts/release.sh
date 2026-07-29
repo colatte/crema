@@ -111,6 +111,76 @@ SIGN_IDENTITY="${CREMA_SIGN_IDENTITY:-}"
 NOTARY_PROFILE="${CREMA_NOTARY_PROFILE:-CremaNotary}"
 ENTITLEMENTS="$REPO_ROOT/Crema.entitlements"
 
+# Release gate — identity builds only
+#
+# Ad-hoc is documented at the top as a throwaway test build, so it skips all of
+# this: these checks exist to protect what ships, and gating a local smoke build
+# on a clean tree is how a guard earns itself a comment-out. Runs before the clean
+# step so a rejected release does not first delete the previous dmg.
+if [[ -n "$SIGN_IDENTITY" ]]; then
+    step "Release gate ($TAG)"
+
+    git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1 \
+        || fail "Not a git repository. An identity build is something users install; it must be reproducible from a commit."
+
+    # A dirty tree ships code that exists in no commit: the tag would point at
+    # something other than what the dmg contains, and nothing afterwards can tell
+    # you which. Uncommitted work is also the classic way a debug hack reaches a
+    # release build.
+    if [[ -n "$(git -C "$REPO_ROOT" status --porcelain)" ]]; then
+        git -C "$REPO_ROOT" status --short | sed 's/^/    /' >&2
+        fail "Working tree is dirty (above). Commit or stash before releasing $TAG."
+    fi
+
+    # The build number is derived from the version, so re-releasing a version hands
+    # Sparkle the same CFBundleVersion and no update ever fires — the corollary the
+    # build-number comment above spells out. An existing tag is the cheapest way to
+    # catch it before the dmg is built and published.
+    if git -C "$REPO_ROOT" rev-parse --verify --quiet "refs/tags/$TAG" >/dev/null 2>&1; then
+        fail "Tag $TAG already exists. Its build number ($BUILD_NUMBER) is derived from the version, so re-releasing it leaves every existing install seeing no update. Bump the patch."
+    fi
+
+    if command -v swiftlint >/dev/null 2>&1; then
+        swiftlint lint --strict --quiet >/dev/null \
+            || fail "SwiftLint (--strict) failed. Run 'swiftlint lint --strict' to see it."
+        info "SwiftLint: clean"
+    else
+        info "SwiftLint not installed — skipped here (CI still gates it)."
+    fi
+    if command -v swiftformat >/dev/null 2>&1; then
+        swiftformat --lint "$REPO_ROOT" >/dev/null 2>&1 \
+            || fail "SwiftFormat found unformatted files. Run 'swiftformat .' to fix."
+        info "SwiftFormat: clean"
+    else
+        info "SwiftFormat not installed — skipped here (CI still gates it)."
+    fi
+
+    if [[ "${CREMA_SKIP_TESTS:-0}" == "1" ]]; then
+        info "CREMA_SKIP_TESTS=1 — TEST SUITE SKIPPED. This dmg is not gated by tests."
+    else
+        step "Running the test suite (set CREMA_SKIP_TESTS=1 to bypass)"
+        GATE_LOG="$(mktemp "${TMPDIR:-/tmp}/crema-release-test.XXXXXX.log")"
+        # `|| true` on purpose: the target is app-hosted, so the host's teardown can
+        # hang or exit non-zero after every test has already reported. The verdict is
+        # the summary line, never the exit code.
+        xcodebuild test \
+            -project "$PROJECT" \
+            -scheme Crema \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" >"$GATE_LOG" 2>&1 || true
+        if grep -qE 'Test run with [0-9]+ tests? in [0-9]+ suites? passed' "$GATE_LOG"; then
+            info "$(grep -oE 'Test run with [0-9]+ tests? in [0-9]+ suites? passed' "$GATE_LOG" | head -1)"
+            rm -f "$GATE_LOG"
+        else
+            grep -E '✘|error:' "$GATE_LOG" | grep -v 'Connection' | sort -u | head -10 | sed 's/^/    /' >&2
+            fail "The test suite did not report a passing run. Full log: $GATE_LOG"
+        fi
+    fi
+fi
+
 # Start clean so a stale archive, half-built .dmg, or a prior version's enclosure can't leak in.
 step "Preparing a clean build ($TAG)"
 rm -rf "$BUILD_DIR" "$STAGING_DIR"
@@ -436,6 +506,43 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     rm -rf "$STAGING_DIR"
     mkdir -p "$STAGING_DIR"
     cp "$DMG_OUT" "$STAGING_DIR/Crema-$VERSION.dmg"
+    # Release notes, or the update panel opens blank — asking the user to authorize
+    # an update the app refuses to describe. generate_appcast embeds a
+    # <basename>.html sitting next to the archive as that item's <description>, so
+    # the notes are staged beside the dmg under the matching name.
+    #
+    # Source, in order: an explicit file (CREMA_RELEASE_NOTES, else
+    # docs/release-notes/<version>.md), otherwise the commit subjects since the
+    # previous tag. The fallback is not a placeholder: this repo writes subjects as
+    # sentences, so it reads as prose rather than as a changelog dump — and it can
+    # never be forgotten, which is the property a hand-written file lacks. An .html
+    # source is copied verbatim; anything else is treated as one bullet per line.
+    NOTES_HTML="$STAGING_DIR/Crema-$VERSION.html"
+    NOTES_SRC="${CREMA_RELEASE_NOTES:-$REPO_ROOT/docs/release-notes/$VERSION.md}"
+    escape_html() { sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
+    if [[ -f "$NOTES_SRC" && "$NOTES_SRC" == *.html ]]; then
+        cp "$NOTES_SRC" "$NOTES_HTML"
+        info "Release notes: $NOTES_SRC (verbatim HTML)"
+    else
+        NOTES_LINES=''
+        if [[ -f "$NOTES_SRC" ]]; then
+            NOTES_LINES="$(grep -v '^[[:space:]]*$' "$NOTES_SRC" | sed 's/^[[:space:]]*[-*][[:space:]]*//')"
+            info "Release notes: $NOTES_SRC"
+        else
+            PREV_TAG="$(git -C "$REPO_ROOT" describe --tags --abbrev=0 2>/dev/null || true)"
+            if [[ -n "$PREV_TAG" ]]; then
+                NOTES_LINES="$(git -C "$REPO_ROOT" log --no-merges --format='%s' "$PREV_TAG..HEAD" 2>/dev/null || true)"
+                info "Release notes: commit subjects since $PREV_TAG (no $NOTES_SRC)"
+            fi
+        fi
+        [[ -n "$NOTES_LINES" ]] || fail "No release notes and none derivable (no $NOTES_SRC, and no commits since the last tag). Sparkle would show a blank panel; write the file or set CREMA_RELEASE_NOTES."
+        {
+            printf '<h2>Crema %s</h2>\n<ul>\n' "$VERSION"
+            printf '%s\n' "$NOTES_LINES" | escape_html | sed 's|.*|<li>&</li>|'
+            printf '</ul>\n'
+        } >"$NOTES_HTML"
+    fi
+
     STAGED_APPCAST="$STAGING_DIR/appcast.xml"   # fresh each run; the committed feed is never the merge base
     "$GENERATE_APPCAST" \
         --download-url-prefix "https://github.com/colatte/crema/releases/download/$TAG/" \
@@ -450,6 +557,12 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     # the one baked into the app. Fail before publishing so that mismatch can't ship as a green build.
     ENCLOSURE_SIG="$(grep -o 'sparkle:edSignature="[^"]*"' "$STAGED_APPCAST" | head -1 | sed 's/^[^"]*"//; s/"$//')"
     [[ -n "$ENCLOSURE_SIG" ]] || fail "generate_appcast produced a feed with no sparkle:edSignature — the Sparkle signing key does not match the app's SUPublicEDKey (see the warning above). The feed would be rejected at runtime; fix the signing key (generate_keys) and re-run."
+
+    # The notes were staged, but only the feed proves they were picked up: the file
+    # has to be named for the archive or generate_appcast ignores it in silence, and
+    # a feed with no description is the blank panel this staging exists to prevent.
+    grep -qE '<description>|releaseNotesLink' "$STAGED_APPCAST" \
+        || fail "The feed carries no <description> — generate_appcast did not pick up $NOTES_HTML (the .html must share the archive's basename). Sparkle would show a blank update panel."
 
     # The CFBundleVersion stamp is the linchpin that makes any update fire: generate_appcast reads
     # sparkle:version straight from the built app's CFBundleVersion, and Sparkle compares that. If the
