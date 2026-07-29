@@ -105,8 +105,17 @@ final class MockOSDChannel: OSDChannel, @unchecked Sendable {
     /// hang (set it to 1); 0 hangs the very first read.
     var readHangs = false
     var passReadsBeforeHang = 0
+
+    /// The read straight after each write comes back nil, and only that one: the
+    /// output vanishing for an instant between write and verify. The pre-read and
+    /// every probe read still succeed, which is what makes this the shape that
+    /// drives repeated write-health episodes — the probe keeps recovering the
+    /// domain, so nothing else can be blamed for an escalation.
+    var readBackReturnsNilOnce = false
+
     private let hangLock = NSLock()
     private var readsSeen = 0
+    private var swallowNextRead = false
     private let readGate = DispatchSemaphore(value: 0)
 
     func isAvailable() -> Bool { available }
@@ -121,7 +130,12 @@ final class MockOSDChannel: OSDChannel, @unchecked Sendable {
             return true
         }
         if shouldHang { readGate.wait() }
-        return value
+        let swallow = hangLock.withLock {
+            let pending = swallowNextRead
+            swallowNextRead = false
+            return pending
+        }
+        return swallow ? nil : value
     }
 
     /// Frees one parked read so its orphaned detached task completes and its
@@ -140,6 +154,7 @@ final class MockOSDChannel: OSDChannel, @unchecked Sendable {
             applied.append(newValue)
             if !writeIsDead { value = newValue }
         }
+        if readBackReturnsNilOnce { hangLock.withLock { swallowNextRead = true } }
     }
 }
 

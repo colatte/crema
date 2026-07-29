@@ -257,22 +257,40 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         }
     }
 
-    /// A consumed key whose channel reports no capability is a no-op — as the
-    /// native handler is on the same hardware (an HDMI/USB output without a
-    /// volume or mute control, a Mac without a keyboard backlight, or the
-    /// private symbols never resolving). It is not a failure and does not
-    /// suspend, but the tap has already swallowed the key, so it must not be
-    /// silent: a genuinely dead channel would otherwise eat the press with zero
-    /// feedback and no trace. Logged once per channel so a degradation is
-    /// diagnosable without spamming the log on every autorepeat.
+    /// A consumed key whose channel reports no capability (an HDMI/USB output
+    /// without a volume or mute control, a Mac without a keyboard backlight, the
+    /// private symbols never resolving) is not a failure and does not suspend —
+    /// there is nothing malfunctioning to report and nothing for a probe to
+    /// recover.
+    ///
+    /// It is, however, the one place where a key is swallowed and the user gets
+    /// NOTHING: no bar of ours, and no native OSD either, since the tap already
+    /// ate the press. That is a live gap against the rule that a consumed key
+    /// always produces feedback, and this log line is its only trace today —
+    /// once per channel, so a degradation stays diagnosable without spamming
+    /// every autorepeat. Do not read the quiet as intended: closing it means
+    /// letting the domain step aside so the system draws its own answer, which
+    /// is a behaviour change this seam has not made yet.
     /// Channel names match the domain's camelCase spelling so one Console
     /// filter catches both — plus "mute", which is a channel of its own here
     /// even though it rides with volume as a suspension domain.
     private var reportedUnavailable: Set<String> = []
 
-    private func passThroughUnavailable(_ channel: String) {
+    private func reportUnavailable(_ channel: String) {
         guard reportedUnavailable.insert(channel).inserted else { return }
-        logger.notice("consumed a \(channel, privacy: .public) key but its channel is unavailable — no-op pass-through, like the native handler")
+        logger.notice("consumed a \(channel, privacy: .public) key but its channel reports no such control — nothing was written and nothing was drawn")
+    }
+
+    /// What an apply actually did, which the success path must distinguish. A
+    /// no-op wrote nothing, so it is proof of nothing: letting it share the
+    /// verified branch cleared the write-health axis and dropped a channel's menu
+    /// warning without a single write — one press on an output that lost its
+    /// volume control was enough to wipe five episodes of evidence.
+    private enum ApplyOutcome {
+        /// A write landed and the read-back proved it moved.
+        case verified
+        /// The channel reports no such capability; nothing was written.
+        case noOp
     }
 
     private func applyVerified(_ key: MediaKey, fine: Bool, generation: Int) async {
@@ -282,12 +300,13 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         // key belongs to the pre-suspension world; the probe loop owns recovery.
         guard !decider.isSuspended(domain) else { return }
         do {
-            try await apply(key, fine: fine)
-            // Re-check: the apply awaited, and a disengage may have landed.
-            if generation == self.generation {
-                // A verified apply is the only proof the write path is alive: it
-                // clears the write-flap axis and any menu warning a dead write had
-                // raised — genuine recovery the read-only probe could never prove.
+            let outcome = try await apply(key, fine: fine)
+            // Re-check: the apply awaited, and a disengage may have landed. A
+            // verified apply is the only proof the write path is alive: it clears
+            // the write-flap axis and any menu warning a dead write had raised —
+            // genuine recovery the read-only probe could never prove. A no-op
+            // wrote nothing, so it earns neither that nor the HUD poke.
+            if generation == self.generation, case .verified = outcome {
                 confirmWriteHealthy(domain)
                 onApplied?(key)
             }
@@ -296,42 +315,48 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         }
     }
 
-    private func apply(_ key: MediaKey, fine: Bool) async throws {
+    private func apply(_ key: MediaKey, fine: Bool) async throws -> ApplyOutcome {
         switch key {
         case .mute:
-            try await applyMute()
+            return try await applyMute()
         case .volumeUp, .volumeDown:
-            try await applyVolumeStep(key, fine: fine)
+            return try await applyVolumeStep(key, fine: fine)
         case .screenBrightnessUp, .screenBrightnessDown:
-            guard screen.isAvailable() else { passThroughUnavailable("screenBrightness"); return }
+            guard screen.isAvailable() else { reportUnavailable("screenBrightness"); return .noOp }
             try await step(screen, key: key, fine: fine)
+            return .verified
         case .keyboardBrightnessUp, .keyboardBrightnessDown:
-            guard keyboard.isAvailable() else { passThroughUnavailable("keyboardBrightness"); return }
+            guard keyboard.isAvailable() else { reportUnavailable("keyboardBrightness"); return .noOp }
             try await step(keyboard, key: key, fine: fine)
+            return .verified
         }
     }
 
-    private func applyMute() async throws {
-        // No mute control on this output (plenty of USB/HDMI devices): no-op
-        // like the native handler, never a failure. Reads are deadline-raced —
-        // supportsMute/readMuted are Core Audio IPC that can stall.
+    private func applyMute() async throws -> ApplyOutcome {
+        // No mute control on this output (plenty of USB/HDMI devices): nothing to
+        // write, never a failure. Reads are deadline-raced — supportsMute and
+        // readMuted are Core Audio IPC that can stall.
         guard try await readWithDeadline({ [volume] in volume.supportsMute() }) else {
-            passThroughUnavailable("mute"); return
+            reportUnavailable("mute"); return .noOp
         }
         guard let muted = try await readWithDeadline({ [volume] in volume.readMuted() }) else {
             throw ApplyFailure.currentValueUnreadable
         }
         try await withDeadline { [volume] in try await volume.setMuted(!muted) }
-        guard try await readWithDeadline({ [volume] in volume.readMuted() }) == !muted else {
-            throw ApplyFailure.verificationFailed
+        // Nil read-back is a read failure, not a dead write — the same line the
+        // pre-read draws (see `step`).
+        guard let after = try await readWithDeadline({ [volume] in volume.readMuted() }) else {
+            throw ApplyFailure.currentValueUnreadable
         }
+        guard after == !muted else { throw ApplyFailure.verificationFailed }
+        return .verified
     }
 
-    private func applyVolumeStep(_ key: MediaKey, fine: Bool) async throws {
+    private func applyVolumeStep(_ key: MediaKey, fine: Bool) async throws -> ApplyOutcome {
         // The availability/mute guards are Core Audio IPC (defaultOutputDeviceID)
         // that can stall, so they race the deadline like the reads.
         guard try await readWithDeadline({ [volume] in volume.isAvailable() }) else {
-            passThroughUnavailable("volume"); return
+            reportUnavailable("volume"); return .noOp
         }
         // Volume-up unmutes first, like the native handler — otherwise the key
         // "does nothing" audible while the device stays muted. Verified like any
@@ -341,11 +366,13 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
            try await readWithDeadline({ [volume] in volume.supportsMute() }),
            try await readWithDeadline({ [volume] in volume.readMuted() }) == true {
             try await withDeadline { [volume] in try await volume.setMuted(false) }
-            guard try await readWithDeadline({ [volume] in volume.readMuted() }) == false else {
-                throw ApplyFailure.verificationFailed
+            guard let stillMuted = try await readWithDeadline({ [volume] in volume.readMuted() }) else {
+                throw ApplyFailure.currentValueUnreadable
             }
+            guard !stillMuted else { throw ApplyFailure.verificationFailed }
         }
         try await step(volume, key: key, fine: fine)
+        return .verified
     }
 
     private func step(_ channel: any OSDChannel, key: MediaKey, fine: Bool) async throws {
@@ -356,7 +383,17 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
             throw ApplyFailure.currentValueUnreadable
         }
         try await withDeadline { [channel] in try await channel.apply(target) }
-        let after = try await readWithDeadline { [channel] in channel.read() }
+        // A read-back that comes back nil is a READ failure and says nothing
+        // about the write, so it is unfolded here instead of being handed to
+        // `verified` (which answers false for a nil `after`). Folding it in
+        // billed a dead read to the write-health axis — the axis whose own
+        // contract excludes read-side failures — and after five episodes the
+        // menu told the user Crema could not apply a change whose write was
+        // fine. The pre-read above already draws this line; the read-back has
+        // the same claim to it.
+        guard let after = try await readWithDeadline({ [channel] in channel.read() }) else {
+            throw ApplyFailure.currentValueUnreadable
+        }
         guard OSDApplyVerification.verified(before: before, target: target, after: after) else {
             throw ApplyFailure.verificationFailed
         }
