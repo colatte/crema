@@ -39,7 +39,7 @@ card, and the classic's segmented bezel:
 | :---: | :---: | :---: |
 | <img src="docs/assets/notch-hud-volume.png" alt="Volume HUD at the notch"> | <img src="docs/assets/card-hud.png" alt="Volume HUD on the card"> | <img src="docs/assets/classic-hud.png" alt="Classic volume HUD with 16 segments"> |
 
-<!-- screenshot slot: hero pendente — now playing expandido com capa real + accent (bloqueado por um bug aberto do stream de artwork; capturar após o fix) -->
+<!-- screenshot slot: hero pendente — now playing expandido com capa real + accent (capturar com mídia real tocando; receita em docs/internal/SHOT-LIST local) -->
 
 ## Features
 
