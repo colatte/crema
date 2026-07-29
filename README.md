@@ -1,22 +1,45 @@
 <!-- The bold tagline and the subtitle below it are final (author's pick). -->
 
-# Crema
+<p align="center">
+  <img src="docs/assets/icon.png" width="128" alt="Crema app icon">
+</p>
 
-**A quiet companion for your Mac's notch. Native and out of the way.**
+<h1 align="center">Crema</h1>
 
+<p align="center"><strong>A quiet companion for your Mac's notch. Native and out of the way.</strong></p>
+
+<p align="center">
 It shows what's playing: album art, a touch of its color, and the controls you
 reach for. Volume, brightness, and keyboard backlight get their own HUDs,
 optionally replacing the system's.
+</p>
 
-<!-- screenshot: hero — notch style with now playing (artwork + accent), on a real desktop -->
+<p align="center">
+  <img src="https://img.shields.io/badge/macOS-14%2B-blue" alt="macOS 14+">
+  <img src="https://img.shields.io/badge/license-GPL--3.0-green" alt="GPL-3.0">
+  <img src="https://img.shields.io/badge/Apple%20Silicon%20%26%20Intel-black" alt="Apple Silicon & Intel">
+</p>
+
+<p align="center">
+  <img src="docs/assets/notch-expanded.png" width="640" alt="Crema's now playing expanded at the notch: title, artist, scrubber and transport controls">
+</p>
 
 ---
 
 ## Screenshots
 
-<!-- screenshot: the three styles side by side — notch, card, classic -->
-<!-- screenshot: now playing expanded — artwork, title/artist, scrubber, transport controls -->
-<!-- screenshot: the volume, screen-brightness, and keyboard-brightness HUDs -->
+| Notch | Card | Classic |
+| :---: | :---: | :---: |
+| <img src="docs/assets/notch-expanded.png" alt="Notch style, expanded now playing"> | <img src="docs/assets/card-expanded.png" alt="Card style, expanded now playing"> | <img src="docs/assets/classic-expanded.png" alt="Classic style, expanded now playing"> |
+
+The HUDs, in the same three voices — the thin capsule at the notch and on the
+card, and the classic's segmented bezel:
+
+| Volume at the notch | Volume on the card | Classic segments |
+| :---: | :---: | :---: |
+| <img src="docs/assets/notch-hud-volume.png" alt="Volume HUD at the notch"> | <img src="docs/assets/card-hud.png" alt="Volume HUD on the card"> | <img src="docs/assets/classic-hud.png" alt="Classic volume HUD with 16 segments"> |
+
+<!-- screenshot slot: now playing expanded with real album artwork + accent (see docs/internal/SHOT-LIST.md) -->
 
 ## Features
 
@@ -24,14 +47,22 @@ optionally replacing the system's.
   it, and the essentials: play/pause, previous, next, and a scrubber you can drag.
 - **Its own volume and brightness HUDs.** Screen brightness, keyboard backlight,
   and volume get a HUD that matches the rest — optionally replacing the system's.
-- **Three styles.** _Notch_ expands the cutout, _card_ floats a rounded panel,
-  and _classic_ is a quieter take on the native bezel. Pick one per display.
+- **Three styles.** _Notch_ expands the cutout, _card_ floats a rounded panel
+  near the top, and _classic_ is a quieter take on the native bezel, sitting
+  centered near the bottom where the system's HUD always lived. Pick the one you
+  like — it applies to every display, and a display without a notch renders
+  _notch_ as _card_.
+- **Two indicator looks for the card.** The HUD level reads as a thin _line_
+  (the default) or fills the whole card — pick in Settings → General.
 - **Shows up when it's useful.** Crema surfaces briefly when the track changes,
   then tucks away. Hover to hold it open; click to reach the controls.
 - **Native and light.** Built with SwiftUI and AppKit, it lives in the menu bar
   with no Dock icon, and stays out of the way when you don't need it.
-- **Configurable.** A standard Settings window covers styles, HUD behavior,
-  permissions, and launch at login.
+- **Speaks your language.** English and Brazilian Portuguese, following the
+  system.
+- **Configurable.** A standard Settings window covers the style, now-playing
+  behavior, the System HUD toggle, permissions, launch at login — and an About
+  tab with the version and links.
 
 ## What Crema is
 
@@ -57,17 +88,20 @@ Curious what might come next? See the [roadmap](ROADMAP.md).
 
 - macOS 14 (Sonoma) or later.
 - Apple Silicon or Intel.
-- A Mac with a notch for the _notch_ style. On Macs without one, the _card_ and
-  _classic_ styles float near the top of the screen and work just the same.
+- A Mac with a notch for the _notch_ style — on a Mac without one, Crema renders
+  it as _card_. The _card_ floats near the top of the screen; _classic_ sits
+  centered near the bottom. Both work the same on any Mac.
 - The **Accessibility** permission, if you want Crema to handle the volume and
-  brightness keys (see [Usage](#usage)). Crema runs without it — its HUDs still
-  appear (brightness with a slight delay), but it can't intercept the keys, so
-  the system's own HUDs can't be replaced.
+  brightness keys (see [Usage](#usage)). Crema runs without it: the volume HUD
+  still appears when the level changes, and the app works normally otherwise —
+  but the brightness HUDs need the keys to know a change was yours (they stay
+  quiet for the ambient-light sensor), and the system's own HUDs can't be
+  replaced.
 
 ## Installation
 
-1. Download the latest [`Crema.dmg`](../../releases/latest/download/Crema.dmg) —
-   or browse all [Releases](../../releases).
+1. Download the latest [`Crema.dmg`](https://github.com/colatte/crema/releases/latest/download/Crema.dmg) —
+   or browse all [Releases](https://github.com/colatte/crema/releases).
 2. Open it and drag **Crema** into your Applications folder.
 3. Launch Crema. It lives in the menu bar — look for its icon up top, not in the Dock.
 4. When asked, grant **Accessibility** in System Settings so Crema can handle the
@@ -83,18 +117,15 @@ Curious what might come next? See the [roadmap](ROADMAP.md).
 
 There are two ways to get past it:
 
-**Terminal — recommended, always works.** Run this, then open Crema normally:
+**System Settings — the built-in way.** Try to open Crema, dismiss the warning,
+then open **System Settings → Privacy & Security**, scroll to the note about
+Crema, and click **Open Anyway** — confirm once more and it opens.
+
+**Terminal — if the button doesn't appear** (some managed or non-admin accounts):
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/Crema.app
 ```
-
-**System Settings — no Terminal, but may not work on non-admin accounts.** Try to
-open Crema, dismiss the warning, then open **System Settings → Privacy &
-Security**, scroll to the note about Crema, and click **Open Anyway** — confirm once
-more and it opens.
-
-The Terminal command is the more reliable of the two.
 
 ## Usage
 

@@ -44,7 +44,10 @@ Keep it lowercase, hyphenated, and descriptive — for example
 2. Keep the change focused. Small, self-contained pull requests are easier to
    review and quicker to merge.
 3. Make sure the tests pass (`⌘U` in Xcode, or `xcodebuild ... test`) and add
-   tests for new behavior where it makes sense.
+   tests for new behavior where it makes sense. On the command line, read the
+   verdict from the `Test run with N tests` line — the test host is app-hosted
+   and its teardown can hang after every test has already reported, so the
+   xcodebuild exit is not the signal.
 4. Match the surrounding code. The conventions are written up in
    [`CLAUDE.md`](CLAUDE.md) — architecture, naming, concurrency, and how the
    layers talk to each other.
@@ -54,6 +57,14 @@ Keep it lowercase, hyphenated, and descriptive — for example
 Continuous integration builds the app, checks formatting with SwiftFormat, runs
 SwiftLint, and runs the test suite on every pull request; the check needs to pass
 before a change can be merged.
+
+### Translations
+
+UI strings live in the String Catalog (`Crema/Localizable.xcstrings`): English
+is the source language and pt-BR ships as the first translation. To improve a
+translation or add a language, edit the catalog (Xcode renders it as a table);
+every key must keep a non-empty unit per language — the suite pins catalog
+parity mechanically.
 
 By contributing, you agree that your contributions are licensed under the
 project's [GPL-3.0 license](LICENSE).

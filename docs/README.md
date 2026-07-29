@@ -13,6 +13,7 @@
 - [ROADMAP.md](https://github.com/colatte/crema/blob/main/ROADMAP.md) — directions and possibilities; not promises, not dated commitments.
 - [CONTRIBUTING.md](https://github.com/colatte/crema/blob/main/CONTRIBUTING.md) — how to contribute.
 - [CLAUDE.md](https://github.com/colatte/crema/blob/main/CLAUDE.md) — the contract, in Portuguese, for how code is written in this repository: architecture, conventions, concurrency, and the rules the layers live by. Read at the start of every working session; evolves with the code.
+- [LICENSE](https://github.com/colatte/crema/blob/main/LICENSE) — GPL-3.0.
 
 ## docs/
 

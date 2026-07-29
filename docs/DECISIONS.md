@@ -105,10 +105,13 @@ is the user's intent, and only the user changes it (pinned by test).
 The tap can go enabled-but-deaf (valid port, delivery stopped) after
 display-sleep/wake — undetectable locally (J7). So the tap is reinstalled
 **unconditionally** (fresh port, paired uninstall→install with no orphan, the
-consumer preserved by construction) at the unlock edge and at wake, independent
-of the suppression preference — the deafness kills plain brightness observation
-too, so pref-off must still reinstall. Order is pinned: unlock → reinstall →
-re-engage.
+consumer preserved by construction) at every physical edge that can have
+re-routed delivery — the four triggers: display wake (`screensDidWake`), system
+wake (`didWake`), the unlock/return edge, and a display-topology change
+(`didChangeScreenParameters`, the hotplug with no sleep that fires neither wake
+nor lock) — independent of the suppression preference: the deafness kills plain
+brightness observation too, so pref-off must still reinstall. Order is pinned:
+unlock → reinstall → re-engage.
 
 ### settle-rereads
 The lock source never lets a notification edge flip state directly: each edge
@@ -299,3 +302,15 @@ the Developer ID path, the consistency check compares authority + Team across
 the nested Mach-Os, and the launch smoke boots the installed app from the
 final dmg and requires it to survive 5 s. Shipped broken exactly once — the
 v1.2 E2E caught the crash before publish, which is why the smoke exists.
+
+### key-origin-brightness-gate
+The brightness HUDs show only for changes the USER made. Brightness has no
+change-notification API (the sources poll), and the poll cannot tell a keypress
+from the ambient-light sensor — surfacing every polled delta would flash a HUD
+each time a cloud passes. Decision: a change surfaces only when it is
+key-originated — a brightness key samples the source directly (zero latency)
+and arms a short window for the poll to attribute follow-up deltas; outside
+that window the poll stays quiet. Consequence, accepted deliberately: without
+the Accessibility permission there is no tap, no key origin, and therefore no
+brightness HUD at all — volume (event-driven via Core Audio) still flows. The
+docs must never promise brightness HUDs without Accessibility.

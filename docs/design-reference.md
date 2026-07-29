@@ -249,6 +249,10 @@ para merge/performance. Janela precisa de `backgroundColor = .clear` +
   dono do frame). Motivos: relatos de `NSGlassEffectView` envolvendo
   `NSHostingView` com conteúdo em branco/tint errado ([cmux #2459](https://github.com/manaflow-ai/cmux/issues/2459));
   e a rota SwiftUI casa com as skins puras.
+- **Shipped diverge**: o material embarcado é vibrancy clássica
+  (`NSVisualEffectView` via `VibrancyMaterial`, fixada dark — ver
+  DECISIONS: hud-fixed-dark-palette); a rota `.glassEffect` não foi adotada.
+  Esta seção permanece como pesquisa para uma revisita Tahoe-nativa.
 - **Bordas/highlight vêm de graça** (lensing, reflexo, adaptação claro/escuro)
   — a view **não** desenha stroke/highlight próprios no ramo 26+.
 - **Não fazer**: blur/material caseiro por cima/por baixo do glass; glass
@@ -381,7 +385,7 @@ Medidas do original (engenharia reversa, [ffried.codes](https://ffried.codes/201
 | Fenda MBP 14 (default)          | ~185×32 pt — **sempre derivar em runtime** (aux areas + safeTop); fallback cosmético 185 pt                     | §1.1  |
 | Alargamento do desenho da fenda | +4 pt de largura (2 pt/lado)                                                                                    | §1.3  |
 | Nível de janela (estilo notch)  | `.mainMenu + 3`, canJoinAllSpaces + fullScreenAuxiliary + stationary                                            | §1.3  |
-| Spring de abrir                 | response 0.42 / damping 0.8 (notch) · `.snappy(0.4)` (card)                                                     | §2.2  |
+| Spring de abrir                 | pesquisa: 0.42/0.8 (notch) · `.snappy(0.4)` (card); **shipped: família única 0.42/0.8** (`SurfaceAnimation.open`) | §2.2  |
 | Spring de fechar                | pesquisa 0.45 / damping 1.0 — **sem bounce**; shipped 0.35 (hover-follows-the-eye)                              | §2.2  |
 | Hover-intent delay              | 0.3 s (preferência 0–1 s), task cancelável + recheck                                                            | §2.3  |
 | Hover-out debounce              | ~100 ms, cancelável                                                                                             | §2.3  |
