@@ -368,9 +368,40 @@ names who is ahead and leaves the choice where it belongs. The naming errs towar
 silence: listen-only taps, disabled taps, taps with a disjoint mask, a chain we
 have no tap in, and a contender macOS has no display name for all produce no
 warning — a missed line costs a diagnostic, a false one accuses a neighbour.
-The real resolution is the roadmap's BetterDisplay OSD integration: the neighbour
-keeps the keys and Crema draws the HUD from its notification, so there is nothing
-left to contend for.
+Naming it is only half the answer; the other half — cooperating instead of
+contending — shipped alongside it, see `betterdisplay-osd-source`.
+
+### betterdisplay-osd-source
+The way out of the key contention above is not to win the key but to stop needing
+it: BetterDisplay publishes an OSD notification for third-party HUDs (the same
+door MediaMate and DynamicLake Pro use), so the neighbour keeps the key and its
+own brightness curve while Crema draws the bar. What ships is the inbound half,
+for the built-in display. The contract below was measured on the wire against
+BetterDisplay 4.3.5, not read off a wiki:
+`pro.betterdisplay.BetterDisplay.osd`, with the payload as a **JSON string in the
+notification's `object`** (not `userInfo`); brightness arrives as
+`{"controlTarget":"combinedBrightness","displayID":1,"maxValue":64,
+"systemIconID":1,"value":40}` — a scale of the app's own choosing, so only the
+ratio is portable — one notification per key press, no autorepeat flood. Four
+decisions came out of that measurement. **One prefix only**: 4.2.2+ publishes
+every event under both the current and the legacy `com.betterdisplay…` name, so
+subscribing to both would double it. **The exact name, never a wildcard**: macOS
+does not deliver nil-name distributed observation at all — a wildcard listener is
+silent by construction, which cost two probes to discover. **Volume and mute are
+left alone** even though BetterDisplay reports them: Core Audio already emits for
+every volume change whoever caused it, so a second source would draw two HUDs;
+brightness has no such notification, and that absence is the whole reason this
+source exists. **Other displays are dropped**: `display == nil` is the domain's
+word for the built-in screen and the brightness actuator refuses every other
+target, so an external-display HUD would arrive with a slider that throws on the
+first drag — Crema draws a bar only where it can also move it, and the rest waits
+for the outbound half (ROADMAP.md). No preference gates any of this: with
+BetterDisplay absent nothing ever arrives, so there is no state to turn off. And
+no double HUD is possible by construction — whichever tap is served first
+consumes the key and the other app is never told it happened, verified on
+hardware with timestamps: Crema observed five brightness keys while BetterDisplay
+stayed silent, and once Crema quit, the next five presses produced five
+notifications and no observation.
 
 ### sample-dont-integrate
 A UI ticker that adds a fixed step per tick is a clock that runs slow. Timers are

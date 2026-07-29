@@ -159,8 +159,14 @@ xattr -dr com.apple.quarantine /Applications/Crema.app
   Crema. Utilities that drive brightness themselves do this by design
   (BetterDisplay's combined brightness, MonitorControl and friends), and which app
   wins is decided at login, so it can differ from one boot to the next. Crema
-  names the app in its menu when it happens. Two apps can't own the same key:
-  either turn that feature off in the other app, or let it keep the key.
+  names the app in its menu when it happens.
+- **With BetterDisplay, the two can share.** Turn on **Settings → Application →
+  Integration → OSD notification** in BetterDisplay (version 4.2.1 or newer) and
+  Crema draws its brightness HUD from what BetterDisplay reports — BetterDisplay
+  keeps the keys and its own brightness curve, Crema keeps the HUD. Turn off
+  BetterDisplay's own OSD in that same pane so only one bar appears. Nothing to
+  enable on Crema's side; it listens whenever BetterDisplay is there and stays
+  quiet when it isn't.
 - The **menu bar icon** opens Settings (`⌘,`), checks for updates, or quits.
 
 ## Privacy

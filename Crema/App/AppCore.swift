@@ -541,9 +541,17 @@ final class AppCore {
         let keyboardBridge = CoreBrightnessKeyboardBridge()
         let keyboardSource = PolledBrightnessSource(kind: .keyboardBrightness, backend: keyboardBridge)
 
+        // Wired unconditionally: with BetterDisplay absent the source never emits,
+        // and with it present it is the ONLY brightness HUD Crema can draw for the
+        // keys BetterDisplay takes first — the two never fire for the same press
+        // (docs/DECISIONS.md: media-key-chain-contention).
+        let betterDisplaySource = BetterDisplayOSDSource()
+
         return SystemGraph(
             nowPlayingSource: nowPlayingSource,
-            systemHUDSource: MergedSystemHUDSource([volumeSource, screenSource, keyboardSource]),
+            systemHUDSource: MergedSystemHUDSource([
+                volumeSource, screenSource, keyboardSource, betterDisplaySource,
+            ]),
             nowPlayingController: nowPlayingController,
             volumeController: CoreAudioVolumeController(),
             screenBrightnessController: DisplayServicesScreenBrightnessController(backend: screenBridge),

@@ -13,8 +13,16 @@ today is the built-in display's brightness and the system volume. Brightness and
 on external monitors rely on DDC, which is fiddly and fragile to drive directly.
 Rather than reinvent that, the idea is to integrate with tools that already handle
 it well — [BetterDisplay](https://github.com/waydabber/BetterDisplay) or
-[Lunar](https://github.com/alin23/Lunar). With one of them installed, Crema's HUD
-could cover external displays too, while staying entirely optional for everyone else.
+[Lunar](https://github.com/alin23/Lunar).
+
+The first half of that is in: Crema listens to BetterDisplay's OSD notification
+and draws the brightness HUD for the **built-in** display from it, so both apps
+can run without fighting over the brightness keys (see Usage in the
+[README](README.md#usage)). What's missing is the other direction — asking
+BetterDisplay to *set* a level, via its CLI or URL scheme. Until that exists,
+Crema won't show a bar for an external display, because its slider could not move
+it. That outbound half, and the equivalent for Lunar, is what this item is now
+about.
 
 ## Per-display styles
 
