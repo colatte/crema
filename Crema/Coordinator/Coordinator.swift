@@ -105,9 +105,11 @@ final class Coordinator {
     @ObservationIgnored var onPresentationChange: (@MainActor () -> Void)?
 
     /// Whether media commands (play/pause, seek) are working. Optimistic until a
-    /// command fails: on macOS 26.x the write path can be blocked while reads
-    /// work, so the first blocked command flips this and the views disable their
-    /// controls rather than offer a control that silently does nothing.
+    /// command fails, then the views disable their controls rather than offer one
+    /// that silently does nothing — and back to optimistic on the next surfacing
+    /// event, so a transient failure costs the controls until the next track.
+    /// Not a verdict on the platform: measured on macOS 26.5.2 the write path
+    /// works (see NowPlayingCommandChannel).
     private(set) var commandsAvailable = true
 
     /// Skip commands (next/previous) degrade independently: a source can
@@ -279,6 +281,17 @@ final class Coordinator {
 
     /// Begins consuming the injected sources. Consumption happens on the main
     /// actor: sources may produce anywhere; consumption is main.
+    ///
+    /// One-shot, and there is no `stop()`. There was one, unreferenced by app and
+    /// suite alike, and it was worse than unused: cancelling the consumption task
+    /// makes the `for await` below exit, and the line after the loop then reports
+    /// the teardown to the rest of the machine as "the media source died" —
+    /// discarding the snapshot and hiding the surface, which the ghost-discard
+    /// decision reserves for a genuine source death. `ChainedNowPlayingSource`
+    /// builds `updates` once at init, so a cancelled iteration is not resubscribable
+    /// either: whoever called it would get a permanently media-less app and no error
+    /// anywhere. The Coordinator lives for the process; a teardown seam that cannot
+    /// be honoured is better absent than available.
     func start() {
         guard consumptionTasks.isEmpty else { return }
 
@@ -299,18 +312,6 @@ final class Coordinator {
                 self.handleHUDUpdate(hud)
             }
         })
-    }
-
-    func stop() {
-        consumptionTasks.forEach { $0.cancel() }
-        consumptionTasks.removeAll()
-        hudRevertTask?.cancel()
-        hudRevertTask = nil
-        lingerTask?.cancel()
-        lingerTask = nil
-        hoverIntentTask?.cancel()
-        hoverIntentTask = nil
-        endScrubGrace()
     }
 
     // MARK: - View intents (views report; the Coordinator decides)

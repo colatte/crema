@@ -31,12 +31,6 @@ struct SurfaceAnimationTests {
         }
     }
 
-    @Test func interactiveSettleOutlastsTheCloseSpringsVisibleSettle() {
-        // Tightening the click region before the close spring settles forwards
-        // clicks through still-visible pixels to the window below.
-        #expect(SurfaceAnimation.interactiveSettle >= 1.5 * SurfaceAnimation.closeResponse)
-    }
-
     // MARK: - Geometry provenance (appear/disappear snaps, morph between visible)
 
     @Test func appearanceFromHiddenSnapsGeometry() {

@@ -31,15 +31,14 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// Bridges the view's rendered-size reports (environment closure, baked at
     /// init before `self` is available) to the panel.
     private let sizeRelay = SurfaceSizeRelay()
-    /// The click-interactive region. When the view reports its rendered size
-    /// (the width-hugging card), the region follows it frame-by-frame; otherwise it
-    /// falls back to the tight rule frame — and while a shrink settles it holds
-    /// the union with the previous frame, so a click on still-visible pixels
-    /// doesn't ghost through to the window below. (Growth captures the target
-    /// immediately: eating a click a beat early is the safe direction.)
+    /// The click-interactive region, and it comes from the surface as DRAWN. Every
+    /// skin reports its rendered size — the card because it hugs its width, the
+    /// notch and classic because view-only shortens the surface — and measured, the
+    /// hosting view reports during construction, so the reported path owns this
+    /// rect before any apply can land. The rule frame below it is a net for a late
+    /// report, not a mode the app runs in.
     private var interactiveRect: CGRect = .zero
     private var reportedSurfaceSize: CGSize?
-    private var tightenTask: Task<Void, Never>?
     /// The last tight rule frame applied (empty ⇒ hidden, which always empties
     /// the interactive region — a fading, non-interactive ghost must not
     /// capture clicks).
@@ -68,6 +67,11 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// with no distinct expanded surface. Read-only, for the tests that pin the
     /// retarget — see `SurfaceHoverMonitor.currentRegions`.
     var currentHoverRegions: SurfaceHoverRegions? { hoverMonitor?.currentRegions }
+
+    /// The click-interactive rect. Read-only, and it exists to pin where this rect
+    /// comes from: the rendered surface, from the first apply onward. That is what
+    /// showed the settle fallback was unreachable and let its machinery go.
+    var currentInteractiveRect: CGRect { interactiveRect }
 
     /// Retargets requested on this panel's monitor — see the property of the same
     /// purpose on SurfaceHoverMonitor.
@@ -194,8 +198,6 @@ final class NSPanelPresentationPanel: PresentationPanel {
             hudIndicatorStyle: hudIndicatorStyle
         )
 
-        tightenTask?.cancel()
-        tightenTask = nil
         let previous = currentFrame
         currentFrame = frame
         // Hover retarget at apply time errs TIGHT: the current state's rule
@@ -227,20 +229,17 @@ final class NSPanelPresentationPanel: PresentationPanel {
             hoverMonitor?.setActive(hoverArmed)
             return
         }
-        if previous.isEmpty || frame.contains(previous) {
-            interactiveRect = frame
-        } else {
-            // Shrinking (or hiding): hold the union while the close spring
-            // settles, then tighten — the region follows the drawn surface out
-            // instead of snapping to the target under still-visible pixels.
-            interactiveRect = previous.union(frame)
-            tightenTask = Task { [weak self] in
-                try? await Task.sleep(for: .seconds(SurfaceAnimation.interactiveSettle))
-                guard let self, !Task.isCancelled else { return }
-                self.interactiveRect = frame
-                self.routeClicks(at: NSEvent.mouseLocation)
-            }
-        }
+        // Reached only before the hosting view has reported a size, and measured:
+        // it reports during construction, so no apply has ever landed here. What
+        // used to live in this spot was a union-then-tighten settle over a
+        // calibrated constant, for the shrink case — machinery that cannot run,
+        // documented as live behaviour, with the constant asserted only against
+        // another constant. Anyone calibrating click-during-close would have
+        // turned a dial connected to nothing.
+        //
+        // The one line stays as a net: should a report ever be late, clicks land on
+        // the rule frame rather than on nothing.
+        interactiveRect = frame
         // Route immediately: a surface can appear under a stationary cursor
         // (reactive appearance, HUD keypress) and no mouse-move would fire to
         // unlock it.
@@ -250,10 +249,7 @@ final class NSPanelPresentationPanel: PresentationPanel {
 
     private func surfaceSizeChanged(_ size: CGSize) {
         reportedSurfaceSize = size
-        // The reported path owns the region from here on: a pending fallback
-        // tighten would clobber it with the stale rule frame.
-        tightenTask?.cancel()
-        tightenTask = nil
+        // From the first report on, the reported path owns the region outright.
         refreshReportedInteractiveRect()
     }
 
@@ -335,7 +331,6 @@ final class NSPanelPresentationPanel: PresentationPanel {
     }
 
     func close() {
-        tightenTask?.cancel()
         localMouseMonitor.map(NSEvent.removeMonitor)
         globalMouseMonitor.map(NSEvent.removeMonitor)
         localMouseMonitor = nil

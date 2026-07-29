@@ -103,11 +103,4 @@ enum SurfaceAnimation {
     /// the surface a few points past its target, and without headroom the
     /// window edge would crop the peak.
     static let overshootHeadroom: CGFloat = 12
-
-    /// How long a shrinking surface's old extent stays click-interactive: the
-    /// close spring's visible settle (≥ 1.5 × response). Tightening earlier
-    /// would forward clicks through still-visible pixels to the window below.
-    /// Held at 0.7 deliberately after close dropped to 0.35 — headroom over
-    /// the floor, not a live derivation.
-    static let interactiveSettle: Double = 0.7
 }
