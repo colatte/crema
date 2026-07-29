@@ -44,6 +44,37 @@ struct CremaApp: App {
                 ))
                 Divider()
             }
+            // Evaluated as the menu is built (pull-based, like the suppression
+            // warning below): the registration's truth lives on the other side
+            // of the system, so it is read where it is shown and never cached.
+            switch core.loginItemOutcome() {
+            case .revokedByUpdate:
+                Text(String(
+                    localized: "menu.loginItem.revoked",
+                    defaultValue: "⚠️ Open at login was turned off — the app changed since you enabled it"
+                ))
+                Button(String(
+                    localized: "menu.loginItem.reactivate",
+                    defaultValue: "Turn it back on"
+                )) {
+                    core.reactivateLoginItem()
+                }
+                Divider()
+            case .needsApproval:
+                Text(String(
+                    localized: "menu.loginItem.needsApproval",
+                    defaultValue: "⚠️ Open at login is waiting for your approval"
+                ))
+                Button(String(
+                    localized: "menu.loginItem.openSettings",
+                    defaultValue: "Open Login Items settings…"
+                )) {
+                    core.openLoginItemsSettings()
+                }
+                Divider()
+            case .quiet, .userRemoved:
+                EmptyView()
+            }
             let suspended = core.osdSuppressionMonitor.longSuspendedDomains
             if !suspended.isEmpty {
                 Text(osdSuspendedWarning(suspended))

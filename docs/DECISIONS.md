@@ -319,3 +319,21 @@ that window the poll stays quiet. Consequence, accepted deliberately: without
 the Accessibility permission there is no tap, no key origin, and therefore no
 brightness HUD at all — volume (event-driven via Core Audio) still flows. The
 docs must never promise brightness HUDs without Accessibility.
+
+### login-item-intent
+The launch-at-login registration lives beyond the Background Task Management
+boundary, and macOS revokes it whenever the bundle's code identity changes — a
+rebuild, a reinstall, and, in one stroke for every installed user, the eventual
+move to Developer ID. Diagnosed on hardware: a boot where the app simply never
+launched, the system logged nothing at all, and a ghost record lingered until
+System Settings pruned it. With the system status as the ONLY source of truth,
+the user's choice vanishes silently — the toggle reads off and no one is any
+wiser. Decision: persist the user's INTENT (and the build it was made under),
+never to act on it, only to notice the loss. The build is what tells the two
+authors of "gone" apart — a registration lost across a build change was revoked
+by macOS (warn, and offer one click); one lost under the same build was removed
+by the user in System Settings (forget the intent, say nothing). Auto-repair was
+deliberately rejected: the invalidation is a security signal ("this binary is
+not the one you approved"), and re-registering behind the user would contradict
+the app's own rule of never adding a login item uninvited. Measured and ruled
+out along the way: the DMG's quarantine attribute does not block registration.

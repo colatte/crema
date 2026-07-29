@@ -375,6 +375,74 @@
         }
       }
     },
+    "menu.loginItem.needsApproval": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⚠️ Open at login is waiting for your approval"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⚠️ A abertura no login aguarda sua aprovação"
+          }
+        }
+      }
+    },
+    "menu.loginItem.openSettings": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Login Items settings…"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir Ajustes de Itens de Início…"
+          }
+        }
+      }
+    },
+    "menu.loginItem.reactivate": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn it back on"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reativar"
+          }
+        }
+      }
+    },
+    "menu.loginItem.revoked": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⚠️ Open at login was turned off — the app changed since you enabled it"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⚠️ A abertura no login foi desativada — o app mudou desde que você ativou"
+          }
+        }
+      }
+    },
     "menu.mediaControlsBlocked": {
       "extractionState": "manual",
       "localizations": {

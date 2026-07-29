@@ -31,8 +31,9 @@ private enum Metrics {
     // content without resizing the plate. Both nudges are measured, not guessed
     // (measure.swift reports the residual); re-derive them if a font size changes.
     static let contentNudge: CGFloat = 1.6
-    // Mark-to-text gap stays clearly under the side padding, so the eye groups the
-    // mark WITH the text instead of reading two objects on one plate.
+    // The gap from the Apple mark to the text stays clearly under the side
+    // padding, so the eye groups the mark WITH the text instead of reading two
+    // separate objects sitting on one plate.
     static let gap: CGFloat = 11
     static let logoSize: CGFloat = 34
     // The Apple mark lands a hair above center on purpose: the leaf inflates the

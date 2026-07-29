@@ -460,12 +460,19 @@ final class AppCore {
     /// here: the snap-back tells the user it failed, the log says why —
     /// registration failures are a real field scenario under self-signed
     /// distribution, and the toggle alone cannot distinguish the causes.
+    /// The intent is recorded alongside the attempt — with the build it was made
+    /// under, which is what later tells a system revocation apart from the user
+    /// removing the item in System Settings (LoginItemReconciler). Recording the
+    /// intent even when the registration ends up parked for approval is
+    /// deliberate: the user asked, and that is the fact worth remembering.
     func setLaunchesAtLogin(_ enabled: Bool) -> (enabled: Bool, needsApproval: Bool) {
         do {
             try loginItem.setEnabled(enabled)
         } catch {
             Logger.crema("App").error("login-item registration failed: \(error, privacy: .public)")
         }
+        preferences.launchesAtLogin = enabled
+        preferences.launchesAtLoginBuild = enabled ? Self.currentBuild : nil
         return (loginItem.isEnabled || loginItem.requiresApproval, loginItem.requiresApproval)
     }
 
@@ -633,4 +640,69 @@ final class AppCore {
         }
     }
     #endif
+}
+
+// MARK: - Launch at login
+
+@MainActor
+extension AppCore {
+    /// What the menu bar should say about launch-at-login right now — evaluated
+    /// on demand (pull-based, like the suppression warning) so there is no
+    /// cached copy of a truth that lives on the other side of the system.
+    ///
+    /// A `.userRemoved` verdict is absorbed here rather than surfaced: the user
+    /// turned it off outside the app, so the app forgets the intent instead of
+    /// nagging about it, and the next evaluation is quiet.
+    @discardableResult
+    func loginItemOutcome() -> LoginItemReconciler.Outcome {
+        Self.evaluateLoginItem(
+            preferences: preferences,
+            status: loginItem.status,
+            currentBuild: Self.currentBuild
+        )
+    }
+
+    /// The evaluation with its one side effect, standalone and static so a test
+    /// pins it without booting the graph (same reason as the reinstall seams).
+    /// The side effect is deliberately here and not in the reconciler: the
+    /// decision stays pure, and forgetting an intent the user themselves
+    /// revoked is bookkeeping, not policy.
+    static func evaluateLoginItem(
+        preferences: Preferences,
+        status: LoginItemStatus,
+        currentBuild: String
+    ) -> LoginItemReconciler.Outcome {
+        let outcome = LoginItemReconciler.outcome(
+            intends: preferences.launchesAtLogin,
+            recordedBuild: preferences.launchesAtLoginBuild,
+            currentBuild: currentBuild,
+            status: status
+        )
+        if outcome == .userRemoved {
+            preferences.launchesAtLogin = false
+            preferences.launchesAtLoginBuild = nil
+            Logger.crema("App").info("login item removed outside the app — intent cleared")
+        }
+        return outcome
+    }
+
+    /// The one-click repair behind the menu warning. Re-registering is only ever
+    /// reachable from this explicit user action — never from the launch path.
+    func reactivateLoginItem() {
+        _ = setLaunchesAtLogin(true)
+    }
+
+    /// Deep-links to the pane that owns the approval macOS is waiting for.
+    func openLoginItemsSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    /// The build the app is running as — the generation stamp for the intent.
+    /// Missing key is impossible in a built bundle; the empty fallback keeps the
+    /// comparison total (and reads as "changed" against any recorded build).
+    private static var currentBuild: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
+    }
 }
