@@ -128,17 +128,4 @@ enum CardMetrics {
     /// Title-over-artist gap, shared by compact and expanded — the stacked
     /// text is the same element in both states.
     static let textStackSpacing: CGFloat = 2
-
-    /// Decorative waveform — compact only: there it is the sole "playing"
-    /// signal (no scrubber, no transport). Expanded already says it twice
-    /// (scrubber motion + pause glyph), so the ornament stays out of it.
-    static let waveform = WaveformGlyph.Configuration(
-        barCount: 4,
-        barWidth: 2,
-        barSpacing: 2.5,
-        barCornerRadius: 1,
-        restHeight: 4,
-        peakHeight: 12,
-        pulsePeriod: 0.5
-    )
 }

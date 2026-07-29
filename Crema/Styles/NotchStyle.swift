@@ -134,6 +134,13 @@ enum NotchMetrics {
     /// exact frame, so differing insets would jiggle edges during the
     /// crossfade — the shared constant is what pins them together.
     static let contentPaddingHorizontal: CGFloat = 12
+    /// Compact band content: the small cover with its single-line title and
+    /// the waveform, sized to sit inside the 44 pt drop.
+    static let compactGap: CGFloat = 8
+    static let compactArtworkSide: CGFloat = 26
+    static let compactArtworkRadius: CGFloat = 6
+    /// The HUD row's gap (glyph | slider).
+    static let hudGap: CGFloat = 10
     /// Expanded: the cutout stretching down (Dynamic Island). The width never
     /// changes (see the frame rule); the drop is derived from the reference
     /// layout's stacked sections (header, thin scrubber, transport) — like the
@@ -176,16 +183,4 @@ enum NotchMetrics {
     static let compactBottomRadius: CGFloat = 14
     static let expandedTopRadius: CGFloat = 19
     static let expandedBottomRadius: CGFloat = 24
-
-    /// Decorative waveform for the compact band (compact only — expanded has
-    /// the scrubber). Shared component; each skin owns its values.
-    static let waveform = WaveformGlyph.Configuration(
-        barCount: 4,
-        barWidth: 2,
-        barSpacing: 2.5,
-        barCornerRadius: 1,
-        restHeight: 4,
-        peakHeight: 12,
-        pulsePeriod: 0.5
-    )
 }

@@ -80,6 +80,9 @@ enum ClassicMetrics {
     /// within the block's padded height — 96 overflowed and collapsed the
     /// vertical padding.
     static let compactArtworkSide: CGFloat = 80
+    /// Cover radii sit squarer than the floating skins' (~0.15 of the side vs
+    /// their ~0.25): the cover follows the block's own 18 pt radius language —
+    /// part of the bezel identity, not a missed calibration.
     static let compactArtworkRadius: CGFloat = 12
     /// The anchor without dominance: 88 keeps the artwork at ~⅓ of the block
     /// (140 ate half of it and pushed everything else together).
@@ -87,6 +90,11 @@ enum ClassicMetrics {
     static let expandedArtworkRadius: CGFloat = 14
     static let hudIconSize: CGFloat = 56
     static let contentPadding: CGFloat = 16
+    /// Compact stack gap (artwork / text / waveform).
+    static let compactGap: CGFloat = 8
+    /// The HUD breathes wider than the media states: a lone glyph over the
+    /// segmented track wants more air than the packed media block.
+    static let hudPadding: CGFloat = contentPadding + 8
     /// One gap between the expanded sections — the block reads as one rhythm.
     static let contentGap: CGFloat = 10
     /// Fixed row heights so the section sum above is honest; the text row fits
@@ -97,18 +105,4 @@ enum ClassicMetrics {
     /// The section view-only removes from the expanded height: the transport row
     /// plus the gap above it — the surface shrinks to the visible sections.
     static let controlsSectionHeight: CGFloat = contentGap + controlsHeight
-
-    /// Decorative waveform — compact only: there it is the sole "playing"
-    /// signal. Expanded already says it twice (scrubber motion + pause glyph),
-    /// so the ornament stays out of it. Shared component; each skin owns its
-    /// values.
-    static let waveform = WaveformGlyph.Configuration(
-        barCount: 4,
-        barWidth: 2,
-        barSpacing: 2.5,
-        barCornerRadius: 1,
-        restHeight: 4,
-        peakHeight: 12,
-        pulsePeriod: 0.5
-    )
 }

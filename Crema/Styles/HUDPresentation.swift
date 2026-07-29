@@ -33,7 +33,9 @@ struct HUDPresentation: Equatable {
         case .keyboardBrightness:
             // light.min / light.max are the classic keyboard-backlight glyphs;
             // the same midpoint cut as the screen keeps both brightnesses reading
-            // low/high with one shared rule.
+            // low/high with one shared rule. Outline while the siblings are
+            // .fill because the light.* family ships no fill variant (verified
+            // against the SF catalog) — a catalog constraint, not a choice.
             return hud.value < brightnessMidpoint ? "light.min" : "light.max"
         }
     }

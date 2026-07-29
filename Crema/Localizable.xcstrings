@@ -698,6 +698,23 @@
         }
       }
     },
+    "settings.hud.appearanceHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The indicator's appearance is set in the General tab."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A aparência do indicador é definida na aba Geral."
+          }
+        }
+      }
+    },
     "settings.hud.indicator": {
       "extractionState": "manual",
       "localizations": {

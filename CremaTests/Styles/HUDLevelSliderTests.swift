@@ -107,8 +107,8 @@ struct HUDLevelSliderTests {
     }
 
     @Test func knobRevealFadesOnlyWithoutReduceMotion() {
-        #expect(SurfaceAnimation.knobReveal(reduceMotion: true) == nil)
-        #expect(SurfaceAnimation.knobReveal(reduceMotion: false) != nil)
+        #expect(HUDLevelSlider.knobReveal(reduceMotion: true) == nil)
+        #expect(HUDLevelSlider.knobReveal(reduceMotion: false) != nil)
     }
 
     @Test func cardPickerChoiceMapsToTheRightBody() {

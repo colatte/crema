@@ -187,7 +187,7 @@ struct HUDLevelSlider: View {
                 y: rowHeight / 2
             )
             .opacity(visible ? 1 : 0)
-            .animation(SurfaceAnimation.knobReveal(reduceMotion: reduceMotion), value: visible)
+            .animation(Self.knobReveal(reduceMotion: reduceMotion), value: visible)
             .allowsHitTesting(false)
     }
 
@@ -294,6 +294,18 @@ struct HUDLevelSlider: View {
     /// its knob deliberately (not by event-mask accident). The segmented
     /// Classic and the full-bleed filled bar stay bare — their references
     /// carry no knob.
+    /// The knob's reveal — an opacity fade under the pointer, the measured
+    /// Control Center affordance-on-demand. A component-private affordance
+    /// timing, so it lives here, not in SurfaceAnimation (which keeps the
+    /// values that participate in the presentation contracts); value-scoped:
+    /// it never reaches the surface morph. Under Reduce Motion the knob snaps
+    /// in and out — a deliberate over-restriction (value animations suspend
+    /// under RM; the opacity-fade allowance belongs to surface appear/dismiss).
+    nonisolated static let knobRevealDuration: Double = 0.15
+    nonisolated static func knobReveal(reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : .easeOut(duration: knobRevealDuration)
+    }
+
     nonisolated static func showsKnob(appearance: Appearance, isHovered: Bool, isEditing: Bool) -> Bool {
         appearance == .capsule && (isHovered || isEditing)
     }

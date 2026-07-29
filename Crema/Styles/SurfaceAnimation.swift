@@ -6,6 +6,12 @@ import SwiftUI
 ///
 /// All visible motion is SwiftUI's: the view morphs a sized surface inside a
 /// fixed window (see NSPanelPresentationPanel). One animator, so nothing fights.
+///
+/// Scope rule: values that participate in the presentation contracts live here
+/// (the directional morph springs, appear/dismiss, the level glide calibrated
+/// against the HUD revert); a component's private affordance timing lives in
+/// the component (WaveformGlyph.freezeDuration, ArtworkAccent.toneFadeDuration,
+/// HUDLevelSlider.knobReveal).
 enum SurfaceAnimation {
     /// Spring parameters. Open is livelier; close is critically damped — never
     /// overshoot on close, or the bounce against the static menu bar reads as
@@ -92,17 +98,6 @@ enum SurfaceAnimation {
     static let hudLevelDamping: Double = 0.86
     static let hudLevel: Animation = .spring(response: hudLevelResponse, dampingFraction: hudLevelDamping)
 
-    /// The capsule knob's reveal — an opacity fade under the pointer, the
-    /// measured Control Center affordance-on-demand. Value-scoped like the
-    /// level spring: it never reaches the surface morph. Under Reduce Motion
-    /// the knob snaps in and out — a deliberate over-restriction (value
-    /// animations suspend under RM; the opacity-fade allowance belongs to
-    /// surface appear/dismiss).
-    static let knobRevealDuration: Double = 0.15
-    static func knobReveal(reduceMotion: Bool) -> Animation? {
-        reduceMotion ? nil : .easeOut(duration: knobRevealDuration)
-    }
-
     /// Headroom the fixed window keeps past the expanded frame (sideways and
     /// down; the top anchor stays pinned): the open spring's overshoot carries
     /// the surface a few points past its target, and without headroom the
@@ -115,12 +110,4 @@ enum SurfaceAnimation {
     /// Held at 0.7 deliberately after close dropped to 0.35 — headroom over
     /// the floor, not a live derivation.
     static let interactiveSettle: Double = 0.7
-
-    /// Post-close suppression window (design-reference §2.3): the time to ignore
-    /// a hover-open right after the surface is dismissed programmatically.
-    /// Reserved and not wired — the committed-hover model already restores the
-    /// correct expanded state on HUD revert and resets it on hide (see the
-    /// Coordinator), and wiring it into the HUD path would perturb that timer's
-    /// exact-delay tests. Kept here so the value has one home when revisited.
-    static let postCloseSuppression: Double = 0.35
 }

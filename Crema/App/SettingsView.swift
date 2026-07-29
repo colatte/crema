@@ -231,6 +231,13 @@ private struct SystemHUDSettingsView: View {
                         localized: "settings.hud.suppress.footer",
                         defaultValue: "Hides the built-in volume and brightness HUDs and shows Crema's instead."
                     ))
+                    // The indicator-style picker lives in General, beside the
+                    // Style picker it depends on — this line is the trail for
+                    // whoever comes to the HUD tab looking for it.
+                    Text(String(
+                        localized: "settings.hud.appearanceHint",
+                        defaultValue: "The indicator's appearance is set in the General tab."
+                    ))
                     if !canSuppress {
                         Text(String(
                             localized: "settings.hud.suppress.needsPermission",

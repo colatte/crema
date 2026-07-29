@@ -166,14 +166,16 @@ struct ClassicView: View, SurfaceStyleBody {
     // MARK: - Rendering
 
     private func compactContent(_ track: NowPlaying) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: ClassicMetrics.compactGap) {
             ArtworkView(
                 data: track.artworkData,
                 side: ClassicMetrics.compactArtworkSide,
                 cornerRadius: ClassicMetrics.compactArtworkRadius
             )
             TrackTextStack(title: track.title, artist: track.artist, alignment: .center)
-            WaveformGlyph(animating: track.isPlaying, config: ClassicMetrics.waveform)
+            // Compact only: here it is the sole "playing" signal. Expanded
+            // already says it twice (scrubber motion + pause glyph).
+            WaveformGlyph(animating: track.isPlaying)
         }
         .padding(ClassicMetrics.contentPadding)
     }
@@ -227,11 +229,14 @@ struct ClassicView: View, SurfaceStyleBody {
             Spacer(minLength: 0)
             Image(systemName: presentation.iconSystemName)
                 .font(.system(size: ClassicMetrics.hudIconSize))
+                // Softer than the siblings' primary tint on purpose: the whole
+                // skin echoes the translucent pre-Tahoe bezel, so the glyph
+                // carries the same lowered contrast as the segmented track.
                 .foregroundStyle(.secondary)
                 .symbolReplace(on: presentation.iconSystemName)
             Spacer(minLength: 0)
             HUDLevelSlider(kind: hud.kind, value: presentation.value, onChange: { hudSliderMoved(to: $0) }, appearance: .segmented)
         }
-        .padding(ClassicMetrics.contentPadding + 8)
+        .padding(ClassicMetrics.hudPadding)
     }
 }

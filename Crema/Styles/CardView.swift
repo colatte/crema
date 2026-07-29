@@ -285,7 +285,9 @@ struct CardView: View, SurfaceStyleBody {
             )
             TrackTextStack(title: track.title, artist: track.artist, spacing: CardMetrics.textStackSpacing)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            WaveformGlyph(animating: track.isPlaying, config: CardMetrics.waveform)
+            // Compact only: here it is the sole "playing" signal. Expanded
+            // already says it twice (scrubber motion + pause glyph).
+            WaveformGlyph(animating: track.isPlaying)
         }
         .padding(.horizontal, CardMetrics.contentPaddingHorizontal)
     }

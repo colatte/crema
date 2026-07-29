@@ -12,7 +12,7 @@ enum SurfaceLayoutKind: Equatable {
 /// fix cannot land on two skins and miss the third (the empty-boundary freeze
 /// did exactly that before it was pinned). Each view keeps a one-line static
 /// delegating here; the per-skin parameter is only which Metrics constant
-/// feeds `controlsSectionHeight`.
+/// feeds `controlsSectionHeight` (docs/DECISIONS.md: shared-skin-skeleton).
 enum SurfaceLayout {
     /// The layout whose geometry the surface presents: visible layouts are
     /// themselves; a hidden surface FREEZES the last-visible layout so every

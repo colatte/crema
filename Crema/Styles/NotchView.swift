@@ -216,15 +216,19 @@ struct NotchView: View, SurfaceStyleBody {
     // MARK: - Rendering
 
     private func compactContent(_ track: NowPlaying) -> some View {
-        HStack(spacing: 8) {
-            ArtworkView(data: track.artworkData, side: 26, cornerRadius: 6)
-            Text(track.title)
-                .font(.callout)
-                .lineLimit(1)
+        HStack(spacing: NotchMetrics.compactGap) {
+            ArtworkView(
+                data: track.artworkData,
+                side: NotchMetrics.compactArtworkSide,
+                cornerRadius: NotchMetrics.compactArtworkRadius
+            )
+            // The family's type ramp, single line — the narrow band carries
+            // no artist.
+            TrackTextStack(title: track.title, artist: nil)
             Spacer(minLength: 0)
             // Same live waveform as the other skins (one implementation):
             // dancing while playing, frozen when paused.
-            WaveformGlyph(animating: track.isPlaying, config: NotchMetrics.waveform)
+            WaveformGlyph(animating: track.isPlaying)
         }
         .padding(.horizontal, NotchMetrics.contentPaddingHorizontal)
     }
@@ -279,7 +283,7 @@ struct NotchView: View, SurfaceStyleBody {
 
     private func hudContent(_ hud: SystemHUD) -> some View {
         let presentation = HUDPresentation(hud: hud)
-        return HStack(spacing: 10) {
+        return HStack(spacing: NotchMetrics.hudGap) {
             Image(systemName: presentation.iconSystemName)
                 .frame(width: 22)
                 .symbolReplace(on: presentation.iconSystemName)
