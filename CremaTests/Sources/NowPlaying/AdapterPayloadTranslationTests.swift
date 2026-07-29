@@ -75,6 +75,32 @@ struct AdapterPayloadTranslationTests {
         #expect(try #require(translate(zero)).duration == nil)
     }
 
+    /// The line is verbatim from the wire: a Twitch live in Firefox, captured
+    /// from the vendored adapter. Live content does not omit the duration — it
+    /// reports LLONG_MAX microseconds, which the old `> 0` test waved through as
+    /// 292 thousand years. Letting it through gave the scrubber a fake range to
+    /// drag over, and dragging to the end scaled it back up to exactly 2^63,
+    /// where `Int(Double)` traps: the app died on a normal gesture.
+    @Test func theLiveSentinelDurationIsNotADuration() throws {
+        let line = #"{"type":"data","diff":false,"payload":{"title":"Live","playing":true,"elapsedTimeMicros":2741906069,"durationMicros":9.2233720368547758e+18}}"#
+        let np = try #require(translate(line))
+        #expect(np.duration == nil)
+    }
+
+    @Test func anImplausiblyLongDurationIsRejectedInEitherUnit() throws {
+        let micros = #"{"type":"data","diff":false,"payload":{"title":"X","playing":true,"elapsedTime":5,"durationMicros":9.0e+16}}"#
+        let seconds = #"{"type":"data","diff":false,"payload":{"title":"X","playing":true,"elapsedTime":5,"duration":90000}}"#
+        #expect(try #require(translate(micros)).duration == nil)
+        #expect(try #require(translate(seconds)).duration == nil)
+    }
+
+    /// A sentinel duration must not clamp the position either — the aged
+    /// position is the honest number, and clamping to garbage is still garbage.
+    @Test func theLiveSentinelDoesNotClampThePosition() throws {
+        let line = #"{"type":"data","diff":false,"payload":{"title":"Live","playing":false,"elapsedTime":42,"durationMicros":9.2233720368547758e+18}}"#
+        #expect(try #require(translate(line)).position == 42)
+    }
+
     @Test func missingElapsedTimeDefaultsToZero() throws {
         let line = #"{"type":"data","diff":false,"payload":{"title":"X","playing":true,"duration":10}}"#
         #expect(try #require(translate(line)).position == 0)

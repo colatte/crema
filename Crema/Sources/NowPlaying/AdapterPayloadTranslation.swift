@@ -55,7 +55,7 @@ enum AdapterPayloadTranslation {
             artworkData: payload.artworkData.flatMap { Data(base64Encoded: $0).map(Array.init) },
             isPlaying: payload.playing ?? false,
             position: position(of: payload, at: now),
-            duration: payload.durationSeconds.flatMap { $0 > 0 ? $0 : nil },
+            duration: payload.durationSeconds,
             // The parent is the real app when media plays through a helper
             // process (browsers report a WebKit client with the browser as
             // parent) — prefer it so the browser filter sees the browser.
@@ -70,7 +70,8 @@ enum AdapterPayloadTranslation {
     private static func position(of payload: Payload, at now: Date) -> Double {
         // A missing elapsed key means the player reported no position at all —
         // aging a fabricated zero would invent minutes of playback, and live
-        // content has no duration to clamp it.
+        // content has no usable duration to clamp it back (its sentinel is
+        // dropped by `durationSeconds`).
         guard let anchor = payload.elapsedSeconds else { return 0 }
         guard payload.playing ?? false, let anchorDate = payload.anchorDate else {
             return anchor
@@ -78,7 +79,7 @@ enum AdapterPayloadTranslation {
         // A future-dated anchor (clock skew) must not rewind: it contributes 0.
         let age = max(0, now.timeIntervalSince(anchorDate))
         let advanced = anchor + age * (payload.playbackRate ?? 1)
-        if let duration = payload.durationSeconds, duration > 0 {
+        if let duration = payload.durationSeconds {
             return min(advanced, duration)
         }
         return advanced
@@ -109,8 +110,17 @@ enum AdapterPayloadTranslation {
             elapsedTimeMicros.map { $0 / 1_000_000 } ?? elapsedTime
         }
 
+        /// Live content does report a duration: MediaRemote's "no end" sentinel
+        /// is LLONG_MAX, measured on the wire as `durationMicros:
+        /// 9.2233720368547758e+18` — 292 thousand years, which sails past a
+        /// plain `> 0` test. Sanitising here, at the border, is what makes the
+        /// domain's promise true (`NowPlaying.duration` is nil when the player
+        /// reports none) and keeps the sentinel out of the seek math, where
+        /// `Int(seconds × 1e6)` on it lands exactly on 2^63 and traps.
         var durationSeconds: Double? {
-            durationMicros.map { $0 / 1_000_000 } ?? duration
+            guard let raw = durationMicros.map({ $0 / 1_000_000 }) ?? duration,
+                  raw.isFinite, raw > 0, raw < 24 * 60 * 60 else { return nil }
+            return raw
         }
 
         var anchorDate: Date? {

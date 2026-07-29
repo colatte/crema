@@ -30,9 +30,25 @@ struct MediaRemoteAdapterCommandChannel: NowPlayingCommandChannel {
     }
 
     func seek(to seconds: Double) async throws {
-        // The adapter's seek takes microseconds and rejects negatives.
-        let microseconds = Int((max(0, seconds) * 1_000_000).rounded())
+        guard let microseconds = Self.microseconds(forSeek: seconds) else {
+            throw NowPlayingCommandError.commandFailed
+        }
         try await run(["seek", "\(microseconds)"])
+    }
+
+    /// The adapter's seek takes microseconds and rejects negatives. The number
+    /// arrives from outside — the slider's range comes from player metadata —
+    /// so the narrowing is guarded rather than assumed: `Int(Double)` traps on
+    /// anything outside Int's range, and MediaRemote's live sentinel
+    /// (LLONG_MAX microseconds) scaled back up lands exactly on 2^63. The
+    /// sentinel is dropped upstream in `AdapterPayloadTranslation`; nil here is
+    /// what keeps a bad number a failed command instead of a crashed app, no
+    /// matter who hands it in.
+    /// NaN is rejected rather than floored: `max(0, .nan)` is 0, which would
+    /// turn an unusable number into a silent seek to the start of the track.
+    static func microseconds(forSeek seconds: Double) -> Int? {
+        guard seconds.isFinite else { return nil }
+        return Int(exactly: (max(0, seconds) * 1_000_000).rounded())
     }
 
     private func run(_ command: [String]) async throws {
