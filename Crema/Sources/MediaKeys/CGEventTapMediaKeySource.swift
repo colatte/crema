@@ -42,8 +42,12 @@ final class CGEventTapMediaKeySource: MediaKeySource, MediaKeyConsuming, @unchec
         pollInterval: Double = 2,
         tapOps: any EventTapOperating = LiveEventTapOperating()
     ) {
-        // Nothing consumes this stream until the HUD wiring lands;
-        // newest-bounded buffering keeps unconsumed key presses from piling up.
+        // Bounded and newest-first because the consumer (MediaKeyHUDRouter) samples
+        // a brightness source per key, and a held key delivers autorepeats faster
+        // than that sampling returns: an unbounded buffer would queue stale presses
+        // behind it and replay a burst the user already finished. Dropping the
+        // oldest is right for this stream — the newest press is the one that
+        // describes where the level actually is.
         var continuation: AsyncStream<MediaKey>.Continuation!
         updates = AsyncStream(bufferingPolicy: .bufferingNewest(8)) { continuation = $0 }
         self.continuation = continuation

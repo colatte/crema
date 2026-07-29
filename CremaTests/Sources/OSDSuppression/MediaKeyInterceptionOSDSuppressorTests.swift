@@ -303,4 +303,31 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         #expect(h.volume.applied.isEmpty)
         #expect(h.suppressor.isEngaged)
     }
+
+    @Test func aSuspensionMidHoldReleasesTheKeyInsteadOfMutingTheRestOfIt() async {
+        // The AirPods-drop-while-holding-volume-down case. The swallow latch is
+        // what keeps a held key on the phase it committed to, so before this it
+        // outlived the suspension: every autorepeat down stayed swallowed, every
+        // apply was dropped by the suspension guard, and the user got neither our
+        // bar nor the native OSD until they let go.
+        //
+        // The suite could not see it: `press()` sends a matched down+up, and the
+        // loose `pressDown` calls elsewhere are always one isolated down per key —
+        // two consecutive downs on one key never happened, which is precisely what
+        // a hold is.
+        let h = OSDSuppressorHarness()
+        h.volume.writeIsDead = true   // the write is accepted and nothing moves
+        h.suppressor.setEngaged(true)
+
+        #expect(h.keys.pressDown(.volumeDown) == true)   // first down: swallowed
+        #expect(await eventually { h.suppressor.suspendedDomains.contains(.volume) })
+
+        // Still held. The autorepeats must reach the system now.
+        #expect(h.keys.pressDown(.volumeDown) == false)
+        #expect(h.keys.pressDown(.volumeDown) == false)
+
+        // And the up goes with them: the system saw those downs, so withholding
+        // the up would leave it repeating a key nobody released.
+        #expect(h.keys.pressUp(.volumeDown) == false)
+    }
 }

@@ -41,8 +41,27 @@ final class SuppressionDecider: @unchecked Sendable {
         lock.withLock { suspended }
     }
 
+    /// Suspending also releases any held key in that domain, and the asymmetry
+    /// behind that is the whole point.
+    ///
+    /// Without it, a key HELD across the suspension keeps being swallowed for the
+    /// rest of the hold — every autorepeat down consumed, every apply dropped by
+    /// the suspension guard — so the user gets no bar of ours and no native OSD
+    /// either. Holding volume-down while AirPods drop is exactly that: press,
+    /// nothing, until they let go.
+    ///
+    /// Releasing the latch means the pending up passes through as well, so a quick
+    /// tap that suspends between its down and its up leaves the system an up with
+    /// no down. That is the direction to err in. The alternative — keeping the up
+    /// swallowed while letting the repeats through — leaves the system DOWNS with
+    /// no up, and a media-key down with no up is what starts an autorepeat nobody
+    /// stops: the volume would keep travelling on its own. An orphan up only ever
+    /// ends a repeat that was never running.
     func suspend(_ domain: OSDSuppressionDomain) {
-        lock.withLock { _ = suspended.insert(domain) }
+        lock.withLock {
+            suspended.insert(domain)
+            swallowedDowns = swallowedDowns.filter { OSDSuppressionDomain($0) != domain }
+        }
     }
 
     func resume(_ domain: OSDSuppressionDomain) {
@@ -56,10 +75,12 @@ final class SuppressionDecider: @unchecked Sendable {
         }
     }
 
-    /// Swallow decision for one event. A held key keeps the phase it committed
-    /// to at its first down: once swallowed, every autorepeat stays swallowed
-    /// and the matching up is swallowed too. A fresh key-down on a suspended
-    /// domain passes through (and the caller kicks a probe).
+    /// Swallow decision for one event. A held key keeps the phase it committed to
+    /// at its first down: once swallowed, every autorepeat stays swallowed and the
+    /// matching up is swallowed too, so the system never sees half a press. A fresh
+    /// key-down on a suspended domain passes through (and the caller kicks a
+    /// probe) — as does a HELD one, because `suspend` drops the latch for its
+    /// domain, which is what keeps a suspension from muting the rest of a hold.
     func decide(key: MediaKey, isDown: Bool) -> Bool {
         let domain = OSDSuppressionDomain(key)
         return lock.withLock {
