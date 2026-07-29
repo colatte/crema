@@ -31,15 +31,26 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     /// versions old enough to send only the legacy name predate 4.2.1.
     static let notificationName = "pro.betterdisplay.BetterDisplay.osd"
 
-    private static let bundleID = "pro.betterdisplay.BetterDisplay"
+    static let bundleID = "pro.betterdisplay.BetterDisplay"
+
+    /// Whether BetterDisplay has actually published to us. Presence of the app
+    /// proves nothing — its OSD notification integration is a setting the user
+    /// switches on, and it can be off with the app running — so only a delivered
+    /// payload is evidence the channel is live. Reset when the app goes away, so
+    /// the claim never outlives what it was based on.
+    private(set) var hasReported = false
 
     private let continuation: AsyncStream<SystemHUD>.Continuation
     private let isBuiltInDisplay: (Int) -> Bool
+    /// Called after each reported level, so the polled brightness source can spend
+    /// the window a merely-observed key opened (see `ManuallySampledSource`).
+    private let onReport: @MainActor () -> Void
     /// Written only in `init` and read only in `deinit`, after every other access
     /// has ended — the lifecycle brackets rule out the concurrent access the
     /// attribute waives; a nonisolated deinit cannot see that bracket, and
     /// removeObserver is itself thread-safe.
     private nonisolated(unsafe) var observers: [NSObjectProtocol] = []
+    private nonisolated(unsafe) var workspaceObservers: [NSObjectProtocol] = []
 
     private let logger = Logger.crema("External")
 
@@ -48,8 +59,9 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     /// add non-deterministic noise (a stray brightness change during a run), so it
     /// is installed for the production resolver only. Same idiom as the screen-lock
     /// source's injected session reader.
-    init(isBuiltInDisplay: ((Int) -> Bool)? = nil) {
+    init(isBuiltInDisplay: ((Int) -> Bool)? = nil, onReport: @escaping @MainActor () -> Void = {}) {
         self.isBuiltInDisplay = isBuiltInDisplay ?? { CGDisplayIsBuiltin(CGDirectDisplayID($0)) != 0 }
+        self.onReport = onReport
 
         var cont: AsyncStream<SystemHUD>.Continuation!
         // Newest-bounded: a held brightness key emits once per step, and a
@@ -63,6 +75,9 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     deinit {
         for observer in observers {
             DistributedNotificationCenter.default().removeObserver(observer)
+        }
+        for observer in workspaceObservers {
+            NSWorkspace.shared.notificationCenter.removeObserver(observer)
         }
         continuation.finish()
     }
@@ -79,8 +94,19 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     func handle(json: String) {
         guard let hud = BetterDisplayOSDTranslation.systemHUD(fromJSON: json, isBuiltInDisplay: isBuiltInDisplay)
         else { return }
+        if !hasReported {
+            hasReported = true
+            logger.info("BetterDisplay OSD integration is live — drawing screen brightness from it")
+        }
         logger.debug("BetterDisplay OSD: brightness \(hud.value, format: .fixed(precision: 2), privacy: .public)")
         continuation.yield(hud)
+        onReport()
+    }
+
+    /// BetterDisplay went away: whatever it told us stops being true, and the app
+    /// must not keep claiming an integration that has no one on the other end.
+    func noteBetterDisplayTerminated() {
+        hasReported = false
     }
 
     private func installObserver() {
@@ -97,5 +123,19 @@ final class BetterDisplayOSDSource: SystemHUDSource {
             MainActor.assumeIsolated { self?.handle(json: json) }
         }
         observers.append(observer)
+
+        // The workspace edge, not BetterDisplay's own `.terminated` notification:
+        // that one is documented as not sent on an unexpected quit, and a crash is
+        // exactly when a stale "integration is live" claim would linger.
+        let workspaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didTerminateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            guard app?.bundleIdentifier == Self.bundleID else { return }
+            MainActor.assumeIsolated { self?.noteBetterDisplayTerminated() }
+        }
+        workspaceObservers.append(workspaceObserver)
     }
 }

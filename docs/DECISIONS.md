@@ -396,12 +396,34 @@ word for the built-in screen and the brightness actuator refuses every other
 target, so an external-display HUD would arrive with a slider that throws on the
 first drag — Crema draws a bar only where it can also move it, and the rest waits
 for the outbound half (ROADMAP.md). No preference gates any of this: with
-BetterDisplay absent nothing ever arrives, so there is no state to turn off. And
-no double HUD is possible by construction — whichever tap is served first
-consumes the key and the other app is never told it happened, verified on
-hardware with timestamps: Crema observed five brightness keys while BetterDisplay
-stayed silent, and once Crema quit, the next five presses produced five
-notifications and no observation.
+BetterDisplay absent nothing ever arrives, so there is no state to turn off.
+
+Two payload rules follow from one fact: once the neighbour's own OSD is off, the
+bar Crema draws is the user's ONLY feedback. So a payload naming no `maxValue` is
+dropped rather than given a guessed scale (a confidently wrong bar is worse than
+none), and a payload flagged `lock` is dropped too — a bar that refuses to move
+reads as a broken HUD rather than as a locked control.
+
+**When can both draw for one press?** Only one path, and it is closed
+deliberately. With suppression ON, Crema consumes the key and BetterDisplay is
+never told it happened — verified on hardware with timestamps: Crema observed
+five brightness keys while BetterDisplay stayed silent, then Crema quit and the
+next five presses produced five notifications and no observation. With
+suppression OFF, though, Crema's tap merely OBSERVES: the key travels on to the
+neighbour, which applies and reports, while the observation has already armed
+Crema's own key-origin window — so the polled source would draw a second,
+hardware-only reading a beat later and win, which is the wrong number exactly
+where combined brightness and hardware brightness diverge. Hence `standDown()`:
+a reported level spends that window (`ManuallySampledSource`, default no-op for
+sources with no origin gate). One press, one bar, whoever applied it.
+
+The menu says which of the two is happening, because the user cannot see the tap
+chain: a **confirmation** once BetterDisplay has actually reported, and an
+**actionable** line — turn on its OSD notification integration — while it holds
+the keys and has never reported. Presence of the app is never treated as evidence
+that the integration is on; only a delivered payload is, and that claim is
+dropped when the app terminates. The neighbour is matched by bundle ID, never by
+the localized name shown to the user.
 
 ### sample-dont-integrate
 A UI ticker that adds a fixed step per tick is a clock that runs slow. Timers are

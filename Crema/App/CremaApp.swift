@@ -30,17 +30,34 @@ struct CremaApp: App {
                 }
                 Divider()
             }
-            // Another app's filter tap sits in front of ours and asked for the
-            // same events, so it can take a key before Crema ever sees it. Stated
-            // as the fact it is — a position in the chain, not a malfunction —
-            // because from inside the app the symptom is indistinguishable from a
-            // broken tap, and no user can diagnose it unaided.
-            if let app = core.appReceivingMediaKeysFirst() {
+            // Who is receiving the media keys. Evaluated as the menu is built,
+            // like the login-item verdict below: the answer lives outside this
+            // process and changes whenever any app installs a tap.
+            switch core.mediaKeyChainNotice() {
+            case .drawingFromBetterDisplay:
+                Text(String(
+                    localized: "menu.betterDisplay.drawing",
+                    defaultValue: "✓ Screen brightness HUD comes from BetterDisplay"
+                ))
+                Divider()
+            case .betterDisplayAheadAndSilent:
+                Text(String(
+                    localized: "menu.betterDisplay.silent",
+                    defaultValue: "⚠️ BetterDisplay takes the brightness keys — turn on its OSD notification integration and Crema can draw the HUD"
+                ))
+                Divider()
+            case .anotherAppAhead(let app):
+                // Stated as the fact it is — a position in the chain, not a
+                // malfunction — because from inside the app the symptom is
+                // indistinguishable from a broken tap, and no user can diagnose
+                // it unaided.
                 Text(String(
                     localized: "menu.mediaKeysPrecededBy",
                     defaultValue: "⚠️ \(app) receives the media keys before Crema — some HUDs may not appear"
                 ))
                 Divider()
+            case .quiet:
+                EmptyView()
             }
             if !core.nowPlayingMonitor.isActive {
                 Text(String(

@@ -42,6 +42,15 @@ struct KeyOriginBrightnessGate {
         self.lastValue = baseline
     }
 
+    /// Spends the window a key opened, without recording a value: someone else
+    /// reported this change and is drawing it, so a later poll must stay silent
+    /// instead of adding a second, differently-measured reading. The value is
+    /// deliberately not taken — the other authority's scale is its own — and the
+    /// next poll re-baselines on its own.
+    mutating func standDown() {
+        keyActivityUntil = nil
+    }
+
     /// Records a reading and returns whether it warrants a HUD. `keyDriven` is
     /// true for the external `sample()` (the media-key router or the
     /// suppressor's post-apply poke), false for the passive poll.

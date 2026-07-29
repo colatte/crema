@@ -115,26 +115,68 @@ struct MediaKeyChainReconcilerTests {
 @MainActor
 struct MediaKeyChainSeamTests {
 
+    private func notice(
+        _ registry: MockEventTapRegistry,
+        betterDisplayIsFeedingUs: Bool = false
+    ) -> MediaKeyChainNotice {
+        AppCore.mediaKeyChainNotice(
+            registry: registry,
+            ourPID: 100,
+            betterDisplayIsFeedingUs: betterDisplayIsFeedingUs
+        )
+    }
+
     @Test func theAppAheadOfUsIsNamed() {
         let registry = MockEventTapRegistry(
             taps: [.contender(pid: 200), .contender(pid: 100)],
-            names: [200: "BetterDisplay"]
+            names: [200: "Some Other App"],
+            bundleIDs: [200: "com.example.other"]
         )
-        #expect(AppCore.appReceivingMediaKeysFirst(registry: registry, ourPID: 100) == "BetterDisplay")
+        #expect(notice(registry) == .anotherAppAhead("Some Other App"))
     }
 
     @Test func anUnnamedContenderIsNotAccused() {
         // A daemon with no localized name would surface as a blank or a bare pid;
         // silence beats an accusation the user cannot act on.
         let registry = MockEventTapRegistry(taps: [.contender(pid: 200), .contender(pid: 100)])
-        #expect(AppCore.appReceivingMediaKeysFirst(registry: registry, ourPID: 100) == nil)
+        #expect(notice(registry) == .quiet)
     }
 
     @Test func beingFirstSaysNothing() {
         let registry = MockEventTapRegistry(
             taps: [.contender(pid: 100), .contender(pid: 200)],
-            names: [200: "BetterDisplay"]
+            names: [200: "Some Other App"],
+            bundleIDs: [200: "com.example.other"]
         )
-        #expect(AppCore.appReceivingMediaKeysFirst(registry: registry, ourPID: 100) == nil)
+        #expect(notice(registry) == .quiet)
+    }
+
+    @Test func theNeighbourWeCanCooperateWithGetsTheActionableLine() {
+        // Identified by bundle ID: the display name is localized and renamable,
+        // and this line promises a specific setting exists to turn on.
+        let registry = MockEventTapRegistry(
+            taps: [.contender(pid: 200), .contender(pid: 100)],
+            names: [200: "BetterDisplay"],
+            bundleIDs: [200: BetterDisplayOSDSource.bundleID]
+        )
+        #expect(notice(registry) == .betterDisplayAheadAndSilent)
+    }
+
+    @Test func onceItReportsTheContentionIsTheArrangementNotAFault() {
+        // Same chain as above — the neighbour still holds the keys — but now it
+        // is feeding us, which is exactly what the previous line asked for.
+        let registry = MockEventTapRegistry(
+            taps: [.contender(pid: 200), .contender(pid: 100)],
+            names: [200: "BetterDisplay"],
+            bundleIDs: [200: BetterDisplayOSDSource.bundleID]
+        )
+        #expect(notice(registry, betterDisplayIsFeedingUs: true) == .drawingFromBetterDisplay)
+    }
+
+    @Test func aDeliveredPayloadOutranksTheChainReading() {
+        // Even with nobody ahead of us: if the neighbour is reporting, that is
+        // where the brightness bar comes from, and the menu says so.
+        let registry = MockEventTapRegistry(taps: [.contender(pid: 100)])
+        #expect(notice(registry, betterDisplayIsFeedingUs: true) == .drawingFromBetterDisplay)
     }
 }

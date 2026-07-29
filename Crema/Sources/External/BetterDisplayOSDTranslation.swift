@@ -17,6 +17,10 @@ enum BetterDisplayOSDTranslation {
         var controlTarget: String?
         var value: Double?
         var maxValue: Double?
+        /// BetterDisplay marks a control the user cannot move right now. Drawing
+        /// it as an ordinary bar would show a level that refuses to budge, so
+        /// these are dropped rather than represented.
+        var lock: Bool?
     }
 
     /// Which `controlTarget` values mean "the screen brightness Crema draws".
@@ -50,6 +54,7 @@ enum BetterDisplayOSDTranslation {
         guard let data = json.data(using: .utf8),
               let payload = try? JSONDecoder().decode(Payload.self, from: data),
               let value = payload.value,
+              payload.lock != true,
               isBrightness(payload),
               // A payload with no display named is the built-in one — the same
               // default the domain uses when the field is absent.
@@ -57,11 +62,12 @@ enum BetterDisplayOSDTranslation {
         else { return nil }
 
         // The scale is BetterDisplay's own (observed: 0...64 on a built-in
-        // display), so the ratio is the only portable reading. A missing or
-        // nonsensical maximum would make the ratio meaningless — clamping is
-        // what keeps a bad payload from drawing a bar past its ends.
-        let maxValue = payload.maxValue ?? 1
-        guard maxValue > 0 else { return nil }
+        // display), so the ratio is the only portable reading — and a payload
+        // that names no maximum is DROPPED rather than assigned a guessed one.
+        // Inventing a scale would draw a confidently wrong bar, and with the
+        // neighbour's own OSD turned off that bar is the user's only feedback:
+        // no HUD beats a lying HUD. Clamping covers the rest.
+        guard let maxValue = payload.maxValue, maxValue > 0 else { return nil }
         let normalized = min(max(value / maxValue, 0), 1)
 
         return SystemHUD(kind: .screenBrightness, value: normalized)

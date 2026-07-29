@@ -71,6 +71,20 @@ struct BetterDisplayOSDTranslationTests {
         #expect(translate(#"{"controlTarget":"combinedBrightness","maxValue":0,"value":40}"#) == nil)
     }
 
+    @Test func aPayloadWithNoScaleIsDroppedRatherThanGivenOne() {
+        // Guessing a maximum would draw a confidently wrong bar, and with the
+        // neighbour's own OSD switched off that bar is the only feedback there is.
+        #expect(translate(#"{"controlTarget":"combinedBrightness","value":40}"#) == nil)
+        #expect(translate(#"{"controlTarget":"combinedBrightness","maxValue":-64,"value":40}"#) == nil)
+    }
+
+    @Test func aLockedControlIsNotDrawnAsAnOrdinaryBar() {
+        // BetterDisplay marks controls the user cannot move; a bar that refuses
+        // to budge reads as a broken HUD.
+        #expect(translate(#"{"controlTarget":"combinedBrightness","maxValue":64,"value":40,"lock":true}"#) == nil)
+        #expect(translate(#"{"controlTarget":"combinedBrightness","maxValue":64,"value":40,"lock":false}"#) != nil)
+    }
+
     @Test func aValueOutsideItsScaleIsClampedNotDrawnPastTheEnds() {
         #expect(translate(#"{"controlTarget":"combinedBrightness","maxValue":64,"value":80}"#)?.value == 1)
         #expect(translate(#"{"controlTarget":"combinedBrightness","maxValue":64,"value":-5}"#)?.value == 0)

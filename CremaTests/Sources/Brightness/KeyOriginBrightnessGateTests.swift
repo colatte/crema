@@ -35,6 +35,26 @@ struct KeyOriginBrightnessGateTests {
         #expect(atPoll)
     }
 
+    @Test func standingDownSpendsTheWindowSoTheOtherAuthoritysReadingStands() {
+        // The same suppression-off timing as above, but the key travelled on to a
+        // neighbour that applies AND reports the change itself. This source must
+        // not add its own reading on top: the two measure different things, and
+        // the later one would win the HUD.
+        var g = gate()
+        let atKey = g.register(0.5, keyDriven: true)
+        g.standDown()
+        let atPoll = g.register(0.8, keyDriven: false)
+        #expect(!atKey)
+        #expect(!atPoll)
+    }
+
+    @Test func standingDownDoesNotDeafenTheNextKey() {
+        var g = gate()
+        g.standDown()
+        let emitted = g.register(0.8, keyDriven: true)
+        #expect(emitted)
+    }
+
     @Test func aPollChangeAfterTheWindowExpiresIsSilent() {
         let now = ManualNow()
         var g = gate(now: now)

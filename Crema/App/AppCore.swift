@@ -33,6 +33,9 @@ final class AppCore {
         /// current value to step from); nil on demo sources.
         let screenBrightnessBackend: (any BrightnessBackend)?
         let keyboardBrightnessBackend: (any BrightnessBackend)?
+        /// Kept beyond the merge so the menu can say whether the neighbour is
+        /// actually reporting; nil on demo sources.
+        let betterDisplaySource: BetterDisplayOSDSource?
     }
 
     let coordinator: Coordinator
@@ -73,8 +76,11 @@ final class AppCore {
     #endif
 
     private let accessibilityPermission = AXAccessibilityPermission()
-    /// Read only when the menu is opened — see `appReceivingMediaKeysFirst()`.
+    /// Read only when the menu is opened — see `mediaKeyChainNotice()`.
     private let eventTapRegistry: any EventTapRegistry = LiveEventTapRegistry()
+    /// Kept past the merge so the menu can report whether the neighbour's OSD
+    /// integration is actually feeding us; nil on demo sources.
+    private let betterDisplaySource: BetterDisplayOSDSource?
     /// The now-playing chain (real graph only); stopped on quit so its Perl
     /// process dies with the app.
     private let nowPlayingChain: ChainedNowPlayingSource?
@@ -157,6 +163,7 @@ final class AppCore {
         if let chain {
             Self.wireActiveSourceEnded(from: chain, to: coordinator)
         }
+        betterDisplaySource = graph.betterDisplaySource
 
         // The tap feeds only the brightness sources (see MediaKeyHUDRouter);
         // absent on demo sources, where there is nothing to poke.
@@ -543,9 +550,11 @@ final class AppCore {
 
         // Wired unconditionally: with BetterDisplay absent the source never emits,
         // and with it present it is the ONLY brightness HUD Crema can draw for the
-        // keys BetterDisplay takes first — the two never fire for the same press
-        // (docs/DECISIONS.md: media-key-chain-contention).
-        let betterDisplaySource = BetterDisplayOSDSource()
+        // keys BetterDisplay takes first (docs/DECISIONS.md:
+        // media-key-chain-contention). `standDown` covers the one press where both
+        // could speak — suppression off, so Crema's tap observes the key and arms
+        // its poll while the neighbour is the one that applies and reports.
+        let betterDisplaySource = BetterDisplayOSDSource(onReport: { screenSource.standDown() })
 
         return SystemGraph(
             nowPlayingSource: nowPlayingSource,
@@ -560,7 +569,8 @@ final class AppCore {
             keyboardBrightnessSampler: keyboardSource,
             volumeSampler: volumeSource,
             screenBrightnessBackend: screenBridge,
-            keyboardBrightnessBackend: keyboardBridge
+            keyboardBrightnessBackend: keyboardBridge,
+            betterDisplaySource: betterDisplaySource
         )
     }
 
@@ -616,7 +626,8 @@ final class AppCore {
             keyboardBrightnessSampler: nil,
             volumeSampler: nil,
             screenBrightnessBackend: nil,
-            keyboardBrightnessBackend: nil
+            keyboardBrightnessBackend: nil,
+            betterDisplaySource: nil
         )
     }
 
@@ -735,24 +746,40 @@ extension AppCore {
     /// silently stealing keys from every other app that wants them — so the app
     /// names who won and leaves the choice to the user, which is the only place
     /// it can be made (docs/DECISIONS.md: media-key-chain-contention).
-    func appReceivingMediaKeysFirst() -> String? {
-        Self.appReceivingMediaKeysFirst(
+    func mediaKeyChainNotice() -> MediaKeyChainNotice {
+        Self.mediaKeyChainNotice(
             registry: eventTapRegistry,
-            ourPID: ProcessInfo.processInfo.processIdentifier
+            ourPID: ProcessInfo.processInfo.processIdentifier,
+            betterDisplayIsFeedingUs: betterDisplaySource?.hasReported ?? false
         )
     }
 
     /// The composition, standalone and static so a test pins it without booting
-    /// the graph (same reason as the login-item seam). A contender the system
-    /// has no display name for stays unnamed: a bare pid at the user would be
-    /// noise, and an unnamed warning is worse than none.
-    static func appReceivingMediaKeysFirst(registry: any EventTapRegistry, ourPID: pid_t) -> String? {
+    /// the graph (same reason as the login-item seam).
+    ///
+    /// A delivered payload outranks the chain reading: once BetterDisplay is
+    /// actually reporting, it holding the keys is the arrangement the user was
+    /// told to make, not a fault. A contender the system has no display name for
+    /// stays unnamed — a bare pid would be noise, and an unnamed warning is worse
+    /// than none.
+    static func mediaKeyChainNotice(
+        registry: any EventTapRegistry,
+        ourPID: pid_t,
+        betterDisplayIsFeedingUs: Bool
+    ) -> MediaKeyChainNotice {
+        if betterDisplayIsFeedingUs { return .drawingFromBetterDisplay }
         let chain = MediaKeyChainReconciler.chain(
             ourPID: ourPID,
             mask: MediaKeyTranslation.systemDefinedMask,
             in: registry.entries()
         )
-        guard case .precededBy(let pid) = chain else { return nil }
-        return registry.appName(forPID: pid)
+        guard case .precededBy(let pid) = chain else { return .quiet }
+        // Named by bundle ID, never by the display name shown to the user: only
+        // the neighbour we know how to cooperate with gets the actionable line.
+        if registry.bundleID(forPID: pid) == BetterDisplayOSDSource.bundleID {
+            return .betterDisplayAheadAndSilent
+        }
+        guard let name = registry.appName(forPID: pid) else { return .quiet }
+        return .anotherAppAhead(name)
     }
 }

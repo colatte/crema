@@ -341,6 +341,40 @@
         }
       }
     },
+    "menu.betterDisplay.drawing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "✓ Screen brightness HUD comes from BetterDisplay"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "✓ O HUD de brilho da tela vem do BetterDisplay"
+          }
+        }
+      }
+    },
+    "menu.betterDisplay.silent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⚠️ BetterDisplay takes the brightness keys — turn on its OSD notification integration and Crema can draw the HUD"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⚠️ O BetterDisplay fica com as teclas de brilho — ligue a integração de notificação de OSD dele e o Crema desenha o HUD"
+          }
+        }
+      }
+    },
     "menu.checkForUpdates": {
       "extractionState": "manual",
       "localizations": {

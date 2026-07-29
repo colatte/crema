@@ -76,6 +76,15 @@ final class PolledBrightnessSource: SystemHUDSource, ManuallySampledSource, @unc
         emitIfChanged(keyDriven: true)
     }
 
+    /// Another source reported this channel's level (BetterDisplay's OSD
+    /// notification): the key's window is spent so the armed poll does not draw a
+    /// second, hardware-only reading over it.
+    func standDown() {
+        lock.lock()
+        gate.standDown()
+        lock.unlock()
+    }
+
     private func emitIfChanged(keyDriven: Bool) {
         guard let raw = backend.read() else { return }
         let value = BrightnessConversion.normalize(raw)

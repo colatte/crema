@@ -6,9 +6,11 @@ import Foundation
 struct MockEventTapRegistry: EventTapRegistry {
     var taps: [EventTapEntry] = []
     var names: [pid_t: String] = [:]
+    var bundleIDs: [pid_t: String] = [:]
 
     func entries() -> [EventTapEntry] { taps }
     func appName(forPID pid: pid_t) -> String? { names[pid] }
+    func bundleID(forPID pid: pid_t) -> String? { bundleIDs[pid] }
 }
 
 extension EventTapEntry {

@@ -53,6 +53,35 @@ struct BetterDisplayOSDSourceTests {
         #expect(collector.values.map(\.value) == [1])
     }
 
+    @Test func aReportedLevelTellsTheKeyDrivenSourceToStandDown() {
+        // Suppression off: Crema's tap observed the key and armed the polled
+        // source, but the neighbour is the one applying and reporting. Without
+        // this hand-off both draw for one press.
+        var standDowns = 0
+        let source = BetterDisplayOSDSource(isBuiltInDisplay: { $0 == 1 }, onReport: { standDowns += 1 })
+
+        source.handle(json: #"{"controlTarget":"combinedBrightness","maxValue":64,"value":32}"#)
+        source.handle(json: #"{"controlTarget":"contrast","maxValue":64,"value":32}"#)   // not ours
+
+        #expect(standDowns == 1)
+    }
+
+    @Test func onlyADeliveredPayloadCountsAsAWorkingIntegration() {
+        // Presence of the app proves nothing: its OSD notification setting can be
+        // off with BetterDisplay running, so the menu must not claim otherwise.
+        let source = makeSource()
+        #expect(!source.hasReported)
+
+        source.handle(json: #"{"controlTarget":"contrast","maxValue":64,"value":32}"#)
+        #expect(!source.hasReported)                     // arrived, but not ours to draw
+
+        source.handle(json: #"{"controlTarget":"combinedBrightness","maxValue":64,"value":32}"#)
+        #expect(source.hasReported)
+
+        source.noteBetterDisplayTerminated()
+        #expect(!source.hasReported)                     // the claim never outlives its source
+    }
+
     @Test func theNameSubscribedToIsTheCurrentOneOnly() {
         // BetterDisplay 4.2.2+ publishes every OSD event under both the current
         // and the legacy prefix; observing both would double each one.

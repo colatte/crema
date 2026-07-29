@@ -36,6 +36,10 @@ protocol EventTapRegistry: Sendable {
 
     /// Display name of the app owning `pid`, when it has one.
     func appName(forPID pid: pid_t) -> String?
+
+    /// Bundle identifier of the app owning `pid`. Identity checks use this and
+    /// never the display name, which is localized and user-renamable.
+    func bundleID(forPID pid: pid_t) -> String?
 }
 
 /// The real CoreGraphics-backed registry.
@@ -64,5 +68,9 @@ struct LiveEventTapRegistry: EventTapRegistry {
     /// than naming a bare pid at the user.
     func appName(forPID pid: pid_t) -> String? {
         NSRunningApplication(processIdentifier: pid)?.localizedName
+    }
+
+    func bundleID(forPID pid: pid_t) -> String? {
+        NSRunningApplication(processIdentifier: pid)?.bundleIdentifier
     }
 }
