@@ -38,6 +38,7 @@ crema/                       # raiz do repositório
 │   ├── assets/                      # imagens do README: screenshots da vitrine + icon.png (export web do appiconset)
 │   └── internal/            # gitignored (local-only): SPEC.md, PLAN.md, RELEASE-GUIDE.md, auditorias e investigações
 ├── design/
+│   ├── badge/               # makedownloadbadge.swift — gera o botão "Download for macOS" do README (docs/assets/download-macos.png); chão calibrado contra os dois temas do GitHub
 │   └── icon/                # arte-fonte do ícone: master 4096 (sem máscara), makeicon.swift (aplica o squircle do template macOS e gera o appiconset), makemenubaricon.swift (deriva o TEMPLATE da barra de menus — pill + linha de crema), icns completo
 ├── scripts/
 │   └── release.sh           # build + carimbo do build number + assinatura (ad-hoc / self-signed / Developer ID + notarização, incl. o código aninhado do Sparkle) + DMG + regeneração do docs/appcast.xml
