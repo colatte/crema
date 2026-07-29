@@ -69,7 +69,19 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unch
     /// covered the change, so `boundaryRefreshHUD` returns nil and we stay quiet
     /// (no double-fire). Never called in observe mode — there the native OSD
     /// covers the boundary and the app owns nothing to feed back.
+    /// Runs on `queue`, never on the caller's thread. The caller is the
+    /// suppressor's post-apply hook on the MainActor, and these three round trips
+    /// are the same blocking Core Audio IPC the suppressor deadline-races for
+    /// exactly this reason — doing them inline froze the whole app (HUD, now
+    /// playing, menu) on a coreaudiod stall, on the HEALTHY path, once per volume
+    /// key, and froze it precisely while the key had been swallowed. Sharing the
+    /// listener queue also orders this against `emitCurrentState`, so a sample and
+    /// a property callback can no longer interleave their reads.
     func sample() {
+        queue.async { [weak self] in self?.sampleOnQueue() }
+    }
+
+    private func sampleOnQueue() {
         guard let device = CoreAudioSystemOutput.defaultOutputDeviceID() else { return }
         // A failed volume read stays silent rather than publish a fabricated
         // 0% (the OSD channel treats the same nil as a real failure); the mute
