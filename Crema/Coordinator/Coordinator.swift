@@ -187,6 +187,11 @@ final class Coordinator {
     /// the timer that expires it honestly lives here, on the injected clock.
     @ObservationIgnored private var scrubGrace: ScrubGrace
     @ObservationIgnored private var scrubGraceTask: Task<Void, Never>?
+    /// Monotonic scrub counter: a seek's failure callback rolls back only if
+    /// no newer scrub has taken over the grace and the source anchor since —
+    /// a stale failure acting unconditionally would tear down state a newer
+    /// actor owns (the superseded-actor class the tap/probe rounds closed).
+    @ObservationIgnored private var seekEpoch = 0
 
     @ObservationIgnored private let logger = Logger.crema("Coordinator")
 
@@ -349,10 +354,6 @@ final class Coordinator {
         commitHover(expanded)
     }
 
-    /// The single hover commitment path (immediate and debounced). Hover-in
-    /// holds the appearance and expands the visible compact; hover-out
-    /// collapses and resumes the tuck timer. A hidden state stays hidden —
-    /// hover never invokes (that is the click's job).
     /// Single writer of the published pointer mirror, shared by both hover
     /// paths (idempotent when the debounced path already published). The
     /// pointer also holds a visible HUD — the knob's premise made real: its
@@ -370,6 +371,10 @@ final class Coordinator {
         }
     }
 
+    /// The single hover commitment path (immediate and debounced). Hover-in
+    /// holds the appearance and expands the visible compact; hover-out
+    /// collapses and resumes the tuck timer. A hidden state stays hidden —
+    /// hover never invokes (that is the click's job).
     private func commitHover(_ hovering: Bool) {
         publishPointer(hovering)
         isHovering = hovering
@@ -428,11 +433,15 @@ final class Coordinator {
         // — so the user's value takes authority NOW: optimistic position
         // (position-only, S7 — `state` untouched), the source re-anchors its
         // ticker, and a grace window holds stale echoes off until the stream
-        // flows at the target or the window expires. Clamped ONCE here so the
-        // grace target, the source anchor and the command all carry the same
-        // number (the floor survives a nil duration on purpose).
+        // flows at the target or the window expires. Clamped here so the grace
+        // target and the command carry the same number (the floor survives a
+        // nil duration on purpose); the source re-clamps its anchor
+        // defensively against its own snapshot — the same number today, and
+        // its ticker's authority if the two ever diverge.
         let floored = max(0, seconds)
         let target = nowPlaying?.duration.map { min(floored, $0) } ?? floored
+        seekEpoch += 1
+        let epoch = seekEpoch
         if nowPlaying != nil {
             nowPlaying?.position = target
             scrubGrace.begin(target: target)
@@ -444,12 +453,15 @@ final class Coordinator {
         // was: the optimism has to roll back — end the grace and let the
         // source undo its fabricated anchor, or the ticker would keep
         // counting from a position the player never reached until the next
-        // real payload (which, on the adapter, only comes on a change).
+        // real payload (which, on the adapter, only comes on a change). The
+        // epoch guard keeps a stale failure from touching a newer scrub's
+        // grace and anchor.
         runMediaCommand(
             "seek",
             onFailure: { [weak self] in
-                self?.endScrubGrace()
-                self?.nowPlayingSource.noteSeekFailed()
+                guard let self, self.seekEpoch == epoch else { return }
+                self.endScrubGrace()
+                self.nowPlayingSource.noteSeekFailed()
             },
             { [nowPlayingController] in
                 try await nowPlayingController.seek(to: target)

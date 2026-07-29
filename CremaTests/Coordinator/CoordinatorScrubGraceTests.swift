@@ -109,6 +109,27 @@ struct CoordinatorScrubGraceTests {
         #expect(await eventually { h.coordinator.nowPlaying?.position == 15 })
     }
 
+    @Test func aStaleSeekFailureDoesNotTearDownANewerScrub() async {
+        let h = CoordinatorHarness()
+        h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(position: 10))
+        _ = await eventually { h.coordinator.nowPlaying != nil }
+
+        // Two releases inside the command latency: the first seek fails after
+        // the second scrub armed its own grace and anchor. Only the epoch that
+        // failed may roll back — and it is stale, so nothing is torn down.
+        h.media.failingSeekSeconds = 120
+        h.coordinator.scrub(to: 120)
+        h.coordinator.scrub(to: 130)
+        #expect(await eventually { h.media.commands == [.seek(seconds: 120), .seek(seconds: 130)] })
+
+        // The newer scrub's grace still holds: a stale echo carrying a real
+        // state change lands the change but not the position.
+        h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(position: 12, isPlaying: false))
+        #expect(await eventually { h.coordinator.nowPlaying?.isPlaying == false })
+        #expect(h.coordinator.nowPlaying?.position == 130)
+        #expect(h.nowPlayingSource.seekFailures == 0)
+    }
+
     @Test func scrubClampsTheTargetToTheTrack() async {
         let h = CoordinatorHarness()
         h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(position: 10))   // duration 169

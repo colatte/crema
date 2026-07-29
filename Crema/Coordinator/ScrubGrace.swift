@@ -4,7 +4,8 @@
 /// poll), a stale stream position must not clobber what the user just set —
 /// the J4 stale-echo class, the scrubber's cousin of the brightness drag.
 /// Pure decision + target storage; the Coordinator owns the timeout timer
-/// that calls `end()` (the honest fallback — the override is never stuck).
+/// that calls `end()` (the honest fallback — the override is never stuck;
+/// docs/DECISIONS.md: scrub-grace).
 struct ScrubGrace: Sendable {
     /// Sized to outlive the JXA poll (2 s) and the one-shot command
     /// latencies; on expiry the stream takes back over unconditionally. On
