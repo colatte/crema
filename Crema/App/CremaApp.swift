@@ -66,7 +66,7 @@ struct CremaApp: App {
             DemoMenu(core: core)
             Divider()
             #endif
-            Button(String(localized: "menu.quit", defaultValue: "Quit")) {
+            Button(String(localized: "menu.quit", defaultValue: "Quit Crema")) {
                 NSApplication.shared.terminate(nil)
             }
             .keyboardShortcut("q")

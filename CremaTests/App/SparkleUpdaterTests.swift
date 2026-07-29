@@ -64,6 +64,6 @@ struct SparkleUpdaterTests {
             return bundle.localizedString(forKey: key, value: "«missing»", table: nil)
         }
         #expect(try value("menu.checkForUpdates", in: "en") == "Check for Updates…")
-        #expect(try value("menu.checkForUpdates", in: "pt-BR") == "Buscar Atualizações…")
+        #expect(try value("menu.checkForUpdates", in: "pt-BR") == "Verificar Atualizações…")
     }
 }

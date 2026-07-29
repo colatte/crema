@@ -64,7 +64,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reportar um problema"
+            "value": "Relatar um problema"
           }
         }
       }
@@ -353,7 +353,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Buscar Atualizações…"
+            "value": "Verificar Atualizações…"
           }
         }
       }
@@ -370,7 +370,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Conceder acesso de Acessibilidade…"
+            "value": "Conceder acesso à Acessibilidade…"
           }
         }
       }
@@ -449,13 +449,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quit"
+            "value": "Quit Crema"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sair"
+            "value": "Encerrar o Crema"
           }
         }
       }
@@ -523,7 +523,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "A concessão é detectada automaticamente — sem precisar reiniciar. Se a captura não começar, reinicie o Crema."
+            "value": "A concessão é detectada automaticamente — sem precisar reiniciar. Se mesmo assim a captura não começar, reinicie o Crema."
           }
         }
       }
@@ -540,7 +540,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agora não"
+            "value": "Agora Não"
           }
         }
       }
@@ -897,7 +897,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Desligado, mostra um player só de visualização — capa, título e a barra de progresso, sem os botões."
+            "value": "Quando desligado, mostra um player só de visualização — capa, título e barra de progresso, sem os botões."
           }
         }
       }
@@ -931,7 +931,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O player aparece sozinho quando a faixa troca ou a reprodução começa. Desative para mantê-lo oculto até você abrir."
+            "value": "O player aparece sozinho quando a faixa troca ou a reprodução começa. Desative para mantê-lo oculto até você abri-lo."
           }
         }
       }
@@ -982,7 +982,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Conceder acesso de Acessibilidade…"
+            "value": "Conceder acesso à Acessibilidade…"
           }
         }
       }
@@ -999,7 +999,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Concedido"
+            "value": "Concedida"
           }
         }
       }
@@ -1016,7 +1016,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Não concedido"
+            "value": "Não concedida"
           }
         }
       }

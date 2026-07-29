@@ -18,8 +18,8 @@ struct LocalizationTests {
             return bundle.localizedString(forKey: key, value: "«missing»", table: nil)
         }
 
-        #expect(try value("menu.quit", in: "en") == "Quit")
-        #expect(try value("menu.quit", in: "pt-BR") == "Sair")
+        #expect(try value("menu.quit", in: "en") == "Quit Crema")
+        #expect(try value("menu.quit", in: "pt-BR") == "Encerrar o Crema")
         #expect(try value("style.card", in: "en") == "Card")
         #expect(try value("style.card", in: "pt-BR") == "Cartão")
     }
