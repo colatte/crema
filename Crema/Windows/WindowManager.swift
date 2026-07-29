@@ -122,13 +122,28 @@ final class WindowManager {
             // holdable during its linger). An empty region never reacts to
             // the pointer: invocation is the click zone below.
             let hoverArmed = effective != .hidden
+            // Content-level scoping, the other half of `effectiveState`: the
+            // window is fixed and never orders out, so a panel that is not this
+            // HUD's display has to be told not to DRAW it — an empty frame only
+            // stops it from being touched (docs/DECISIONS.md:
+            // hud-belongs-to-its-display).
+            let showsHUD: Bool
+            if case .hud = state {
+                showsHUD = effective != .hidden
+            } else {
+                showsHUD = true
+            }
             // Click-invoke zone: media playing, nothing visible here — the
             // style's own zone rule (the notch's physical slit; nil for the
             // floating styles, whose region sits over live app content)
             // captures clicks to surface the appearance. Everything outside
             // it keeps falling through to the menu bar and windows below.
+            // Keyed on the GLOBAL state, not this panel's: a panel hidden only
+            // because the HUD belongs elsewhere must not arm the slit, or the
+            // click it captures would die against `invoke()`'s hidden-only guard
+            // instead of falling through to the menu bar.
             let invokeZone: CGRect?
-            if effective == .hidden, coordinator.mediaActive, shows {
+            if state == .hidden, coordinator.mediaActive, shows {
                 invokeZone = entry.style.invokeZone(on: entry.screen.geometry)
             } else {
                 invokeZone = nil
@@ -137,6 +152,7 @@ final class WindowManager {
                 frame: entry.style.frame(for: effective, on: entry.screen.geometry),
                 hoverArmed: hoverArmed,
                 showsNowPlaying: shows,
+                showsHUD: showsHUD,
                 showsControls: preferences.showsPlaybackControls,
                 hudIndicatorStyle: preferences.hudIndicatorStyle,
                 invokeZone: invokeZone

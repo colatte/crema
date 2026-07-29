@@ -10,6 +10,10 @@ import Observation
 @MainActor
 final class SurfaceDisplayPolicy {
     var showsNowPlaying = true
+    /// Whether THIS display draws the current HUD. False on every panel but the
+    /// one a display-scoped HUD names — a bar for another screen would be a
+    /// control the user cannot aim (docs/DECISIONS.md: hud-belongs-to-its-display).
+    var showsHUD = true
     /// Global "show playback controls": off is view-only (cover + text +
     /// scrubber, no transport buttons). Carried alongside showsNowPlaying since
     /// both are render context the panel updates on each frame pass.

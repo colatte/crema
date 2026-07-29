@@ -16,7 +16,10 @@ protocol PresentationPanel: AnyObject {
     /// what is on screen; an empty region never reacts to the pointer).
     /// `showsNowPlaying` is the per-display toggle for the content: the fixed
     /// window never orders out, so suppression must happen in the view
-    /// (SurfaceDisplayPolicy), not at the window level. `showsControls` is the
+    /// (SurfaceDisplayPolicy), not at the window level. `showsHUD` is the same
+    /// mechanism for the other half: a HUD that names a display is content this
+    /// panel must not draw unless it IS that display — the frame alone cannot
+    /// express that, since the window never orders out. `showsControls` is the
     /// global view-only toggle (off hides the transport in the expanded view).
     /// `invokeZone` is the click-invoke region — non-nil only while media plays
     /// with nothing visible: a click inside it surfaces the compact appearance;
@@ -27,6 +30,7 @@ protocol PresentationPanel: AnyObject {
         frame: CGRect,
         hoverArmed: Bool,
         showsNowPlaying: Bool,
+        showsHUD: Bool,
         showsControls: Bool,
         hudIndicatorStyle: HUDIndicatorStyle,
         invokeZone: CGRect?

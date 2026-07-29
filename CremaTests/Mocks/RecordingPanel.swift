@@ -7,6 +7,7 @@ final class RecordingPanel: PresentationPanel {
     private(set) var appliedFrames: [CGRect] = []
     private(set) var hoverArmedStates: [Bool] = []
     private(set) var showsNowPlayingStates: [Bool] = []
+    private(set) var showsHUDStates: [Bool] = []
     private(set) var showsControlsStates: [Bool] = []
     private(set) var hudIndicatorStyleStates: [HUDIndicatorStyle] = []
     private(set) var invokeZones: [CGRect?] = []
@@ -17,6 +18,7 @@ final class RecordingPanel: PresentationPanel {
         frame: CGRect,
         hoverArmed: Bool,
         showsNowPlaying: Bool,
+        showsHUD: Bool,
         showsControls: Bool,
         hudIndicatorStyle: HUDIndicatorStyle,
         invokeZone: CGRect?
@@ -24,6 +26,7 @@ final class RecordingPanel: PresentationPanel {
         appliedFrames.append(frame)
         hoverArmedStates.append(hoverArmed)
         showsNowPlayingStates.append(showsNowPlaying)
+        showsHUDStates.append(showsHUD)
         showsControlsStates.append(showsControls)
         hudIndicatorStyleStates.append(hudIndicatorStyle)
         invokeZones.append(invokeZone)

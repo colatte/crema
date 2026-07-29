@@ -149,6 +149,7 @@ final class NSPanelPresentationPanel: PresentationPanel {
         frame: CGRect,
         hoverArmed: Bool,
         showsNowPlaying: Bool,
+        showsHUD: Bool,
         showsControls: Bool,
         hudIndicatorStyle: HUDIndicatorStyle,
         invokeZone: CGRect?
@@ -162,15 +163,12 @@ final class NSPanelPresentationPanel: PresentationPanel {
             return
         }
 
-        if displayPolicy.showsNowPlaying != showsNowPlaying {
-            displayPolicy.showsNowPlaying = showsNowPlaying
-        }
-        if displayPolicy.showsControls != showsControls {
-            displayPolicy.showsControls = showsControls
-        }
-        if displayPolicy.hudIndicatorStyle != hudIndicatorStyle {
-            displayPolicy.hudIndicatorStyle = hudIndicatorStyle
-        }
+        updateDisplayPolicy(
+            showsNowPlaying: showsNowPlaying,
+            showsHUD: showsHUD,
+            showsControls: showsControls,
+            hudIndicatorStyle: hudIndicatorStyle
+        )
 
         tightenTask?.cancel()
         tightenTask = nil
@@ -260,6 +258,29 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// Fallback for a window-filling view: per-state window frames. Mapping a
     /// previously ordered-out window waits for the render commit — it still
     /// holds the previous state's contents and would flash them for a frame.
+    /// Render context into the view's policy box. Each flag is written only when
+    /// it changes: the box is @Observable, and an unchanged write would still
+    /// invalidate every view reading it, once per frame pass.
+    private func updateDisplayPolicy(
+        showsNowPlaying: Bool,
+        showsHUD: Bool,
+        showsControls: Bool,
+        hudIndicatorStyle: HUDIndicatorStyle
+    ) {
+        if displayPolicy.showsNowPlaying != showsNowPlaying {
+            displayPolicy.showsNowPlaying = showsNowPlaying
+        }
+        if displayPolicy.showsHUD != showsHUD {
+            displayPolicy.showsHUD = showsHUD
+        }
+        if displayPolicy.showsControls != showsControls {
+            displayPolicy.showsControls = showsControls
+        }
+        if displayPolicy.hudIndicatorStyle != hudIndicatorStyle {
+            displayPolicy.hudIndicatorStyle = hudIndicatorStyle
+        }
+    }
+
     private func applyDirectFrame(_ frame: CGRect) {
         if frame.isEmpty {
             panel.setFrame(frame, display: false)

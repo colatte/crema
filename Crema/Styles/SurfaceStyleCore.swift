@@ -71,7 +71,11 @@ extension SurfaceStyleBody {
     // MARK: - Content derivation (state in)
 
     var contentKind: StyleContent {
-        StyleContent(state: coordinator.state, showsNowPlaying: displayPolicy.showsNowPlaying)
+        StyleContent(
+            state: coordinator.state,
+            showsNowPlaying: displayPolicy.showsNowPlaying,
+            showsHUD: displayPolicy.showsHUD
+        )
     }
 
     var layoutKind: SurfaceLayoutKind {

@@ -255,6 +255,7 @@ struct WindowManagerTests {
             frame: CGRect,
             hoverArmed: Bool,
             showsNowPlaying: Bool,
+            showsHUD: Bool,
             showsControls: Bool,
             hudIndicatorStyle: HUDIndicatorStyle,
             invokeZone: CGRect?
