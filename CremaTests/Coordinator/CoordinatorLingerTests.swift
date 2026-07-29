@@ -111,14 +111,51 @@ struct CoordinatorLingerTests {
         let h = CoordinatorHarness()
         await tucked(h)
 
-        // The debounced path (the notch's) must be equally inert: even a
-        // pointer that dwells on the empty region surfaces nothing.
+        // The debounced path (the notch's) must be as inert as the immediate
+        // one: a pointer on the empty region surfaces nothing, publishes no
+        // pointer mirror, and does not even arm the dwell — so there is no park
+        // to wait for (waiting for one would burn the whole bounded deadline).
         h.coordinator.hoverIntent(true)
-        await h.clock.waitForSleep(delay: Coordinator.defaultHoverIntentDelay)
+        await settle()
+        #expect(!h.coordinator.pointerInside)
+        #expect(!h.clock.delays.contains(Coordinator.defaultHoverIntentDelay))
+
+        // Inert by design — nothing is parked at that delay. It stays so that a
+        // regression re-arming the dwell is driven through to its commit.
         h.clock.advance(delay: Coordinator.defaultHoverIntentDelay)
         await settle()
 
         #expect(h.coordinator.state == .hidden)
+    }
+
+    @Test func hoverIntentOverATuckedSurfaceLeavesNoResidueForTheNextEvent() async {
+        let h = CoordinatorHarness()
+        await tucked(h)
+
+        // The debounced twin of CoordinatorIntentTests'
+        // hoverBeforeMediaLeavesNoResidueAndTheNextTrackAppearsCompact, and why
+        // the inertness above is not cosmetic: a hover committed over the empty
+        // region survives as hover state, and the next media event reads it
+        // twice — the appearance would arrive EXPANDED with no pointer on it and
+        // with its tuck timer suppressed (hover holds the appearance), so it
+        // would never leave.
+        h.coordinator.hoverIntent(true)
+        await settle()
+        h.clock.advance(delay: Coordinator.defaultHoverIntentDelay)
+        await settle()
+
+        let next = CoordinatorHarness.playingTrack(title: "Time")
+        h.nowPlayingSource.emit(next)
+        // Anchored on the snapshot, not on the state: both are written in the
+        // same synchronous handler, so once the snapshot lands the expansion
+        // decision is already final — and a wrong one fails right here instead
+        // of spinning out a bounded wait in silence.
+        #expect(await eventually { h.coordinator.nowPlaying == next })
+        #expect(h.coordinator.state == .nowPlaying(next, expanded: false))
+
+        await h.clock.waitForSleep(delay: linger)
+        h.clock.advance(delay: linger)
+        #expect(await eventually { h.coordinator.state == .hidden })
     }
 
     @Test func hoverDoesNotResurfacePausedMedia() async {

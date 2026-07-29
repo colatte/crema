@@ -30,9 +30,11 @@ struct CremaApp: App {
                 }
                 Divider()
             }
-            // Who is receiving the media keys. Evaluated as the menu is built,
-            // like the login-item verdict below: the answer lives outside this
-            // process and changes whenever any app installs a tap.
+            // Who is receiving the media keys. Pull-read here, like the
+            // login-item verdict below: the answer lives outside this process and
+            // changes whenever any app installs a tap. Read-only, for the same
+            // reason as that verdict — and it carries a cost noted on
+            // AppCore.mediaKeyChainNotice().
             switch core.mediaKeyChainNotice() {
             case .drawingFromBetterDisplay:
                 Text(String(
@@ -73,9 +75,12 @@ struct CremaApp: App {
                 ))
                 Divider()
             }
-            // Evaluated as the menu is built (pull-based, like the suppression
-            // warning below): the registration's truth lives on the other side
-            // of the system, so it is read where it is shown and never cached.
+            // Pull-read and never cached: the registration's truth lives on the
+            // other side of the system. READ-ONLY — this closure is a view body,
+            // rebuilt whenever SwiftUI invalidates it and not only when the user
+            // opens the menu, so anything with a side effect here would be a
+            // domain mutation driven by rendering. The intent bookkeeping runs at
+            // a lifecycle edge instead (AppCore.reconcileLoginItemIntent).
             switch core.loginItemOutcome() {
             case .revokedByUpdate:
                 Text(String(

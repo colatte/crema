@@ -190,6 +190,22 @@ the Coordinator discards the snapshot and disarms click-invoke, never leaving
 armed controls that would resurrect a dead expanded player no live source can
 represent.
 
+Everything armed on the snapshot goes with it, the HUD's resume promise
+included. That promise is a bool ("the HUD interrupted a visible appearance")
+while the revert resurfaces whatever `nowPlaying` holds *then*, so a promise
+outliving its snapshot is spent on the next one. A discard under a HUD is the
+case with no other guard: the state is `.hud`, so the discard's `hide()` never
+runs, and the usual sequel to a discard — a browser stealing the focus, a chain
+failover, the browser filter being switched back on — is now-playing landing on
+a paused app, which arms no resume of its own yet gets surfaced by the stale
+one: a card opening by itself about a second after a volume key, over media the
+user never played. Same rule as the surface: a discard means the appearance
+would be hidden, and a hidden surface owes no resume. The REPLACEMENT case is
+deliberately not the same — a snapshot that merely changes identity while the
+promise stands keeps it, because outside the HUD a visible appearance would have
+refreshed to the new content: that is parity with the no-HUD path, not a stale
+promise.
+
 ### observer-model-rejected
 Evaluated migrating away from consuming the media keys to the SlimHUD model:
 don't consume keys, suppress the OSD by freezing the renderer process, draw the
@@ -370,6 +386,20 @@ not the one you approved"), and re-registering behind the user would contradict
 the app's own rule of never adding a login item uninvited. Measured and ruled
 out along the way: the DMG's quarantine attribute does not block registration.
 
+Two corollaries the first implementation got wrong, and the reason the write is
+now split from the read. First, the intent is recorded only by an attempt that
+did NOT fail: the build stamp is the discriminator, so stamping a failed enable
+with the current build makes the next reading say "gone under the same build" and
+file the user's own request away as their own removal — the failed one-click
+repair of a revoked registration erased its own warning, and the app went back to
+not launching with nothing left to say. A failed disable keeps the intent for the
+mirror reason: the registration it could not remove is still there. Second,
+forgetting a user-side removal is a WRITE, so it belongs to a lifecycle edge
+(once at launch) and not to the menu's verdict: that verdict is read inside a
+SwiftUI view body, rebuilt whenever SwiftUI invalidates it rather than when the
+user opens the menu, and nothing user-visible waits on the bookkeeping anyway (a
+user-side removal already renders as silence).
+
 ### media-key-chain-contention
 Session event taps are a chain, and `.headInsertEventTap` means the app that
 inserted LAST is served FIRST. Two apps can legitimately want the same key — a
@@ -496,6 +526,34 @@ the report and the frame pass should look like. The decision lives in
 "show now playing here" preference is its other rule), so presentation scoping
 never leaks into the Coordinator: the app's state stays whole and a drag on the
 panel that shows the bar still acts on the display the bar names.
+
+### global-style-default
+The Settings picker footer says "Applies to every display", but the writer looped
+over the displays attached at that instant and wrote one key per display UUID
+(`style.<uuid>`). A monitor plugged in afterwards had no key, so it fell to the
+shipped default — Notch, resolved to Card on a slitless screen — and the picker
+offered no way out: it acts on CHANGE, so re-picking the value already shown is a
+no-op.
+Decision: the picker DECLARES one global style (`declaredStyle`), which is the
+fallback of `style(for:)`; per-display keys stay as OVERRIDES on top, and the
+declaration drops them, because an override left behind would hold its display on
+the style the user just replaced with no UI to clear it (the per-display picker is
+roadmap; resolution is already override-aware, so shipping it is a UI change
+only). Two details are load bearing: the global key is NOT under the `style.`
+prefix the sweep walks, or the declaration would delete itself; and an unknown
+override rawValue (a style removed since) falls through to the declaration rather
+than to the shipped default, since it is not a choice the user made.
+Upgrades adopt, ONCE, the override of the display the picker speaks for (internal
+first, then AppKit order — one shared order, or the app would adopt a style the
+picker never showed), never overwrite an existing declaration, and never rewrite
+the overrides. That last restraint is deliberate: overrides can disagree (a pick
+made with only the laptop attached, another made in clamshell) and no timestamp
+says which is newer, so adoption may take the older one — leaving the overrides
+in place keeps every display that carries a key looking exactly as it looks
+today, and the only visible correction is the bug itself: a display that had
+fallen to the shipped default while another carried the user's choice adopts that
+choice on the next launch. An install with no override writes no key at all, so
+the shipped default stays a decision the app can still change.
 
 ### sample-dont-integrate
 A UI ticker that adds a fixed step per tick is a clock that runs slow. Timers are

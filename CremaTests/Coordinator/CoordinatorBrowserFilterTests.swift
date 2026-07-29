@@ -76,6 +76,43 @@ struct CoordinatorBrowserFilterTests {
         #expect(!h.coordinator.mediaActive)
     }
 
+    @Test func aPausedHandbackDuringAHUDIsNotSurfacedByTheDiscardedPromise() async {
+        // The repopulation half of aBrowserTakeoverDuringAHUDLeavesNothingToResurface:
+        // that one stops at nowPlaying == nil, and it is the REPOPULATION that
+        // spends a promise the discard should have killed. The HUD interrupted a
+        // visible appearance (promise armed), the browser discard drops the
+        // snapshot it was armed for, and the app handed the focus next is paused —
+        // arming nothing of its own. The card must stay shut.
+        let h = CoordinatorHarness()
+        let volumeHUD = SystemHUD(kind: .volume, value: 0.5)
+        let track = CoordinatorHarness.playingTrack()
+        h.nowPlayingSource.emit(track)
+        // Asserted, not discarded: an appearance that never became visible leaves
+        // the promise unarmed, and the test would pass for the wrong reason.
+        #expect(await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) })
+
+        h.hudSource.emit(volumeHUD)
+        #expect(await eventually { h.coordinator.state == .hud(volumeHUD) })
+
+        h.nowPlayingSource.emit(browserTrack())
+        #expect(await eventually { h.coordinator.nowPlaying == nil })
+
+        // The feed video ends; now-playing lands on a different, paused player.
+        let stranger = CoordinatorHarness.playingTrack(title: "Us and Them", isPlaying: false)
+        h.nowPlayingSource.emit(stranger)
+        #expect(await eventually { h.coordinator.nowPlaying == stranger })
+
+        await h.clock.waitForSleep(delay: Coordinator.defaultHUDRevertDelay)
+        h.clock.advance(delay: Coordinator.defaultHUDRevertDelay)
+
+        // Waiting for the state to LEAVE the HUD fails loud with the wrong value in
+        // one hop, instead of burning the whole deadline on a timeout.
+        _ = await eventually { h.coordinator.state != .hud(volumeHUD) }
+        #expect(h.coordinator.state == .hidden)
+        // The snapshot is still tracked, so hover/click-invoke stay functional.
+        #expect(h.coordinator.nowPlaying == stranger)
+    }
+
     @Test func aFilteredBrowserEndingHandsBackToAPausedAppWithoutPopping() async {
         // The real-hardware bug: Spotify is paused in the background while a
         // browser plays (filtered). When the browser media ends, MediaRemote

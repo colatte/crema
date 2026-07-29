@@ -26,10 +26,12 @@ for [Lunar](https://github.com/alin23/Lunar).
 ## Per-display styles
 
 The style you pick applies to every display today, even though each display
-already has its own window. The preference store is keyed per display under the
-hood (style, and a "show now playing here" flag that defaults to the built-in
-display); what's missing is the Settings surface to choose, say, _notch_ on the
-MacBook and _classic_ on the monitor — or which displays show the player at all.
+already has its own window: the picker declares one global style, and the
+preference store already resolves a per-display override on top of that
+declaration (alongside a "show now playing here" flag that defaults to the
+built-in display). What's missing is only the Settings surface to choose, say,
+_notch_ on the MacBook and _classic_ on the monitor — or which displays show the
+player at all.
 
 ## Automatic updates — shipped in 1.2.0 ✓
 

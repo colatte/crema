@@ -192,6 +192,10 @@ final class Coordinator {
     /// Whether the HUD interrupted a visible now-playing appearance (or a media
     /// event arrived during the HUD): the revert resurfaces it. A HUD over a
     /// tucked surface must revert to hidden, not resurrect the appearance.
+    /// A bare Bool, while the revert resurfaces whatever `nowPlaying` holds THEN:
+    /// the promise only means anything while that snapshot lives, so dropping the
+    /// snapshot must drop it (`discardActiveMedia`) or the revert spends it on a
+    /// stranger.
     @ObservationIgnored private var resumeNowPlayingAfterHUD = false
     @ObservationIgnored private var consumptionTasks: [Task<Void, Never>] = []
     @ObservationIgnored private var hudRevertTask: Task<Void, Never>?
@@ -350,6 +354,14 @@ final class Coordinator {
     /// cancels the pending one, and the fired task rechecks the pointer before
     /// committing (the pointer may have moved during the wait).
     func hoverIntent(_ hovering: Bool) {
+        // Same refusal as `hover(_:)` above, for the reason spelled out there —
+        // enforced at THIS edge because every line below leaves residue nothing
+        // on screen can clear: the published mirror holds off the next HUD's
+        // revert timer, and a committed hover makes the next media event appear
+        // expanded with no tuck timer behind it. Only an armed monitor reaches
+        // here and none is armed over a hidden surface — but that rule lives in
+        // the WindowManager, and this decision is the Coordinator's.
+        if hovering, state == .hidden { return }
         enteredViaHoverIntent = hovering
         publishPointer(hovering)
         // The pointer's arrival already holds the appearance — the linger must
@@ -370,11 +382,14 @@ final class Coordinator {
         commitHover(expanded)
     }
 
-    /// Single writer of the published pointer mirror, shared by both hover
-    /// paths (idempotent when the debounced path already published). The
-    /// pointer also holds a visible HUD — the knob's premise made real: its
-    /// arrival cancels the revert timer, its exit restarts the full delay
-    /// (docs/DECISIONS.md: hud-capsule-track).
+    /// Single writer of the pointer mirror for pointer TRANSITIONS — both hover
+    /// paths come through here (idempotent when the debounced path already
+    /// published) — and the home of the HUD hold: the pointer's arrival cancels
+    /// the revert timer, its exit restarts the full delay, which is what makes
+    /// the knob's premise real (docs/DECISIONS.md: hud-capsule-track).
+    /// Not the mirror's only writer: `hide()` resets it directly (see its doc),
+    /// so accounting hung here reaches transitions only — whatever a dismissal
+    /// also owes has to be added there in the same change.
     private func publishPointer(_ inside: Bool) {
         guard pointerInside != inside else { return }
         pointerInside = inside
@@ -423,6 +438,14 @@ final class Coordinator {
     /// surface reappear expanded with no pointer on it. Deliberately not used on
     /// the HUD-revert-to-now-playing path, where keeping `isHovering` is correct
     /// (the pointer is typically still on the notch).
+    ///
+    /// The pointer mirror is reset DIRECTLY, not through `publishPointer`: a
+    /// dismissal is not a pointer transition (the cursor did not move; the
+    /// surface under it left), and that method's HUD accounting reads `state`,
+    /// so routing the reset above the write below would arm a revert timer for
+    /// the very HUD being dismissed. Unconditional on purpose: in the panel path
+    /// the disarm already reported the exit, but the state machine must not
+    /// depend on a panel existing.
     private func hide() {
         state = .hidden
         lingerTask?.cancel()
@@ -669,13 +692,24 @@ final class Coordinator {
         discardActiveMedia()
     }
 
-    /// Drops the active snapshot and everything armed on it: surface, click
-    /// zone, hover. Shared by stream end and the browser filter — both mean
-    /// "there is no media the app should represent". A scrub in flight dies
-    /// with it: a dead snapshot cannot retain a position target.
+    /// Drops the active snapshot and everything armed on it: surface, click zone,
+    /// hover, and the HUD's promise to resurface. Shared by stream end, the
+    /// browser filter and the live filter toggle — all mean "there is no media the
+    /// app should represent". A scrub in flight dies with it: a dead snapshot
+    /// cannot retain a position target.
+    ///
+    /// The resume promise goes for the same reason the surface does: a discard
+    /// means the appearance would now be hidden, and a hidden surface owes no
+    /// resume (`publishHUD` writes that same false when a HUD rises over hidden).
+    /// Under a HUD this is the only write that happens — the state is `.hud`, so
+    /// `hide()` below is skipped — and without it the revert resurfaces whatever
+    /// landed next, which after a discard is typically a paused app that arms no
+    /// resume of its own (docs/DECISIONS.md: ghost-discard). A snapshot that is
+    /// news re-earns the promise through handleNowPlayingUpdate's .hud branch.
     private func discardActiveMedia() {
         endScrubGrace()
         nowPlaying = nil
+        resumeNowPlayingAfterHUD = false
         if mediaActive {
             mediaActive = false
         }

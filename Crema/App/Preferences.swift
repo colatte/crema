@@ -10,22 +10,89 @@ struct Preferences {
         self.defaults = defaults
     }
 
-    // MARK: - Style per display
+    // MARK: - Style: one global declaration, per-display overrides on top
 
-    /// Default style is the notch — the app's hero surface; on displays
-    /// without a physical notch the WindowManager resolves it to the card, so
-    /// the default is safe everywhere. Unknown persisted rawValues (styles
-    /// removed since — "pill", "circular") land here too.
-    func style(for display: DisplayUUID) -> Style {
-        guard let raw = defaults.string(forKey: Key.style(display)),
-              let style = Style(rawValue: raw) else {
-            return .notch
+    /// What the all-displays picker declared, and the fallback of `style(for:)`
+    /// — which is what lets a display connected LATER inherit the user's choice
+    /// instead of the shipped default. Deliberately NOT keyed under the `style.`
+    /// prefix: that prefix is swept when the overrides are dropped, and the
+    /// declaration has to survive its own sweep. Unset reads as the notch — the
+    /// app's hero surface, which the WindowManager resolves to the card on a
+    /// display without a physical slit, so it is safe everywhere.
+    /// (docs/DECISIONS.md: global-style-default)
+    static let declaredStyleKey = "declaredStyle"
+    var declaredStyle: Style {
+        get {
+            guard let raw = defaults.string(forKey: Self.declaredStyleKey),
+                  let style = Style(rawValue: raw) else {
+                return .notch
+            }
+            return style
         }
-        return style
+        nonmutating set { defaults.set(newValue.rawValue, forKey: Self.declaredStyleKey) }
     }
 
+    /// This display's override when it has one, else the declaration. An unknown
+    /// persisted rawValue (a style removed since — "pill", "circular") is no
+    /// override at all, so it falls through to the declaration rather than to a
+    /// value the user never picked.
+    func style(for display: DisplayUUID) -> Style {
+        persistedStyle(for: display) ?? declaredStyle
+    }
+
+    /// The per-display override. No Settings control writes it yet (the
+    /// per-display picker is roadmap), but resolution above is already
+    /// override-aware, which is what makes that picker a UI change only. Not
+    /// dead: do not remove for lack of a production caller.
     func setStyle(_ style: Style, for display: DisplayUUID) {
         defaults.set(style.rawValue, forKey: Key.style(display))
+    }
+
+    /// The all-displays declaration, as one operation. "Applies to every
+    /// display" cannot be honored by writing the attached displays alone — a
+    /// monitor plugged in afterwards has no key and would keep the shipped
+    /// default — so this declares globally AND drops the overrides: one left
+    /// behind would hold its display on the style the user just replaced, with
+    /// no UI to clear it. Only explicit user action reaches here (pref-sacred).
+    func declareStyleEverywhere(_ style: Style) {
+        declaredStyle = style
+        clearStyleOverrides()
+    }
+
+    /// Adoption for installs that predate the declaration: back then the picker
+    /// wrote per-display keys only, so the user's choice lives in them. Takes
+    /// the first override in `displays` (the caller orders them — the internal
+    /// display leads, matching what the picker shows) and never overwrites an
+    /// existing declaration: the PRESENCE of the key closes the door, not its
+    /// validity, so this fires once in an install's life and a rawValue retired
+    /// by a future version cannot resurrect a stale choice. Overrides are left
+    /// untouched, which is the conservative half: overrides can disagree (one
+    /// pick made with only the laptop attached, a later one made in clamshell),
+    /// and this order may well adopt the OLDER of them — so every display that
+    /// carries a key keeps looking exactly as it looks today, and only a display
+    /// that had fallen to the shipped default changes. An install with no
+    /// override writes NOTHING: an eagerly written key would freeze today's
+    /// shipped default in every install past any change to it.
+    func adoptDeclaredStyleFromOverrides(preferring displays: [DisplayUUID]) {
+        guard defaults.string(forKey: Self.declaredStyleKey) == nil,
+              let adopted = displays.compactMap({ persistedStyle(for: $0) }).first else {
+            return
+        }
+        defaults.set(adopted.rawValue, forKey: Self.declaredStyleKey)
+    }
+
+    private func persistedStyle(for display: DisplayUUID) -> Style? {
+        guard let raw = defaults.string(forKey: Key.style(display)) else { return nil }
+        return Style(rawValue: raw)
+    }
+
+    /// Swept by key prefix because the override set is open-ended: one key per
+    /// display UUID ever seen, including displays not attached now — exactly the
+    /// ones that must stop shadowing the declaration when it changes.
+    private func clearStyleOverrides() {
+        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix(Key.stylePrefix) {
+            defaults.removeObject(forKey: key)
+        }
     }
 
     // MARK: - "Show now playing here"
@@ -139,8 +206,12 @@ struct Preferences {
     }
 
     private enum Key {
+        /// The override sweep walks this prefix, so nothing else may live under
+        /// it — which is why the global declaration is keyed outside it.
+        static let stylePrefix = "style."
+
         static func style(_ display: DisplayUUID) -> String {
-            "style.\(display.rawValue)"
+            "\(stylePrefix)\(display.rawValue)"
         }
 
         static func showsNowPlaying(_ display: DisplayUUID) -> String {

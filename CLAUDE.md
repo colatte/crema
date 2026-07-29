@@ -1,6 +1,6 @@
 # Crema
 
-> Utilitário minimalista de macOS que mostra o now playing perto da notch (ou num card flutuante em telas sem notch) e substitui os HUDs nativos de volume, brilho da tela e brilho do teclado por versões próprias, com estilo selecionável (global hoje; armazenado e resolvido por display — a seleção por display é roadmap).
+> Utilitário minimalista de macOS que mostra o now playing perto da notch (ou num card flutuante em telas sem notch) e substitui os HUDs nativos de volume, brilho da tela e brilho do teclado por versões próprias, com estilo selecionável (declarado global; a chave por display existe como override e já é lida na resolução — a UI por display é roadmap).
 
 Use este documento sempre que gerar ou alterar código neste repositório — ele diz **como escrevemos código aqui**: arquitetura, convenções, naming, concorrência e como as camadas conversam. Quando uma decisão de convenção for tomada durante a implementação, registre-a aqui — este documento evolui junto com o código.
 
@@ -182,7 +182,7 @@ Permanente. Um comentário desatualizado é **bug de doc**, não detalhe menor �
 
 ### Preferências e logging
 
-- Preferências (estilo — chaveado por display, escrito global pela UI —, toggles de supressão e "mostrar now playing aqui" (headless, sem UI ainda), iniciar no login — **intenção** persistida, nunca o estado real: o registro vive no BTM e o macOS o revoga em troca de identidade, então a intenção existe só para detectar a perda e avisar, jamais para re-registrar sozinho; docs/DECISIONS.md: login-item-intent) vivem em `UserDefaults`, atrás de um tipo `Preferences` injetado onde for preciso. A chave estável por display é o **UUID do display** (`CGDisplayCreateUUIDFromDisplayID`) — a tradução displayID→UUID acontece na borda; preferências e domínio só veem o UUID.
+- Preferências (estilo — **declarado global** pela UI: a chave global (`declaredStyle`) é o fallback e a chave por display é override, varrida na declaração; a UI por display é roadmap (docs/DECISIONS.md: global-style-default) —, toggles de supressão e "mostrar now playing aqui" (headless, sem UI ainda), iniciar no login — **intenção** persistida, nunca o estado real: o registro vive no BTM e o macOS o revoga em troca de identidade, então a intenção existe só para detectar a perda e avisar, jamais para re-registrar sozinho; docs/DECISIONS.md: login-item-intent) vivem em `UserDefaults`, atrás de um tipo `Preferences` injetado onde for preciso. A chave estável por display é o **UUID do display** (`CGDisplayCreateUUIDFromDisplayID`) — a tradução displayID→UUID acontece na borda; preferências e domínio só veem o UUID.
 - **Defaults conservadores**: uma pref cujo default desejado difere do zero do tipo lê `object(forKey:) as? T ?? default` para distinguir "não setado" do zero; features opt-in nascem desligadas via `bool(forKey:)`.
 - Logging via `os.Logger`, sempre construído por `Logger.crema(category:)` (`Crema/App/Logging.swift` — o único lugar que sabe o `subsystem`), com `category` = camada ou fonte (`"NowPlaying"`, `"Windows"`, `"OSD"`). Sem `print`; nunca instanciar `Logger(subsystem:category:)` direto.
 

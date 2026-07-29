@@ -144,6 +144,25 @@ struct WindowManagerTests {
         #expect(h.recorder.panel(for: a.id)?.appliedFrames.last == Style.card.frame(for: .hidden, on: a.geometry))
     }
 
+    @Test func aDisplayConnectedLaterAdoptsTheDeclaredStyle() {
+        // The hotplug the all-displays picker used to miss: only the displays
+        // attached at pick time got a key, so a monitor plugged in afterwards
+        // fell to the shipped default (notch → card on a slitless panel) while
+        // Settings promised "Applies to every display".
+        // (docs/DECISIONS.md: global-style-default)
+        let h = Harness()
+        let a = Self.screen("A")
+        h.preferences.declareStyleEverywhere(.classic)
+        h.manager.updateScreens([a])
+        #expect(h.recorder.created.first?.style == .classic)
+
+        let b = Self.screen("B", isInternal: false, frame: CGRect(x: 1000, y: 0, width: 1200, height: 800))
+        h.manager.updateScreens([a, b])
+
+        #expect(h.recorder.created.last(where: { $0.screen.id == b.id })?.style == .classic)
+        #expect(h.recorder.created.count == 2)
+    }
+
     @Test func refreshStylesSwapsThePanelWhenThePreferenceChanges() {
         let h = Harness()
         let a = Self.screen("A")

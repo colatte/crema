@@ -78,7 +78,9 @@ final class AppCore {
     #endif
 
     private let accessibilityPermission = AXAccessibilityPermission()
-    /// Read only when the menu is opened — see `mediaKeyChainNotice()`.
+    /// Read only from the menu's content build, never on a poll — and that build
+    /// is not the same thing as the user opening the menu (cost on
+    /// `mediaKeyChainNotice()`).
     private let eventTapRegistry: any EventTapRegistry = LiveEventTapRegistry()
     /// Kept past the merge so the menu can report whether the neighbour's OSD
     /// integration is actually feeding us; nil on demo sources.
@@ -189,7 +191,14 @@ final class AppCore {
 
         coordinator.start()
         windowManager.start()
-        windowManager.updateScreens(ScreenTranslation.describeAll())
+        let screens = ScreenTranslation.describeAll()
+        // Before the first panel roster: an install that predates the global
+        // style declaration carries the user's choice only in per-display keys,
+        // and adopting it after the roster would build every panel on the
+        // shipped default and swap them a beat later.
+        // (docs/DECISIONS.md: global-style-default)
+        preferences.adoptDeclaredStyleFromOverrides(preferring: Self.styleAuthorityOrder(screens))
+        windowManager.updateScreens(screens)
 
         let windowManager = self.windowManager
         screenObservation = Self.wireScreenParameterReinstall(
@@ -272,6 +281,12 @@ final class AppCore {
         }
 
         presentAccessibilityOnboardingIfFirstLaunch()
+
+        // The one moment the persisted login-item intent is reconciled against
+        // reality: an item the user removed themselves is forgotten here, at a
+        // lifecycle edge, because forgetting is a WRITE and the only other reader
+        // of that verdict is a view body (rationale on reconcileLoginItemIntent).
+        reconcileLoginItemIntent()
 
         // Post-apply poke: the router's key-time sample shows the HUD with
         // the pre-apply value (with the key consumed, the app's write lands
@@ -414,20 +429,23 @@ final class AppCore {
 
     // MARK: - Settings (live preference changes)
 
-    /// The style of the main display — the value the all-displays picker shows.
+    /// The value the all-displays picker shows: the leading display's resolved
+    /// style, which IS the global declaration unless that display still carries
+    /// a legacy per-display override (docs/DECISIONS.md: global-style-default).
     func currentStyle() -> Style {
-        let screens = ScreenTranslation.describeAll()
-        let id = screens.first(where: { $0.isInternal })?.id ?? screens.first?.id
-        return id.map { preferences.style(for: $0) } ?? .notch
+        let leading = Self.styleAuthorityOrder(ScreenTranslation.describeAll()).first
+        return leading.map { preferences.style(for: $0) } ?? preferences.declaredStyle
     }
 
-    /// Applies one style to every connected display and swaps the panels — the
-    /// core (Sources/Domain/Coordinator) is untouched. Per-display styling can
-    /// layer on top later; this is the "all displays" entry.
+    /// The "all displays" entry: declares the style globally and drops the
+    /// per-display overrides, so a display connected LATER inherits it too —
+    /// writing only the attached displays is what left a monitor plugged in
+    /// afterwards on the shipped default while Settings promised "Applies to
+    /// every display" (docs/DECISIONS.md: global-style-default). Panels are then
+    /// swapped from the re-resolved styles; the core
+    /// (Sources/Domain/Coordinator) is untouched.
     func setStyleEverywhere(_ style: Style) {
-        for screen in ScreenTranslation.describeAll() {
-            preferences.setStyle(style, for: screen.id)
-        }
+        preferences.declareStyleEverywhere(style)
         windowManager.refreshStyles()
     }
 
@@ -462,24 +480,15 @@ final class AppCore {
     /// Applies the launch-at-login intent and returns the real resulting state
     /// (the view stays an intent-reporter, like every other Settings control).
     /// `enabled` includes requires-approval so the toggle stays on with the
-    /// approval note instead of snapping off. The SMAppService error is logged
-    /// here: the snap-back tells the user it failed, the log says why —
-    /// registration failures are a real field scenario under self-signed
-    /// distribution, and the toggle alone cannot distinguish the causes.
-    /// The intent is recorded alongside the attempt — with the build it was made
-    /// under, which is what later tells a system revocation apart from the user
-    /// removing the item in System Settings (LoginItemReconciler). Recording the
-    /// intent even when the registration ends up parked for approval is
-    /// deliberate: the user asked, and that is the fact worth remembering.
+    /// approval note instead of snapping off. Attempt and bookkeeping live in
+    /// `applyLaunchesAtLogin`, where the write rule a test has to pin lives too.
     func setLaunchesAtLogin(_ enabled: Bool) -> (enabled: Bool, needsApproval: Bool) {
-        do {
-            try loginItem.setEnabled(enabled)
-        } catch {
-            Logger.crema("App").error("login-item registration failed: \(error, privacy: .public)")
-        }
-        preferences.launchesAtLogin = enabled
-        preferences.launchesAtLoginBuild = enabled ? Self.currentBuild : nil
-        return (loginItem.isEnabled || loginItem.requiresApproval, loginItem.requiresApproval)
+        Self.applyLaunchesAtLogin(
+            enabled,
+            to: loginItem,
+            preferences: preferences,
+            currentBuild: Self.currentBuild
+        )
     }
 
     // MARK: - Accessibility onboarding
@@ -685,37 +694,105 @@ final class AppCore {
 
 @MainActor
 extension AppCore {
-    /// What the menu bar should say about launch-at-login right now — evaluated
-    /// on demand (pull-based, like the suppression warning) so there is no
-    /// cached copy of a truth that lives on the other side of the system.
+    /// The attempt and its bookkeeping, standalone and static so a test pins the
+    /// write rule without booting the graph (same reason as the reinstall seams).
+    /// The SMAppService error is logged here: the snap-back tells the user it
+    /// failed, the log says why — registration failures are a real field scenario
+    /// under self-signed distribution, and the toggle alone cannot distinguish the
+    /// causes.
     ///
-    /// A `.userRemoved` verdict is absorbed here rather than surfaced: the user
-    /// turned it off outside the app, so the app forgets the intent instead of
-    /// nagging about it, and the next evaluation is quiet.
-    @discardableResult
+    /// The intent, and the build it was recorded under, is written ONLY when the
+    /// call did not throw. The build stamp is the discriminator the revocation
+    /// warning rests on, so stamping a FAILED enable with the current build makes
+    /// the next reading say "gone under the same build" and file the user's own
+    /// request away as their own removal — the app then neither opens at login nor
+    /// has anything left to say, which is precisely the silent loss the intent
+    /// exists to catch. The failed one-click repair of a revoked registration is
+    /// that path. A failed disable keeps the intent for the mirror reason: the
+    /// registration it could not remove is still there.
+    /// (docs/DECISIONS.md: login-item-intent, pref-sacred)
+    ///
+    /// A non-throwing call parked for approval still records — the user asked, and
+    /// that is the fact worth remembering. The resulting status deliberately does
+    /// NOT gate the write: BTM can lag the call, and reading a not-yet-settled
+    /// status as failure would drop a real intent and blind the warning for good.
+    static func applyLaunchesAtLogin(
+        _ enabled: Bool,
+        to loginItem: any LoginItemManaging,
+        preferences: Preferences,
+        currentBuild: String
+    ) -> (enabled: Bool, needsApproval: Bool) {
+        do {
+            try loginItem.setEnabled(enabled)
+            preferences.launchesAtLogin = enabled
+            preferences.launchesAtLoginBuild = enabled ? currentBuild : nil
+        } catch {
+            Logger.crema("App").error("login-item registration failed: \(error, privacy: .public)")
+        }
+        return (loginItem.isEnabled || loginItem.requiresApproval, loginItem.requiresApproval)
+    }
+
+    /// What the menu bar should say about launch-at-login right now — pull-read on
+    /// demand (like the suppression warning) so there is no cached copy of a truth
+    /// that lives on the other side of the system.
+    ///
+    /// Read-only, and that is the contract, not an accident: the caller is a
+    /// SwiftUI view body, rebuilt whenever SwiftUI invalidates it — the app does
+    /// not choose when, and it is not tied to the user opening the menu — so a
+    /// write here would be domain mutation driven by rendering. The forgetting this
+    /// used to do runs at a lifecycle edge instead (reconcileLoginItemIntent).
     func loginItemOutcome() -> LoginItemReconciler.Outcome {
-        Self.evaluateLoginItem(
+        Self.loginItemOutcome(
             preferences: preferences,
             status: loginItem.status,
             currentBuild: Self.currentBuild
         )
     }
 
-    /// The evaluation with its one side effect, standalone and static so a test
-    /// pins it without booting the graph (same reason as the reinstall seams).
-    /// The side effect is deliberately here and not in the reconciler: the
-    /// decision stays pure, and forgetting an intent the user themselves
-    /// revoked is bookkeeping, not policy.
-    static func evaluateLoginItem(
+    /// Standalone and static so a test pins the read — including its purity —
+    /// without booting the graph (same reason as the reinstall seams).
+    static func loginItemOutcome(
         preferences: Preferences,
         status: LoginItemStatus,
         currentBuild: String
     ) -> LoginItemReconciler.Outcome {
-        let outcome = LoginItemReconciler.outcome(
+        LoginItemReconciler.outcome(
             intends: preferences.launchesAtLogin,
             recordedBuild: preferences.launchesAtLoginBuild,
             currentBuild: currentBuild,
             status: status
+        )
+    }
+
+    /// Launch-time bookkeeping, called once from init: an intent the user revoked
+    /// themselves in System Settings is forgotten, so a later build change cannot
+    /// re-file their own removal as a macOS revocation and warn about it.
+    ///
+    /// A lifecycle seam rather than part of the menu's read, because forgetting is
+    /// a write and that read is a view body. Nothing user-visible waits on it:
+    /// `.userRemoved` already renders as silence, so running it at launch costs
+    /// only the promptness of the bookkeeping — and every build change the warning
+    /// could speak about arrives with a relaunch.
+    func reconcileLoginItemIntent() {
+        _ = Self.reconcileLoginItemIntent(
+            preferences: preferences,
+            status: loginItem.status,
+            currentBuild: Self.currentBuild
+        )
+    }
+
+    /// The write, standalone and static so a test pins it without booting the
+    /// graph. It lives here and not in the reconciler so the decision stays pure:
+    /// forgetting an intent the user themselves revoked is bookkeeping, not policy.
+    static func reconcileLoginItemIntent(
+        preferences: Preferences,
+        status: LoginItemStatus,
+        currentBuild: String
+    ) -> LoginItemReconciler.Outcome {
+        let outcome = Self.loginItemOutcome(
+            preferences: preferences,
+            status: status,
+            currentBuild: currentBuild
         )
         if outcome == .userRemoved {
             preferences.launchesAtLogin = false
@@ -754,10 +831,14 @@ extension AppCore {
     /// means nothing is positioned to take them from us — or that we have no tap
     /// to speak of, in which case the Accessibility warning already says so.
     ///
-    /// Pull-based, evaluated as the menu is drawn, for two reasons: the answer
-    /// lives entirely outside our process and changes whenever any app installs a
-    /// tap, and reading the registry costs the neighbours their latency readings,
-    /// so it happens at a rare user-initiated moment instead of on a poll.
+    /// Pull-based, read where the menu's content is built and never on a poll: the
+    /// answer lives entirely outside our process and changes whenever any app
+    /// installs a tap. The cost is real and worth stating plainly — each read
+    /// resets the min/max latency counters of every tap in the system — and a
+    /// SwiftUI body is rebuilt whenever SwiftUI invalidates it, which is not the
+    /// same as the user opening the menu, so the number of reads follows state
+    /// changes rather than user intent. Bounding that is an open cost of this
+    /// call, not something the caller decides.
     ///
     /// Losing the position is not a failure Crema repairs. Taking it back would
     /// mean out-inserting a neighbour forever, or moving to the HID location and
@@ -827,5 +908,20 @@ extension AppCore {
             case (.volume, _): break   // volume echoes itself; never routed here
             }
         }
+    }
+}
+
+// MARK: - Style authority
+
+@MainActor
+extension AppCore {
+    /// Which display speaks for the all-displays picker, in order: the internal
+    /// one first, then the rest as AppKit listed them (filter-concat, not
+    /// `sorted`, whose instability could scramble the tail). One order for two
+    /// readers on purpose — the value the picker shows and the legacy override an
+    /// upgrade adopts as the declaration must belong to the same display, or the
+    /// app would adopt a style the picker never displayed.
+    static func styleAuthorityOrder(_ screens: [ScreenDescription]) -> [DisplayUUID] {
+        (screens.filter(\.isInternal) + screens.filter { !$0.isInternal }).map(\.id)
     }
 }

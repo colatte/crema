@@ -75,4 +75,61 @@ struct CoordinatorSourceLifecycleTests {
         #expect(h.coordinator.nowPlaying == nil)
         #expect(!h.coordinator.mediaActive)
     }
+
+    @Test func aFailoverDuringAHUDDoesNotResurfaceThePromotedPausedSnapshot() async {
+        // The failover twin of the browser case (CoordinatorBrowserFilterTests):
+        // the discard lands while a HUD owns the surface, so its hide() never runs
+        // and the promise armed by the interrupted appearance is the only thing
+        // that could open a card. The promoted source's first snapshot is paused —
+        // nothing started playing, so it arms no resume of its own — and the revert
+        // must hand back to hidden.
+        let h = CoordinatorHarness()
+        let volumeHUD = SystemHUD(kind: .volume, value: 0.5)
+        h.nowPlayingSource.emit(track)
+        #expect(await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) })
+
+        h.hudSource.emit(volumeHUD)
+        #expect(await eventually { h.coordinator.state == .hud(volumeHUD) })
+
+        h.coordinator.activeNowPlayingSourceEnded()
+        #expect(h.coordinator.nowPlaying == nil)
+        #expect(h.coordinator.state == .hud(volumeHUD))   // the HUD still owns the surface
+
+        let paused = CoordinatorHarness.playingTrack(isPlaying: false)
+        h.nowPlayingSource.emit(paused)
+        #expect(await eventually { h.coordinator.nowPlaying == paused })
+
+        await h.clock.waitForSleep(delay: Coordinator.defaultHUDRevertDelay)
+        h.clock.advance(delay: Coordinator.defaultHUDRevertDelay)
+
+        _ = await eventually { h.coordinator.state != .hud(volumeHUD) }
+        #expect(h.coordinator.state == .hidden)
+    }
+
+    @Test func aPlayingSnapshotAfterADiscardDuringAHUDStillResurfaces() async {
+        // Control for the two negative tests: the discard CLEARS the promise, it
+        // does not blacklist the resume. A snapshot that is news re-earns it in the
+        // .hud branch and still gets its appearance on the revert — without this,
+        // a "fix" that latched the discard (or that stopped arming altogether)
+        // would leave both negative tests green while pinning nothing.
+        let h = CoordinatorHarness()
+        let volumeHUD = SystemHUD(kind: .volume, value: 0.5)
+        h.nowPlayingSource.emit(track)
+        #expect(await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) })
+
+        h.hudSource.emit(volumeHUD)
+        #expect(await eventually { h.coordinator.state == .hud(volumeHUD) })
+
+        h.coordinator.activeNowPlayingSourceEnded()
+        #expect(h.coordinator.nowPlaying == nil)
+
+        let promoted = CoordinatorHarness.playingTrack(title: "Time")
+        h.nowPlayingSource.emit(promoted)
+        #expect(await eventually { h.coordinator.nowPlaying == promoted })
+
+        await h.clock.waitForSleep(delay: Coordinator.defaultHUDRevertDelay)
+        h.clock.advance(delay: Coordinator.defaultHUDRevertDelay)
+
+        #expect(await eventually { h.coordinator.state == .nowPlaying(promoted, expanded: false) })
+    }
 }
