@@ -1,8 +1,8 @@
 /// Real actuator for the built-in keyboard backlight.
 struct CoreBrightnessKeyboardBrightnessController: KeyboardBrightnessController {
-    private let backend: any KeyboardBrightnessBackend
+    private let backend: any BrightnessBackend
 
-    init(backend: any KeyboardBrightnessBackend = CoreBrightnessKeyboardBridge()) {
+    init(backend: any BrightnessBackend = CoreBrightnessKeyboardBridge()) {
         self.backend = backend
     }
 

@@ -19,16 +19,44 @@
 ///   real backward seek and is obeyed.
 /// - Fresh start / track change (no previous, or a different identity): take
 ///   the anchor, including repeat-one restarting the same title at 0.
+/// - Deliberate seek in flight (`pendingSeek`, the scrubber's release): an
+///   anchor near the target is the player echoing that seek and is obeyed
+///   even where the rules above would hold it — the sub-tolerance backward
+///   step of a precision micro-scrub, and the paused freeze (whose "dropped
+///   0" heuristic still wins when the echo IS a paused 0 and the target is
+///   not the start — that 0 is the known lie, not a confirmation). Any OTHER
+///   anchor while the seek flies is the pre-seek line still echoing and is
+///   HELD — in either direction, since a stale anchor sits before a forward
+///   seek's target and after a backward one's. The hold is bounded by the
+///   caller: the hint dies on confirmation, track change, an exhausted
+///   anchor budget, or a failed command — never held forever.
 enum PositionReconciliation {
     /// Above player rounding (≤ 1 s) plus tick granularity, below any
     /// deliberate seek.
     static let seekTolerance: Double = 2
+    /// How close an anchor must land to a pending seek target to read as the
+    /// player confirming it — playback advances while the command flies, so
+    /// exact equality never happens. Shared with the source's hint lifecycle.
+    static let seekConfirmTolerance: Double = 3
 
-    static func position(for update: NowPlaying, replacing previous: NowPlaying?) -> Double {
+    static func position(
+        for update: NowPlaying,
+        replacing previous: NowPlaying?,
+        pendingSeek: Double? = nil
+    ) -> Double {
         guard let previous,
               previous.title == update.title,
               previous.artist == update.artist else {
             return update.position
+        }
+
+        if let pendingSeek {
+            let nearTarget = abs(update.position - pendingSeek) <= seekConfirmTolerance
+            let pausedZeroLie = !update.isPlaying && update.position == 0 && pendingSeek > 0
+            if nearTarget, !pausedZeroLie {
+                return update.position
+            }
+            return previous.position
         }
 
         switch (previous.isPlaying, update.isPlaying) {

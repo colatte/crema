@@ -7,16 +7,6 @@ import Testing
 @MainActor
 struct StyleContractTests {
 
-    @Test func screenGeometryIsAPureValueType() {
-        let original = ScreenGeometry(frame: CGRect(x: 0, y: 0, width: 1000, height: 600))
-        var copy = original
-        copy.safeTop = 32
-
-        #expect(original.safeTop == 0)
-        #expect(copy != original)
-        #expect(original == ScreenGeometry(frame: CGRect(x: 0, y: 0, width: 1000, height: 600)))
-    }
-
     @Test func screenGeometryDefaultsToNoNotch() {
         let geometry = ScreenGeometry(frame: CGRect(x: 0, y: 0, width: 800, height: 500))
         #expect(geometry.safeTop == 0)

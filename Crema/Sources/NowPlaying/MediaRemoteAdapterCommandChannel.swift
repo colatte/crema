@@ -42,13 +42,11 @@ struct MediaRemoteAdapterCommandChannel: NowPlayingCommandChannel {
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
 
-        let status: Int32 = await withCheckedContinuation { continuation in
-            process.terminationHandler = { continuation.resume(returning: $0.terminationStatus) }
-            do {
-                try process.run()
-            } catch {
-                continuation.resume(returning: -1)
-            }
+        // Interactive: a stuck send (the MediaRemote XPC never returning) must
+        // not park the command forever — the user re-taps first. A timeout
+        // reports -1, degrading the controls exactly like a non-zero exit.
+        let status = await runChildProcess(process, timeout: 5, clock: ContinuousSleepClock(), failureValue: Int32(-1)) { finished, _ in
+            finished.terminationStatus
         }
         guard status == 0 else { throw NowPlayingCommandError.commandFailed }
     }

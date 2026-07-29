@@ -7,12 +7,14 @@ import os
 ///
 /// Observation by default: with no consumer set, the callback returns every
 /// event untouched and the system processes every key normally (native OSD
-/// included). Setting a consumer (native-OSD suppression) makes the
-/// tap swallow the owned keys — both phases — and forward key-downs to the
-/// consumer, which becomes responsible for applying the change. The tap is
-/// created as `.defaultTap` even in observation mode: a listen-only tap can
-/// never swallow, and swapping tap types at toggle time would add an
-/// install/teardown failure mode.
+/// included). Setting a consumer (native-OSD suppression) routes every owned
+/// key — both phases — through the consumer, which decides per event whether
+/// to swallow it (and, on a key-down, becomes responsible for applying the
+/// change). The consumer can pass a key straight through (its Bool returns
+/// false), which is how one suspended domain falls back to the native OSD
+/// while the others stay suppressed. The tap is created as `.defaultTap` even
+/// in observation mode: a listen-only tap can never swallow, and swapping tap
+/// types at toggle time would add an install/teardown failure mode.
 ///
 /// Requires Accessibility. Without it, the source reports unavailable and the
 /// app keeps running; a polling task keeps re-checking and installs the tap
@@ -32,10 +34,7 @@ final class CGEventTapMediaKeySource: MediaKeySource, MediaKeyConsuming, @unchec
     private var pollTask: Task<Void, Never>?
     private var consumer: Consumer?
 
-    private let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "com.colatte.crema",
-        category: "MediaKeys"
-    )
+    private let logger = Logger.crema("MediaKeys")
 
     init(
         permission: any AccessibilityPermission,
@@ -59,24 +58,34 @@ final class CGEventTapMediaKeySource: MediaKeySource, MediaKeyConsuming, @unchec
         // revocation because the condition is recoverable in-process —
         // `finish` is reserved for the source's own end of life (deinit).
         //
-        // Beyond install/teardown, the poll health-checks an installed tap: the
-        // system can disable a consuming tap without a delivered callback (a
-        // re-enable inside the lock screen's secure-input context can be
-        // silently reverted), which would leave the tap dead while our state
-        // says it is installed — keys reach the system and the native OSD comes
-        // back alongside ours. Re-enabling here is the self-heal for that.
-        pollTask = Task { [weak self] in
+        // Beyond install/teardown, the poll health-checks an installed tap. Two
+        // failure modes the system inflicts behind our back, with no delivered
+        // callback: (1) it disables a consuming tap (a re-enable inside the lock
+        // screen's secure-input context can be silently reverted) — the port stays
+        // valid and a re-enable revives it; (2) it invalidates the mach port
+        // outright — dead permanently, no re-enable can bring it back, so the
+        // health-check reinstalls from scratch. Left unhandled either way, keys
+        // reach the system and the native OSD comes back alongside ours.
+        // clock/interval captured by value so the sleep never retains self —
+        // a strong ref parked across the await would make deinit (which owns
+        // the tap uninstall and this task's cancel) unreachable.
+        pollTask = Task { [weak self, clock, pollInterval] in
             while !Task.isCancelled {
-                guard let self else { return }
-                if self.permission.isGranted() {
-                    if self.installTapIfAuthorized() {
-                        self.reviveTapIfDisabled(reason: "poll")
-                    }
-                } else {
-                    self.tearDownTapIfInstalled()
-                }
-                try? await self.clock.sleep(for: self.pollInterval)
+                self?.pollTick()
+                try? await clock.sleep(for: pollInterval)
             }
+        }
+    }
+
+    /// One health-check pass, synchronous so the poll loop holds self only for
+    /// the tick — never across its sleep.
+    private func pollTick() {
+        if permission.isGranted() {
+            if installTapIfAuthorized() {
+                healTapIfNeeded(reason: "poll")
+            }
+        } else {
+            tearDownTapIfInstalled()
         }
     }
 
@@ -103,23 +112,79 @@ final class CGEventTapMediaKeySource: MediaKeySource, MediaKeyConsuming, @unchec
     /// consumer here, so this is the moment to physically revalidate the tap.
     /// If the lock screen's secure-input context silently disabled it, waiting
     /// for the 2 s poll would leave a window where keys reach the system (double
-    /// HUD); re-enabling now restores a working tap instantly, without tearing
-    /// the tap down (which would drop the consumer we just set).
+    /// HUD); healing now restores a working tap instantly. A merely-disabled port
+    /// is re-enabled in place; an invalidated port is reinstalled from scratch —
+    /// and because the consumer is already stored above, the fresh port adopts it,
+    /// so re-engage never drops suppression.
     func setConsumer(_ consumer: Consumer?) {
         lock.lock()
         self.consumer = consumer
-        reviveTapIfDisabledLocked(reason: "re-engage")
+        healTapLocked(reason: "re-engage")
         lock.unlock()
+    }
+
+    /// Forces a brand-new tap unconditionally: tears down the current mach port
+    /// and installs a fresh one regardless of `isEnabled`/`CFMachPortIsValid`.
+    /// The stored `consumer` is read dynamically by the callback, so the fresh
+    /// port adopts it — suppression *and* plain observation survive by
+    /// construction. Uninstall precedes install deliberately: if `tapCreate`
+    /// fails transiently (the WindowServer is briefly busy right after a wake),
+    /// leaving zero tap is the *recoverable* state — the poll reinstalls within
+    /// one interval — whereas keeping the old port would strand it, and a
+    /// deaf-but-valid port is exactly what the poll cannot detect. So a rare,
+    /// self-healing ≤pollInterval window is preferred over possibly stranding the
+    /// very deafness this method exists to cure. No orphan port lingers either way.
+    ///
+    /// This exists for a failure mode the health-check is structurally blind to.
+    /// After a lock / display-sleep / unlock the tap can stay `isEnabled == true`
+    /// and `CFMachPortIsValid == true` yet silently stop delivering events
+    /// (observed on hardware: brightness keys show the native OSD, the callback
+    /// fires zero times — no observed key, no apply/suspend/probe — and only a
+    /// relaunch, i.e. a fresh tap, cures it). Both health checks read PORT state,
+    /// not event ROUTING, one level below the accounting this needs, so a live,
+    /// enabled port that stopped routing is indistinguishable from a healthy one.
+    /// Detecting the deafness without any delivered event is not reliably
+    /// possible, so the recovery is deterministic instead: reinstall preventively
+    /// on the unlock edge and on display/system wake (SuppressionLockController
+    /// drives the unlock edge; AppCore observes the wake notifications — the wake
+    /// path also catches a display-sleep/wake with no lock, which fires no unlock
+    /// edge). It covers observation mode too, where the same deafness kills the
+    /// brightness HUD even with suppression off — hence unconditional, never
+    /// pref-gated.
+    func reinstallTap() {
+        lock.lock()
+        defer { lock.unlock() }
+        // Nothing is (or should be) installed while the permission is missing —
+        // the poll installs the instant it lands, so there is nothing to force.
+        guard permission.isGranted() else { return }
+        if let tap {
+            tapOps.uninstall(tap)
+            self.tap = nil
+        }
+        if installTapIfAuthorizedLocked() {
+            logger.notice("media-key tap reinstalled preventively")
+        } else {
+            logger.error("media-key tap reinstall failed; poll will retry")
+        }
     }
 
     // MARK: - Tap installation (border)
 
-    /// Returns true once the tap is installed. Never touches the CGEvent API
-    /// while the permission is missing.
+    /// Returns true once the tap is installed. Acquires the lock; see
+    /// `installTapIfAuthorizedLocked`.
     private func installTapIfAuthorized() -> Bool {
         lock.lock()
         defer { lock.unlock() }
+        return installTapIfAuthorizedLocked()
+    }
 
+    /// Creates the tap if none is installed. Must be called with `lock` held.
+    /// Never touches the CGEvent API while the permission is missing. The
+    /// callback resolves the source from `userInfo` and reads `self.consumer` on
+    /// every event, so a reinstall from `healTapLocked` preserves suppression by
+    /// construction — the fresh port points back at the same source and its
+    /// unchanged consumer.
+    private func installTapIfAuthorizedLocked() -> Bool {
         guard tap == nil else { return true }
         guard permission.isGranted() else { return false }
 
@@ -155,17 +220,45 @@ final class CGEventTapMediaKeySource: MediaKeySource, MediaKeyConsuming, @unchec
         logger.info("media-key tap removed (permission revoked); will reinstall on re-grant")
     }
 
-    /// Re-enables an installed-but-disabled tap. Acquires the lock; see
-    /// `reviveTapIfDisabledLocked` for the rationale.
-    private func reviveTapIfDisabled(reason: String) {
+    /// Health-check wrapper for the poll path. Acquires the lock; see
+    /// `healTapLocked`.
+    private func healTapIfNeeded(reason: String) {
         lock.lock()
         defer { lock.unlock() }
+        healTapLocked(reason: reason)
+    }
+
+    /// Health-check for a tap that went bad behind our back. Must be called with
+    /// `lock` held. Two distinct failure modes, two responses:
+    ///
+    /// - Port invalidated (`CFMachPortIsValid` false): the tap is permanently
+    ///   dead — no `setEnabled` revives an invalid port. Uninstall and reinstall
+    ///   from scratch; the fresh port's callback reads `self.consumer`
+    ///   dynamically, so suppression survives by construction. Validity is
+    ///   definitive (unlike a transient disable), so there is deliberately no
+    ///   counter/backoff here — one detection, one reinstall.
+    /// - Port valid but disabled: a re-enable restores it (the secure-input or
+    ///   tap-timeout disable, delivered as a tapDisabledBy* event), keeping the
+    ///   same port and its consumer wiring intact.
+    ///   (docs/DECISIONS.md: J1-tap-zumbi)
+    private func healTapLocked(reason: String) {
+        guard let tap else { return }
+        if !tapOps.isValid(tap) {
+            tapOps.uninstall(tap)
+            self.tap = nil
+            if installTapIfAuthorizedLocked() {
+                logger.notice("media-key tap port invalidated (\(reason, privacy: .public)); reinstalled")
+            } else {
+                logger.error("media-key tap port invalidated (\(reason, privacy: .public)); reinstall deferred to poll")
+            }
+            return
+        }
         reviveTapIfDisabledLocked(reason: reason)
     }
 
-    /// Health-check for a tap the system disabled behind our back. Must be
-    /// called with `lock` held. Only re-enables; never reinstalls — the same
-    /// port keeps its callback wiring (and thus the consumer) intact.
+    /// Re-enables an installed-but-disabled tap. Must be called with `lock`
+    /// held. Only re-enables; never reinstalls — the same port keeps its
+    /// callback wiring (and thus the consumer) intact.
     private func reviveTapIfDisabledLocked(reason: String) {
         guard let tap, !tapOps.isEnabled(tap) else { return }
         tapOps.setEnabled(tap, true)
@@ -202,16 +295,20 @@ final class CGEventTapMediaKeySource: MediaKeySource, MediaKeyConsuming, @unchec
             continuation.yield(key)
         }
 
-        guard MediaKeyTranslation.ownedKey(ignoringPhaseFromData1: data1) != nil else { return false }
+        guard let ownedKey = MediaKeyTranslation.ownedKey(ignoringPhaseFromData1: data1) else { return false }
         lock.lock()
         let consumer = self.consumer
         lock.unlock()
         guard let consumer else { return false }
 
-        if let key = MediaKeyTranslation.mediaKey(fromData1: data1) {
-            let modifiers = systemEvent.modifierFlags
-            consumer(key, modifiers.contains(.option) && modifiers.contains(.shift))
-        }
-        return true
+        // The consumer decides per phase whether to swallow. `mediaKey(fromData1:)`
+        // is the down-only decode (nil on key-up), so its non-nil result is the
+        // key-down/repeat signal; the phase-blind `ownedKey` carries the key on
+        // both phases. Fine-step only rides the down (a key-up applies nothing);
+        // the consumer keeps the up consistent with the down it committed to.
+        let isDown = MediaKeyTranslation.mediaKey(fromData1: data1) != nil
+        let modifiers = systemEvent.modifierFlags
+        let fine = isDown && modifiers.contains(.option) && modifiers.contains(.shift)
+        return consumer(ownedKey, fine, isDown)
     }
 }

@@ -5,11 +5,6 @@ import CoreAudio
 /// this app; display-specific volume belongs to the optional integration.
 /// Receiving a non-nil display is a routing error and throws.
 struct CoreAudioVolumeController: VolumeController {
-    enum CommandError: Error {
-        case externalDisplayUnsupported
-        case noOutputDevice
-    }
-
     func setVolume(_ value: Double, on display: DisplayUUID?) async throws {
         try CoreAudioSystemOutput.writeVolume(
             VolumeConversion.denormalize(value),
@@ -22,9 +17,9 @@ struct CoreAudioVolumeController: VolumeController {
     }
 
     private func systemOutputDevice(for display: DisplayUUID?) throws -> AudioDeviceID {
-        guard display == nil else { throw CommandError.externalDisplayUnsupported }
+        guard display == nil else { throw VolumeCommandError.externalDisplayUnsupported }
         guard let device = CoreAudioSystemOutput.defaultOutputDeviceID() else {
-            throw CommandError.noOutputDevice
+            throw VolumeCommandError.noOutputDevice
         }
         return device
     }

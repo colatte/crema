@@ -20,6 +20,12 @@ protocol EventTapOperating: Sendable {
     /// tap (timeout, secure-input transitions) without a delivered callback, so
     /// the source polls this rather than trusting install state.
     func isEnabled(_ token: AnyObject) -> Bool
+    /// Whether the tap's mach port is still valid. A disabled tap keeps a valid
+    /// port (a re-enable revives it); an invalidated port is dead permanently and
+    /// only a reinstall recovers it. `CFMachPortIsValid` distinguishes the two, so
+    /// the health-check can escalate from re-enable to reinstall without fighting a
+    /// legitimate secure-input disable — that disable leaves the port valid.
+    func isValid(_ token: AnyObject) -> Bool
     func setEnabled(_ token: AnyObject, _ enabled: Bool)
     func uninstall(_ token: AnyObject)
 }
@@ -63,6 +69,11 @@ struct LiveEventTapOperating: EventTapOperating {
     func isEnabled(_ token: AnyObject) -> Bool {
         guard let token = token as? Token else { return false }
         return CGEvent.tapIsEnabled(tap: token.port)
+    }
+
+    func isValid(_ token: AnyObject) -> Bool {
+        guard let token = token as? Token else { return false }
+        return CFMachPortIsValid(token.port)
     }
 
     func setEnabled(_ token: AnyObject, _ enabled: Bool) {

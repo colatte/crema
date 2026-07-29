@@ -19,6 +19,11 @@ extension View {
     /// (larger than every state) never crops anything — unclipped, that
     /// overflow ghosts outside the outline.
     ///
+    /// Callers pin `.environment(\.colorScheme, .dark)` ENCLOSING this modifier
+    /// — that is what flips the AppKit-backed material along with the ink; the
+    /// material's own NSAppearance pin below is belt-and-braces and does not
+    /// cover the ink (docs/DECISIONS.md: hud-fixed-dark-palette).
+    ///
     /// design note (macOS 26, verified 2026-07): the vivid Liquid Glass look in a
     /// never-key panel is only reachable via the private `set_variant:` selector
     /// (excluded by project policy); `NSGlassEffectView` exposes no active-state
@@ -35,13 +40,18 @@ extension View {
     }
 }
 
-/// `NSVisualEffectView` forced to the active appearance so the material stays
+/// `NSVisualEffectView` forced to the active state so the material stays
 /// vibrant even though the panel is never the key window. `.hudWindow` +
 /// `.behindWindow` is the system's own HUD/overlay recipe; the panel is already
 /// clear + non-opaque, which behind-window blending requires.
 private struct VibrancyMaterial: NSViewRepresentable {
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
+        // Pinned dark by contract, belt-and-braces with the colorScheme the
+        // views force above the surface: the material must not follow a system
+        // appearance the ink no longer follows (docs/DECISIONS.md:
+        // hud-fixed-dark-palette).
+        view.appearance = NSAppearance(named: .darkAqua)
         view.material = .hudWindow
         view.blendingMode = .behindWindow
         view.state = .active

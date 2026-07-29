@@ -71,11 +71,11 @@ enum CardMetrics {
     /// shows, so reusing it (the old 260×64) left the volume/brightness bar
     /// oversized for glance-level info. Issue #3's reference indicators are thin
     /// bars, roughly 4.5–5.5:1 width:height; 210×42 (5:1) sits mid-range. Both
-    /// Card HUD variants lay out in it: the .slider row is a 22 pt icon beside a
-    /// system Slider (~21 pt tall) centered in the 42 pt height with headroom to
-    /// spare, and the full-bleed .filled bar adapts by construction while its
-    /// leading glyph stays legible at the shorter height. Width and height are
-    /// separate calibration knobs.
+    /// Card HUD variants lay out in it: the .slider row is a 22 pt icon beside
+    /// the capsule's 16 pt hit row (HUDLevelSlider.trackHitHeight) centered in
+    /// the 42 pt height with headroom to spare, and the full-bleed .filled bar
+    /// adapts by construction while its leading glyph stays legible at the
+    /// shorter height. Width and height are separate calibration knobs.
     static let hudSystemWidth: CGFloat = 210
     static let hudSystemHeight: CGFloat = 42
     static let hudSystemSize = CGSize(width: hudSystemWidth, height: hudSystemHeight)
@@ -128,17 +128,4 @@ enum CardMetrics {
     /// Title-over-artist gap, shared by compact and expanded — the stacked
     /// text is the same element in both states.
     static let textStackSpacing: CGFloat = 2
-
-    /// Decorative waveform — compact only: there it is the sole "playing"
-    /// signal (no scrubber, no transport). Expanded already says it twice
-    /// (scrubber motion + pause glyph), so the ornament stays out of it.
-    static let waveform = WaveformGlyph.Configuration(
-        barCount: 4,
-        barWidth: 2,
-        barSpacing: 2.5,
-        barCornerRadius: 1,
-        restHeight: 4,
-        peakHeight: 12,
-        pulsePeriod: 0.5
-    )
 }

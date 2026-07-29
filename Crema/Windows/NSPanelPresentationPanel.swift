@@ -99,7 +99,11 @@ final class NSPanelPresentationPanel: PresentationPanel {
         // Coordinator. The notch debounces (top edge); the others commit at once.
         if let regions = style.hoverRegions(on: screen.geometry) {
             let commit = style.hoverCommit
-            hoverMonitor = SurfaceHoverMonitor(regions: regions) { [weak coordinator] inside in
+            hoverMonitor = SurfaceHoverMonitor(regions: regions) { [weak coordinator, displayPolicy] inside in
+                // Panel-local first: the capsule knob is per-display, so only
+                // the hovered surface reveals it; the Coordinator keeps the
+                // global mirror its timers key on.
+                displayPolicy.pointerInside = inside
                 switch commit {
                 case .immediate: coordinator?.hover(inside)
                 case .debounced: coordinator?.hoverIntent(inside)
@@ -150,11 +154,11 @@ final class NSPanelPresentationPanel: PresentationPanel {
         invokeZone: CGRect?
     ) {
         // swiftlint:enable function_parameter_count
-        hoverMonitor?.setActive(hoverArmed)
         self.invokeZone = invokeZone ?? .zero
 
         guard fixedWindowFrame != nil else {
             applyDirectFrame(frame)
+            hoverMonitor?.setActive(hoverArmed)
             return
         }
 
@@ -172,10 +176,33 @@ final class NSPanelPresentationPanel: PresentationPanel {
         tightenTask = nil
         let previous = currentFrame
         currentFrame = frame
+        // Hover retarget at apply time errs TIGHT: the current state's rule
+        // frame ∩ the last rendered truth (the reported size still predates
+        // this state change — while hidden it holds the FROZEN last-visible
+        // silhouette). The genuine size report right after widens it to the
+        // rendered truth; arming happens LAST in every path, so the arming
+        // sample never judges a stale or oversized rect (docs/DECISIONS.md:
+        // hover-follows-the-eye).
+        if !frame.isEmpty {
+            let rendered = reportedSurfaceSize.flatMap { size in
+                fixedWindowFrame.map {
+                    SurfaceClickThrough.surfaceRect(size: size, window: $0, anchor: style.surfaceVerticalAnchor)
+                }
+            }
+            if let regions = SurfaceHoverRegions.forApply(
+                ruleFrame: frame, lastRendered: rendered, margins: style.hoverExitMargins
+            ) {
+                hoverMonitor?.updateRegions(regions)
+            }
+        }
         if reportedSurfaceSize != nil {
             // The view reports its rendered size: the region tracks the real
-            // surface through morphs, no settle heuristics needed.
-            refreshReportedInteractiveRect()
+            // surface through morphs, no settle heuristics needed. Hover is
+            // NOT pushed from this apply-time refresh — its reported size
+            // predates the state (see the tight retarget above); only a fresh
+            // report (surfaceSizeChanged) retargets hover.
+            refreshReportedInteractiveRect(pushesHoverRegions: false)
+            hoverMonitor?.setActive(hoverArmed)
             return
         }
         if previous.isEmpty || frame.contains(previous) {
@@ -196,6 +223,7 @@ final class NSPanelPresentationPanel: PresentationPanel {
         // (reactive appearance, HUD keypress) and no mouse-move would fire to
         // unlock it.
         routeClicks(at: NSEvent.mouseLocation)
+        hoverMonitor?.setActive(hoverArmed)
     }
 
     private func surfaceSizeChanged(_ size: CGSize) {
@@ -210,20 +238,21 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// Interactive region from the rendered surface: its size, top-center
     /// anchored (how the views draw it). Hidden always wins — the fading ghost
     /// still reports its size but must not capture clicks.
-    private func refreshReportedInteractiveRect() {
+    private func refreshReportedInteractiveRect(pushesHoverRegions: Bool = true) {
         guard let fixedWindowFrame, let size = reportedSurfaceSize else { return }
         let visible: CGRect = currentFrame.isEmpty
             ? .zero
             : SurfaceClickThrough.surfaceRect(size: size, window: fixedWindowFrame, anchor: style.surfaceVerticalAnchor)
         interactiveRect = visible
-        // Hover follows the same rendered surface as clicks: the adaptive card
-        // reports narrower than its rule ceiling, so a rule-derived region would
-        // arm in the dead air beside the visible edge. Only the adaptive style
-        // retargets; hidden leaves the region as-is (hover is disarmed there, so
-        // a stale rect is never sampled) and never adopts the empty branch's
-        // window-tall report.
-        if style.hoverTracksRenderedSurface, !visible.isEmpty {
-            hoverMonitor?.updateRegions(.around(visible))
+        // Hover follows the same rendered surface as clicks, on every style —
+        // the two truths of one panel never diverge (docs/DECISIONS.md:
+        // hover-follows-the-eye). The apply path passes false: its reported
+        // size predates the state change, and apply already retargeted tight.
+        // Hidden leaves the region as-is (hover is disarmed there, and the
+        // next apply retargets before arming) and never adopts the empty
+        // branch's window-tall report.
+        if pushesHoverRegions, !visible.isEmpty {
+            hoverMonitor?.updateRegions(.around(visible, margins: style.hoverExitMargins))
         }
         routeClicks(at: NSEvent.mouseLocation)
     }

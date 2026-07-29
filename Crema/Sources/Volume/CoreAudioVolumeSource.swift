@@ -1,5 +1,6 @@
 import CoreAudio
 import Foundation
+import os
 
 /// Real system-volume source: observes the default output device's volume and
 /// mute via Core Audio property listeners and emits domain events. Raw↔domain
@@ -12,6 +13,7 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unch
     private let continuation: AsyncStream<SystemHUD>.Continuation
     private let queue = DispatchQueue(label: "com.colatte.crema.CoreAudioVolumeSource")
     private let lock = NSLock()
+    private let logger = Logger.crema("Volume")
     private var observedDevice: AudioDeviceID?
 
     // Listener blocks are retained so they can be removed; one block serves
@@ -29,9 +31,16 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unch
         }
         defaultDeviceBlock = defaultBlock
         var address = CoreAudioSystemOutput.defaultOutputDeviceAddress
-        AudioObjectAddPropertyListenerBlock(
+        let status = AudioObjectAddPropertyListenerBlock(
             AudioObjectID(kAudioObjectSystemObject), &address, queue, defaultBlock
         )
+        // A failed registration is silent deafness: reads/writes keep working
+        // while the HUD never updates — the status line is the only trace.
+        if status != noErr {
+            logger.error(
+                "default-output listener registration failed (OSStatus \(status, privacy: .public)) — device switches will not re-arm observation"
+            )
+        }
 
         observeCurrentDefaultDevice()
     }
@@ -62,7 +71,14 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unch
     /// covers the boundary and the app owns nothing to feed back.
     func sample() {
         guard let device = CoreAudioSystemOutput.defaultOutputDeviceID() else { return }
-        let raw = CoreAudioSystemOutput.readVolume(device) ?? 0
+        // A failed volume read stays silent rather than publish a fabricated
+        // 0% (the OSD channel treats the same nil as a real failure); the mute
+        // fallback is different — a device without a mute control is absent
+        // capability, not a failed read.
+        guard let raw = CoreAudioSystemOutput.readVolume(device) else {
+            logger.debug("volume read failed on device \(device, privacy: .public) — skipping the boundary refresh")
+            return
+        }
         let muted = CoreAudioSystemOutput.readMute(device) ?? false
         guard let hud = VolumeConversion.boundaryRefreshHUD(rawVolume: raw, isMuted: muted) else { return }
         continuation.yield(hud)
@@ -90,8 +106,16 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unch
         deviceBlock = block
         var volume = CoreAudioSystemOutput.volumeAddress
         var mute = CoreAudioSystemOutput.muteAddress
-        AudioObjectAddPropertyListenerBlock(device, &volume, queue, block)
-        AudioObjectAddPropertyListenerBlock(device, &mute, queue, block)
+        let volumeStatus = AudioObjectAddPropertyListenerBlock(device, &volume, queue, block)
+        let muteStatus = AudioObjectAddPropertyListenerBlock(device, &mute, queue, block)
+        // Self-heals on the next default-device switch (the system-object
+        // listener survives); until then the HUD is deaf, so leave a trace.
+        if volumeStatus != noErr || muteStatus != noErr {
+            let statuses = "volume \(volumeStatus), mute \(muteStatus)"
+            logger.error(
+                "listener add on device \(device, privacy: .public) failed (OSStatus \(statuses, privacy: .public)) — HUD deaf until the next device switch"
+            )
+        }
         observedDevice = device
     }
 
@@ -112,7 +136,12 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unch
         lock.unlock()
         guard isCurrentDevice else { return }
 
-        let raw = CoreAudioSystemOutput.readVolume(device) ?? 0
+        // Same discipline as sample(): a failed read must not become a HUD
+        // asserting 0% — stay silent and leave a trace instead.
+        guard let raw = CoreAudioSystemOutput.readVolume(device) else {
+            logger.debug("volume read failed on device \(device, privacy: .public) — skipping the emit")
+            return
+        }
         let muted = CoreAudioSystemOutput.readMute(device) ?? false
         continuation.yield(VolumeConversion.hud(rawVolume: raw, isMuted: muted))
     }

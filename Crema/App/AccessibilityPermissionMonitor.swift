@@ -26,11 +26,13 @@ final class AccessibilityPermissionMonitor {
 
     func start() {
         guard pollTask == nil else { return }
-        pollTask = Task { [weak self] in
+        // clock/interval captured by value so the sleep never retains self —
+        // a strong ref parked across the await would keep the monitor alive
+        // for as long as the poll it owns keeps running.
+        pollTask = Task { [weak self, clock, pollInterval] in
             while !Task.isCancelled {
-                guard let self else { return }
-                try? await self.clock.sleep(for: self.pollInterval)
-                self.refresh()
+                try? await clock.sleep(for: pollInterval)
+                self?.refresh()
             }
         }
     }

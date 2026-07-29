@@ -24,8 +24,7 @@ struct ArtworkAccentTests {
         if let tone {
             #expect(tone.hue < 0.06 || tone.hue > 0.94)   // red family
             #expect(ArtworkAccent.displaySaturationRange.contains(tone.saturation))
-            #expect(ArtworkAccent.darkBrightnessRange.contains(tone.displayBrightness(for: .dark)))
-            #expect(ArtworkAccent.lightBrightnessRange.contains(tone.displayBrightness(for: .light)))
+            #expect(ArtworkAccent.displayBrightnessRange.contains(tone.displayBrightness))
         }
     }
 
@@ -72,21 +71,19 @@ struct ArtworkAccentTests {
 
     @Test func neonCoversAreContainedByTheClamp() {
         // Full-saturation full-brightness green: the tone must come out
-        // capped in both appearances, never the raw neon.
+        // capped into the single display band, never the raw neon.
         let tone = ArtworkAccent.tone(fromRGBA: pixels([(0, 255, 0)], count: 256))
         #expect(tone?.saturation == ArtworkAccent.displaySaturationRange.upperBound)
-        #expect(tone?.displayBrightness(for: .dark) == ArtworkAccent.darkBrightnessRange.upperBound)
-        #expect(tone?.displayBrightness(for: .light) == ArtworkAccent.lightBrightnessRange.upperBound)
+        #expect(tone?.displayBrightness == ArtworkAccent.displayBrightnessRange.upperBound)
     }
 
-    @Test func darkButColorfulCoversAreLiftedPerScheme() {
-        // A deep blue (visible hue, low brightness): lifted to the dark floor
-        // so it reads on the notch's black; the light band starts lower (the
-        // light material needs darker ink, not brighter).
+    @Test func darkButColorfulCoversAreLiftedToTheFloor() {
+        // A deep blue (visible hue, low brightness): lifted to the band's
+        // floor so it reads on the always-dark surfaces (docs/DECISIONS.md:
+        // hud-fixed-dark-palette).
         let tone = ArtworkAccent.tone(fromRGBA: pixels([(20, 30, 90)], count: 256))
         #expect(tone != nil)
-        #expect(tone?.displayBrightness(for: .dark) == ArtworkAccent.darkBrightnessRange.lowerBound)
-        #expect(ArtworkAccent.lightBrightnessRange.contains(tone?.displayBrightness(for: .light) ?? -1))
+        #expect(tone?.displayBrightness == ArtworkAccent.displayBrightnessRange.lowerBound)
     }
 
     @Test func emptyPixelsGetNoTone() {

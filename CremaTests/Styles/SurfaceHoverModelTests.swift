@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Testing
 @testable import Crema
@@ -106,15 +107,146 @@ struct SurfaceHoverModelTests {
 
     // MARK: - Region contract (detection uses stable geometry, not the frame)
 
-    @Test func notchRegionsAreTheCompactAndExpandedFramesNotTheAnimatingOne() {
+    @Test func notchInitialRegionsHugTheCompactSurfaceWithDirectionalMargins() {
         let style = NotchStyle()
         let track = CoordinatorHarness.playingTrack()
         let regions = Style.notch.hoverRegions(on: notched)!
+        let comfort = SurfaceHoverRegions.comfortMargin
 
+        // Seed regions come from the compact frame alone — the union with the
+        // expanded frame was the 100 pt stuck band below the compact notch
+        // (docs/DECISIONS.md: hover-follows-the-eye).
         let compact = style.frame(for: .nowPlaying(track, expanded: false), on: notched)
-        let expanded = style.frame(for: .nowPlaying(track, expanded: true), on: notched)
-        #expect(regions.enter == compact)
-        #expect(regions.exit == expanded.insetBy(dx: -SurfaceHoverRegions.defaultExitMargin, dy: -SurfaceHoverRegions.defaultExitMargin))
+        #expect(regions.enter == compact.insetBy(dx: -comfort, dy: -comfort))
+        #expect(regions.exit.minX == regions.enter.minX - 5)     // lateral: menu bar pixels
+        #expect(regions.exit.maxX == regions.enter.maxX + 5)
+        #expect(regions.exit.minY == regions.enter.minY - 16)    // below: app content
+        #expect(regions.exit.maxY == regions.enter.maxY)         // top: screen edge, no band
+    }
+
+    /// The stuck-hover bug itself, pinned dead: a cursor resting 50 pt below
+    /// the visible compact/HUD bottom used to be inside the union-derived exit
+    /// (100 pt band) and held the surface forever. With state-derived regions
+    /// it is out — the exit reaches at most comfort+bottom past the visible.
+    @Test func aCursorRestingBelowTheVisibleSurfaceIsOutside() {
+        let style = NotchStyle()
+        let hudFrame = style.frame(for: .hud(SystemHUD(kind: .volume, value: 0.5)), on: notched)
+        let regions = SurfaceHoverRegions.around(hudFrame, margins: Style.notch.hoverExitMargins)
+        let model = SurfaceHoverModel(regions: regions)
+
+        let resting = CGPoint(x: hudFrame.midX, y: hudFrame.minY - 50)
+        #expect(!model.isInside(resting, wasInside: true), "50 pt below the visible bottom must release")
+        // The intended band still holds: just past the visible edge stays in.
+        let justBelow = CGPoint(x: hudFrame.midX, y: hudFrame.minY - 10)
+        #expect(model.isInside(justBelow, wasInside: true))
+    }
+
+    /// Click and hover truths of one panel never diverge again: the exit band
+    /// beyond a state's frame is bounded by comfort+margins on every edge —
+    /// never another state's silhouette.
+    @Test func exitBandIsBoundedByTheNamedMarginsForEveryStyleAndState() {
+        let track = CoordinatorHarness.playingTrack()
+        let states: [PresentationState] = [
+            .nowPlaying(track, expanded: false),
+            .nowPlaying(track, expanded: true),
+            .hud(SystemHUD(kind: .volume, value: 0.5)),
+        ]
+        let comfort = SurfaceHoverRegions.comfortMargin
+        for style in Style.allCases {
+            let margins = style.hoverExitMargins
+            for state in states {
+                let frame = style.frame(for: state, on: notched)
+                guard !frame.isEmpty else { continue }
+                let regions = SurfaceHoverRegions.around(frame, margins: margins)
+                #expect(regions.exit.minX == frame.minX - comfort - margins.lateral, "\(style) \(state)")
+                #expect(regions.exit.maxX == frame.maxX + comfort + margins.lateral, "\(style) \(state)")
+                #expect(regions.exit.minY == frame.minY - comfort - margins.bottom, "\(style) \(state)")
+                #expect(regions.exit.maxY == frame.maxY + comfort + margins.top, "\(style) \(state)")
+            }
+        }
+    }
+
+    /// The monitor sees moves and mouse-ups — the ups re-sync after a drag,
+    /// closing the unbounded drag-exit — but deliberately NOT drags: a live
+    /// drag on the surface's own control overshoots the edge (the slider
+    /// clamps while the cursor travels), and sampling it would release the
+    /// hover hold mid-gesture (docs/DECISIONS.md: hover-follows-the-eye).
+    @Test func monitorSamplesMovesAndUpsButNeverDrags() {
+        let mask = SurfaceHoverMonitor.sampleEventMask
+        for required: NSEvent.EventTypeMask in [.mouseMoved, .leftMouseUp, .rightMouseUp, .otherMouseUp] {
+            #expect(mask.contains(required))
+        }
+        for excluded: NSEvent.EventTypeMask in [.leftMouseDragged, .rightMouseDragged, .otherMouseDragged] {
+            #expect(!mask.contains(excluded))
+        }
+    }
+
+    /// Every band on an edge that can move during the open spring must absorb
+    /// its overshoot, or the sweeping edge re-creates the flicker the regions
+    /// exist to kill. The exemption is per-edge, derived from the frame rule
+    /// itself over the VISIBLE states — hidden is excluded on purpose: its
+    /// rule width is 0, but geometry never travels across the empty boundary
+    /// (appearance/disappearance is a fade at the final rect — CLAUDE.md,
+    /// animation contract 1), so that "width change" moves no edge. Notch and
+    /// card are top-anchored (and the notch's top is the screen edge), but
+    /// the bottom-anchored classic grows UPWARD — its top band must absorb
+    /// too. Laterally the rule decides: the notch's slit width is invariant
+    /// across visible states on a NOTCHED display — the only geometry where
+    /// WindowManager.resolvedStyle lets the notch skin run (without a slit it
+    /// resolves to card, whose own lateral check is live below) — so its
+    /// static lateral edges owe no headroom, which is what admits the
+    /// hardware-calibrated 5 pt; if the width ever starts morphing, this
+    /// derivation reinstates the requirement by itself.
+    @Test func stickyBandsAbsorbTheOpenSpringOvershoot() {
+        let comfort = SurfaceHoverRegions.comfortMargin
+        let track = CoordinatorHarness.playingTrack()
+        // Visible states only — see the doc above for why hidden stays out.
+        let states: [PresentationState] = [
+            .nowPlaying(track, expanded: false),
+            .nowPlaying(track, expanded: true),
+            .hud(SystemHUD(kind: .volume, value: 0.5)),
+        ]
+        for style in Style.allCases {
+            let margins = style.hoverExitMargins
+            let widths = Set(states.map { style.frame(for: $0, on: notched).width })
+            if widths.count > 1 {
+                #expect(comfort + margins.lateral >= SurfaceAnimation.overshootHeadroom, "\(style) lateral (moving edge)")
+            }
+            // The derivation must not silently weaken the pin: the floating
+            // skins DO morph width today, so their lateral check must be live.
+            if style != .notch {
+                #expect(widths.count > 1, "\(style) width expected to morph across states")
+            }
+            #expect(comfort + margins.bottom >= SurfaceAnimation.overshootHeadroom, "\(style) bottom")
+            if style.surfaceVerticalAnchor != .top {
+                #expect(comfort + margins.top >= SurfaceAnimation.overshootHeadroom, "\(style) top (moving edge)")
+            }
+        }
+    }
+
+    /// The apply-time retarget errs tight (rule frame ∩ last rendered): the
+    /// previous state's silhouette never survives a state change, and the rule
+    /// ceiling never overrides a narrower rendered truth — each stale rect
+    /// alone re-created a closed bug (the notch stuck band; the card's dead
+    /// air).
+    @Test func applyTimeRegionsErrTightBetweenRuleAndRendered() {
+        let margins = SurfaceHoverRegions.Margins.uniform
+        let compact = CGRect(x: 0, y: 900, width: 185, height: 76)
+        let expanded = CGRect(x: 0, y: 824, width: 185, height: 152)
+        #expect(
+            SurfaceHoverRegions.forApply(ruleFrame: compact, lastRendered: expanded, margins: margins)
+                == .around(compact, margins: margins)
+        )
+        let ceiling = CGRect(x: 0, y: 0, width: 280, height: 64)
+        let hugged = CGRect(x: 50, y: 0, width: 180, height: 64)
+        #expect(
+            SurfaceHoverRegions.forApply(ruleFrame: ceiling, lastRendered: hugged, margins: margins)
+                == .around(hugged, margins: margins)
+        )
+        #expect(
+            SurfaceHoverRegions.forApply(ruleFrame: compact, lastRendered: nil, margins: margins)
+                == .around(compact, margins: margins)
+        )
     }
 
     @Test func exitContainsEnterSoTheBandIsAlwaysSticky() {
@@ -124,10 +256,12 @@ struct SurfaceHoverModelTests {
         }
     }
 
-    @Test func cardRegionsComeFromItsCompactAndExpandedFrames() {
+    @Test func cardSeedRegionsComeFromItsCompactFramePlusComfort() {
         let track = CoordinatorHarness.playingTrack()
         let regions = Style.card.hoverRegions(on: notched)!
-        #expect(regions.enter == CardStyle().frame(for: .nowPlaying(track, expanded: false), on: notched))
+        let comfort = SurfaceHoverRegions.comfortMargin
+        let compact = CardStyle().frame(for: .nowPlaying(track, expanded: false), on: notched)
+        #expect(regions.enter == compact.insetBy(dx: -comfort, dy: -comfort))
     }
 
     @Test func everyStyleExposesHoverRegions() {
@@ -161,13 +295,13 @@ struct SurfaceHoverModelTests {
         )
     }
 
-    /// Only the width-hugging card retargets to the rendered surface; the
-    /// fixed-width styles' rendered size equals their rule frame, so they keep
-    /// the static rule regions (and must, to stay behaviorally unchanged).
-    @Test func onlyTheCardTracksTheRenderedSurface() {
-        #expect(Style.card.hoverTracksRenderedSurface)
-        #expect(!Style.notch.hoverTracksRenderedSurface)
-        #expect(!Style.classic.hoverTracksRenderedSurface)
+    /// Margin dispatch: the notch is directional (lateral tight against the
+    /// menu bar, no top band at the screen edge); floating styles uniform.
+    @Test func exitMarginsAreDirectionalOnTheNotchAndUniformElsewhere() {
+        let notchMargins = Style.notch.hoverExitMargins
+        #expect(notchMargins == SurfaceHoverRegions.Margins(top: 0, lateral: 5, bottom: 16))
+        #expect(Style.card.hoverExitMargins == .uniform)
+        #expect(Style.classic.hoverExitMargins == .uniform)
     }
 
     /// The pin: for each layoutKind, the input region is the visible frame plus
@@ -175,7 +309,7 @@ struct SurfaceHoverModelTests {
     /// (exit) — derived from the rendered size, not the rule ceiling.
     @Test func cardRegionsAreTheVisibleFramePlusTheNamedMargins() {
         let comfort = SurfaceHoverRegions.comfortMargin
-        let band = SurfaceHoverRegions.defaultExitMargin
+        let band = SurfaceHoverRegions.Margins.uniform
         let renderedSizes: [CGSize] = [
             CGSize(width: CardMetrics.compactMinWidth, height: CardMetrics.compact.height),   // compact, hugged to floor
             CGSize(width: CardMetrics.expandedMinWidth, height: CardMetrics.expanded.height),  // expanded, hugged to floor
@@ -185,7 +319,7 @@ struct SurfaceHoverModelTests {
             let visible = cardVisibleRect(size)
             let regions = SurfaceHoverRegions.around(visible)
             #expect(regions.enter == visible.insetBy(dx: -comfort, dy: -comfort))
-            #expect(regions.exit == visible.insetBy(dx: -(comfort + band), dy: -(comfort + band)))
+            #expect(regions.exit == visible.insetBy(dx: -(comfort + band.lateral), dy: -(comfort + band.bottom)))
             #expect(regions.exit.contains(regions.enter), "exit must stay sticky over enter")
         }
     }
@@ -199,9 +333,9 @@ struct SurfaceHoverModelTests {
         let visible = cardVisibleRect(hugged)
         let tracked = SurfaceHoverRegions.around(visible)
 
-        // The former, rule-derived region (compact rule frame = the ceiling).
+        // The former, rule-derived region (compact rule ceiling + comfort).
         let ruleEnter = Style.card.hoverRegions(on: plain)!.enter
-        #expect(ruleEnter.width == CardMetrics.compact.width)   // 280 ceiling, not 180
+        #expect(ruleEnter.width == CardMetrics.compact.width + 2 * SurfaceHoverRegions.comfortMargin)
 
         // A point 120 pt right of center: inside the 280-wide ceiling (±140),
         // beyond the 96 pt visible+comfort half (180/2 + 6) — the exact dead air.
@@ -225,29 +359,6 @@ struct SurfaceHoverModelTests {
         // The expanded exit swallows the compact enter: whatever opened the card
         // is still held once it grows.
         #expect(expanded.exit.contains(compact.enter))
-    }
-
-    // MARK: - Regression: fixed-width styles' rule regions are unchanged
-
-    /// Notch/Classic keep the exact static rule-derived regions (enter = compact
-    /// rule frame, no comfort margin) — the fix routes only the adaptive card
-    /// through the rendered path, so these must read byte-for-byte as before.
-    @Test func fixedWidthStyleRegionsStayRuleDerived() {
-        let track = CoordinatorHarness.playingTrack()
-        for style in [Style.notch, .classic] {
-            guard let regions = style.hoverRegions(on: notched) else {
-                Issue.record("\(style) has no regions")
-                continue
-            }
-            let compact = style.frame(for: .nowPlaying(track, expanded: false), on: notched)
-            let expanded = style.frame(for: .nowPlaying(track, expanded: true), on: notched)
-            #expect(regions.enter == compact, "\(style): enter is the bare compact rule frame")
-            #expect(
-                regions.exit == compact.union(expanded)
-                    .insetBy(dx: -SurfaceHoverRegions.defaultExitMargin, dy: -SurfaceHoverRegions.defaultExitMargin),
-                "\(style): exit is the rule union + margin"
-            )
-        }
     }
 }
 

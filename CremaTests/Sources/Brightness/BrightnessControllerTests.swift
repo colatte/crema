@@ -10,7 +10,7 @@ struct BrightnessControllerTests {
     // MARK: - Screen
 
     @Test func screenControllerWritesClampedValueToInternalDisplay() async throws {
-        let backend = FakeScreenBrightnessBackend(available: true)
+        let backend = FakeBrightnessBackend(available: true)
         let controller = DisplayServicesScreenBrightnessController(backend: backend)
 
         try await controller.setBrightness(0.3, on: nil)
@@ -20,7 +20,7 @@ struct BrightnessControllerTests {
     }
 
     @Test func screenControllerRejectsExternalDisplay() async {
-        let backend = FakeScreenBrightnessBackend(available: true)
+        let backend = FakeBrightnessBackend(available: true)
         let controller = DisplayServicesScreenBrightnessController(backend: backend)
 
         await #expect(throws: BrightnessCommandError.self) {
@@ -30,7 +30,7 @@ struct BrightnessControllerTests {
     }
 
     @Test func screenControllerThrowsWhenBackendUnavailable() async {
-        let backend = FakeScreenBrightnessBackend(available: false)
+        let backend = FakeBrightnessBackend(available: false)
         let controller = DisplayServicesScreenBrightnessController(backend: backend)
 
         await #expect(throws: BrightnessCommandError.self) {
@@ -42,7 +42,7 @@ struct BrightnessControllerTests {
         // Available backend whose applied write does not take. Apply-and-verify
         // must surface a failure (writeFailed, distinct from unavailable) so the
         // suppressor auto-disengages instead of silently swallowing the key.
-        let backend = FakeScreenBrightnessBackend(available: true, writeSucceeds: false)
+        let backend = FakeBrightnessBackend(available: true, writeSucceeds: false)
         let controller = DisplayServicesScreenBrightnessController(backend: backend)
 
         await #expect(throws: BrightnessCommandError.self) {
@@ -53,7 +53,7 @@ struct BrightnessControllerTests {
     // MARK: - Keyboard
 
     @Test func keyboardControllerWritesClampedValue() async throws {
-        let backend = FakeKeyboardBrightnessBackend(available: true)
+        let backend = FakeBrightnessBackend(available: true)
         let controller = CoreBrightnessKeyboardBrightnessController(backend: backend)
 
         try await controller.setBrightness(0.5)
@@ -63,7 +63,7 @@ struct BrightnessControllerTests {
     }
 
     @Test func keyboardControllerThrowsWhenBackendUnavailable() async {
-        let backend = FakeKeyboardBrightnessBackend(available: false)
+        let backend = FakeBrightnessBackend(available: false)
         let controller = CoreBrightnessKeyboardBrightnessController(backend: backend)
 
         await #expect(throws: BrightnessCommandError.self) {
@@ -72,7 +72,7 @@ struct BrightnessControllerTests {
     }
 
     @Test func keyboardControllerSurfacesAFailureWhenTheAppliedWriteIsRejected() async {
-        let backend = FakeKeyboardBrightnessBackend(available: true, writeSucceeds: false)
+        let backend = FakeBrightnessBackend(available: true, writeSucceeds: false)
         let controller = CoreBrightnessKeyboardBrightnessController(backend: backend)
 
         await #expect(throws: BrightnessCommandError.self) {

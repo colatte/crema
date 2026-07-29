@@ -5,12 +5,6 @@ import Testing
 /// MediaKey events. The CGEventTap border itself is manual-smoke.
 struct MediaKeyTranslationTests {
 
-    /// Builds a synthetic `data1` payload: keyCode in the high word, key state
-    /// (0x0A down / 0x0B up) in the second byte, repeat flag in bit 0.
-    private func data1(keyCode: Int, down: Bool, isRepeat: Bool = false) -> Int {
-        (keyCode << 16) | ((down ? 0x0A : 0x0B) << 8) | (isRepeat ? 1 : 0)
-    }
-
     @Test func mapsVolumeKeys() {
         #expect(MediaKeyTranslation.mediaKey(fromKeyCode: 0) == .volumeUp)
         #expect(MediaKeyTranslation.mediaKey(fromKeyCode: 1) == .volumeDown)
@@ -36,22 +30,22 @@ struct MediaKeyTranslationTests {
     }
 
     @Test func decodesKeyDownFromData1() {
-        #expect(MediaKeyTranslation.mediaKey(fromData1: data1(keyCode: 0, down: true)) == .volumeUp)
-        #expect(MediaKeyTranslation.mediaKey(fromData1: data1(keyCode: 3, down: true)) == .screenBrightnessDown)
+        #expect(MediaKeyTranslation.mediaKey(fromData1: mediaKeyData1(keyCode: 0, down: true)) == .volumeUp)
+        #expect(MediaKeyTranslation.mediaKey(fromData1: mediaKeyData1(keyCode: 3, down: true)) == .screenBrightnessDown)
     }
 
     @Test func ignoresKeyUps() {
-        #expect(MediaKeyTranslation.mediaKey(fromData1: data1(keyCode: 0, down: false)) == nil)
-        #expect(MediaKeyTranslation.mediaKey(fromData1: data1(keyCode: 7, down: false)) == nil)
+        #expect(MediaKeyTranslation.mediaKey(fromData1: mediaKeyData1(keyCode: 0, down: false)) == nil)
+        #expect(MediaKeyTranslation.mediaKey(fromData1: mediaKeyData1(keyCode: 7, down: false)) == nil)
     }
 
     @Test func autorepeatStillEmits() {
         // Holding a volume key repeats the adjustment; each repeat is an event.
-        #expect(MediaKeyTranslation.mediaKey(fromData1: data1(keyCode: 1, down: true, isRepeat: true)) == .volumeDown)
+        #expect(MediaKeyTranslation.mediaKey(fromData1: mediaKeyData1(keyCode: 1, down: true, isRepeat: true)) == .volumeDown)
     }
 
     @Test func unknownKeyDownsAreIgnoredInFullDecode() {
-        #expect(MediaKeyTranslation.mediaKey(fromData1: data1(keyCode: 16, down: true)) == nil)
+        #expect(MediaKeyTranslation.mediaKey(fromData1: mediaKeyData1(keyCode: 16, down: true)) == nil)
     }
 
     /// The consumption path swallows both phases of an owned key: a key-up

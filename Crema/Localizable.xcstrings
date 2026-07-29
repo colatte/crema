@@ -1,6 +1,108 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "about.credits": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Built with Sparkle and mediaremote-adapter."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desenvolvido com Sparkle e mediaremote-adapter."
+          }
+        }
+      }
+    },
+    "about.link.github": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GitHub"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GitHub"
+          }
+        }
+      }
+    },
+    "about.link.kofi": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Support on Ko-fi"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apoiar no Ko-fi"
+          }
+        }
+      }
+    },
+    "about.link.reportIssue": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Report an issue"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Relatar um problema"
+          }
+        }
+      }
+    },
+    "about.signature": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "made with ☕ by Colatte"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "feito com ☕ por Colatte"
+          }
+        }
+      }
+    },
+    "about.version": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version %1$@ (%2$@)"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versão %1$@ (%2$@)"
+          }
+        }
+      }
+    },
     "app.menubar.title": {
       "extractionState": "manual",
       "localizations": {
@@ -239,6 +341,23 @@
         }
       }
     },
+    "menu.checkForUpdates": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check for Updates…"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verificar Atualizações…"
+          }
+        }
+      }
+    },
     "menu.grantAccessibility": {
       "extractionState": "manual",
       "localizations": {
@@ -251,7 +370,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Conceder acesso de Acessibilidade…"
+            "value": "Conceder acesso à Acessibilidade…"
           }
         }
       }
@@ -290,19 +409,53 @@
         }
       }
     },
+    "menu.osdSuspended.retry": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try to reactivate now"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tentar reativar agora"
+          }
+        }
+      }
+    },
+    "menu.osdSuspended.warning": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⚠️ System HUD restored for %@ — Crema couldn't apply the change"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⚠️ HUD do sistema restaurado para %@ — o Crema não conseguiu aplicar a mudança"
+          }
+        }
+      }
+    },
     "menu.quit": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quit"
+            "value": "Quit Crema"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sair"
+            "value": "Encerrar o Crema"
           }
         }
       }
@@ -370,7 +523,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "A concessão é detectada automaticamente — sem precisar reiniciar. Se a captura não começar, reinicie o Crema."
+            "value": "A concessão é detectada automaticamente — sem precisar reiniciar. Se mesmo assim a captura não começar, reinicie o Crema."
           }
         }
       }
@@ -387,7 +540,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agora não"
+            "value": "Agora Não"
           }
         }
       }
@@ -422,6 +575,57 @@
           "stringUnit": {
             "state": "translated",
             "value": "O Crema precisa de acesso de Acessibilidade"
+          }
+        }
+      }
+    },
+    "osd.domain.keyboardBrightness": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keyboard brightness"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brilho do teclado"
+          }
+        }
+      }
+    },
+    "osd.domain.screenBrightness": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen brightness"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brilho da tela"
+          }
+        }
+      }
+    },
+    "osd.domain.volume": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volume"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volume"
           }
         }
       }
@@ -494,6 +698,23 @@
         }
       }
     },
+    "settings.hud.appearanceHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The indicator's appearance is set in the General tab."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A aparência do indicador é definida na aba Geral."
+          }
+        }
+      }
+    },
     "settings.hud.indicator": {
       "extractionState": "manual",
       "localizations": {
@@ -517,13 +738,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Filled bar"
+            "value": "Filled"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Barra"
+            "value": "Preenchido"
           }
         }
       }
@@ -551,13 +772,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Slider"
+            "value": "Line"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Slider"
+            "value": "Linha"
           }
         }
       }
@@ -676,7 +897,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Desligado, mostra um player só de visualização — capa, título e a barra de progresso, sem os botões."
+            "value": "Quando desligado, mostra um player só de visualização — capa, título e barra de progresso, sem os botões."
           }
         }
       }
@@ -710,7 +931,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O player aparece sozinho quando a faixa troca ou a reprodução começa. Desative para mantê-lo oculto até você abrir."
+            "value": "O player aparece sozinho quando a faixa troca ou a reprodução começa. Desative para mantê-lo oculto até você abri-lo."
           }
         }
       }
@@ -761,7 +982,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Conceder acesso de Acessibilidade…"
+            "value": "Conceder acesso à Acessibilidade…"
           }
         }
       }
@@ -778,7 +999,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Concedido"
+            "value": "Concedida"
           }
         }
       }
@@ -795,7 +1016,24 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Não concedido"
+            "value": "Não concedida"
+          }
+        }
+      }
+    },
+    "settings.tab.about": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sobre"
           }
         }
       }

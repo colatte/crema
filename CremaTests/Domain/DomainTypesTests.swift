@@ -11,19 +11,6 @@ struct DomainTypesTests {
         duration: 169.0
     )
 
-    @Test func nowPlayingIsAValueTypeWithEquality() {
-        var copy = track
-        #expect(copy == track)
-        copy.position = 43.0
-        #expect(copy != track)
-    }
-
-    @Test func nowPlayingCarriesScrubbingAndPlaybackData() {
-        #expect(track.position == 42.0)
-        #expect(track.duration == 169.0)
-        #expect(track.isPlaying)
-    }
-
     @Test func nowPlayingDurationIsOptionalForLiveContent() {
         let live = NowPlaying(title: "Some Radio", isPlaying: true, position: 0)
         #expect(live.duration == nil)

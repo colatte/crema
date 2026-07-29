@@ -1,10 +1,18 @@
 # Referência de design — estilos e polish visual
 
-> Documento de pesquisa que informa a implementação dos estilos (notch, pílula,
-> circular, classic) e o polish visual do Crema. **Todos os valores aqui são
-> pontos de partida a calibrar visualmente no hardware — não verdades
-> absolutas.** Pesquisa realizada em 2026-07-04 (macOS 26 "Tahoe" vigente);
-> alvo de referência: MacBook Pro 14" M4 Pro.
+> Documento de pesquisa que informa a implementação dos estilos e o polish
+> visual do Crema. **Todos os valores aqui são pontos de partida a calibrar
+> visualmente no hardware — não verdades absolutas.** Pesquisa realizada em
+> 2026-07-04 (macOS 26 "Tahoe" vigente); alvo de referência: MacBook Pro 14"
+> M4 Pro.
+>
+> **Conjunto de estilos entregue (`Style`): notch · card · classic.** A pesquisa
+> original explorou quatro estilos (notch, pílula, circular, classic); a
+> **pílula** e a **circular** foram descartadas e convergiram no **card** — o
+> painel flutuante arredondado que hoje cobre as telas sem fenda. As seções §4.2
+> e §4.3 abaixo ficam como registro dessas explorações precursoras (a pesquisa
+> de cápsula e de anel alimentou o card); onde citam métricas de código, o
+> vigente é o card (`CardMetrics`), não `PillMetrics`.
 
 ## 0. Licenças dos projetos citados — leia antes de abrir qualquer repo
 
@@ -98,13 +106,17 @@ Padrão consolidado (boring.notch/Atoll, descrito como princípio):
   (x centrado no midX da tela — a fenda é centrada no display; maxY colado em
   `frame.maxY`); o estado fechado é desenhado _dentro_ da janela maior. Isso
   evita re-frame de janela a cada hover — só a view anima.
-  - Nota: nosso WindowManager hoje re-aplica frame por estado (regra de frame).
-    As duas abordagens são compatíveis; se a animação de janela brigar com a
-    do conteúdo, considerar janela fixa no tamanho máximo + view
-    animada (princípio do boring.notch), mantendo a regra de frame pura.
+  - Nota — shipped: é exatamente este o modelo adotado — janela FIXA no frame
+    máximo do estilo (`windowFrame`, função pura da regra de frame), só o
+    conteúdo anima; o frame por estado sobrevive apenas como fallback
+    defensivo, nunca aplicado pelos estilos (CLAUDE.md, "Nunca fazer").
 - **Alargar a fenda em ~4 pt** no desenho (2 pt por lado, ou −4 de inset):
   o recorte físico tem cantos suavizados; sem a folga aparecem frestas de luz
   (boring.notch/Atoll somam 4 pt; NotchDrop expande 4 pt por lado).
+  _(Shipped diverge: `NotchMetrics.lateralInset = 0` — flush com o recorte,
+  com snap ao pixel de dispositivo em `topAnchored`; overhang descartado por
+  calibragem em hardware ("never negative") e as frestas cobertas por um
+  underlay preto estático em NotchView.)_
 - Multi-display: janela por tela chaveada por **UUID do display** (idêntico à
   nossa convenção); reconciliar em `didChangeScreenParametersNotification`.
 - MewNotch usa janela do tamanho da tela inteira com conteúdo posicionado por
@@ -156,7 +168,9 @@ Valores observados (fatos, projetos GPL descritos em prosa):
 | DynamicNotchKit (MIT) | notch: `.bouncy(0.4)`; pílula: `.snappy(0.4)` | `.smooth(0.4)`                      | hover `.snappy(0.4)`                                                   |
 
 **Síntese:** abrir com response/duration **0.35–0.45 s** e bounce **0.15–0.3**
-(pílula no piso, notch no teto); fechar com **0.4–0.45 s** e bounce **0** —
+(card no piso, notch no teto); fechar com **0.4–0.45 s** e bounce **0**
+_(shipped: 0.35 — orçamento de latência de saída; docs/DECISIONS.md:
+hover-follows-the-eye)_ —
 **nunca bounce no recolhimento** (overshoot contra a borda da tela lê como
 instabilidade). O iOS usa mais bounce no Dynamic Island (recriações convergem
 em dampingFraction ~0.6), mas o consenso no macOS é conter, porque a superfície
@@ -178,9 +192,15 @@ Padrão convergente (boring.notch/Atoll, em prosa) + pesquisa de UX:
   dentro da janela cancela o fechamento (elimina o "piscar" na borda).
 - **Histerese espacial de graça**: a fronteira de saída é a superfície
   expandida (maior que a de entrada) — histerese geométrica + temporal.
+  _(Shipped diverge: a fronteira de saída segue a superfície do ESTADO
+  atual/renderizada + banda por aresta — a fronteira presa ao expandido criava
+  uma zona grudenta invisível de ~100 pt sob a notch compacta;
+  docs/DECISIONS.md: hover-follows-the-eye.)_
 - **Supressão pós-ação**: janela de ~0.35 s sem hover-open após fechamento
   programático (ex.: HUD assumiu a superfície), senão reabre porque o mouse
-  ainda está lá.
+  ainda está lá. _(Shipped diverge: não implementada — a constante existiu sem
+  call site e foi removida; o re-arm é coberto pelo debounce de saída +
+  `hoverExitRelinger` do modelo de hover comprometido.)_
 - **Recheck ao disparar**: quando o timer expira, revalidar as condições
   (ainda em hover, ainda fechado) antes de abrir.
 
@@ -226,15 +246,19 @@ e aplica vibrância ao conteúdo; `cornerRadius` (999 → cápsula), `tintColor`
 para merge/performance. Janela precisa de `backgroundColor = .clear` +
 `isOpaque = false` (nosso painel já é assim).
 
-### 3.3 Aplicação na pílula/notch do Crema
+### 3.3 Aplicação no card/notch do Crema
 
 - O Liquid Glass é, por definição da Apple, o material da **camada funcional
-  flutuante acima do conteúdo** — um HUD/pílula é exatamente esse caso.
+  flutuante acima do conteúdo** — um HUD flutuante é exatamente esse caso.
 - **Rota recomendada para o Crema**: manter o painel transparente e aplicar
   `.glassEffect(in:)` **dentro da view SwiftUI** (o WindowManager continua
   dono do frame). Motivos: relatos de `NSGlassEffectView` envolvendo
   `NSHostingView` com conteúdo em branco/tint errado ([cmux #2459](https://github.com/manaflow-ai/cmux/issues/2459));
   e a rota SwiftUI casa com as skins puras.
+- **Shipped diverge**: o material embarcado é vibrancy clássica
+  (`NSVisualEffectView` via `VibrancyMaterial`, fixada dark — ver
+  DECISIONS: hud-fixed-dark-palette); a rota `.glassEffect` não foi adotada.
+  Esta seção permanece como pesquisa para uma revisita Tahoe-nativa.
 - **Bordas/highlight vêm de graça** (lensing, reflexo, adaptação claro/escuro)
   — a view **não** desenha stroke/highlight próprios no ramo 26+.
 - **Não fazer**: blur/material caseiro por cima/por baixo do glass; glass
@@ -287,21 +311,29 @@ Reduce Transparency/Reduce Motion (o sistema adapta os dois ramos sozinho).
   leading = artwork, center = título/artista, trailing/bottom =
   controles/progresso; raio expandido de referência no iOS: 44 pt, margens 20 pt.
 
-### 4.2 Pílula (flutuante, telas sem notch)
+### 4.2 Pílula (exploração precursora — convergiu no card)
+
+> Estilo **descartado**; a pesquisa de cápsula abaixo alimentou o **card**
+> entregue (telas sem fenda). `PillMetrics` não existe mais no código — o
+> vigente é `CardMetrics` (compacto 280×64), um painel arredondado, não uma
+> cápsula pura.
 
 - **Cápsula sempre**: raio = altura/2, cantos contínuos (squircle,
   `.continuous`), raio nunca excede metade da menor dimensão.
 - **Compacto**: 36–44 pt de altura (Dynamic Island compacto ≈ 36–37 pt, ícone
   24 px, texto 15 pt — [Infinum](https://infinum.com/blog/start-designing-for-dynamic-island-and-live-activities/));
-  o Atoll usa 185×32 como fato. Nossa `PillMetrics.compact` (240×40) está na
-  faixa; calibrar visualmente.
+  o Atoll usa 185×32 como fato. O card entregue usa `CardMetrics.compact`
+  (280×64, painel arredondado com hugging de largura); calibrar visualmente.
 - **Expandido**: referência 640×200 pt (Atoll usa os mesmos tamanhos do notch
   para reusar conteúdo — mesmo truque que nossas skins já fazem).
 - Comportamento inspirador: o indicador de volume do iOS 13+ encolhe de pílula
   cheia para linha fina após um instante ([9to5Mac](https://9to5mac.com/2019/06/03/this-is-the-new-volume-indicator-in-ios-13/))
   — dois níveis de presença (interação → persistência mínima).
 
-### 4.3 Circular/radial
+### 4.3 Circular/radial (exploração precursora — descartada)
+
+> Estilo **descartado** (não entregue; o card o substituiu antes da pílula). Fica
+> como registro da pesquisa de anel/gauge; nada aqui corresponde a código atual.
 
 Convenção clássica de knobs/gauges de áudio + valores do Atoll (fatos):
 
@@ -357,18 +389,18 @@ Medidas do original (engenharia reversa, [ffried.codes](https://ffried.codes/201
 | Parâmetro                       | Valor de partida                                                                                                | Fonte |
 | ------------------------------- | --------------------------------------------------------------------------------------------------------------- | ----- |
 | Fenda MBP 14 (default)          | ~185×32 pt — **sempre derivar em runtime** (aux areas + safeTop); fallback cosmético 185 pt                     | §1.1  |
-| Alargamento do desenho da fenda | +4 pt de largura (2 pt/lado)                                                                                    | §1.3  |
+| Alargamento do desenho da fenda | pesquisa: +4 pt (2 pt/lado); **shipped: inset 0** (flush + snap ao pixel; underlay cobre as frestas)            | §1.3  |
 | Nível de janela (estilo notch)  | `.mainMenu + 3`, canJoinAllSpaces + fullScreenAuxiliary + stationary                                            | §1.3  |
-| Spring de abrir                 | response 0.42 / damping 0.8 (notch) · `.snappy(0.4)` (pílula)                                                   | §2.2  |
-| Spring de fechar                | response 0.45 / damping 1.0 (ou `.smooth(0.4)`) — **sem bounce**                                                | §2.2  |
+| Spring de abrir                 | pesquisa: 0.42/0.8 (notch) · `.snappy(0.4)` (card); **shipped: família única 0.42/0.8** (`SurfaceAnimation.open`) | §2.2  |
+| Spring de fechar                | pesquisa 0.45 / damping 1.0 — **sem bounce**; shipped 0.35 (hover-follows-the-eye)                              | §2.2  |
 | Hover-intent delay              | 0.3 s (preferência 0–1 s), task cancelável + recheck                                                            | §2.3  |
 | Hover-out debounce              | ~100 ms, cancelável                                                                                             | §2.3  |
-| Supressão pós-fechamento        | ~0.35 s                                                                                                         | §2.3  |
+| Supressão pós-fechamento        | pesquisa: ~0.35 s; **shipped: não implementada** (debounce de saída + re-linger cobrem)                         | §2.3  |
 | Liquid glass                    | `.glassEffect(.regular, in:)` dentro da view SwiftUI (26+); `.ultraThinMaterial` + stroke sutil no fallback <26 | §3    |
 | Notch: raios                    | fechado 6/14 (topo/base), aberto 19/24; cantos concêntricos p/ conteúdo                                         | §4.1  |
 | Notch: expandido                | ~640×190 pt                                                                                                     | §4.1  |
-| Pílula                          | cápsula contínua; compacta 36–44 pt de altura; expandida ~640×200 pt                                            | §4.2  |
-| Circular                        | anel 252° com gap na base; ícone 32% do ⌀; label 15% do ⌀                                                       | §4.3  |
+| Card (entregue; telas sem fenda) | painel arredondado com hugging de largura; compacto `CardMetrics` 280×64; expandido cresce em altura            | §4.2  |
+| ~~Pílula / Circular~~ (descartados) | explorações precursoras que convergiram no card — registro em §4.2/§4.3, sem correspondência em código          | §4.2/§4.3 |
 | Classic                         | 200×200 pt, y=140 do fundo, raio 16–19, ícone 80 pt, 16 segmentos preenchidos por largura, fade ~0,11 s         | §4.4  |
 
 ## 6. Fontes completas

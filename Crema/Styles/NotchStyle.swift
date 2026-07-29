@@ -5,6 +5,19 @@ import SwiftUI
 /// expands. The frame rule is a pure function of ScreenGeometry (the real notch
 /// values arrive from `ScreenTranslation`); the content is `NotchView`.
 struct NotchStyle: PresentationStyle {
+    /// Directional exit band: laterally the region sits on the clickable menu
+    /// bar flanking the slit — kept tight (5 pt, hardware-calibrated), which
+    /// the overshoot pin admits because the lateral edges are static: the
+    /// width is invariant across the VISIBLE states (the morph only travels
+    /// height), and the empty crossing never travels geometry at all (a fade
+    /// at the final rect — CLAUDE.md, animation contract 1). Below, the band
+    /// hangs over app content (a little more forgiveness); the top edge is
+    /// the screen edge — pinned, only reachable where another display stacks
+    /// above, and the comfort band alone covers that rare crossing.
+    var hoverExitMargins: SurfaceHoverRegions.Margins {
+        SurfaceHoverRegions.Margins(top: 0, lateral: 5, bottom: 16)
+    }
+
     func frame(for state: PresentationState, on geometry: ScreenGeometry) -> CGRect {
         // No physical notch here → behave like the card. Defensive: the
         // WindowManager also resolves notch→card on non-notch displays, so this
@@ -23,8 +36,9 @@ struct NotchStyle: PresentationStyle {
         // Every state stays at the slit width (+ corner bleed): the surface
         // reads as the physical cutout stretching down, Dynamic Island style,
         // and never covers the clickable menu bar that flanks the notch.
-        // Expanded only grows the drop; its taller rect is still the hover-exit
-        // boundary, so the spatial hysteresis remains.
+        // Expanded only grows the drop; hover exit tracks the current state's
+        // rect plus its band, so the hysteresis holds without a state-blind
+        // union (docs/DECISIONS.md: hover-follows-the-eye).
         let slitWidth = geometry.frame.width - geometry.auxLeft - geometry.auxRight
         let compactSize = CGSize(
             width: slitWidth - 2 * NotchMetrics.lateralInset,
@@ -116,6 +130,17 @@ enum NotchMetrics {
     /// the height of the usable content band (the frame is `safeTop + drop`):
     /// compact/HUD get a small band; expanded gets the media block.
     static let compactDrop: CGFloat = 44
+    /// One inset for BOTH compact and HUD content: the two states share the
+    /// exact frame, so differing insets would jiggle edges during the
+    /// crossfade — the shared constant is what pins them together.
+    static let contentPaddingHorizontal: CGFloat = 12
+    /// Compact band content: the small cover with its single-line title and
+    /// the waveform, sized to sit inside the 44 pt drop.
+    static let compactGap: CGFloat = 8
+    static let compactArtworkSide: CGFloat = 26
+    static let compactArtworkRadius: CGFloat = 6
+    /// The HUD row's gap (glyph | slider).
+    static let hudGap: CGFloat = 10
     /// Expanded: the cutout stretching down (Dynamic Island). The width never
     /// changes (see the frame rule); the drop is derived from the reference
     /// layout's stacked sections (header, thin scrubber, transport) — like the
@@ -158,16 +183,4 @@ enum NotchMetrics {
     static let compactBottomRadius: CGFloat = 14
     static let expandedTopRadius: CGFloat = 19
     static let expandedBottomRadius: CGFloat = 24
-
-    /// Decorative waveform for the compact band (compact only — expanded has
-    /// the scrubber). Shared component; each skin owns its values.
-    static let waveform = WaveformGlyph.Configuration(
-        barCount: 4,
-        barWidth: 2,
-        barSpacing: 2.5,
-        barCornerRadius: 1,
-        restHeight: 4,
-        peakHeight: 12,
-        pulsePeriod: 0.5
-    )
 }

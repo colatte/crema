@@ -4,11 +4,21 @@ import SwiftUI
 @main
 struct CremaApp: App {
     @State private var core = AppCore()
+    #if !DEBUG
+    // Constructed only in Release: the updater must never exist in dev builds,
+    // so the whole property (and its SPUStandardUpdaterController) is compiled out.
+    @StateObject private var updater = UpdaterModel()
+    #endif
 
     var body: some Scene {
+        // The status icon is the app's identity, not the generic SF capsule:
+        // a TEMPLATE image (the system tints it for dark/light/accent) of the
+        // pill silhouette with the crema line, generated at @1x/@2x by
+        // design/icon/makemenubaricon.swift — regenerate there, never edit
+        // the PNGs by hand.
         MenuBarExtra(
             String(localized: "app.menubar.title", defaultValue: "Crema"),
-            systemImage: "capsule"
+            image: "MenuBarIcon"
         ) {
             if !core.permissionMonitor.isGranted {
                 Text(String(
@@ -34,13 +44,29 @@ struct CremaApp: App {
                 ))
                 Divider()
             }
+            let suspended = core.osdSuppressionMonitor.longSuspendedDomains
+            if !suspended.isEmpty {
+                Text(osdSuspendedWarning(suspended))
+                Button(String(
+                    localized: "menu.osdSuspended.retry",
+                    defaultValue: "Try to reactivate now"
+                )) {
+                    core.retryOSDSuppression()
+                }
+                Divider()
+            }
             SettingsMenuButton()
+            #if !DEBUG
+            // Release-only: in Debug the item does not exist, matching a build
+            // that never constructs the updater nor contacts the feed.
+            UpdaterMenuButton(updater: updater)
+            #endif
             Divider()
             #if DEBUG
             DemoMenu(core: core)
             Divider()
             #endif
-            Button(String(localized: "menu.quit", defaultValue: "Quit")) {
+            Button(String(localized: "menu.quit", defaultValue: "Quit Crema")) {
                 NSApplication.shared.terminate(nil)
             }
             .keyboardShortcut("q")
@@ -48,6 +74,31 @@ struct CremaApp: App {
 
         Settings {
             SettingsView(core: core)
+        }
+    }
+
+    /// The menu line naming the domains whose native OSD is back. The names are
+    /// joined with a locale-aware list format (", " vs " e " vs " and ") in a
+    /// stable, enum-declared order.
+    private func osdSuspendedWarning(_ domains: Set<OSDSuppressionDomain>) -> String {
+        let names = OSDSuppressionDomain.allCases
+            .filter(domains.contains)
+            .map(localizedDomainName)
+            .formatted(.list(type: .and))
+        return String(
+            localized: "menu.osdSuspended.warning",
+            defaultValue: "⚠️ System HUD restored for \(names) — Crema couldn't apply the change"
+        )
+    }
+
+    private func localizedDomainName(_ domain: OSDSuppressionDomain) -> String {
+        switch domain {
+        case .volume:
+            String(localized: "osd.domain.volume", defaultValue: "Volume")
+        case .screenBrightness:
+            String(localized: "osd.domain.screenBrightness", defaultValue: "Screen brightness")
+        case .keyboardBrightness:
+            String(localized: "osd.domain.keyboardBrightness", defaultValue: "Keyboard brightness")
         }
     }
 }
@@ -66,3 +117,21 @@ private struct SettingsMenuButton: View {
         .keyboardShortcut(",")
     }
 }
+
+#if !DEBUG
+/// Triggers Sparkle's update check. Like SettingsMenuButton it activates the app
+/// first — an accessory (LSUIElement) app has no key window, so Sparkle's panel
+/// would otherwise open behind whatever is frontmost. Disabled while a check is
+/// already in flight (Sparkle's canCheckForUpdates).
+private struct UpdaterMenuButton: View {
+    @ObservedObject var updater: UpdaterModel
+
+    var body: some View {
+        Button(String(localized: "menu.checkForUpdates", defaultValue: "Check for Updates…")) {
+            NSApp.activate(ignoringOtherApps: true)
+            updater.checkForUpdates()
+        }
+        .disabled(!updater.canCheckForUpdates)
+    }
+}
+#endif

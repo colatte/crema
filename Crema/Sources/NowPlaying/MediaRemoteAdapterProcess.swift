@@ -20,10 +20,7 @@ final class MediaRemoteAdapterProcess: @unchecked Sendable {
     private var readerTask: Task<Void, Never>?
     private var isTornDown = false
 
-    private let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "com.colatte.crema",
-        category: "NowPlaying"
-    )
+    private let logger = Logger.crema("NowPlaying")
 
     /// `streamArguments` default omits artwork so the observed lines stay
     /// readable; the real source decides what it needs.

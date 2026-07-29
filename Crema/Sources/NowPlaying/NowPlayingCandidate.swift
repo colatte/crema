@@ -7,4 +7,7 @@ struct NowPlayingCandidate {
     let isAvailable: @Sendable () async -> Bool
     let makeSource: @Sendable () -> any NowPlayingSource
     let commandChannel: any NowPlayingCommandChannel
+    /// Short name for the chain's logs ("adapter", "jxa"); `var` with a default
+    /// so the memberwise init keeps existing call sites unchanged.
+    var label: String = ""
 }

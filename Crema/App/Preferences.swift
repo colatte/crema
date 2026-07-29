@@ -46,7 +46,7 @@ struct Preferences {
     // MARK: - Native-OSD suppression
 
     /// The raw key is exposed for @AppStorage bindings so the Settings toggle
-    /// and the auto-disengage path share one source of truth in UserDefaults.
+    /// reflects the same UserDefaults source of truth the app writes.
     static let suppressesNativeOSDKey = "suppressesNativeOSD"
 
     /// Suppression is opt-in and off by default — the user activates it.

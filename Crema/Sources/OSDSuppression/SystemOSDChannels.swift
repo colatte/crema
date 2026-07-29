@@ -40,7 +40,7 @@ struct CoreAudioOSDVolumeChannel: OSDVolumeChannel {
 /// Internal-display brightness: the DisplayServices backend for reads, the
 /// injected controller for writes.
 struct ScreenBrightnessOSDChannel: OSDChannel {
-    let backend: any ScreenBrightnessBackend
+    let backend: any BrightnessBackend
     let controller: any ScreenBrightnessController
 
     func isAvailable() -> Bool {
@@ -59,7 +59,7 @@ struct ScreenBrightnessOSDChannel: OSDChannel {
 /// Built-in keyboard backlight: the CoreBrightness backend for reads, the
 /// injected controller for writes.
 struct KeyboardBrightnessOSDChannel: OSDChannel {
-    let backend: any KeyboardBrightnessBackend
+    let backend: any BrightnessBackend
     let controller: any KeyboardBrightnessController
 
     func isAvailable() -> Bool {

@@ -89,14 +89,16 @@ enum Style: String, CaseIterable, Equatable, Sendable {
         self == .notch ? .debounced : .immediate
     }
 
-    /// Whether hover regions follow the rendered surface instead of the static
-    /// rule frame. Only the width-hugging card renders narrower than its rule
-    /// ceiling, so it retargets its region to the drawn size (the panel pushes
-    /// `SurfaceHoverRegions.around` on each size report); the fixed-width styles'
-    /// rendered size equals their rule frame, so they keep the init-time rule
-    /// regions untouched.
-    var hoverTracksRenderedSurface: Bool {
-        self == .card
+    /// Per-edge exit band, dispatched to the concrete style (the notch is
+    /// directional; the floating styles keep the uniform default). All three
+    /// styles retarget hover to the rendered surface — the same truth clicks
+    /// use (docs/DECISIONS.md: hover-follows-the-eye).
+    var hoverExitMargins: SurfaceHoverRegions.Margins {
+        switch self {
+        case .notch: NotchStyle().hoverExitMargins
+        case .card: CardStyle().hoverExitMargins
+        case .classic: ClassicStyle().hoverExitMargins
+        }
     }
 
     /// User-facing name (String Catalog; English as source language).

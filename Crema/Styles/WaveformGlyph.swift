@@ -5,8 +5,8 @@ import SwiftUI
 /// its neighbor — one rises while another falls, the live-equalizer read.
 /// (Bottom-anchored bars read as a column chart; synchronized ones as a
 /// blinking block.) Pure state-driven animation — no audio capture, no
-/// spectrum analysis. All dimensions and rhythm come from the caller: each
-/// skin owns its metrics.
+/// spectrum analysis. The family shares one tuning (`Configuration.standard`);
+/// a skin passes its own Configuration only when it actually diverges.
 struct WaveformGlyph: View {
     struct Configuration {
         var barCount: Int
@@ -16,10 +16,23 @@ struct WaveformGlyph: View {
         var restHeight: CGFloat
         var peakHeight: CGFloat
         var pulsePeriod: Double
+
+        /// The family's shared tuning — every skin uses it today. Override per
+        /// call site only on real divergence, so one hardware calibration can
+        /// never silently fork identical copies across the skins.
+        static let standard = Self(
+            barCount: 4,
+            barWidth: 2,
+            barSpacing: 2.5,
+            barCornerRadius: 1,
+            restHeight: 4,
+            peakHeight: 12,
+            pulsePeriod: 0.5
+        )
     }
 
     let animating: Bool
-    let config: Configuration
+    var config: Configuration = .standard
 
     /// `.animation(_, value:)` only fires on a change after mounting, and the
     /// glyph usually mounts with `animating` already true (surfacing mid-
@@ -29,12 +42,11 @@ struct WaveformGlyph: View {
     @State private var dancing = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.artworkAccent) private var accent
-    @Environment(\.colorScheme) private var colorScheme
 
     /// Settle time when playback pauses: quick enough to read as an
-    /// immediate freeze, slow enough not to snap. The only waveform timing
-    /// that is not per-skin — the pause reaction should feel identical
-    /// everywhere (the per-skin Configuration owns the pulse itself).
+    /// immediate freeze, slow enough not to snap. Not part of Configuration —
+    /// the pause reaction should feel identical everywhere, even for a skin
+    /// that overrides the pulse itself.
     private static let freezeDuration: Double = 0.25
 
     var body: some View {
@@ -62,9 +74,9 @@ struct WaveformGlyph: View {
         }
         .frame(height: config.peakHeight)
         // The bars take the cover's tone (the styling moved in here so all
-        // skins tint identically), resolved against this subtree's scheme —
-        // the notch forces dark. No usable tone ⇒ the neutral secondary.
-        .foregroundStyle(accent.map { AnyShapeStyle($0.color(for: colorScheme)) } ?? AnyShapeStyle(.secondary))
+        // skins tint identically), clamped into the single dark-surface band.
+        // No usable tone ⇒ the neutral secondary.
+        .foregroundStyle(accent.map { AnyShapeStyle($0.color) } ?? AnyShapeStyle(.secondary))
         .onAppear { dancing = animating && !reduceMotion }
         .onChange(of: animating) { _, playing in
             dancing = playing && !reduceMotion

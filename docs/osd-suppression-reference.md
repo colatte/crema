@@ -73,17 +73,28 @@ em prosa.
   `ControlCenterApp/SystemBannerService+OSD.swift` e o conjunto completo de
   seletores do `OSDUIHelperProtocol` (inclusive a variante
   `filledChiclets:totalChiclets:locked:` do bezel clássico) — ou seja, o
-  ControlCenter implementa ele mesmo o protocolo de OSD; e
-  `launchctl print gui/UID/com.apple.OSDUIHelper` mostra o helper **ocioso
-  durante uso normal** (state = not running) enquanto o ControlCenter roda
-  com KeepAlive. Corroboração de ecossistema: o
+  ControlCenter implementa ele mesmo o protocolo de OSD. Corroboração de
+  ecossistema: o
   [PR #48 do Atoll](https://github.com/Ebullioscopic/Atoll/pull/48)
   ("Works without the OSDUIHelper Disabler… also works on macOS Tahoe") e o
   [volumeHUD](https://github.com/dannystewart/volumeHUD), feito PARA o Tahoe,
   que suprime só por interceptação e nem menciona OSDUIHelper.
+- **Correção de forense (2026-07-20, hardware, uid 501).** A leitura original
+  desta seção era que o OSDUIHelper ficaria **ocioso** no Tahoe (`state = not
+  running` em uso normal) — o que sozinho tornaria o freeze do SlimHUD um no-op.
+  A forense de julho/2026 refina o fato **e** prova a conclusão por outro
+  caminho: o OSDUIHelper é um agente **demand-launched** — pode estar "not
+  running" porque ninguém o invocou, mas quando invocado sobe **vivo, ativo e
+  100% freezável/reversível** (kickstart → `state = running`, `endpoint
+  active = 1`; SIGSTOP/SIGCONT e SIGKILL+respawn confirmados). A pergunta
+  decisiva — *congelá-lo suprime o popover por-tecla do Tahoe?* — foi então
+  testada diretamente: com o helper **vivo e congelado** (SIGSTOP), o OSD
+  por-tecla **continuou aparecendo normalmente**. Ou seja, "ocioso" era
+  impreciso, mas a conclusão da seção (mira o processo errado) **está certa e
+  agora provada em hardware**, não apenas inferida das strings.
 - Consequência direta: **suspender o OSDUIHelper não suprime o popover do
-  Tahoe** — e suspender o renderer real está fora de cogitação (o
-  ControlCenter hospeda a barra de menus e tem `KeepAlive`).
+  Tahoe** (provado pelo smoke acima) — e suspender o renderer real está fora de
+  cogitação (o ControlCenter hospeda a barra de menus e tem `KeepAlive`).
 - O popover novo é frágil perto de apps de barra de menus: com o BetterDisplay
   rodando, o HUD de volume do Tahoe simplesmente não aparece
   ([BetterDisplay #4726](https://github.com/waydabber/BetterDisplay/issues/4726));
@@ -156,9 +167,19 @@ falha catastrófica do app deixa o sistema **exatamente** como era.
 **Modo de falha a mitigar:** consumir a tecla e FALHAR em aplicar a mudança
 deixa o usuário sem volume/brilho — o boring.notch lançou exatamente esse bug
 ([#1040](https://github.com/TheBoredTeam/boring.notch/issues/1040)). O padrão
-de segurança do volumeHUD: após cada tecla interceptada, **verificar se o
-valor realmente mudou; se não, autodesabilitar a supressão** e voltar à
-coexistência com o HUD nativo até um restart/troca de device.
+de segurança do volumeHUD (fato externo): após cada tecla interceptada,
+verificar se o valor realmente mudou e, se não, autodesabilitar a supressão
+inteira até um restart/troca de device.
+
+> **Como o Crema resolve (modelo em vigor, difere do volumeHUD).** O
+> auto-desligar global — e persistir a preferência — foi **abolido** (era a
+> classe de bug J5). No Crema, apply+verify que falha **suspende só o canal que
+> falhou** (volume / brilho-tela / brilho-teclado; mute cavalga com volume): as
+> teclas desse canal voltam ao sistema, o feedback nativo reaparece só ali, e os
+> outros domínios seguem suprimidos. Um probe read-only com backoff re-engaja em
+> silêncio quando o canal se recupera. **Nenhum caminho de falha escreve a
+> preferência** — o único writer de "suprimir HUD nativo" é a ação explícita do
+> usuário (docs/DECISIONS.md: per-domain-suspension, pref-sacred).
 
 **Limitação estrutural:** só suprime HUDs **originados por tecla**. Mudanças
 por slider do Control Center, Siri, coroa/haste de AirPods, brilho automático
@@ -224,9 +245,13 @@ código):
    ON: "tecla → consumida → atuador do Crema aplica o delta (16/64 passos,
    repeat, mute) → fonte emite → HUD próprio". Os atuadores de volume/brilho
    já existem; o passo novo é o Crema ser o ÚNICO aplicador.
-3. **Self-check** (padrão volumeHUD): após aplicar, confirmar que o valor
-   mudou; falha ⇒ desligar a supressão sozinho e avisar no menu — nunca
-   deixar o usuário sem controle de volume.
+3. **Apply+verify por canal, com suspensão por domínio**: após aplicar,
+   confirmar que o valor mudou; falha **suspende só o canal que falhou** (suas
+   teclas voltam ao sistema, feedback nativo ali) enquanto os outros domínios
+   seguem suprimidos, e um probe read-only re-engaja na recuperação — nunca
+   deixar o usuário sem controle de volume, e **nunca escrever a preferência**
+   num caminho de falha (docs/DECISIONS.md: per-domain-suspension, pref-sacred).
+   O auto-desligar global do modelo antigo (J5) foi abolido.
 
 ## 5. Reversibilidade — a história completa
 
@@ -250,10 +275,16 @@ código):
   Karabiner/MonitorControl) e dos atuadores que o Crema já valida por spike.
   O risco recai sobre os atuadores (já mitigado por protocolo + degradação),
   não sobre o mecanismo de supressão.
-- **Degradação sã** (síntese do que os apps maduros fazem): supressão
-  **opt-in e feature-flagged**; self-check com autodesligamento; sem a
-  permissão de Acessibilidade a supressão simplesmente não arma (coexistência
-  de dois HUDs — estado atual, não é crash); sinalização no menu da barra.
+- **Degradação sã** (o que o Crema faz): supressão **opt-in e feature-flagged**;
+  apply+verify com **suspensão por domínio** na falha (a preferência nunca é
+  escrita por falha — o modelo de autodesligamento global dos apps maduros foi
+  abolido, docs/DECISIONS.md: per-domain-suspension, pref-sacred); sem a
+  permissão de Acessibilidade a supressão simplesmente não arma — para o brilho
+  o HUD nativo volta a ser o ÚNICO feedback (sem tap não há origem-de-tecla e
+  os HUDs próprios de brilho nem surgem; docs/DECISIONS.md:
+  key-origin-brightness-gate); no volume, event-driven via Core Audio, os dois
+  HUDs coexistem; sinalização no menu da barra só
+  para suspensão duradoura com canal presente.
 - **Aberto — exige spike de hardware (~30 min)**: a
   matriz de gatilhos residuais no Tahoe (slider do Control Center, Siri,
   AirPods, brilho automático — quais deles mostram o popover nativo com a
@@ -284,9 +315,16 @@ Encaixe na arquitetura (nomes ilustrativos):
   repeat, mute) — lógica de passos é pura e testável; a borda (tap real)
   continua fina e fora dos testes unitários, como manda o CLAUDE.md.
 - `Preferences`: toggle "suprimir HUD nativo" (OFF por padrão, opt-in),
-  injetado; menu da barra sinaliza supressão ativa/degradada.
-- Self-check no Coordinator ou na própria fonte: aplicou → confere → falhou ⇒
-  desliga a flag e sinaliza. Degradação graciosa: sem permissão ⇒ dois HUDs.
+  injetado; menu da barra sinaliza supressão ativa/degradada. **A preferência é
+  sagrada**: só a ação do usuário a escreve, nunca um caminho de falha
+  (docs/DECISIONS.md: pref-sacred).
+- Apply+verify na própria fonte: aplicou → confere → falhou ⇒ **suspende só o
+  canal que falhou** (teclas dele voltam ao sistema) e um probe read-only
+  re-engaja na recuperação, sem tocar a preferência (docs/DECISIONS.md:
+  per-domain-suspension). A supressão é ainda **lock-aware**: com a tela
+  bloqueada ela é suspensa (não há caminho público para desenhar sobre o lock
+  shield), re-engajando no unlock se a preferência estiver ligada — também sem
+  escrever a preferência. Degradação graciosa: sem permissão ⇒ dois HUDs no volume; no brilho, só o nativo (key-origin-brightness-gate).
 
 ## 8. Fontes completas
 

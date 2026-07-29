@@ -11,23 +11,41 @@ import Foundation
 /// returns. On return, suppression re-engages if and only if the user
 /// preference is on.
 ///
-/// Two invariants this type guarantees:
-/// - The lock/unlock path never touches the user preference. A user with
-///   suppression off sees zero change anywhere; a user with it on keeps it on
-///   through any number of lock cycles.
-/// - `onAutoDisengage` (a failed apply flipping the persisted pref off, so the
-///   Settings toggle stops lying) is inert while suspended. A straggling apply
-///   failure racing the lock edge must not silently persist the pref off. This
-///   is belt-and-suspenders over the suppressor's generation counter, which
-///   already no-ops applies enqueued before the lock-edge `setEngaged(false)`
-///   (bumped generation → the applyVerified and autoDisengage guards fall
-///   through); the guard here additionally covers the async gap between the
-///   lock happening and this controller processing the edge.
+/// Invariant this type guarantees: the lock/unlock path never touches the user
+/// preference. A user with suppression off sees zero change anywhere; a user
+/// with it on keeps it on through any number of lock cycles.
+///
+/// No failure path writes the preference at all anymore: a failed apply used to
+/// flip the persisted opt-in off through `onAutoDisengage`, the only non-user
+/// write in the codebase. That write is gone — the suppressor now suspends the
+/// failing *domain* in place (keys fall back to the native OSD, a probe
+/// re-engages on recovery) and the pref stays the user's intent. This controller
+/// therefore has nothing to guard against on the failure side; the lock invariant
+/// is all that remains. (docs/DECISIONS.md: pref-sacred / per-domain-suspension)
+///
+/// Second responsibility: the unlock/return-to-console edge is also where the
+/// media-key tap is physically recovered. After a lock/display-sleep/unlock the
+/// tap can go ENABLED-but-deaf (valid, enabled, zero events — a server-side
+/// unregistration no local check can see; docs/DECISIONS.md:
+/// J7-estado-do-outro-lado), so on the safe edge the controller fires
+/// `onUnlocked` *before* re-engaging, letting the
+/// owner reinstall the tap ahead of the consumer being set. The stream is already
+/// this type's single consumer, which is why the hook is born here.
 @MainActor
 final class SuppressionLockController {
     private let suppressor: (any NativeOSDSuppressor)?
     private let lockSource: any ScreenLockSource
     private let preferences: Preferences
+
+    /// Fired on the unlock / return-to-console edge (safe false→true), BEFORE
+    /// re-engagement, so the owner can physically recover the media-key tap
+    /// ahead of the consumer being set — pinned order: unlock → reinstall →
+    /// re-engage. Fires on the edge, not the level (a redundant safe=true with
+    /// no lock in between does not re-fire), and independent of the preference:
+    /// the tap's ENABLED-but-deaf failure kills plain observation too, so a
+    /// pref-off user still needs the reinstall (docs/DECISIONS.md:
+    /// J7-estado-do-outro-lado). Nil unless the owner wires a recovery.
+    var onUnlocked: (@MainActor () -> Void)?
 
     private var isSafe: Bool
     private var consumeTask: Task<Void, Never>?
@@ -46,21 +64,19 @@ final class SuppressionLockController {
     /// Engages to the correct initial state — respecting a launched-while-locked
     /// start, which must not engage — and starts consuming lock transitions.
     func start() {
-        suppressor?.onAutoDisengage = { [weak self] in
-            // Only a real apply failure while we are actively suppressing may
-            // flip the persisted opt-in. Suspended-by-lock, we never apply, so
-            // any failure that reaches here is a straggler — leave the pref be.
-            // Read the source's synchronous state, not this controller's cache:
-            // the source flips on the notification itself, one hop before our
-            // stream task runs, so a straggler racing the lock edge is caught.
-            guard let self, self.lockSource.isSuppressionSafe else { return }
-            self.preferences.suppressesNativeOSD = false
-        }
         applyEngagement()
-        consumeTask = Task { [weak self] in
-            guard let self else { return }
-            for await safe in self.lockSource.updates {
+        // lockSource captured by value so the for-await never retains self —
+        // a strong ref parked on the stream would keep the controller alive
+        // for the stream's whole life. The binding below lasts one iteration.
+        consumeTask = Task { [weak self, lockSource] in
+            for await safe in lockSource.updates {
+                guard let self else { return }
+                // The unlock / return-to-console edge (not the level): recover
+                // the tap before re-engaging so the fresh port adopts the
+                // consumer applyEngagement is about to set.
+                let becameSafe = safe && !self.isSafe
                 self.isSafe = safe
+                if becameSafe { self.onUnlocked?() }
                 self.applyEngagement()
             }
         }

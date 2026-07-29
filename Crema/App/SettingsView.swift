@@ -7,18 +7,47 @@ import SwiftUI
 /// a relaunch.
 @MainActor
 struct SettingsView: View {
+    enum Tab: String {
+        case general, nowPlaying, systemHUD, permissions, about
+    }
+
     let core: AppCore
+    @State private var selectedTab: Tab
+
+    init(core: AppCore) {
+        self.core = core
+        var initial = Tab.general
+        #if DEBUG
+        // Screenshot/dev harness: `-CremaSettingsInitialTab about` decides the
+        // tab this window LANDS on when it opens (by ⌘, or the menu — nothing
+        // opens it programmatically; the modern Settings scene has no
+        // supported selector for that). DEBUG-only read; the selection state
+        // itself is ordinary TabView plumbing.
+        if let raw = UserDefaults.standard.string(forKey: "CremaSettingsInitialTab"),
+           let tab = Tab(rawValue: raw) {
+            initial = tab
+        }
+        #endif
+        _selectedTab = State(initialValue: initial)
+    }
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             GeneralSettingsView(core: core)
                 .tabItem { Label(String(localized: "settings.tab.general", defaultValue: "General"), systemImage: "gearshape") }
+                .tag(Tab.general)
             NowPlayingSettingsView(core: core)
                 .tabItem { Label(String(localized: "settings.tab.nowPlaying", defaultValue: "Now Playing"), systemImage: "music.note") }
+                .tag(Tab.nowPlaying)
             SystemHUDSettingsView(core: core)
                 .tabItem { Label(String(localized: "settings.tab.systemHUD", defaultValue: "System HUD"), systemImage: "slider.horizontal.3") }
+                .tag(Tab.systemHUD)
             PermissionsSettingsView(core: core)
                 .tabItem { Label(String(localized: "settings.tab.permissions", defaultValue: "Permissions"), systemImage: "lock.shield") }
+                .tag(Tab.permissions)
+            AboutSettingsView()
+                .tabItem { Label(String(localized: "settings.tab.about", defaultValue: "About"), systemImage: "info.circle") }
+                .tag(Tab.about)
         }
         .frame(width: 500)
     }
@@ -96,16 +125,15 @@ private struct GeneralSettingsView: View {
             }
 
             Section {
-                // A custom binding (not onChange): the setter applies the change
-                // and then reflects the real status, so a throw snaps it back and
-                // a "requires approval" result keeps it on with the note below —
-                // and mutating state in the setter can't re-fire itself.
+                // A custom binding (not onChange): the setter routes the intent
+                // through AppCore and reflects the real status it returns, so a
+                // failed registration snaps it back and a "requires approval"
+                // result keeps it on with the note below — and mutating state
+                // in the setter can't re-fire itself.
                 Toggle(isOn: Binding(
                     get: { launchesAtLogin },
                     set: { wanted in
-                        try? core.loginItem.setEnabled(wanted)
-                        launchesAtLogin = core.loginItem.isEnabled || core.loginItem.requiresApproval
-                        loginNeedsApproval = core.loginItem.requiresApproval
+                        (launchesAtLogin, loginNeedsApproval) = core.setLaunchesAtLogin(wanted)
                     }
                 )) {
                     Text(String(localized: "settings.general.launchAtLogin", defaultValue: "Open Crema at login"))
@@ -203,6 +231,13 @@ private struct SystemHUDSettingsView: View {
                         localized: "settings.hud.suppress.footer",
                         defaultValue: "Hides the built-in volume and brightness HUDs and shows Crema's instead."
                     ))
+                    // The indicator-style picker lives in General, beside the
+                    // Style picker it depends on — this line is the trail for
+                    // whoever comes to the HUD tab looking for it.
+                    Text(String(
+                        localized: "settings.hud.appearanceHint",
+                        defaultValue: "The indicator's appearance is set in the General tab."
+                    ))
                     if !canSuppress {
                         Text(String(
                             localized: "settings.hud.suppress.needsPermission",
@@ -255,6 +290,83 @@ private struct PermissionsSettingsView: View {
             }
         }
         .formStyle(.grouped)
+    }
+}
+
+// MARK: - About
+
+/// A plaque, not a form: the identity, the live version, the signature line
+/// and quiet links — no controls, so it skips the grouped Form the other tabs
+/// use. Everything display-side comes from the bundle (icon and versions are
+/// never hardcoded), so a release build shows its stamped numbers.
+private struct AboutSettingsView: View {
+    private static let githubURL = URL(string: "https://github.com/colatte/crema")
+    private static let issuesURL = URL(string: "https://github.com/colatte/crema/issues")
+    private static let kofiURL = URL(string: "https://ko-fi.com/colatteio")
+
+    var body: some View {
+        VStack(spacing: 6) {
+            // null_resettable in AppKit (imported as an IUO — reads never
+            // return nil); the fallback keeps the no-force-unwrap discipline
+            // explicit. Decorative: the app name right below is the label.
+            Image(nsImage: NSApp.applicationIconImage ?? NSImage())
+                .resizable()
+                .frame(width: 110, height: 110)
+                .padding(.bottom, 2)
+                .accessibilityHidden(true)
+            Text(verbatim: appName)
+                .font(.title2.weight(.semibold))
+            Text(String(localized: "about.version", defaultValue: "Version \(shortVersion) (\(buildNumber))"))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Text(String(localized: "about.signature", defaultValue: "made with ☕ by Colatte"))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .padding(.top, 8)
+            HStack(spacing: 18) {
+                link(String(localized: "about.link.github", defaultValue: "GitHub"), Self.githubURL)
+                link(String(localized: "about.link.reportIssue", defaultValue: "Report an issue"), Self.issuesURL)
+                link(String(localized: "about.link.kofi", defaultValue: "Support on Ko-fi"), Self.kofiURL)
+            }
+            .font(.callout)
+            .padding(.top, 10)
+            // Attribution, not capability: true in every configuration (the
+            // updater does not compile in Debug), and it covers the vendored
+            // mediaremote-adapter — BSD-3-Clause, the one dependency whose
+            // license asks for the notice in the distributed materials.
+            Text(String(localized: "about.credits", defaultValue: "Built with Sparkle and mediaremote-adapter."))
+                .font(.footnote)
+                .foregroundStyle(.tertiary)
+                .padding(.top, 14)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 30)
+    }
+
+    /// Product name from the bundle (display name, then name), so a rename
+    /// never leaves a stale plaque; the literal is only the last-resort
+    /// fallback and is brand, not translatable chrome.
+    private var appName: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
+            ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
+            ?? "Crema"
+    }
+
+    private var shortVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+    }
+
+    private var buildNumber: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
+    }
+
+    @ViewBuilder
+    private func link(_ title: String, _ url: URL?) -> some View {
+        // The URL initializers are statically valid; the optional guard is the
+        // no-force-unwrap discipline, not a reachable branch.
+        if let url {
+            Link(title, destination: url)
+        }
     }
 }
 

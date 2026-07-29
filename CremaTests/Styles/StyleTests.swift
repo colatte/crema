@@ -19,10 +19,14 @@ struct StyleTests {
         #expect(Style.allCases == [.notch, .card, .classic])
     }
 
-    @Test func rawValueRoundTripsForPreferencesPersistence() {
-        for style in Style.allCases {
-            #expect(Style(rawValue: style.rawValue) == style)
-        }
+    /// The rawValues ARE the persistence format (Preferences stores them per
+    /// display): renaming a case silently orphans every stored choice, so the
+    /// literals are pinned — a failure here means writing a migration, never
+    /// just renaming the case.
+    @Test func rawValuesAreThePersistedFormat() {
+        #expect(Style.notch.rawValue == "notch")
+        #expect(Style.card.rawValue == "card")
+        #expect(Style.classic.rawValue == "classic")
     }
 
     @Test func cardCaseDispatchesToTheCardFrameRule() {

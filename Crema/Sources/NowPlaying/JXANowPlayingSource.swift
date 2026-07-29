@@ -67,10 +67,11 @@ final class JXANowPlayingSource: NowPlayingSource, StoppableSource, @unchecked S
             markNothingPlaying()
             return
         }
-        lock.lock()
-        let changed = nowPlaying != last
-        last = nowPlaying
-        lock.unlock()
+        let changed = lock.withLock {
+            let didChange = nowPlaying != last
+            last = nowPlaying
+            return didChange
+        }
         if changed { continuation.yield(nowPlaying) }
     }
 
@@ -83,30 +84,24 @@ final class JXANowPlayingSource: NowPlayingSource, StoppableSource, @unchecked S
         continuation.yield(nowPlaying)
     }
 
-    /// Real probe: reads the current track from Spotify/Music via JXA. Spotify
-    /// reports duration in milliseconds, Music in seconds — normalized here.
+    /// Real probe: reads the current track from the active player (the shared
+    /// JXAPlayerScript preamble — the same selection the command side uses).
+    /// Spotify reports duration in milliseconds, Music in seconds — normalized
+    /// here via the preamble's isSpotify flag.
     private static let probeSource = """
     (function() {
-      function track(name, durationInMs) {
-        try {
-          const app = Application(name);
-          if (!app.running()) return null;
-          const state = app.playerState();
-          if (state === 'stopped') return null;
-          const t = app.currentTrack;
-          const dur = t.duration();
-          return {
-            title: t.name(),
-            artist: t.artist(),
-            duration: durationInMs ? dur / 1000 : dur,
-            position: app.playerPosition(),
-            playing: state === 'playing'
-          };
-        } catch (e) {
-          return null;   // app not installed / not scriptable
-        }
-      }
-      return JSON.stringify(track('Spotify', true) || track('Music', false) || {});
+    \(JXAPlayerScript.preamble)
+      return JSON.stringify(withActivePlayer(function(app, state, isSpotify) {
+        const t = app.currentTrack;
+        const dur = t.duration();
+        return {
+          title: t.name(),
+          artist: t.artist(),
+          duration: isSpotify ? dur / 1000 : dur,
+          position: app.playerPosition(),
+          playing: state === 'playing'
+        };
+      }) || {});
     })();
     """
 
@@ -119,21 +114,16 @@ final class JXANowPlayingSource: NowPlayingSource, StoppableSource, @unchecked S
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
 
-        return await withCheckedContinuation { continuation in
-            process.terminationHandler = { _ in
-                // Output is a single short JSON string; safe to read once the
-                // process has exited (never on the main thread).
-                let data = try? pipe.fileHandleForReading.readToEnd()
-                let output = data
-                    .flatMap { String(data: $0, encoding: .utf8) }?
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                continuation.resume(returning: output)
-            }
-            do {
-                try process.run()
-            } catch {
-                continuation.resume(returning: nil)
-            }
-        }
+        // The osascript reply is bounded by the AppleEvent timeout (~1-2 min),
+        // but a probe holding the chain's selection that long is still a stall;
+        // cap it so a stuck query can't wedge fallback. nil output reads as
+        // "nothing playing" — the probe's honest degraded answer.
+        return await runChildProcess(
+            process,
+            readingStdout: pipe,
+            timeout: 10,
+            clock: ContinuousSleepClock(),
+            failureValue: nil
+        ) { _, output in output }
     }
 }

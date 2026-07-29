@@ -7,7 +7,6 @@ import Foundation
 final class TestSleepClock: SleepClock, @unchecked Sendable {
     private let lock = NSLock()
     private var sleepers: [(id: UUID, delay: Double, continuation: CheckedContinuation<Void, Error>)] = []
-    private var sleepWaiters: [(delay: Double?, continuation: CheckedContinuation<Void, Never>)] = []
     private var _delays: [Double] = []
     private var _cancelledCount = 0
 
@@ -22,7 +21,6 @@ final class TestSleepClock: SleepClock, @unchecked Sendable {
         let id = UUID()
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                let waiters: [CheckedContinuation<Void, Never>]
                 lock.lock()
                 // Cancellation can land between the entry check and the
                 // handler's installation — the handler then fires before this
@@ -36,13 +34,7 @@ final class TestSleepClock: SleepClock, @unchecked Sendable {
                 }
                 _delays.append(seconds)
                 sleepers.append((id, seconds, continuation))
-                waiters = sleepWaiters
-                    .enumerated()
-                    .filter { $0.element.delay == nil || $0.element.delay == seconds }
-                    .map(\.element.continuation)
-                sleepWaiters.removeAll { $0.delay == nil || $0.delay == seconds }
                 lock.unlock()
-                waiters.forEach { $0.resume() }
             }
         } onCancel: {
             let cancelled: CheckedContinuation<Void, Error>?
@@ -83,21 +75,36 @@ final class TestSleepClock: SleepClock, @unchecked Sendable {
     }
 
     /// Suspends until at least one sleep is parked.
+    @MainActor
     func waitForSleep() async {
         await waitForSleep(delay: nil)
     }
 
     /// Suspends until a sleep requested with `delay` is parked (nil = any).
+    /// Bounded polling, not a parked continuation: a handshake that drifts
+    /// out of alignment (waiting for a park that can never come) must surface
+    /// as a loud downstream assertion failure, never wedge the suite forever —
+    /// the deviceAbsent probe test deadlocked exactly that way. The bound is
+    /// WALL CLOCK, not a yield count (a slot budget starves on a saturated
+    /// machine — see TestSupport.boundedWaitDeadline for the shared rule).
+    /// MainActor-isolated on purpose: the sleepers it awaits are parked by
+    /// MainActor tasks (Coordinator timers, suppressor probes), so the hot
+    /// spin must hand the MainActor over FIFO-fair — an off-actor yield loop
+    /// burns its slots on the global executor before those tasks ever run —
+    /// and the backoff sleeps free the actor for them entirely.
+    @MainActor
     func waitForSleep(delay: Double?) async {
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            lock.lock()
-            let satisfied = sleepers.contains { delay == nil || $0.delay == delay }
-            if satisfied {
-                lock.unlock()
-                continuation.resume()
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: boundedWaitDeadline)
+        var spins = 0
+        while clock.now < deadline {
+            let satisfied = lock.withLock { sleepers.contains { delay == nil || $0.delay == delay } }
+            if satisfied { return }
+            spins += 1
+            if spins < boundedWaitHotSpins {
+                await Task.yield()
             } else {
-                sleepWaiters.append((delay, continuation))
-                lock.unlock()
+                try? await Task.sleep(for: .milliseconds(1))
             }
         }
     }

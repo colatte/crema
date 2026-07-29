@@ -135,10 +135,10 @@ final class DemoHUDEngine: SystemHUDSource, VolumeController, ScreenBrightnessCo
     }
 
     func setMuted(_ muted: Bool, on display: DisplayUUID?) async throws {
-        lock.lock()
-        self.muted = muted
-        let value = levels[.volume] ?? 0.5
-        lock.unlock()
+        let value = lock.withLock {
+            self.muted = muted
+            return levels[.volume] ?? 0.5
+        }
         continuation.yield(SystemHUD(kind: .volume, value: value, isMuted: muted, display: display))
     }
 

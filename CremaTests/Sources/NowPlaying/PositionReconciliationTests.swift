@@ -16,6 +16,59 @@ struct PositionReconciliationTests {
         #expect(PositionReconciliation.position(for: track(position: 41.75), replacing: track(position: 42.5)) == 42.5)
     }
 
+    // MARK: Deliberate seek in flight (the scrubber's release)
+
+    @Test func aPendingSeekLetsASubToleranceBackwardEchoLand() {
+        // The precision micro-scrub: without the hint this regression (1.5 s,
+        // under seekTolerance) reads as anchor jitter and is held — the pin
+        // above. With the seek pending, the echo near the target is obeyed.
+        #expect(PositionReconciliation.position(
+            for: track(position: 41), replacing: track(position: 42.5), pendingSeek: 41
+        ) == 41)
+    }
+
+    @Test func aPendingSeekUnfreezesThePausedHold() {
+        // A backward scrub while paused: the plain rule freezes at the old
+        // value (the dropped-0 heuristic); the echo of the user's own seek
+        // must not be eaten by it.
+        #expect(PositionReconciliation.position(
+            for: track(position: 40, playing: false),
+            replacing: track(position: 100, playing: false),
+            pendingSeek: 40
+        ) == 40)
+    }
+
+    @Test func aFarAnchorWhileTheSeekFliesIsHeld() {
+        // Any anchor away from the target during the flight is the pre-seek
+        // line still echoing — held, in either direction (a stale anchor sits
+        // BEFORE a forward seek's target and AFTER a backward one's). The
+        // caller bounds the hold with the hint's anchor budget.
+        #expect(PositionReconciliation.position(
+            for: track(position: 41.75), replacing: track(position: 42.5), pendingSeek: 10
+        ) == 42.5)
+        // The backward-seek case: re-anchored at 30, the stale 201 echoes in.
+        #expect(PositionReconciliation.position(
+            for: track(position: 201), replacing: track(position: 30), pendingSeek: 30
+        ) == 30)
+    }
+
+    @Test func aPausedZeroIsALieNotAConfirmation() {
+        // Sought to 2 s then paused: the pause payload's dropped-elapsed 0
+        // falls inside the tolerance of a near-start target, but 0-while-
+        // paused is the known lie the freeze exists for — held at the target.
+        #expect(PositionReconciliation.position(
+            for: track(position: 0, playing: false),
+            replacing: track(position: 2, playing: false),
+            pendingSeek: 2
+        ) == 2)
+        // Sought to the actual start: there the paused 0 IS the confirmation.
+        #expect(PositionReconciliation.position(
+            for: track(position: 0, playing: false),
+            replacing: track(position: 42, playing: false),
+            pendingSeek: 0
+        ) == 0)
+    }
+
     @Test func aRealBackwardSeekDuringPlaybackIsObeyed() {
         #expect(PositionReconciliation.position(for: track(position: 30), replacing: track(position: 42.5)) == 30)
     }

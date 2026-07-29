@@ -61,7 +61,8 @@ opt_in_rules:
   - legacy_multiple
   - literal_expression_end_indentation
   - lower_acl_than_parent
-  - modifier_order
+  # modifier_order deliberately NOT enabled: modifier ordering is formatting,
+  # owned by SwiftFormat's modifierOrder — the two disagree on nonisolated vs acl.
   - multiline_function_chains
   - multiline_parameters
   - operator_usage_whitespace
@@ -117,9 +118,12 @@ large_tuple:
 cyclomatic_complexity:
   warning: 15 # the Coordinator/suppressor state machines are inherently branchy
 
-# Ceilings sized for this app's larger files. Coordinator.swift (625 lines) already
-# exceeds the 500 file_length warning and opts out inline via
+# Ceilings sized for this app's larger files. Coordinator.swift sits well past
+# the 500 file_length warning and opts out inline via
 # `// swiftlint:disable file_length`; WindowManagerTests opts out the same way (~500, grown by pinning fences).
+# The Coordinator CLASS also opts out of type_body_length inline (scrub-grace round):
+# priority and timers live only there by design, so its body grows with every
+# presentation feature while pure decisions keep being extracted alongside.
 file_length:
   warning: 500
   error: 1200

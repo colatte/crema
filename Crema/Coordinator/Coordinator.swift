@@ -11,6 +11,11 @@ import os
 /// and actuators are injected by protocol — never a concrete implementation.
 @MainActor
 @Observable
+// Cohesive past the 400-line body ceiling for the same reason the file opts
+// out of file_length above: priority and timers live ONLY here by design
+// (CLAUDE.md, Fluxo de estado), so every presentation feature lands in this
+// type. Pure decisions still get extracted (ScrubGrace, PresentationState).
+// swiftlint:disable:next type_body_length
 final class Coordinator {
     /// Default time the HUD stays up after the last event (~1.5 s,
     /// restarting on every key press). The single place this number lives.
@@ -38,6 +43,13 @@ final class Coordinator {
     /// live with the style (`SurfaceAnimation`).
     static let defaultHoverIntentDelay: Double = 0.3
     static let defaultHoverOutDebounce: Double = 0.1
+    /// What any finished hover on the REACTIVE appearance buys before the
+    /// tuck, in place of a fresh full linger — a graze must not re-arm the
+    /// whole 3 s (the invoked appearance keeps its full tail; see
+    /// commitHover). Calibration-in-test (hover round): if it reads short on
+    /// hardware, replace the tail expression with `currentLinger` at the
+    /// commitHover call site.
+    static let hoverExitRelinger: Double = 1.5
 
     /// Layout-driving state. The views observe this; it is written only when
     /// the presented shape or content actually changes. The WindowManager gets
@@ -120,6 +132,7 @@ final class Coordinator {
     @ObservationIgnored private let invokedLinger: Double
     @ObservationIgnored private let hoverIntentDelay: Double
     @ObservationIgnored private let hoverOutDebounce: Double
+    @ObservationIgnored private let scrubGraceWindow: Double
     /// Browser media is ignored by default (MediaSourceFilter): autoplay
     /// videos surface the now-playing for every feed scroll. The Settings
     /// "include browsers" toggle flips this live (setIgnoresBrowserMedia).
@@ -134,13 +147,34 @@ final class Coordinator {
     /// hover-intent delay `pointerInside` is already true but `isHovering` stays
     /// false, so a track update mid-delay does not expand ahead of the intent.
     @ObservationIgnored private var isHovering = false
-    @ObservationIgnored private var pointerInside = false
+    /// The raw pointer mirror, published — the global signal the timers key on
+    /// (the HUD hold). Written by BOTH hover paths via `publishPointer`; on the
+    /// debounced path it flips before the intent delay, so holding starts the
+    /// moment the cursor arrives. Flips are rare, so the observation cost is
+    /// nil. The per-display knob reads the panel-local
+    /// `SurfaceDisplayPolicy.pointerInside` instead.
+    ///
+    /// UNVERIFIED hypothesis (hover round, kept deliberately unimplemented):
+    /// on multi-display setups every panel's monitor writes this single global
+    /// mirror, and the last writer could in principle mask another display's
+    /// state. Needs a two-panel hardware probe before any change — no
+    /// speculative set-of-displays here.
+    private(set) var pointerInside = false
+    /// Whether the current hover gesture entered through the intent path — the
+    /// routing guard in `hover(_:)` reads it so a gesture leaves the way it
+    /// came. Split from `pointerInside`, which both paths now write.
+    @ObservationIgnored private var enteredViaHoverIntent = false
     /// The active appearance's linger — a property of the appearance, not of
     /// the restart site: the invoke click lands with the pointer inside the
     /// zone, so the monitor's re-entrant hover-in/out cycle immediately
     /// replaces the initial timer, and a restart that hardcoded the reactive
     /// duration would silently downgrade every invoked appearance to ~3 s.
     @ObservationIgnored private var currentLinger: Double
+    /// Provenance of `currentLinger` — true only for a click-invoked
+    /// appearance. A flag, not a value compare against `invokedLinger`:
+    /// injected durations that happened to coincide would silently turn every
+    /// re-linger into a full tail.
+    @ObservationIgnored private var lingerIsInvoked = false
     /// Whether the HUD interrupted a visible now-playing appearance (or a media
     /// event arrived during the HUD): the revert resurfaces it. A HUD over a
     /// tucked surface must revert to hidden, not resurrect the appearance.
@@ -149,11 +183,17 @@ final class Coordinator {
     @ObservationIgnored private var hudRevertTask: Task<Void, Never>?
     @ObservationIgnored private var lingerTask: Task<Void, Never>?
     @ObservationIgnored private var hoverIntentTask: Task<Void, Never>?
+    /// The seek-in-flight authority window (pure decision in ScrubGrace);
+    /// the timer that expires it honestly lives here, on the injected clock.
+    @ObservationIgnored private var scrubGrace: ScrubGrace
+    @ObservationIgnored private var scrubGraceTask: Task<Void, Never>?
+    /// Monotonic scrub counter: a seek's failure callback rolls back only if
+    /// no newer scrub has taken over the grace and the source anchor since —
+    /// a stale failure acting unconditionally would tear down state a newer
+    /// actor owns (the superseded-actor class the tap/probe rounds closed).
+    @ObservationIgnored private var seekEpoch = 0
 
-    @ObservationIgnored private let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "com.colatte.crema",
-        category: "Coordinator"
-    )
+    @ObservationIgnored private let logger = Logger.crema("Coordinator")
 
     init(
         nowPlayingSource: any NowPlayingSource,
@@ -168,6 +208,8 @@ final class Coordinator {
         invokedLinger: Double = Coordinator.defaultInvokedLinger,
         hoverIntentDelay: Double = Coordinator.defaultHoverIntentDelay,
         hoverOutDebounce: Double = Coordinator.defaultHoverOutDebounce,
+        scrubGraceWindow: Double = ScrubGrace.defaultWindow,
+        scrubConfirmTolerance: Double = ScrubGrace.defaultConfirmTolerance,
         ignoresBrowserMedia: Bool = true,
         reactiveNowPlaying: Bool = true
     ) {
@@ -183,9 +225,12 @@ final class Coordinator {
         self.invokedLinger = invokedLinger
         self.hoverIntentDelay = hoverIntentDelay
         self.hoverOutDebounce = hoverOutDebounce
+        self.scrubGraceWindow = scrubGraceWindow
+        scrubGrace = ScrubGrace(confirmTolerance: scrubConfirmTolerance)
         self.ignoresBrowserMedia = ignoresBrowserMedia
         self.reactiveNowPlaying = reactiveNowPlaying
         currentLinger = nowPlayingLinger
+        lingerIsInvoked = false
     }
 
     // MARK: - Settings (live preference changes)
@@ -240,6 +285,7 @@ final class Coordinator {
         lingerTask = nil
         hoverIntentTask?.cancel()
         hoverIntentTask = nil
+        endScrubGrace()
     }
 
     // MARK: - View intents (views report; the Coordinator decides)
@@ -261,6 +307,7 @@ final class Coordinator {
         // (the click that got here landed in that exact rect) and re-enters
         // the hover path — which must already see the invoked duration.
         currentLinger = invokedLinger
+        lingerIsInvoked = true
         state = .nowPlaying(track, expanded: true)
         restartLingerTimer()
     }
@@ -275,7 +322,7 @@ final class Coordinator {
         if hovering, state == .hidden { return }
         // A gesture that entered through the intent path leaves through it,
         // keeping the recheck and the pointer mirror consistent.
-        if !hovering, pointerInside || hoverIntentTask != nil {
+        if !hovering, enteredViaHoverIntent || hoverIntentTask != nil {
             hoverIntent(false)
             return
         }
@@ -287,23 +334,15 @@ final class Coordinator {
     /// cancels the pending one, and the fired task rechecks the pointer before
     /// committing (the pointer may have moved during the wait).
     func hoverIntent(_ hovering: Bool) {
-        pointerInside = hovering
+        enteredViaHoverIntent = hovering
+        publishPointer(hovering)
         // The pointer's arrival already holds the appearance — the linger must
         // not tuck the surface out from under a cursor waiting out the intent
         // delay.
         if hovering { cancelLinger() }
         hoverIntentTask?.cancel()
         let delay = hovering ? hoverIntentDelay : hoverOutDebounce
-        hoverIntentTask = Task { [weak self, clock, delay, hovering] in
-            do {
-                try await clock.sleep(for: delay)
-            } catch {
-                return // cancelled: a newer hover event superseded this one
-            }
-            // A cancel landing between the sleep's expiry and this hop is
-            // silent (Task.sleep only throws while pending) — a stale fire
-            // would act on a successor's state.
-            guard !Task.isCancelled else { return }
+        hoverIntentTask = scheduleTimer(after: delay) { [weak self] in
             self?.applyHoverIntent(expanded: hovering)
         }
     }
@@ -315,11 +354,29 @@ final class Coordinator {
         commitHover(expanded)
     }
 
+    /// Single writer of the published pointer mirror, shared by both hover
+    /// paths (idempotent when the debounced path already published). The
+    /// pointer also holds a visible HUD — the knob's premise made real: its
+    /// arrival cancels the revert timer, its exit restarts the full delay
+    /// (docs/DECISIONS.md: hud-capsule-track).
+    private func publishPointer(_ inside: Bool) {
+        guard pointerInside != inside else { return }
+        pointerInside = inside
+        guard case .hud = state else { return }
+        if inside {
+            hudRevertTask?.cancel()
+            hudRevertTask = nil
+        } else {
+            restartHUDRevertTimer()
+        }
+    }
+
     /// The single hover commitment path (immediate and debounced). Hover-in
     /// holds the appearance and expands the visible compact; hover-out
     /// collapses and resumes the tuck timer. A hidden state stays hidden —
     /// hover never invokes (that is the click's job).
     private func commitHover(_ hovering: Bool) {
+        publishPointer(hovering)
         isHovering = hovering
         if hovering {
             cancelLinger()
@@ -330,7 +387,17 @@ final class Coordinator {
             if expanded {
                 state = .nowPlaying(track, expanded: false)
             }
-            restartLingerTimer()
+            // Any finished hover on the REACTIVE appearance buys the short
+            // re-linger, not a fresh full one (calibration-in-test — see
+            // hoverExitRelinger). The invoked appearance keeps its full tail
+            // (provenance flag): its pointer sits on the surface from the
+            // click itself, so a capped re-linger would make the invoked
+            // linger unreachable again — the exact production bug the
+            // invoked-linger tests pin.
+            let tail = lingerIsInvoked
+                ? currentLinger
+                : min(currentLinger, Self.hoverExitRelinger)
+            restartLingerTimer(duration: tail)
         }
     }
 
@@ -348,7 +415,9 @@ final class Coordinator {
         hoverIntentTask = nil
         isHovering = false
         pointerInside = false
+        enteredViaHoverIntent = false
         currentLinger = nowPlayingLinger
+        lingerIsInvoked = false
     }
 
     func togglePlayPause() {
@@ -358,9 +427,56 @@ final class Coordinator {
     }
 
     func scrub(to seconds: Double) {
-        runMediaCommand("seek") { [nowPlayingController] in
-            try await nowPlayingController.seek(to: seconds)
+        // The release of a drag (the view sends ONE scrub per gesture). The
+        // player's echo is inherently late — the seek travels a one-shot
+        // subprocess while the source keeps emitting from its pre-seek anchor
+        // — so the user's value takes authority NOW: optimistic position
+        // (position-only, S7 — `state` untouched), the source re-anchors its
+        // ticker, and a grace window holds stale echoes off until the stream
+        // flows at the target or the window expires. Clamped here so the grace
+        // target and the command carry the same number (the floor survives a
+        // nil duration on purpose); the source re-clamps its anchor
+        // defensively against its own snapshot — the same number today, and
+        // its ticker's authority if the two ever diverge.
+        let floored = max(0, seconds)
+        let target = nowPlaying?.duration.map { min(floored, $0) } ?? floored
+        seekEpoch += 1
+        let epoch = seekEpoch
+        if nowPlaying != nil {
+            nowPlaying?.position = target
+            scrubGrace.begin(target: target)
+            nowPlayingSource.noteSeek(to: target)
+            scrubGraceTask?.cancel()
+            scrubGraceTask = scheduleTimer(after: scrubGraceWindow) { [weak self] in self?.endScrubGrace() }
         }
+        // A failed (or never-delivered) seek means the player stays where it
+        // was: the optimism has to roll back — end the grace and let the
+        // source undo its fabricated anchor, or the ticker would keep
+        // counting from a position the player never reached until the next
+        // real payload (which, on the adapter, only comes on a change). The
+        // epoch guard keeps a stale failure from touching a newer scrub's
+        // grace and anchor.
+        runMediaCommand(
+            "seek",
+            onFailure: { [weak self] in
+                guard let self, self.seekEpoch == epoch else { return }
+                self.endScrubGrace()
+                self.nowPlayingSource.noteSeekFailed()
+            },
+            { [nowPlayingController] in
+                try await nowPlayingController.seek(to: target)
+            }
+        )
+    }
+
+    /// The stream takes back authority over the shown position: discard, a
+    /// failed seek, and the honest timeout come here directly; confirmation
+    /// and track change end inside ScrubGrace and the update path reaps the
+    /// timer through here right after — every exit cancels the task.
+    private func endScrubGrace() {
+        scrubGrace.end()
+        scrubGraceTask?.cancel()
+        scrubGraceTask = nil
     }
 
     func nextTrack() {
@@ -379,7 +495,16 @@ final class Coordinator {
         guard case .hud(let hud) = state else { return }
         switch hud.kind {
         case .volume:
+            // A drag to any audible target unmutes first, mirroring the
+            // volume-up key and the native handler: writing a level onto a
+            // muted device raises the number to no sound — the exact "does
+            // nothing audible" the key path unmutes to avoid. A drag to 0
+            // leaves mute untouched (parity with volume-down). setMuted before
+            // setVolume in one Task keeps the key path's ordering; a duplicate
+            // unmute from a fast drag echoing a stale snapshot is idempotent.
+            let unmute = hud.isMuted && value > 0
             run("setVolume") { [volumeController] in
+                if unmute { try await volumeController.setMuted(false, on: hud.display) }
                 try await volumeController.setVolume(value, on: hud.display)
             }
         case .screenBrightness:
@@ -414,6 +539,16 @@ final class Coordinator {
         if skipSupportedByTrack != update.supportsSkip {
             skipSupportedByTrack = update.supportsSkip
         }
+        // Scrub grace: the update lands whole first (the thresholds below and
+        // mediaActive read it), then its POSITION is weighed against a seek in
+        // flight — a stale echo must not clobber what the user just set
+        // (ScrubGrace; confirmation and track change end the window there,
+        // and the reap below collects the timeout timer they leave behind).
+        if let held = scrubGrace.heldPosition(update: update, previous: previous) {
+            nowPlaying?.position = held
+        } else if scrubGraceTask != nil, scrubGrace.target == nil {
+            endScrubGrace()
+        }
         // mediaActive lands after the state decision (on every exit path): each
         // write runs a synchronous frame pass, and a pass seeing new
         // mediaActive with the old state would transiently disarm the hover
@@ -442,6 +577,21 @@ final class Coordinator {
         let surfacesReactively = surfacingEvent && (update.isPlaying || !identityChanged)
         let contentChanged = previous?.layoutContent != update.layoutContent
 
+        // A surfacing event is a natural re-check point: restore optimism so a
+        // degraded control becomes usable again — otherwise the disabled
+        // control has no path back once flipped. Hoisted above every branch,
+        // the .hud one included: a track change arriving while a HUD owns the
+        // surface must still re-enable the controls, or play/pause stays dead
+        // for the rest of the track. Independent of quiet vs
+        // reactive: quiet mode still has a live invoked surface with controls,
+        // so it recovers the same way, ahead of the self-surface gate.
+        if surfacingEvent, !commandsAvailable {
+            commandsAvailable = true
+        }
+        if surfacingEvent, !skipCommandsAvailable {
+            skipCommandsAvailable = true
+        }
+
         if case .hud = state {
             // HUD has priority; a pending event resurfaces on the revert —
             // as the new event's reactive appearance (its linger too), exactly
@@ -450,20 +600,9 @@ final class Coordinator {
             if surfacesReactively, reactiveNowPlaying {
                 resumeNowPlayingAfterHUD = true
                 currentLinger = nowPlayingLinger
+                lingerIsInvoked = false
             }
             return
-        }
-
-        // A new event is a natural re-check point: restore optimism so a
-        // degraded control becomes usable again — otherwise the disabled
-        // control has no path back once flipped. Independent of quiet vs
-        // reactive: quiet mode still has a live invoked surface with controls,
-        // so it must recover the same way, ahead of the self-surface gate.
-        if surfacingEvent, !commandsAvailable {
-            commandsAvailable = true
-        }
-        if surfacingEvent, !skipCommandsAvailable {
-            skipCommandsAvailable = true
         }
 
         // A refinement must preserve the current expansion: an invoked player
@@ -485,6 +624,7 @@ final class Coordinator {
         // (artwork arriving) keeps the appearance's current duration.
         if surfacingEvent {
             currentLinger = nowPlayingLinger
+            lingerIsInvoked = false
         }
         state = .nowPlaying(update, expanded: surfacingEvent ? isHovering : (isHovering || wasExpanded))
         if isHovering {
@@ -501,10 +641,26 @@ final class Coordinator {
         discardActiveMedia()
     }
 
+    /// The active now-playing source ended without the outer stream finishing —
+    /// a chain failover, a total outage, or a deliberate promotion
+    /// (docs/DECISIONS.md: ghost-discard). The consumer's outer stream stays
+    /// alive across those, so it never
+    /// sees a finish; without this seam the last snapshot lingers as a ghost
+    /// with `mediaActive` true and click-invoke armed (invoke would resurrect an
+    /// expanded player of dead media). Drops it here; the next live source's
+    /// snapshots rebuild the state through the normal update path. Wired from
+    /// the chain in AppCore. A brief surface blip on a fast failover is
+    /// acceptable; showing dead media with armed controls is not.
+    func activeNowPlayingSourceEnded() {
+        discardActiveMedia()
+    }
+
     /// Drops the active snapshot and everything armed on it: surface, click
     /// zone, hover. Shared by stream end and the browser filter — both mean
-    /// "there is no media the app should represent".
+    /// "there is no media the app should represent". A scrub in flight dies
+    /// with it: a dead snapshot cannot retain a position target.
     private func discardActiveMedia() {
+        endScrubGrace()
         nowPlaying = nil
         if mediaActive {
             mediaActive = false
@@ -522,22 +678,34 @@ final class Coordinator {
         }
         cancelLinger()
         state = .hud(hud)
-        restartHUDRevertTimer()
+        // A key while the pointer holds the HUD must not re-arm the revert —
+        // the hold owns dismissal until the pointer leaves.
+        if !pointerInside { restartHUDRevertTimer() }
+    }
+
+    /// The one home for the cancellable display-timer idiom: sleep on the
+    /// injected clock, then fire — with the two silences that make a timer
+    /// safe to restart under a burst. The catch swallows a cancel landing
+    /// while the sleep is pending; the isCancelled guard swallows one landing
+    /// between the sleep's expiry and this hop, where a stale fire would act
+    /// on a successor's state (dismiss its HUD, tuck its appearance). Every
+    /// display timer goes through here — the guard is a correctness invariant,
+    /// and hand-rolled copies are how it gets lost.
+    private func scheduleTimer(after delay: Double, fire: @escaping @MainActor () -> Void) -> Task<Void, Never> {
+        Task { [clock] in
+            do {
+                try await clock.sleep(for: delay)
+            } catch {
+                return // cancelled: a newer event superseded this timer
+            }
+            guard !Task.isCancelled else { return }
+            fire()
+        }
     }
 
     private func restartHUDRevertTimer() {
         hudRevertTask?.cancel()
-        hudRevertTask = Task { [weak self, clock, hudRevertDelay] in
-            do {
-                try await clock.sleep(for: hudRevertDelay)
-            } catch {
-                return // cancelled: a newer event restarted the timer, or we stopped
-            }
-            // A cancel landing between the sleep's expiry and this hop is
-            // silent — a stale fire would dismiss the successor HUD instantly.
-            guard !Task.isCancelled else { return }
-            self?.revertHUD()
-        }
+        hudRevertTask = scheduleTimer(after: hudRevertDelay) { [weak self] in self?.revertHUD() }
     }
 
     private func revertHUD() {
@@ -562,20 +730,10 @@ final class Coordinator {
         }
     }
 
-    private func restartLingerTimer() {
-        let delay = currentLinger
+    private func restartLingerTimer(duration: Double? = nil) {
+        let delay = duration ?? currentLinger
         lingerTask?.cancel()
-        lingerTask = Task { [weak self, clock, delay] in
-            do {
-                try await clock.sleep(for: delay)
-            } catch {
-                return // cancelled: hover held the appearance, or a newer event restarted it
-            }
-            // A cancel landing between the sleep's expiry and this hop is
-            // silent — a stale fire would tuck the successor appearance instantly.
-            guard !Task.isCancelled else { return }
-            self?.tuckNowPlaying()
-        }
+        lingerTask = scheduleTimer(after: delay) { [weak self] in self?.tuckNowPlaying() }
     }
 
     private func cancelLinger() {
@@ -633,6 +791,7 @@ final class Coordinator {
     private func runMediaCommand(
         _ name: StaticString,
         updating availability: ReferenceWritableKeyPath<Coordinator, Bool> = \.commandsAvailable,
+        onFailure: (@MainActor () -> Void)? = nil,
         _ command: @escaping @Sendable () async throws -> Void
     ) {
         Task { @MainActor in
@@ -641,11 +800,15 @@ final class Coordinator {
                 if !self[keyPath: availability] { self[keyPath: availability] = true }
             } catch NowPlayingCommandError.noActiveSource {
                 // Transient: nothing is active to command right now (the chain
-                // may be mid re-selection). Don't latch the controls off.
+                // may be mid re-selection). Don't latch the controls off — but
+                // the command never reached a player, so a caller's optimism
+                // still has to roll back.
                 logger.debug("media command \(name, privacy: .public) skipped: no active source")
+                onFailure?()
             } catch {
                 logger.error("media command \(name, privacy: .public) failed: \(error, privacy: .public)")
                 if self[keyPath: availability] { self[keyPath: availability] = false }
+                onFailure?()
             }
         }
     }

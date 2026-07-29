@@ -6,8 +6,16 @@
 ///
 /// Volume is deliberately not routed here — Core Audio is event-driven, so the
 /// volume source already emits the instant the key lands; poking it would just
-/// double-fire. Without Accessibility the tap stays silent and brightness still
-/// surfaces via its poll (with latency) — graceful degradation, not a failure.
+/// double-fire. Without Accessibility the tap stays silent, so no sample ever
+/// marks a change as key-originated and the brightness HUDs simply never
+/// surface (the key-origin gate keeps them quiet — deliberately, or the
+/// ambient-light sensor would flash a HUD). Volume still flows; the router's
+/// absence degrades brightness to silence, not to latency.
+///
+/// @unchecked because `task` is mutable without a lock: the invariant making it
+/// safe is that start()/stop() are called only from the MainActor (AppCore owns
+/// the router and drives it from the main thread). Calling them off-main
+/// requires adding a lock.
 final class MediaKeyHUDRouter: @unchecked Sendable {
     private let mediaKeys: any MediaKeySource
     private let screenBrightness: any ManuallySampledSource

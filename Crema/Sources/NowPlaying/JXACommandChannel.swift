@@ -22,22 +22,16 @@ struct JXACommandChannel: NowPlayingCommandChannel {
     }
 
     /// Wraps a control statement so it runs against whichever of Spotify/Music
-    /// is currently playing, returning "true" on success.
+    /// is currently playing (the shared JXAPlayerScript preamble — the same
+    /// player selection the read side uses), returning "true" on success.
     private static func control(_ statement: String) -> String {
         """
         (function() {
-          function act(name) {
-            try {
-              const app = Application(name);
-              if (!app.running()) return false;
-              if (app.playerState() === 'stopped') return false;
-              \(statement)
-              return true;
-            } catch (e) {
-              return false;
-            }
-          }
-          return String(act('Spotify') || act('Music'));
+        \(JXAPlayerScript.preamble)
+          return String(Boolean(withActivePlayer(function(app, state, isSpotify) {
+            \(statement)
+            return true;
+          })));
         })();
         """
     }
@@ -50,19 +44,16 @@ struct JXACommandChannel: NowPlayingCommandChannel {
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
 
-        let output: String? = await withCheckedContinuation { continuation in
-            process.terminationHandler = { _ in
-                let data = try? pipe.fileHandleForReading.readToEnd()
-                continuation.resume(returning: data
-                    .flatMap { String(data: $0, encoding: .utf8) }?
-                    .trimmingCharacters(in: .whitespacesAndNewlines))
-            }
-            do {
-                try process.run()
-            } catch {
-                continuation.resume(returning: nil)
-            }
-        }
+        // Interactive: the user re-taps well before this, so a tight cap keeps a
+        // stuck osascript from parking a command forever. A timeout returns nil,
+        // which degrades the controls just like any other command failure below.
+        let output = await runChildProcess(
+            process,
+            readingStdout: pipe,
+            timeout: 5,
+            clock: ContinuousSleepClock(),
+            failureValue: nil
+        ) { _, output in output }
         guard output == "true" else { throw NowPlayingCommandError.commandFailed }
     }
 }

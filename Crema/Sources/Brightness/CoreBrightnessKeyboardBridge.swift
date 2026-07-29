@@ -6,9 +6,15 @@ import ObjectiveC.runtime
 /// rationale). The class resolver is injectable so the "class missing → degrade"
 /// path is testable without instantiating the real client. The built-in
 /// keyboard ID is enumerated (copyKeyboardBacklightIDs + isKeyboardBuiltIn:),
-/// never hardcoded.
-final class CoreBrightnessKeyboardBridge: KeyboardBrightnessBackend, @unchecked Sendable {
+/// never hardcoded — and re-enumerated per operation, never frozen at init:
+/// the IDs live on the other side of the client's connection, and a frozen one
+/// is the display bridge's stale-ID death waiting on the keyboard path
+/// (docs/DECISIONS.md: J2-display-id-stale — this closes the latent sibling it
+/// names). One enumeration per operation at key-press cadence is negligible.
+/// The injectable provider lets a test freeze the ID and reproduce the death.
+final class CoreBrightnessKeyboardBridge: BrightnessBackend, @unchecked Sendable {
     typealias ClassResolver = (_ name: String) -> AnyClass?
+    typealias KeyboardIDProvider = () -> UInt64?
 
     private typealias GetFn = @convention(c) (AnyObject, Selector, UInt64) -> Float
     private typealias SetFn = @convention(c) (AnyObject, Selector, Float, UInt64) -> Bool
@@ -19,11 +25,11 @@ final class CoreBrightnessKeyboardBridge: KeyboardBrightnessBackend, @unchecked 
 
     private struct Resolved {
         let client: NSObject
-        let keyboardID: UInt64
         let getSel: Selector
         let setSel: Selector
         let getFn: GetFn
         let setFn: SetFn
+        let keyboardID: KeyboardIDProvider
     }
 
     private static let frameworkPath =
@@ -31,22 +37,25 @@ final class CoreBrightnessKeyboardBridge: KeyboardBrightnessBackend, @unchecked 
 
     private let resolved: Resolved?
 
-    init(resolver: ClassResolver = CoreBrightnessKeyboardBridge.defaultResolver) {
-        resolved = Self.resolve(resolver)
+    init(
+        resolver: ClassResolver = CoreBrightnessKeyboardBridge.defaultResolver,
+        keyboardIDProvider: KeyboardIDProvider? = nil
+    ) {
+        resolved = Self.resolve(resolver, keyboardIDProvider: keyboardIDProvider)
     }
 
     /// Available only when the class resolved and a built-in keyboard was found.
     var isAvailable: Bool { resolved != nil }
 
     func read() -> Float? {
-        guard let r = resolved else { return nil }
-        let value = r.getFn(r.client, r.getSel, r.keyboardID)
+        guard let r = resolved, let id = r.keyboardID() else { return nil }
+        let value = r.getFn(r.client, r.getSel, id)
         return value >= 0 ? value : nil
     }
 
     func write(_ value: Float) -> Bool {
-        guard let r = resolved else { return false }
-        return r.setFn(r.client, r.setSel, value, r.keyboardID)
+        guard let r = resolved, let id = r.keyboardID() else { return false }
+        return r.setFn(r.client, r.setSel, value, id)
     }
 
     static func defaultResolver(_ name: String) -> AnyClass? {
@@ -54,7 +63,10 @@ final class CoreBrightnessKeyboardBridge: KeyboardBrightnessBackend, @unchecked 
         return NSClassFromString(name)
     }
 
-    private static func resolve(_ resolver: ClassResolver) -> Resolved? {
+    private static func resolve(
+        _ resolver: ClassResolver,
+        keyboardIDProvider: KeyboardIDProvider?
+    ) -> Resolved? {
         guard let cls = resolver("KeyboardBrightnessClient") as? NSObject.Type else { return nil }
         let client = cls.init()
 
@@ -72,19 +84,25 @@ final class CoreBrightnessKeyboardBridge: KeyboardBrightnessBackend, @unchecked 
         let copyFn = unsafeBitCast(client.method(for: copySel)!, to: CopyFn.self)
         let builtInFn = unsafeBitCast(client.method(for: builtInSel)!, to: BuiltInFn.self)
 
-        let idsArray = copyFn(client, copySel)?.takeRetainedValue()
-        let ids = (idsArray as? [NSNumber])?.map(\.uint64Value) ?? []
-        guard let keyboardID = KeyboardBacklightSelection.builtInID(from: ids, isBuiltIn: {
-            builtInFn(client, builtInSel, $0)
-        }) else { return nil }
+        let enumerate: KeyboardIDProvider = {
+            let idsArray = copyFn(client, copySel)?.takeRetainedValue()
+            let ids = (idsArray as? [NSNumber])?.map(\.uint64Value) ?? []
+            return KeyboardBacklightSelection.builtInID(from: ids) {
+                builtInFn(client, builtInSel, $0)
+            }
+        }
+        let provider = keyboardIDProvider ?? enumerate
+        // Availability still requires a built-in keyboard NOW; operations
+        // re-resolve, so a later change degrades per call, never fatally.
+        guard provider() != nil else { return nil }
 
         return Resolved(
             client: client,
-            keyboardID: keyboardID,
             getSel: getSel,
             setSel: setSel,
             getFn: unsafeBitCast(client.method(for: getSel)!, to: GetFn.self),
-            setFn: unsafeBitCast(client.method(for: setSel)!, to: SetFn.self)
+            setFn: unsafeBitCast(client.method(for: setSel)!, to: SetFn.self),
+            keyboardID: provider
         )
         // swiftlint:enable force_unwrapping
     }

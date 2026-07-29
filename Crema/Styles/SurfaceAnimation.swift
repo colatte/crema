@@ -6,13 +6,21 @@ import SwiftUI
 ///
 /// All visible motion is SwiftUI's: the view morphs a sized surface inside a
 /// fixed window (see NSPanelPresentationPanel). One animator, so nothing fights.
+///
+/// Scope rule: values that participate in the presentation contracts live here
+/// (the directional morph springs, appear/dismiss, the level glide calibrated
+/// against the HUD revert); a component's private affordance timing lives in
+/// the component (WaveformGlyph.freezeDuration, ArtworkAccent.toneFadeDuration,
+/// HUDLevelSlider.knobReveal).
 enum SurfaceAnimation {
     /// Spring parameters. Open is livelier; close is critically damped — never
     /// overshoot on close, or the bounce against the static menu bar reads as
     /// instability.
     static let openResponse: Double = 0.42
     static let openDamping: Double = 0.8
-    static let closeResponse: Double = 0.45
+    // 0.35 from the hover round's release-latency budget (t90 279 → 217 ms);
+    // damping stays 1.0 — still no overshoot against the menu bar.
+    static let closeResponse: Double = 0.35
     static let closeDamping: Double = 1.0
 
     /// Surface morph springs, chosen by direction: the destination state selects
@@ -30,10 +38,11 @@ enum SurfaceAnimation {
     /// on the geometry alone is why a HUD born from hidden lands at 210×42 instead
     /// of gliding down from the last now-playing rect.
     ///
-    /// Expressed over `fromEmpty`/`toEmpty` booleans rather than a shared layout
-    /// enum, so each skin's private LayoutKind stays private (CLAUDE.md: skins
-    /// independent). `expanding` picks the same spring the views already pick by
-    /// `isExpanded`.
+    /// Expressed over `fromEmpty`/`toEmpty` booleans rather than the shared
+    /// SurfaceLayoutKind (SurfaceStyleCore): the motion gate depends on exactly
+    /// two provenance facts, and taking the enum would couple it to layout
+    /// vocabulary it never reads. `expanding` picks the same spring the views
+    /// already pick by `isExpanded`.
     ///
     /// Reduce Motion contract (app-wide, MG5): with the preference on every
     /// geometry/content/width morph resolves to nil so layouts land dry and only
@@ -98,13 +107,7 @@ enum SurfaceAnimation {
     /// How long a shrinking surface's old extent stays click-interactive: the
     /// close spring's visible settle (≥ 1.5 × response). Tightening earlier
     /// would forward clicks through still-visible pixels to the window below.
+    /// Held at 0.7 deliberately after close dropped to 0.35 — headroom over
+    /// the floor, not a live derivation.
     static let interactiveSettle: Double = 0.7
-
-    /// Post-close suppression window (design-reference §2.3): the time to ignore
-    /// a hover-open right after the surface is dismissed programmatically.
-    /// Reserved and not wired — the committed-hover model already restores the
-    /// correct expanded state on HUD revert and resets it on hide (see the
-    /// Coordinator), and wiring it into the HUD path would perturb that timer's
-    /// exact-delay tests. Kept here so the value has one home when revisited.
-    static let postCloseSuppression: Double = 0.35
 }
