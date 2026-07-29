@@ -270,6 +270,58 @@ struct WindowManagerTests {
         func close() {}
     }
 
+    /// The guard's actual contract, which needs a SECOND display to be visible.
+    ///
+    /// With one panel the two behaviours converge — deferred or nested, the last
+    /// frame that panel receives is the fresh one — which is why the test below
+    /// stayed green against a mutation removing the guard entirely. With two, a
+    /// nested pass runs to completion in the middle of the outer one, and the
+    /// outer loop then hands its remaining panels the frame it computed BEFORE
+    /// the state changed: the second display is left holding a stale silhouette
+    /// until something else happens to trigger another pass.
+    @Test func aNestedPassNeverLeavesASecondDisplayHoldingTheOldFrame() async {
+        let base = CoordinatorHarness()
+        let store = EphemeralDefaults()
+        let preferences = Preferences(defaults: store.defaults)
+        var panels: [HoverCommittingPanel] = []
+        let manager = WindowManager(coordinator: base.coordinator, preferences: preferences) { _, _, _ in
+            let panel = HoverCommittingPanel()
+            panels.append(panel)
+            return panel
+        }
+        manager.start()
+
+        let track = CoordinatorHarness.playingTrack()
+        base.nowPlayingSource.emit(track)
+        _ = await eventually { base.coordinator.state == .nowPlaying(track, expanded: false) }
+
+        let a = Self.screen("A")
+        let b = Self.screen("B", frame: CGRect(x: 2000, y: 0, width: 1200, height: 800))
+        manager.updateScreens([a, b])
+        #expect(panels.count == 2)
+
+        // Whichever panel the roster reaches first commits the hover mid-apply.
+        for panel in panels {
+            panel.onFirstArmedApply = { [coordinator = base.coordinator] in coordinator.hover(true) }
+        }
+        manager.refreshPresentation()
+
+        #expect(base.coordinator.state == .nowPlaying(track, expanded: true))
+        let expanded = PresentationState.nowPlaying(track, expanded: true)
+        // By set, not by index: the panel roster is a dictionary, so which
+        // display the pass reaches first is not ordered — and the contract is
+        // that NEITHER is left stale, whichever went first.
+        // (CGRect's Hashable conformance needs macOS 15; the deployment target is
+        // 14, so this compares as an unordered pair by hand.)
+        let landed = panels.compactMap(\.appliedFrames.last)
+        let wanted = [
+            Style.card.frame(for: expanded, on: a.geometry),
+            Style.card.frame(for: expanded, on: b.geometry),
+        ]
+        #expect(landed.count == 2)
+        #expect(wanted.allSatisfy(landed.contains))
+    }
+
     @Test func aNestedHoverCommitDuringAFramePassConvergesOnTheFreshState() async {
         // Every frame pass must go through the re-entrancy guard: a nested
         // state write (here, the hover committed mid-apply) defers, and the

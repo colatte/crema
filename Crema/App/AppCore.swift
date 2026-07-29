@@ -487,10 +487,21 @@ final class AppCore {
     /// Requests the permission (system prompt registers the app in the
     /// Accessibility list) and deep-links to the exact Settings pane.
     func requestAccessibilityAccess() {
-        accessibilityPermission.requestAccess()
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-            NSWorkspace.shared.open(url)
-        }
+        Self.requestAccessibility(accessibilityPermission, thenOpenSettings: {
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                NSWorkspace.shared.open(url)
+            }
+        })
+    }
+
+    /// Standalone and static so a test pins the sequence without booting the
+    /// graph (same reason as the login-item and wake seams). The ORDER is the
+    /// contract, not a detail: the prompt is what registers the app in the
+    /// Accessibility list, so opening the pane first — or without asking at all —
+    /// lands the user on a list Crema is not in, with nothing to switch on.
+    static func requestAccessibility(_ permission: any AccessibilityPermission, thenOpenSettings: () -> Void) {
+        permission.requestAccess()
+        thenOpenSettings()
     }
 
     func presentAccessibilityOnboarding() {
