@@ -24,8 +24,8 @@ struct CoordinatorBrightnessLoopTests {
     /// Wires the hook to echo the just-written value back into the HUD stream,
     /// exactly as the real samplers do (re-read the applied value and emit it).
     private func wireEcho(_ h: CoordinatorHarness) {
-        h.coordinator.onBrightnessApplied = { kind in
-            switch kind {
+        h.coordinator.onBrightnessApplied = { applied in
+            switch applied.kind {
             case .screenBrightness:
                 if case let .setBrightness(value, display) = h.screen.commands.last {
                     h.hudSource.emit(SystemHUD(kind: .screenBrightness, value: value, display: display))
@@ -43,7 +43,7 @@ struct CoordinatorBrightnessLoopTests {
     @Test func screenBrightnessSliderReportsTheAppliedKind() async {
         let h = CoordinatorHarness()
         let recorder = AppliedKindRecorder()
-        h.coordinator.onBrightnessApplied = { recorder.record($0) }
+        h.coordinator.onBrightnessApplied = { recorder.record($0.kind) }
         h.hudSource.emit(SystemHUD(kind: .screenBrightness, value: 0.5))
         #expect(await eventually { h.coordinator.state != .hidden })
 
@@ -55,7 +55,7 @@ struct CoordinatorBrightnessLoopTests {
     @Test func keyboardBrightnessSliderReportsTheAppliedKind() async {
         let h = CoordinatorHarness()
         let recorder = AppliedKindRecorder()
-        h.coordinator.onBrightnessApplied = { recorder.record($0) }
+        h.coordinator.onBrightnessApplied = { recorder.record($0.kind) }
         h.hudSource.emit(SystemHUD(kind: .keyboardBrightness, value: 0.5))
         #expect(await eventually { h.coordinator.state != .hidden })
 
@@ -69,7 +69,7 @@ struct CoordinatorBrightnessLoopTests {
         // path must not poke a sampler — it stays exactly as it was.
         let h = CoordinatorHarness()
         let recorder = AppliedKindRecorder()
-        h.coordinator.onBrightnessApplied = { recorder.record($0) }
+        h.coordinator.onBrightnessApplied = { recorder.record($0.kind) }
         h.hudSource.emit(SystemHUD(kind: .volume, value: 0.5))
         #expect(await eventually { h.coordinator.state == .hud(SystemHUD(kind: .volume, value: 0.5)) })
 

@@ -109,6 +109,16 @@ final class BetterDisplayOSDSource: SystemHUDSource {
         hasReported = false
     }
 
+    /// Echoes a level Crema itself asked BetterDisplay to apply. Measured: the app
+    /// publishes OSD notifications for changes IT originates, not for the ones
+    /// third parties request — so without this echo a drag would leave the bar
+    /// frozen at the old level and its revert timer unrefreshed. Deliberately does
+    /// NOT count as `hasReported`: our own echo is not evidence that the
+    /// neighbour's integration is switched on.
+    func noteApplied(_ hud: SystemHUD) {
+        continuation.yield(hud)
+    }
+
     private func installObserver() {
         let observer = DistributedNotificationCenter.default().addObserver(
             forName: Notification.Name(Self.notificationName),

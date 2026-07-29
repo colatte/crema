@@ -36,19 +36,38 @@ enum ScreenTranslation {
         let displayID = CGDirectDisplayID(number.uint32Value)
         // displayID → UUID happens here, at the border: Preferences and the
         // domain only ever see the stable UUID, never the numeric ID.
-        guard let uuidRef = CGDisplayCreateUUIDFromDisplayID(displayID)?.takeRetainedValue() else {
+        guard let uuid = displayUUID(for: displayID) else {
             logger.notice(
                 "display \(displayID, privacy: .public) (\(screen.localizedName, privacy: .public)) has no resolvable UUID — dropped from the panel roster"
             )
             return nil
         }
-        let uuid = CFUUIDCreateString(nil, uuidRef) as String
 
         return ScreenDescription(
-            id: DisplayUUID(rawValue: uuid),
+            id: uuid,
             geometry: geometry(of: screen),
             isInternal: CGDisplayIsBuiltin(displayID) != 0
         )
+    }
+
+    /// displayID → the domain's stable key, in one place. The panel roster starts
+    /// from an NSScreen and a neighbouring app reports raw display IDs; both must
+    /// land on the same UUID or the two would disagree about which screen is which.
+    nonisolated static func displayUUID(for displayID: CGDirectDisplayID) -> DisplayUUID? {
+        guard let uuidRef = CGDisplayCreateUUIDFromDisplayID(displayID)?.takeRetainedValue() else { return nil }
+        return DisplayUUID(rawValue: CFUUIDCreateString(nil, uuidRef) as String)
+    }
+
+    /// The built-in screen's numeric ID — what `display == nil` means when a
+    /// command has to name a display explicitly. Resolved fresh on every call
+    /// against the ACTIVE display list: numeric IDs are reassigned across sessions
+    /// and reconnections, so a cached one would eventually address another screen.
+    nonisolated static func builtInDisplayID() -> CGDirectDisplayID? {
+        var count: UInt32 = 0
+        guard CGGetActiveDisplayList(0, nil, &count) == .success, count > 0 else { return nil }
+        var ids = [CGDirectDisplayID](repeating: 0, count: Int(count))
+        guard CGGetActiveDisplayList(count, &ids, &count) == .success else { return nil }
+        return ids.prefix(Int(count)).first { CGDisplayIsBuiltin($0) != 0 }
     }
 
     /// Reads the notch geometry from NSScreen.

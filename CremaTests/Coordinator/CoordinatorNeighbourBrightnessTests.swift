@@ -1,0 +1,99 @@
+import Testing
+@testable import Crema
+
+/// A bar drawn from a neighbouring app's report, and what a drag on it owes the
+/// user. The three pins here are the three ways this went wrong in review:
+/// a frozen bar, a dead control, and a write on the wrong scale
+/// (docs/DECISIONS.md: betterdisplay-osd-source).
+@MainActor
+struct CoordinatorNeighbourBrightnessTests {
+
+    private func neighbourHUD(_ value: Double = 0.5) -> SystemHUD {
+        SystemHUD(kind: .screenBrightness, value: value, authority: .betterDisplay)
+    }
+
+    @Test func aDragOnTheNeighboursBarGoesBackToTheNeighbour() async {
+        let h = CoordinatorHarness(withExternalBrightness: true)
+        h.hudSource.emit(neighbourHUD())
+        #expect(await eventually { h.coordinator.state != .hidden })
+
+        h.coordinator.hudSliderChanged(to: 0.8)
+
+        #expect(await eventually { h.external?.commands.isEmpty == false })
+        #expect(h.external?.commands == [.setBrightness(0.8, display: nil)])
+        #expect(h.screen.commands.isEmpty)   // never on the system's own scale
+    }
+
+    @Test func aDragOnTheSystemsOwnBarStillGoesToTheSystem() async {
+        // The neighbour being wired must not capture bars it did not draw.
+        let h = CoordinatorHarness(withExternalBrightness: true)
+        h.hudSource.emit(SystemHUD(kind: .screenBrightness, value: 0.5))
+        #expect(await eventually { h.coordinator.state != .hidden })
+
+        h.coordinator.hudSliderChanged(to: 0.3)
+
+        #expect(await eventually { h.screen.commands.isEmpty == false })
+        #expect(h.external?.commands.isEmpty == true)
+    }
+
+    @Test func theBarFollowsTheFingerWithoutWaitingForTheRoundTrip() async {
+        // The slider has no local value: it draws whatever the last HUD said. A
+        // round-trip to another process is not instant and may never answer, so
+        // the level is on screen before the write leaves.
+        let h = CoordinatorHarness(withExternalBrightness: true)
+        h.hudSource.emit(neighbourHUD(0.5))
+        #expect(await eventually { h.coordinator.state != .hidden })
+
+        h.coordinator.hudSliderChanged(to: 0.9)
+
+        #expect(h.coordinator.state == .hud(neighbourHUD(0.9)))   // already, synchronously
+    }
+
+    @Test func aNeighbourThatRefusesStillMovesTheScreen() async {
+        // Its command channel is a separate setting from its OSD one, so
+        // "reports but refuses commands" is a real configuration. A control that
+        // does nothing is worse than one writing on the other scale.
+        let h = CoordinatorHarness(withExternalBrightness: true)
+        h.external?.refuseEverything()
+        h.hudSource.emit(neighbourHUD())
+        #expect(await eventually { h.coordinator.state != .hidden })
+
+        h.coordinator.hudSliderChanged(to: 0.8)
+
+        #expect(await eventually { h.screen.commands.isEmpty == false })
+        #expect(h.screen.commands == [.setBrightness(0.8, display: nil)])
+    }
+
+    @Test func aRefusalIsNotAskedAgainEveryFrame() async {
+        // Re-asking a neighbour that just refused would stall each frame of the
+        // gesture on a deadline.
+        let h = CoordinatorHarness(withExternalBrightness: true)
+        h.external?.refuseEverything()
+        h.hudSource.emit(neighbourHUD())
+        #expect(await eventually { h.coordinator.state != .hidden })
+
+        h.coordinator.hudSliderChanged(to: 0.8)
+        #expect(await eventually { h.screen.commands.count == 1 })
+        h.coordinator.hudSliderChanged(to: 0.7)
+        #expect(await eventually { h.screen.commands.count == 2 })
+
+        #expect(h.external?.commands.count == 1)   // asked once, then written off
+    }
+
+    @Test func aFreshReportEarnsTheNeighbourAnotherChance() async {
+        // Recovery by evidence, never by a timer: the app answering again is the
+        // proof, and it is the same proof the menu uses.
+        let h = CoordinatorHarness(withExternalBrightness: true)
+        h.external?.refuseEverything()
+        h.hudSource.emit(neighbourHUD())
+        #expect(await eventually { h.coordinator.state != .hidden })
+        h.coordinator.hudSliderChanged(to: 0.8)
+        #expect(await eventually { h.screen.commands.isEmpty == false })
+
+        h.hudSource.emit(neighbourHUD(0.4))          // it is back
+        #expect(await eventually { h.coordinator.state == .hud(neighbourHUD(0.4)) })
+        h.coordinator.hudSliderChanged(to: 0.6)
+
+        #expect(await eventually { h.external?.commands.count == 2 })
+    }
+}

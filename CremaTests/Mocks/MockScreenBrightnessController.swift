@@ -8,12 +8,25 @@ final class MockScreenBrightnessController: ScreenBrightnessController, @uncheck
         case setBrightness(Double, display: DisplayUUID?)
     }
 
+    struct Refusal: Error {}
+
     private let lock = NSLock()
     private var recorded: [Command] = []
+    private var refusing = false
 
     var commands: [Command] { lock.withLock { recorded } }
 
+    /// Makes every later write throw — a neighbour that stopped answering, or a
+    /// backend that lost its display.
+    func refuseEverything() {
+        lock.withLock { refusing = true }
+    }
+
     func setBrightness(_ value: Double, on display: DisplayUUID?) async throws {
-        lock.withLock { recorded.append(.setBrightness(value, display: display)) }
+        let refuse = lock.withLock {
+            recorded.append(.setBrightness(value, display: display))
+            return refusing
+        }
+        if refuse { throw Refusal() }
     }
 }

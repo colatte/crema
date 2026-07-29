@@ -6,11 +6,8 @@ import Testing
 /// shapes. If the app's format ever drifts, these are the tests that notice.
 struct BetterDisplayOSDTranslationTests {
 
-    private let builtIn = 1
-    private let external = 99
-
     private func translate(_ json: String) -> SystemHUD? {
-        BetterDisplayOSDTranslation.systemHUD(fromJSON: json) { [builtIn] id in id == builtIn }
+        BetterDisplayOSDTranslation.systemHUD(fromJSON: json) { id in id == 1 }
     }
 
     @Test func aCapturedBrightnessPayloadBecomesAScreenBrightnessHUD() {
@@ -31,11 +28,17 @@ struct BetterDisplayOSDTranslationTests {
     }
 
     @Test func anotherDisplaysBrightnessIsNotDrawnAtAll() {
-        // The screen-brightness actuator refuses every target but the built-in
-        // one, so a HUD for an external display would arrive with a slider that
-        // throws on the first drag. Crema draws a bar only where it can move it.
-        #expect(translate(#"{"controlTarget":"combinedBrightness","displayID":99,"maxValue":64,"value":40}"#) == nil)
-        #expect(external != builtIn)
+        // Crema CAN write to an external display through BetterDisplay now, but it
+        // draws the same HUD on every panel and no panel says which display the
+        // bar is for — a bar on one screen silently dimming another is worse than
+        // no bar, so these wait for per-display presentation.
+        #expect(translate(#"{"controlTarget":"combinedBrightness","displayID":99,"maxValue":64,"value":48}"#) == nil)
+    }
+
+    @Test func aReportedLevelIsCreditedToTheAppThatReportedIt() {
+        // The drag has to go back to the same scale the bar was drawn in.
+        let hud = translate(#"{"controlTarget":"combinedBrightness","displayID":1,"maxValue":64,"value":48}"#)
+        #expect(hud?.authority == .betterDisplay)
     }
 
     @Test func volumeAndMuteAreLeftToCoreAudio() {

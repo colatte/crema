@@ -166,9 +166,11 @@ xattr -dr com.apple.quarantine /Applications/Crema.app
   keeps the keys and its own brightness curve, Crema keeps the HUD. Turn off
   BetterDisplay's own OSD in that same pane so only one bar appears. Nothing to
   enable on Crema's side; it listens whenever BetterDisplay is there and stays
-  quiet when it isn't. Crema's menu tells you which is happening — it confirms
-  when the brightness HUD is coming from BetterDisplay, and says so when
-  BetterDisplay has the keys but hasn't been told to share.
+  quiet when it isn't. Dragging that bar sends the new level back to
+  BetterDisplay, so it lands exactly where the bar says — including the extra
+  dimming range its combined brightness adds. Crema's menu tells you which is
+  happening: it confirms when the brightness HUD is coming from BetterDisplay,
+  and says so when BetterDisplay has the keys but hasn't been told to share.
 - The **menu bar icon** opens Settings (`⌘,`), checks for updates, or quits.
 
 ## Privacy

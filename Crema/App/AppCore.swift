@@ -36,6 +36,8 @@ final class AppCore {
         /// Kept beyond the merge so the menu can say whether the neighbour is
         /// actually reporting; nil on demo sources.
         let betterDisplaySource: BetterDisplayOSDSource?
+        /// Writes for bars the neighbour drew; nil on demo sources.
+        let externalScreenBrightnessController: (any ScreenBrightnessController)?
     }
 
     let coordinator: Coordinator
@@ -151,6 +153,7 @@ final class AppCore {
             volumeController: graph.volumeController,
             screenBrightnessController: graph.screenBrightnessController,
             keyboardBrightnessController: graph.keyboardBrightnessController,
+            externalScreenBrightnessController: graph.externalScreenBrightnessController,
             // Seed the live behavior from the persisted Settings.
             ignoresBrowserMedia: !preferences.includesBrowserMedia,
             reactiveNowPlaying: preferences.reactiveNowPlaying
@@ -294,22 +297,7 @@ final class AppCore {
                 }
             }
         }
-        // Slider-driven brightness writes do not echo the way Core Audio volume
-        // does, so the Coordinator asks us to poke the matching sampler after a
-        // successful write — it re-reads and emits the applied value, closing the
-        // HUD loop (indicator follows, revert timer refreshes) exactly like the
-        // media-key router and the suppressor's post-apply poke. Absent on demo
-        // sources, where the demo HUD is already event-driven end to end.
-        if let screenSampler = graph.screenBrightnessSampler,
-           let keyboardSampler = graph.keyboardBrightnessSampler {
-            coordinator.onBrightnessApplied = { kind in
-                switch kind {
-                case .screenBrightness: screenSampler.sample()
-                case .keyboardBrightness: keyboardSampler.sample()
-                case .volume: break   // volume echoes itself; never routed here
-                }
-            }
-        }
+        Self.wireBrightnessEcho(to: coordinator, graph: graph)
         // The preference persists across launches: suppression is a real
         // opt-in feature, and its reversibility never depends on state — the
         // tap dies with the process. start() engages to the correct initial
@@ -555,6 +543,14 @@ final class AppCore {
         // could speak — suppression off, so Crema's tap observes the key and arms
         // its poll while the neighbour is the one that applies and reports.
         let betterDisplaySource = BetterDisplayOSDSource(onReport: { screenSource.standDown() })
+        // The way back: BetterDisplay applies what a drag on ITS bar asks for, on
+        // the same scale it reported. Wired unconditionally like the source — with
+        // the app absent the command simply goes unanswered and the drag reports a
+        // failed apply, which is what an unreachable actuator is.
+        let betterDisplayBrightness = BetterDisplayScreenBrightnessController(
+            channel: BetterDisplayCommandChannel(),
+            displayID: BetterDisplayScreenBrightnessController.liveDisplayID
+        )
 
         return SystemGraph(
             nowPlayingSource: nowPlayingSource,
@@ -570,7 +566,8 @@ final class AppCore {
             volumeSampler: volumeSource,
             screenBrightnessBackend: screenBridge,
             keyboardBrightnessBackend: keyboardBridge,
-            betterDisplaySource: betterDisplaySource
+            betterDisplaySource: betterDisplaySource,
+            externalScreenBrightnessController: betterDisplayBrightness
         )
     }
 
@@ -627,7 +624,8 @@ final class AppCore {
             volumeSampler: nil,
             screenBrightnessBackend: nil,
             keyboardBrightnessBackend: nil,
-            betterDisplaySource: nil
+            betterDisplaySource: nil,
+            externalScreenBrightnessController: nil
         )
     }
 
@@ -781,5 +779,33 @@ extension AppCore {
         }
         guard let name = registry.appName(forPID: pid) else { return .quiet }
         return .anotherAppAhead(name)
+    }
+}
+
+// MARK: - Brightness echo
+
+@MainActor
+extension AppCore {
+    /// Slider-driven brightness writes do not echo the way Core Audio volume does,
+    /// so the Coordinator hands back what it applied and the loop is closed here —
+    /// indicator follows, revert timer refreshes — exactly like the media-key
+    /// router and the suppressor's post-apply poke. Absent on demo sources, where
+    /// the demo HUD is already event-driven end to end.
+    private static func wireBrightnessEcho(to coordinator: Coordinator, graph: SystemGraph) {
+        guard let screenSampler = graph.screenBrightnessSampler,
+              let keyboardSampler = graph.keyboardBrightnessSampler
+        else { return }
+        let betterDisplay = graph.betterDisplaySource
+        coordinator.onBrightnessApplied = { applied in
+            switch (applied.kind, applied.authority) {
+            // A neighbour's bar is on its own scale, and it does not report back
+            // what third parties ask it to set — so the echo is the value we just
+            // wrote, never a re-read of the system's own.
+            case (.screenBrightness, .betterDisplay): betterDisplay?.noteApplied(applied)
+            case (.screenBrightness, .system): screenSampler.sample()
+            case (.keyboardBrightness, _): keyboardSampler.sample()
+            case (.volume, _): break   // volume echoes itself; never routed here
+            }
+        }
     }
 }

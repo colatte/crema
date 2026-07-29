@@ -38,12 +38,12 @@ enum BetterDisplayOSDTranslation {
     /// CGDirectDisplayID is the built-in screen — injected so this stays a pure
     /// function; the system call lives in the source.
     ///
-    /// Events for any other display are dropped. Not an oversight: `display == nil`
-    /// is the domain's word for the built-in screen, and the screen-brightness
-    /// actuator refuses every other target (`externalDisplayUnsupported`), so a HUD
-    /// carrying an external display would come with a slider that throws on the
-    /// first drag. Crema shows a bar only where it can also move it; external
-    /// displays wait for the outbound half of this integration (ROADMAP.md).
+    /// Any other display is dropped, and that is a presentation limit rather than
+    /// an actuation one: Crema can now write to an external display through
+    /// BetterDisplay, but it draws the same HUD on every panel and no panel says
+    /// which display the bar belongs to. A bar on the built-in screen that
+    /// silently dims the monitor beside it is worse than no bar, so external
+    /// displays wait for per-display HUD presentation (ROADMAP.md).
     ///
     /// Volume and mute are deliberately NOT translated even though BetterDisplay
     /// reports them: Core Audio already emits for every volume change whoever
@@ -56,7 +56,7 @@ enum BetterDisplayOSDTranslation {
               let value = payload.value,
               payload.lock != true,
               isBrightness(payload),
-              // A payload with no display named is the built-in one — the same
+              // A payload naming no display is the built-in one — the same
               // default the domain uses when the field is absent.
               payload.displayID.map(isBuiltInDisplay) ?? true
         else { return nil }
@@ -70,7 +70,7 @@ enum BetterDisplayOSDTranslation {
         guard let maxValue = payload.maxValue, maxValue > 0 else { return nil }
         let normalized = min(max(value / maxValue, 0), 1)
 
-        return SystemHUD(kind: .screenBrightness, value: normalized)
+        return SystemHUD(kind: .screenBrightness, value: normalized, authority: .betterDisplay)
     }
 
     /// The target names the control precisely, so it decides when present; the

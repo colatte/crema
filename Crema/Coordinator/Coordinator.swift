@@ -81,11 +81,15 @@ final class Coordinator {
     /// the brightness sources emit only through a key-gated poll, so a drag with
     /// no key press behind it would leave the indicator stuck at the old value
     /// and the revert timer unrefreshed (the HUD tucks mid-drag). On a successful
-    /// write the Coordinator names the applied kind; AppCore pokes the matching
-    /// sampler, which re-reads and emits the applied value into the HUD stream —
-    /// the same close-the-loop poke the media-key router and OSD suppressor use.
-    /// Injection is intact: the Coordinator names the kind, never a concrete sampler.
-    @ObservationIgnored var onBrightnessApplied: (@MainActor (SystemHUD.Kind) -> Void)?
+    /// write the Coordinator hands back what it applied; AppCore closes the loop
+    /// the way that authority requires — poking the matching sampler for a
+    /// system write, and for a neighbour's write echoing the applied value
+    /// directly, because a neighbouring app does not report back the levels
+    /// third parties ask it to set (measured), and re-reading the system would
+    /// answer on a different scale than the bar is drawn in.
+    /// Injection is intact: the Coordinator describes what it applied, never a
+    /// concrete sampler.
+    @ObservationIgnored var onBrightnessApplied: (@MainActor (SystemHUD) -> Void)?
 
     /// Synchronous presentation hook for the WindowManager. The window must be
     /// resized/ordered in the same runloop callout as the state write: SwiftUI
@@ -125,6 +129,16 @@ final class Coordinator {
     @ObservationIgnored private let nowPlayingController: any NowPlayingController
     @ObservationIgnored private let volumeController: any VolumeController
     @ObservationIgnored private let screenBrightnessController: any ScreenBrightnessController
+    /// Where a drag goes when the bar was drawn from a neighbouring app's report:
+    /// its scale is not the system's, so the write must go back to it. Nil when
+    /// that integration is not wired (demo sources), and then the system actuator
+    /// takes every drag, exactly as before.
+    @ObservationIgnored private let externalScreenBrightnessController: (any ScreenBrightnessController)?
+    /// Whether the neighbour is still worth asking. Set false by a command it
+    /// refused or never answered, and true again by its next report — evidence in
+    /// both directions, so a neighbour that quits mid-gesture stops costing every
+    /// following frame a deadline, and one that comes back is used again.
+    @ObservationIgnored private var externalBrightnessReachable = true
     @ObservationIgnored private let keyboardBrightnessController: any KeyboardBrightnessController
     @ObservationIgnored private let clock: any SleepClock
     @ObservationIgnored private let hudRevertDelay: Double
@@ -202,6 +216,7 @@ final class Coordinator {
         volumeController: any VolumeController,
         screenBrightnessController: any ScreenBrightnessController,
         keyboardBrightnessController: any KeyboardBrightnessController,
+        externalScreenBrightnessController: (any ScreenBrightnessController)? = nil,
         clock: any SleepClock = ContinuousSleepClock(),
         hudRevertDelay: Double = Coordinator.defaultHUDRevertDelay,
         nowPlayingLinger: Double = Coordinator.defaultNowPlayingLinger,
@@ -219,6 +234,7 @@ final class Coordinator {
         self.volumeController = volumeController
         self.screenBrightnessController = screenBrightnessController
         self.keyboardBrightnessController = keyboardBrightnessController
+        self.externalScreenBrightnessController = externalScreenBrightnessController
         self.clock = clock
         self.hudRevertDelay = hudRevertDelay
         self.nowPlayingLinger = nowPlayingLinger
@@ -508,11 +524,9 @@ final class Coordinator {
                 try await volumeController.setVolume(value, on: hud.display)
             }
         case .screenBrightness:
-            applyBrightness("setBrightness(screen)", kind: .screenBrightness) { [screenBrightnessController] in
-                try await screenBrightnessController.setBrightness(value, on: hud.display)
-            }
+            applyScreenBrightness(value, on: hud)
         case .keyboardBrightness:
-            applyBrightness("setBrightness(keyboard)", kind: .keyboardBrightness) { [keyboardBrightnessController] in
+            applyBrightness("setBrightness(keyboard)", applied: hud.at(value)) { [keyboardBrightnessController] in
                 try await keyboardBrightnessController.setBrightness(value)
             }
         }
@@ -671,6 +685,19 @@ final class Coordinator {
     }
 
     private func handleHUDUpdate(_ hud: SystemHUD) {
+        // A fresh report is proof the neighbour is answering again, so a channel
+        // written off after a failed command is given back its chance. Recovery by
+        // evidence, never by a timer.
+        if hud.authority == .betterDisplay {
+            externalBrightnessReachable = true
+        }
+        publishHUD(hud)
+    }
+
+    /// Puts a reading on screen: the same path an arriving HUD and a drag's own
+    /// optimistic echo both take, so a dragged level and a reported one behave
+    /// identically (revert timer, pointer hold, now-playing resume).
+    private func publishHUD(_ hud: SystemHUD) {
         if case .nowPlaying = state {
             resumeNowPlayingAfterHUD = true
         } else if state == .hidden {
@@ -768,15 +795,63 @@ final class Coordinator {
     /// applied value echoes back — otherwise the indicator sticks and the revert
     /// timer never refreshes. Separate from `run` only because volume echoes
     /// itself (Core Audio) and needs no poke. `@MainActor` because the hook is.
+    /// A drag on the screen-brightness bar, sent to whoever drew it.
+    ///
+    /// Three things this owes the user, none of which the plain write gives:
+    ///
+    /// 1. The bar moves NOW. It has no local value — it draws whatever the last
+    ///    SystemHUD said — so it only follows the finger because something echoes
+    ///    the new level back. The system path echoes in microseconds; a
+    ///    neighbouring app is a round-trip away and may never answer, and a bar
+    ///    frozen under a moving finger reads as a broken control. So the level is
+    ///    published before the write, and the write's own echo confirms or
+    ///    corrects it.
+    /// 2. A failed write still moves the screen. The neighbour's command channel
+    ///    is a SEPARATE setting from the OSD notification one, so "it reports but
+    ///    refuses commands" is a configuration a user can really be in, not an
+    ///    edge case. Falling back to the system actuator writes on the other
+    ///    scale, which is a smaller lie than a control that does nothing.
+    /// 3. Once it has failed, later drags go straight to the system: re-asking a
+    ///    neighbour that just refused would stall every frame of the gesture on a
+    ///    deadline.
+    private func applyScreenBrightness(_ value: Double, on hud: SystemHUD) {
+        let applied = hud.at(value)
+        publishHUD(applied)
+
+        let viaNeighbour = hud.authority == .betterDisplay && externalBrightnessReachable
+        guard let external = externalScreenBrightnessController, viaNeighbour else {
+            applyBrightness("setBrightness(screen)", applied: applied.by(.system)) { [screenBrightnessController] in
+                try await screenBrightnessController.setBrightness(value, on: hud.display)
+            }
+            return
+        }
+
+        Task { @MainActor in
+            do {
+                try await external.setBrightness(value, on: hud.display)
+                onBrightnessApplied?(applied)
+            } catch {
+                logger.error("setBrightness(screen) via BetterDisplay failed: \(error, privacy: .public)")
+                externalBrightnessReachable = false
+                do {
+                    try await screenBrightnessController.setBrightness(value, on: hud.display)
+                    onBrightnessApplied?(applied.by(.system))
+                } catch {
+                    logger.error("setBrightness(screen) fallback failed: \(error, privacy: .public)")
+                }
+            }
+        }
+    }
+
     private func applyBrightness(
         _ name: StaticString,
-        kind: SystemHUD.Kind,
+        applied: SystemHUD,
         _ command: @escaping @Sendable () async throws -> Void
     ) {
         Task { @MainActor in
             do {
                 try await command()
-                onBrightnessApplied?(kind)
+                onBrightnessApplied?(applied)
             } catch {
                 logger.error("actuator command \(name, privacy: .public) failed: \(error, privacy: .public)")
             }

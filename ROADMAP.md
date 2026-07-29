@@ -15,14 +15,15 @@ Rather than reinvent that, the idea is to integrate with tools that already hand
 it well — [BetterDisplay](https://github.com/waydabber/BetterDisplay) or
 [Lunar](https://github.com/alin23/Lunar).
 
-The first half of that is in: Crema listens to BetterDisplay's OSD notification
-and draws the brightness HUD for the **built-in** display from it, so both apps
-can run without fighting over the brightness keys (see Usage in the
-[README](README.md#usage)). What's missing is the other direction — asking
-BetterDisplay to *set* a level, via its CLI or URL scheme. Until that exists,
-Crema won't show a bar for an external display, because its slider could not move
-it. That outbound half, and the equivalent for Lunar, is what this item is now
-about.
+Both directions are in for the **built-in** display: Crema draws the brightness
+HUD from BetterDisplay's OSD notification, and a drag on that bar is sent back to
+BetterDisplay so it lands on the same scale the bar was drawn in (see Usage in
+the [README](README.md#usage)). External displays are reachable the same way —
+the write works — but Crema draws the same HUD on every screen and none of them
+says which display the bar belongs to, so a bar on the laptop silently dimming
+the monitor next to it would be worse than no bar. **Per-display HUD presentation
+is what unlocks external displays**, and it is the same seam Per-display styles
+below needs. The equivalent integration for Lunar is still open.
 
 ## Per-display styles
 

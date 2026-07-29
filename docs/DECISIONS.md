@@ -417,6 +417,31 @@ where combined brightness and hardware brightness diverge. Hence `standDown()`:
 a reported level spends that window (`ManuallySampledSource`, default no-op for
 sources with no origin gate). One press, one bar, whoever applied it.
 
+**The way back.** Drawing a neighbour's level and then writing through the
+system's own actuator would be a bar in one scale and a write in another —
+measured on the built-in display: BetterDisplay reports 0.625 (its blended level)
+where the hardware reads 0.504. So a drag on a bar the neighbour drew is sent
+back to the neighbour, over the same distributed channel in the other direction
+(request with a uuid, answer carrying it back, deadline because an app that is
+not running never answers). Three things that costs, each measured rather than
+assumed. The bar has NO local value — it draws whatever the last reading said —
+so the level is published BEFORE the write leaves, or the fill freezes under a
+moving finger while a round-trip is in flight; the write's echo then confirms or
+corrects it. A drag fires per frame, so writes coalesce latest-wins with at most
+one in flight — nobody wants the levels a finger passed through, only the one it
+stopped at. And a refusal is not fatal: the neighbour's command channel is a
+SEPARATE setting from its OSD one, so "reports but refuses commands" is a real
+configuration — a failed command falls back to the system actuator in the same
+drag (a smaller lie than a dead control), stops being asked until the neighbour's
+next report proves it is answering again, and never retries mid-gesture.
+
+**External displays stay out**, and the blocker is presentation, not actuation:
+the write reaches them fine (verified on hardware, both displays answering
+`result: true`), but Crema draws the same HUD on every panel and no panel says
+which display the bar is for. A bar on the built-in screen silently dimming the
+monitor beside it is worse than no bar — so this waits for per-display HUD
+presentation (ROADMAP.md), which is the same seam per-display styles need.
+
 The menu says which of the two is happening, because the user cannot see the tap
 chain: a **confirmation** once BetterDisplay has actually reported, and an
 **actionable** line — turn on its OSD notification integration — while it holds

@@ -9,6 +9,9 @@ struct CoordinatorHarness {
     let volume = MockVolumeController()
     let screen = MockScreenBrightnessController()
     let keyboard = MockKeyboardBrightnessController()
+    /// The neighbour's actuator (BetterDisplay). Present only when a test asks
+    /// for it, so every existing test keeps the single-actuator wiring it had.
+    let external: MockScreenBrightnessController?
     let clock = TestSleepClock()
     let coordinator: Coordinator
 
@@ -21,8 +24,10 @@ struct CoordinatorHarness {
         scrubGraceWindow: Double = ScrubGrace.defaultWindow,
         scrubConfirmTolerance: Double = ScrubGrace.defaultConfirmTolerance,
         ignoresBrowserMedia: Bool = true,
-        reactiveNowPlaying: Bool = true
+        reactiveNowPlaying: Bool = true,
+        withExternalBrightness: Bool = false
     ) {
+        external = withExternalBrightness ? MockScreenBrightnessController() : nil
         coordinator = Coordinator(
             nowPlayingSource: nowPlayingSource,
             systemHUDSource: hudSource,
@@ -30,6 +35,7 @@ struct CoordinatorHarness {
             volumeController: volume,
             screenBrightnessController: screen,
             keyboardBrightnessController: keyboard,
+            externalScreenBrightnessController: external,
             clock: clock,
             hudRevertDelay: hudRevertDelay,
             nowPlayingLinger: nowPlayingLinger,
