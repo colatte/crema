@@ -106,10 +106,10 @@ Padrão consolidado (boring.notch/Atoll, descrito como princípio):
   (x centrado no midX da tela — a fenda é centrada no display; maxY colado em
   `frame.maxY`); o estado fechado é desenhado _dentro_ da janela maior. Isso
   evita re-frame de janela a cada hover — só a view anima.
-  - Nota: nosso WindowManager hoje re-aplica frame por estado (regra de frame).
-    As duas abordagens são compatíveis; se a animação de janela brigar com a
-    do conteúdo, considerar janela fixa no tamanho máximo + view
-    animada (princípio do boring.notch), mantendo a regra de frame pura.
+  - Nota — shipped: é exatamente este o modelo adotado — janela FIXA no frame
+    máximo do estilo (`windowFrame`, função pura da regra de frame), só o
+    conteúdo anima; o frame por estado sobrevive apenas como fallback
+    defensivo, nunca aplicado pelos estilos (CLAUDE.md, "Nunca fazer").
 - **Alargar a fenda em ~4 pt** no desenho (2 pt por lado, ou −4 de inset):
   o recorte físico tem cantos suavizados; sem a folga aparecem frestas de luz
   (boring.notch/Atoll somam 4 pt; NotchDrop expande 4 pt por lado).

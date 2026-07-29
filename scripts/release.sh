@@ -194,7 +194,8 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
         # Sparkle.framework ("mapping process and mapped file (non-platform)
         # have different Team IDs"), even with every component signed by the
         # same identity. codesign --verify never checks this (it is load
-        # policy, not integrity) — the launch smoke below is what pins it.
+        # policy, not integrity) — the launch smoke below is what pins it
+        # (docs/DECISIONS.md: signed-without-hardened-runtime).
         # Hardened runtime buys nothing here anyway: no notarization, and
         # Gatekeeper treats self-signed as unidentified either way. The TCC
         # identity stability (the reason this mode exists) comes from the
@@ -373,6 +374,11 @@ cp -R "$SMOKE_MOUNT/$APP_NAME" "$SMOKE_DIR/$APP_NAME"
 hdiutil detach "$SMOKE_MOUNT" >/dev/null 2>&1 || hdiutil detach "$SMOKE_MOUNT" -force >/dev/null 2>&1 || true
 # The raw executable, not `open`: same dyld load path, and the pid is ours to
 # watch and kill without LaunchServices in the middle.
+# Side effects on the release machine for these ~5 s: a second live Crema
+# (same bundle id and identity — duplicated media-key tap, and duplicated
+# suppression if the pref is on), reading the real UserDefaults; on a machine
+# without the Accessibility grant it persists the has-seen-onboarding flag.
+# Nothing reaches the artifact — the dmg is final and was mounted read-only.
 "$SMOKE_DIR/$APP_NAME/Contents/MacOS/Crema" > "$SMOKE_DIR/launch.log" 2>&1 &
 SMOKE_PID=$!
 sleep 5

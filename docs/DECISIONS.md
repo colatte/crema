@@ -27,7 +27,9 @@ backlight ID) goes stale when the hardware topology changes — the frozen ID
 addresses a resource that no longer exists.
 Decision: resolve the resource **per operation**, never freeze it at init.
 Read/write re-resolve the ID each time (the screen-brightness bridge is the
-reference; the keyboard bridge is the latent sibling to bring to parity).
+reference; the keyboard bridge, once the latent sibling, was brought to parity
+in the v1.2 seal round — both bridges re-resolve per operation, with the
+frozen-ID death pinned by each bridge's own test pair).
 
 ### J3-deadline-cooperativo
 A deadline is only real if the timer that fires it is not strangled by the same
@@ -281,3 +283,19 @@ unreachable again, a production bug already pinned), and the close spring
 tightened 0.45→0.35. Two
 hypotheses stay deliberately unimplemented pending a hardware probe: the
 multi-display pointer mirror and mouseMoved delivery to an inactive accessory.
+
+### signed-without-hardened-runtime
+Self-signed distribution must NOT enable the hardened runtime. `--options
+runtime` turns on dyld library validation, which demands a real matching Team
+ID between the process and every non-platform library it maps — a self-signed
+certificate has none, so the app crashes at launch loading Sparkle.framework
+("mapping process and mapped file (non-platform) have different Team IDs"),
+even with every component signed by the same identity. This is the J7 lesson
+on another frontier: load policy lives on dyld's side of the boundary, and
+`codesign --verify --deep --strict` passes the exact bundle that cannot launch
+(it checks integrity, not load policy) — no local verification can see it.
+Covered by action at the edge instead: release.sh sets the runtime flag only on
+the Developer ID path, the consistency check compares authority + Team across
+the nested Mach-Os, and the launch smoke boots the installed app from the
+final dmg and requires it to survive 5 s. Shipped broken exactly once — the
+v1.2 E2E caught the crash before publish, which is why the smoke exists.
