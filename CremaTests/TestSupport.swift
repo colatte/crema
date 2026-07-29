@@ -5,9 +5,13 @@ import Foundation
 
 /// Spins the main actor until `condition` holds, without ever really sleeping.
 /// Returns the final evaluation so call sites can `#expect(await eventually { … })`.
+/// One budget for every bounded wait (here, the off-actor sibling and
+/// waitForSleep): at suite cold-start the parallel runner floods both
+/// executors, and a 2k budget starved out real progress — 20k is still
+/// bounded (tens of ms), so a genuine wedge fails loud, never hangs.
 @MainActor
 func eventually(_ condition: @MainActor () -> Bool) async -> Bool {
-    for _ in 0..<2000 {
+    for _ in 0..<20_000 {
         if condition() { return true }
         await Task.yield()
     }
@@ -20,8 +24,9 @@ func eventually(_ condition: @MainActor () -> Bool) async -> Bool {
 /// executor before parked MainActor tasks ever get a slot (the TestSleepClock
 /// lesson), so waits on MainActor progress must use `eventually` — and this
 /// one exists so the distinction is a choice, not a private copy per suite.
+/// Same budget as `eventually` (see its header for the rationale).
 func eventuallyOffActor(_ condition: () -> Bool) async -> Bool {
-    for _ in 0..<2000 {
+    for _ in 0..<20_000 {
         if condition() { return true }
         await Task.yield()
     }

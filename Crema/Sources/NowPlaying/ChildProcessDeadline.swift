@@ -44,7 +44,7 @@ final class SingleResumeRace<T: Sendable>: @unchecked Sendable {
 
 /// Races `operation` against a `timeout` on the injected clock. If the operation
 /// completes first, its value is returned and the deadline is cancelled. If the
-/// deadline fires first, `onDeadline` runs and `timedOutValue` is returned.
+/// deadline fires first, `timedOutValue` is committed and `onDeadline` runs.
 ///
 /// The operation task is deliberately never cancelled: it wraps an uncancellable
 /// `withCheckedContinuation` (a child process's termination handler), which
@@ -68,8 +68,14 @@ func raceAgainstDeadline<T: Sendable>(
     let deadline = Task.detached {
         do {
             try await clock.sleep(for: timeout)
-            onDeadline()
+            // Commit the timed-out value BEFORE the kill: onDeadline unwinds
+            // the abandoned operation (kill → termination handler → its own
+            // finish on another thread), and with the kill first that late
+            // finish raced this one for the single resume — the hung path
+            // must deterministically return timedOutValue, never whatever the
+            // killed child's exit happens to interpret to.
             race.finish(timedOutValue)
+            onDeadline()
         } catch {
             // The operation won; this sleep was cancelled.
         }
