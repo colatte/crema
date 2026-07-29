@@ -61,6 +61,41 @@ struct DistributedNotificationScreenLockSourceTests {
 
     // MARK: - The fix, in isolation
 
+    /// An edge puts the SHORT backoff in front of the slow tail, and that is the
+    /// whole difference between an unlock the user feels instantly and one that
+    /// takes up to half a minute with the native OSD back on screen.
+    ///
+    /// Every other test here drives the chain with bare `advance()`, which
+    /// completes the oldest parked sleep whatever its delay — so the 30 s tail
+    /// answers each advance in the backoff's place and the two are
+    /// indistinguishable. A mutation dropping the backoff entirely left them all
+    /// green. The delays themselves are the only thing that tells them apart.
+    @Test func anEdgeArmsTheShortBackoffAheadOfTheSlowTail() async {
+        let box = SessionBox(locked: false, onConsole: true)
+        let clock = TestSleepClock()
+        let source = makeSource(box, clock: clock)
+
+        // From construction the tail alone is armed — the [launch, first edge)
+        // window this source covers deliberately.
+        await clock.waitForSleep()
+        #expect(clock.delays == [30])
+
+        source.handleEdge()
+
+        // The edge replaces it with the backoff, fastest first.
+        #expect(await eventually { clock.delays == [30, 0.15] })
+        clock.advance(delay: 0.15)
+        #expect(await eventually { clock.delays == [30, 0.15, 0.5] })
+        clock.advance(delay: 0.5)
+        #expect(await eventually { clock.delays == [30, 0.15, 0.5, 1.5] })
+        clock.advance(delay: 1.5)
+
+        // Only then does the tail take over again.
+        #expect(await eventually { clock.delays == [30, 0.15, 0.5, 1.5, 30] })
+
+        withExtendedLifetime(source) {}
+    }
+
     /// The cravado race: the single unlock edge re-reads a still-locked session
     /// (deduped, no emit), and only the delayed settle re-read — after the dict
     /// settles to unlocked — emits the return-to-safe the edge missed.

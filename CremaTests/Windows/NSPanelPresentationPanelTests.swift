@@ -71,6 +71,31 @@ struct NSPanelPresentationPanelTests {
         withExtendedLifetime(harness) {}
     }
 
+    @Test func everyApplyRetargetsHoverAtTheStateItJustDrew() {
+        // The region math is pinned in SurfaceHoverModelTests; what was invisible
+        // is whether the panel PUSHES it. A mutation dropping the retarget left
+        // the suite green while the previous state's silhouette stayed live —
+        // an invisible band that keeps holding the surface open where nothing is
+        // drawn any more (docs/DECISIONS.md: hover-follows-the-eye).
+        let (panel, screen, harness) = self.panel()
+        let track = CoordinatorHarness.playingTrack()
+        #expect(panel.currentHoverRegions != nil)
+        let atBirth = panel.hoverRetargetRequests
+
+        apply(panel, Style.card.frame(for: .nowPlaying(track, expanded: true), on: screen.geometry))
+        #expect(panel.hoverRetargetRequests == atBirth + 1)
+
+        apply(panel, Style.card.frame(for: .nowPlaying(track, expanded: false), on: screen.geometry))
+        #expect(panel.hoverRetargetRequests == atBirth + 2)
+
+        // Hidden deliberately leaves the region alone: hover is disarmed there,
+        // and the next apply retargets before arming again.
+        apply(panel, Style.card.frame(for: .hidden, on: screen.geometry))
+        #expect(panel.hoverRetargetRequests == atBirth + 2)
+
+        withExtendedLifetime(harness) {}
+    }
+
     @Test func theFixedWindowIsTheStylesOwnMaximum() {
         // It is the style's rule that decides, not the panel: a window smaller
         // than the largest state would crop the surface it is supposed to hold.

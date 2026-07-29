@@ -64,6 +64,15 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// (CLAUDE.md "Nunca fazer"; design-reference §1.3.)
     var currentWindowFrame: CGRect { panel.frame }
 
+    /// What this panel's hover detection is keyed on right now; nil for a style
+    /// with no distinct expanded surface. Read-only, for the tests that pin the
+    /// retarget — see `SurfaceHoverMonitor.currentRegions`.
+    var currentHoverRegions: SurfaceHoverRegions? { hoverMonitor?.currentRegions }
+
+    /// Retargets requested on this panel's monitor — see the property of the same
+    /// purpose on SurfaceHoverMonitor.
+    var hoverRetargetRequests: Int { hoverMonitor?.retargetRequests ?? 0 }
+
     /// Read back from the real hosting view at construction, where its concrete
     /// (modifier-chained) type is still known. False means the content view can
     /// drive the window's size — the window-vs-render race the fixed window

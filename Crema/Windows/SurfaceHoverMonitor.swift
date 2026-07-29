@@ -74,7 +74,22 @@ final class SurfaceHoverMonitor {
     /// stationary cursor (reactive appearance) corrects without waiting for a
     /// move; `sample` reports only on a real transition, so an unchanged answer
     /// stays quiet.
+    /// What detection is currently keyed on. Read-only, and it exists because the
+    /// panel's retarget calls were invisible to every test: the region MATH is
+    /// well pinned, but a mutation dropping the calls that push it left the suite
+    /// green while the previous state's silhouette stayed live as an invisible
+    /// sticky band (docs/DECISIONS.md: hover-follows-the-eye).
+    var currentRegions: SurfaceHoverRegions { model.regions }
+
+    /// How many retargets were REQUESTED, counted before the no-change guard.
+    /// The count rather than the value, because the value cannot witness this:
+    /// the apply-time retarget errs tight (rule frame ∩ last rendered), so two
+    /// different states can legitimately land on the same rect and a dropped
+    /// retarget would be indistinguishable from a redundant one.
+    private(set) var retargetRequests = 0
+
     func updateRegions(_ regions: SurfaceHoverRegions) {
+        retargetRequests += 1
         guard regions != model.regions else { return }
         model = SurfaceHoverModel(regions: regions)
         if isActive {
