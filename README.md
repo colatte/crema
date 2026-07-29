@@ -135,9 +135,17 @@ xattr -dr com.apple.quarantine /Applications/Crema.app
   play/pause, previous, next, and the scrubber.
 - **Press a volume or brightness key** and Crema's HUD appears in the style you
   picked.
-- To have Crema **replace the system's HUDs** entirely, turn that on in
-  **Settings → System HUD**. It's off by default, reversible at any time, and
-  needs the Accessibility permission. Turn it off (or quit Crema) and the native
+- To have Crema **replace the system's HUDs**, turn that on in
+  **Settings → System HUD**. Crema then intercepts the volume and brightness
+  keys — the system never sees them, so it never draws its HUD; Crema shows its
+  own and applies the change itself. It's off by default, reversible at any
+  time, and needs the Accessibility permission. If one channel ever fails to
+  apply — say a Bluetooth output disappears mid-press — only that channel
+  (volume, screen brightness, or keyboard backlight) hands its keys back to the
+  system, so you're never left without control; it re-engages on its own once
+  the channel recovers, and the menu bar tells you if it doesn't. Changes made
+  elsewhere — Control Center, another app, a keyboard Crema can't intercept —
+  still show the system's own HUD. Turn it off (or quit Crema) and the native
   HUDs come right back.
 - The **menu bar icon** opens Settings (`⌘,`), checks for updates, or quits.
 

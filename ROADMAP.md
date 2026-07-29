@@ -24,16 +24,13 @@ hood (style, and a "show now playing here" flag that defaults to the built-in
 display); what's missing is the Settings surface to choose, say, _notch_ on the
 MacBook and _classic_ on the monitor — or which displays show the player at all.
 
-## Automatic updates
+## Automatic updates — shipped in 1.2.0 ✓
 
-Crema ships as a direct download, and updates are manual for now: new versions
-mean a trip back to the releases page. The groundwork for built-in automatic
-updates — through [Sparkle](https://sparkle-project.org) — is already in place:
-release builds embed Sparkle, and the release pipeline generates a signed update
-feed (an intentionally empty placeholder today; it goes live on GitHub Pages
-with the first Sparkle release). What remains is shipping a first release into
-that feed and validating an update end to end — then Crema can keep itself
-current.
+Since v1.2.0, Crema keeps itself current: release builds embed
+[Sparkle](https://sparkle-project.org), and the app checks a signed update feed
+on GitHub Pages — with your consent (Sparkle asks first), or on demand via
+**Check for Updates…** in the menu bar. What remains on this front is
+notarization, below.
 
 ## Signing and notarization
 

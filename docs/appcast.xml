@@ -1,28 +1,14 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!--
-  Crema Sparkle appcast — placeholder.
-
-  This file is REGENERATED in full by scripts/release.sh on every identity build
-  (self-signed or Developer ID): the script runs Sparkle's generate_appcast over a
-  staging folder holding only the new Crema-<version>.dmg, so the feed always carries
-  exactly one item — the latest release. Update history lives in the GitHub Releases,
-  not here.
-
-  It goes live at https://colatte.github.io/crema/appcast.xml once this file lands on main — the SUFeedURL baked
-  into the app's Info.plist — because GitHub Pages publishes this /docs folder from main.
-  Publishing a new appcast is therefore a commit + push of this file to main; the release
-  script writes it but never commits (see docs/internal/RELEASE-GUIDE.md).
-
-  Until the first Sparkle-driven release regenerates it, the channel below is intentionally
-  empty: no <item>, so a client that checks finds no update. Do not hand-author an item
-  here — enclosures need an EdDSA signature that only generate_appcast (with the private key
-  in the author's Keychain) can produce.
--->
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
-  <channel>
-    <title>Crema</title>
-    <link>https://colatte.github.io/crema/appcast.xml</link>
-    <description>Updates for Crema.</description>
-    <language>en</language>
-  </channel>
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>Crema</title>
+        <item>
+            <title>1.2.0</title>
+            <pubDate>Tue, 28 Jul 2026 23:21:53 -0400</pubDate>
+            <sparkle:version>10200</sparkle:version>
+            <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/colatte/crema/releases/download/v1.2.0/Crema-1.2.0.dmg" length="3120111" type="application/octet-stream" sparkle:edSignature="d7YMn6pZgTife/pzPUkvLa6wtWF2QD2hWQdpjSAAWNBWBvymMPf5VeGh7gxlOVH7U7jRgnFKqAQRSoM15mtqAw=="/>
+        </item>
+    </channel>
 </rss>
