@@ -2,11 +2,23 @@ import Foundation
 import Testing
 @testable import Crema
 
-/// The stale-display-ID regression: DisplayServices Get/SetBrightness take a
-/// CGDisplayID, and those IDs are not stable across display sleep/wake and
-/// reconfiguration. A bridge that froze the ID at init rots the whole
-/// brightness path the first time the main display is re-enumerated (restart
-/// cured it, a toggle did not). The fix re-resolves the ID per operation.
+/// Which display the bridge addresses, and how it keeps addressing it.
+///
+/// Stability: DisplayServices Get/SetBrightness take a CGDisplayID, and those IDs
+/// are not stable across display sleep/wake and reconfiguration. A bridge that
+/// froze the ID at init rots the whole brightness path the first time displays
+/// are re-enumerated (a restart cured it, a toggle did not), so the ID is
+/// re-resolved per operation.
+///
+/// Identity: what it re-resolves has to be the BUILT-IN panel. Resolving the
+/// *main* display instead pointed the whole path at whichever screen held the
+/// menu bar; on an external, DisplayServices answers 1000 and every read and
+/// write failed in silence.
+///
+/// Known gap: that the default provider names the built-in panel and not the main
+/// display is NOT pinned here, and cannot be — reading it means calling
+/// CGGetActiveDisplayList/CGDisplayIsBuiltin, and a unit test never touches real
+/// system API. What is pinned is everything downstream of the provider.
 ///
 /// The real Get/SetBrightness are faked through the injectable symbol resolver
 /// — no private API is touched. C function pointers cannot capture context, so
@@ -17,8 +29,8 @@ struct DisplayServicesBridgeDisplayIDTests {
 
     @Test func perOperationResolutionSurvivesADisplayIDChange() {
         fakeDisplay.reset(validID: 2, currentID: 2, brightness: 0.4)
-        // The provider models CGMainDisplayID() — it reports the current main
-        // display, which moves when the configuration changes.
+        // The provider models the live enumeration: the built-in panel's numeric
+        // ID, which is reassigned when the configuration changes.
         let bridge = DisplayServicesBridge(
             displayProvider: { fakeDisplay.currentID },
             resolver: fakeResolver
@@ -47,6 +59,22 @@ struct DisplayServicesBridgeDisplayIDTests {
         fakeDisplay.reconfigure(validID: 5, currentID: 5)
         #expect(frozen.read() == nil)        // stale ID → unreadable
         #expect(frozen.write(0.7) == false)  // stale ID → write refused
+    }
+
+    @Test func withNoBuiltInPanelTheBridgeDegradesInsteadOfAddressingAnotherDisplay() {
+        // Clamshell: the lid is shut, so the built-in panel is not in the active
+        // list and the provider has nothing to name. The honest answer is to
+        // degrade — falling back to whatever display is main would drive a screen
+        // this app promises never to touch, at the one moment the user cannot see
+        // the panel it was supposed to drive.
+        fakeDisplay.reset(validID: 2, currentID: 2, brightness: 0.4)
+        let clamshell = DisplayServicesBridge(displayProvider: { nil }, resolver: fakeResolver)
+        #expect(clamshell.read() == nil)
+        #expect(clamshell.write(0.7) == false)
+
+        // Nothing was written anywhere: the panel that is still valid is untouched.
+        let onPanel = DisplayServicesBridge(displayProvider: { 2 }, resolver: fakeResolver)
+        #expect(onPanel.read() == 0.4)
     }
 }
 
