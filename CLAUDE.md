@@ -177,7 +177,7 @@ Permanente. Um comentário desatualizado é **bug de doc**, não detalhe menor �
 
 ### Preferências e logging
 
-- Preferências (estilo — chaveado por display, escrito global pela UI —, toggles de supressão e "mostrar now playing aqui" (headless, sem UI ainda), iniciar no login) vivem em `UserDefaults`, atrás de um tipo `Preferences` injetado onde for preciso. A chave estável por display é o **UUID do display** (`CGDisplayCreateUUIDFromDisplayID`) — a tradução displayID→UUID acontece na borda; preferências e domínio só veem o UUID.
+- Preferências (estilo — chaveado por display, escrito global pela UI —, toggles de supressão e "mostrar now playing aqui" (headless, sem UI ainda), iniciar no login — **intenção** persistida, nunca o estado real: o registro vive no BTM e o macOS o revoga em troca de identidade, então a intenção existe só para detectar a perda e avisar, jamais para re-registrar sozinho; docs/DECISIONS.md: login-item-intent) vivem em `UserDefaults`, atrás de um tipo `Preferences` injetado onde for preciso. A chave estável por display é o **UUID do display** (`CGDisplayCreateUUIDFromDisplayID`) — a tradução displayID→UUID acontece na borda; preferências e domínio só veem o UUID.
 - **Defaults conservadores**: uma pref cujo default desejado difere do zero do tipo lê `object(forKey:) as? T ?? default` para distinguir "não setado" do zero; features opt-in nascem desligadas via `bool(forKey:)`.
 - Logging via `os.Logger`, sempre construído por `Logger.crema(category:)` (`Crema/App/Logging.swift` — o único lugar que sabe o `subsystem`), com `category` = camada ou fonte (`"NowPlaying"`, `"Windows"`, `"OSD"`). Sem `print`; nunca instanciar `Logger(subsystem:category:)` direto.
 
