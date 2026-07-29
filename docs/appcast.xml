@@ -8,7 +8,7 @@
   exactly one item — the latest release. Update history lives in the GitHub Releases,
   not here.
 
-  It is served at https://colatte.github.io/crema/appcast.xml — the SUFeedURL baked
+  It goes live at https://colatte.github.io/crema/appcast.xml once this file lands on main — the SUFeedURL baked
   into the app's Info.plist — because GitHub Pages publishes this /docs folder from main.
   Publishing a new appcast is therefore a commit + push of this file to main; the release
   script writes it but never commits (see docs/internal/RELEASE-GUIDE.md).

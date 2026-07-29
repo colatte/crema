@@ -279,8 +279,11 @@ código):
   apply+verify com **suspensão por domínio** na falha (a preferência nunca é
   escrita por falha — o modelo de autodesligamento global dos apps maduros foi
   abolido, docs/DECISIONS.md: per-domain-suspension, pref-sacred); sem a
-  permissão de Acessibilidade a supressão simplesmente não arma (coexistência
-  de dois HUDs — estado atual, não é crash); sinalização no menu da barra só
+  permissão de Acessibilidade a supressão simplesmente não arma — para o brilho
+  o HUD nativo volta a ser o ÚNICO feedback (sem tap não há origem-de-tecla e
+  os HUDs próprios de brilho nem surgem; docs/DECISIONS.md:
+  key-origin-brightness-gate); no volume, event-driven via Core Audio, os dois
+  HUDs coexistem; sinalização no menu da barra só
   para suspensão duradoura com canal presente.
 - **Aberto — exige spike de hardware (~30 min)**: a
   matriz de gatilhos residuais no Tahoe (slider do Control Center, Siri,
@@ -321,7 +324,7 @@ Encaixe na arquitetura (nomes ilustrativos):
   per-domain-suspension). A supressão é ainda **lock-aware**: com a tela
   bloqueada ela é suspensa (não há caminho público para desenhar sobre o lock
   shield), re-engajando no unlock se a preferência estiver ligada — também sem
-  escrever a preferência. Degradação graciosa: sem permissão ⇒ dois HUDs.
+  escrever a preferência. Degradação graciosa: sem permissão ⇒ dois HUDs no volume; no brilho, só o nativo (key-origin-brightness-gate).
 
 ## 8. Fontes completas
 

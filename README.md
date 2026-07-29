@@ -39,7 +39,7 @@ card, and the classic's segmented bezel:
 | :---: | :---: | :---: |
 | <img src="docs/assets/notch-hud-volume.png" alt="Volume HUD at the notch"> | <img src="docs/assets/card-hud.png" alt="Volume HUD on the card"> | <img src="docs/assets/classic-hud.png" alt="Classic volume HUD with 16 segments"> |
 
-<!-- screenshot slot: now playing expanded with real album artwork + accent (see docs/internal/SHOT-LIST.md) -->
+<!-- screenshot slot: hero pendente — now playing expandido com capa real + accent (bloqueado por um bug aberto do stream de artwork; capturar após o fix) -->
 
 ## Features
 
@@ -134,7 +134,7 @@ xattr -dr com.apple.quarantine /Applications/Crema.app
 - **Hover** the notch to hold it open; **click** it to open the controls —
   play/pause, previous, next, and the scrubber.
 - **Press a volume or brightness key** and Crema's HUD appears in the style you
-  picked for that display.
+  picked.
 - To have Crema **replace the system's HUDs** entirely, turn that on in
   **Settings → System HUD**. It's off by default, reversible at any time, and
   needs the Accessibility permission. Turn it off (or quit Crema) and the native

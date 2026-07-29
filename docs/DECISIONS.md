@@ -18,8 +18,10 @@ and go on *existing* while delivering nothing — a live handle wired to a dead
 tap, silent.
 Decision: a health-check re-enables the tap on every delivered disable event and
 polls its state every 2 s, so a silent disable self-heals instead of killing key
-capture for the session. (Covers *disabled*; the *invalidated* and
-*enabled-but-deaf* deaths are J7.)
+capture for the session. (Covers *disabled* and — since the A8 fix — the
+*invalidated* port too: both are port state, locally readable, and the
+health-check reinstalls on invalidation; the *enabled-but-deaf* death, which
+no local read can see, is J7.)
 
 ### J2-display-id-stale
 A system-resource identifier captured once at init (a `displayID`, a keyboard
@@ -115,11 +117,14 @@ unlock → reinstall → re-engage.
 
 ### settle-rereads
 The lock source never lets a notification edge flip state directly: each edge
-fires an authoritative `CGSession` re-read, and because the notification can
-arrive before the dict reflects the change, the edge schedules settle re-reads (a
-short backoff plus a periodic tail) until the settled read emits the transition
-the stale read missed. Same class of safety poll as the tap health-check — the
-cure for J6.
+fires an authoritative `CGSession` re-read and puts a short, finite backoff in
+front of the periodic tail — and the tail itself runs FROM CONSTRUCTION, not
+from the first edge (parity with the tap health-check, which verifies from
+init). A finite backoff closes the notification-vs-dict skew only
+probabilistically; the launch-armed tail makes it deterministic and covers the
+[launch, first-edge) window when the session's first lock notification is
+dropped (DistributedNotificationCenter is best-effort). Same class of safety
+poll as the tap health-check — the cure for J6.
 
 ### write-health-axis
 A second recovery axis beside the read-only probe: a counter of unconfirmed apply

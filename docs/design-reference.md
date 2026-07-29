@@ -113,6 +113,10 @@ Padrão consolidado (boring.notch/Atoll, descrito como princípio):
 - **Alargar a fenda em ~4 pt** no desenho (2 pt por lado, ou −4 de inset):
   o recorte físico tem cantos suavizados; sem a folga aparecem frestas de luz
   (boring.notch/Atoll somam 4 pt; NotchDrop expande 4 pt por lado).
+  _(Shipped diverge: `NotchMetrics.lateralInset = 0` — flush com o recorte,
+  com snap ao pixel de dispositivo em `topAnchored`; overhang descartado por
+  calibragem em hardware ("never negative") e as frestas cobertas por um
+  underlay preto estático em NotchView.)_
 - Multi-display: janela por tela chaveada por **UUID do display** (idêntico à
   nossa convenção); reconciliar em `didChangeScreenParametersNotification`.
 - MewNotch usa janela do tamanho da tela inteira com conteúdo posicionado por
@@ -194,7 +198,9 @@ Padrão convergente (boring.notch/Atoll, em prosa) + pesquisa de UX:
   docs/DECISIONS.md: hover-follows-the-eye.)_
 - **Supressão pós-ação**: janela de ~0.35 s sem hover-open após fechamento
   programático (ex.: HUD assumiu a superfície), senão reabre porque o mouse
-  ainda está lá.
+  ainda está lá. _(Shipped diverge: não implementada — a constante existiu sem
+  call site e foi removida; o re-arm é coberto pelo debounce de saída +
+  `hoverExitRelinger` do modelo de hover comprometido.)_
 - **Recheck ao disparar**: quando o timer expira, revalidar as condições
   (ainda em hover, ainda fechado) antes de abrir.
 
@@ -383,13 +389,13 @@ Medidas do original (engenharia reversa, [ffried.codes](https://ffried.codes/201
 | Parâmetro                       | Valor de partida                                                                                                | Fonte |
 | ------------------------------- | --------------------------------------------------------------------------------------------------------------- | ----- |
 | Fenda MBP 14 (default)          | ~185×32 pt — **sempre derivar em runtime** (aux areas + safeTop); fallback cosmético 185 pt                     | §1.1  |
-| Alargamento do desenho da fenda | +4 pt de largura (2 pt/lado)                                                                                    | §1.3  |
+| Alargamento do desenho da fenda | pesquisa: +4 pt (2 pt/lado); **shipped: inset 0** (flush + snap ao pixel; underlay cobre as frestas)            | §1.3  |
 | Nível de janela (estilo notch)  | `.mainMenu + 3`, canJoinAllSpaces + fullScreenAuxiliary + stationary                                            | §1.3  |
 | Spring de abrir                 | pesquisa: 0.42/0.8 (notch) · `.snappy(0.4)` (card); **shipped: família única 0.42/0.8** (`SurfaceAnimation.open`) | §2.2  |
 | Spring de fechar                | pesquisa 0.45 / damping 1.0 — **sem bounce**; shipped 0.35 (hover-follows-the-eye)                              | §2.2  |
 | Hover-intent delay              | 0.3 s (preferência 0–1 s), task cancelável + recheck                                                            | §2.3  |
 | Hover-out debounce              | ~100 ms, cancelável                                                                                             | §2.3  |
-| Supressão pós-fechamento        | ~0.35 s                                                                                                         | §2.3  |
+| Supressão pós-fechamento        | pesquisa: ~0.35 s; **shipped: não implementada** (debounce de saída + re-linger cobrem)                         | §2.3  |
 | Liquid glass                    | `.glassEffect(.regular, in:)` dentro da view SwiftUI (26+); `.ultraThinMaterial` + stroke sutil no fallback <26 | §3    |
 | Notch: raios                    | fechado 6/14 (topo/base), aberto 19/24; cantos concêntricos p/ conteúdo                                         | §4.1  |
 | Notch: expandido                | ~640×190 pt                                                                                                     | §4.1  |
