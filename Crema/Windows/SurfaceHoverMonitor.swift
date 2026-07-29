@@ -66,14 +66,6 @@ final class SurfaceHoverMonitor {
         setActive(false)
     }
 
-    /// Retargets detection to new regions (the adaptive card's, tracking the
-    /// rendered surface per layout). Snapping to the settled/target rect — not
-    /// the in-flight animated frame — keeps the decision stable; the panel only
-    /// pushes on discrete size reports, and the hysteresis band absorbs the
-    /// open spring's overshoot. Re-samples so a region that tightened under a
-    /// stationary cursor (reactive appearance) corrects without waiting for a
-    /// move; `sample` reports only on a real transition, so an unchanged answer
-    /// stays quiet.
     /// What detection is currently keyed on. Read-only, and it exists because the
     /// panel's retarget calls were invisible to every test: the region MATH is
     /// well pinned, but a mutation dropping the calls that push it left the suite
@@ -88,6 +80,27 @@ final class SurfaceHoverMonitor {
     /// retarget would be indistinguishable from a redundant one.
     private(set) var retargetRequests = 0
 
+    /// Retargets detection onto the surface as it is DRAWN — every layout pass,
+    /// including mid-morph, because that is what "hover follows the eye" means:
+    /// the region is the pixels the user is looking at, not the ones they will be
+    /// looking at when the spring settles. The panel measures the animated frame
+    /// (`.onGeometryChange` under the geometry animation) and pushes from
+    /// `surfaceSizeChanged`, so reports arrive continuously and every skin sends
+    /// them.
+    ///
+    /// The hysteresis band earns its keep on the way back rather than on the way
+    /// out: with the region travelling along, an opening spring's overshoot is
+    /// already inside it, and what would sting is the retreat — the frame
+    /// shrinking under a cursor that had legitimately engaged. The exit margins
+    /// keep that engagement instead of dropping it for a frame and re-taking it,
+    /// which is the flicker this whole seam exists to avoid. Sizing is pinned by
+    /// `stickyBandsAbsorbTheOpenSpringOvershoot`: the same numeric relation, held
+    /// for this reason.
+    ///
+    /// Re-samples so a region that tightened under a stationary cursor (reactive
+    /// appearance) corrects without waiting for a move; `sample` reports only on a
+    /// real transition, so an unchanged answer stays quiet.
+    /// (docs/DECISIONS.md: hover-follows-the-eye)
     func updateRegions(_ regions: SurfaceHoverRegions) {
         retargetRequests += 1
         guard regions != model.regions else { return }

@@ -41,10 +41,18 @@ final class AppCore {
     }
 
     let coordinator: Coordinator
-    // The collaborators below are wiring detail, private so no second consumer
-    // can appear: mediaKeys.updates is a single-consumer AsyncStream — another
-    // `for await` would silently split events with the router — and preferences
-    // must be written through this core's setters only.
+    // The collaborators below are wiring detail, private so no second consumer can
+    // appear: mediaKeys.updates is a single-consumer AsyncStream, and another
+    // `for await` would silently split events with the router.
+    //
+    // `preferences` being private does NOT mean this core is the only writer — the
+    // Settings view writes five of them straight through @AppStorage, and
+    // Preferences exposes those raw keys on purpose for exactly that. The real
+    // contract is the other way round: the persisted key is the source of truth,
+    // @AppStorage does the writing, and a setter here exists to apply the LIVE
+    // effect the write cannot. Which is why every new Settings control owes an
+    // `.onChange` calling into this core — without it the value persists and
+    // nothing happens until relaunch.
     private let windowManager: WindowManager
     private let preferences: Preferences
     let permissionMonitor: AccessibilityPermissionMonitor

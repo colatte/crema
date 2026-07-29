@@ -1,7 +1,11 @@
-/// Pure verdict on an applied step: with the native key consumed, a write
-/// that silently does nothing leaves the user without volume control — the
-/// suppressor verifies every apply by reading the value back and disengages
-/// on the first failure.
+/// Pure verdict on an applied step: with the native key consumed, a write that
+/// silently does nothing leaves the user without volume control, so the suppressor
+/// reads the value back after every apply.
+///
+/// A false verdict SUSPENDS THAT ONE DOMAIN — it does not disengage. Disengaging
+/// globally on the first failure is what this used to say, and what the code used
+/// to do: one channel's failure killed suppression for all three and persisted the
+/// preference off (docs/DECISIONS.md: J5-raio-global, per-domain-suspension).
 enum OSDApplyVerification {
     /// Half a fine step of slack for float round-trips and hardware grids.
     /// Accepted blind spot: a dead write whose target lands within this band

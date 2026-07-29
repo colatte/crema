@@ -91,12 +91,17 @@ final class Coordinator {
     /// concrete sampler.
     @ObservationIgnored var onBrightnessApplied: (@MainActor (SystemHUD) -> Void)?
 
-    /// Synchronous presentation hook for the WindowManager. The window must be
-    /// resized/ordered in the same runloop callout as the state write: SwiftUI
-    /// commits the new state's render at the end of the turn, and any async hop
-    /// (observation onChange fires at willSet, so it needs one) races that
-    /// commit — when the render won, the first frame of an expansion drew
-    /// inside the old, smaller window and was cropped: the intermittent blink.
+    /// Synchronous presentation hook for the WindowManager, and it has to stay
+    /// synchronous — but not for the reason first written here. The original
+    /// justification was a window-resize-vs-render race, and the fixed-window model
+    /// abolished that: no frame is racing anything any more, so anyone reading the
+    /// old note would reasonably conclude the hop is now safe to make async.
+    ///
+    /// It is not. What depends on the synchrony is everything the WindowManager
+    /// DERIVES from `state` inside this callout: whether hover is armed, the
+    /// click-interactive region, and the invoke zone. An async hop leaves all three
+    /// one turn behind the rendered surface — hover disarmed over pixels that are
+    /// already visible, clicks falling through a surface the user can see.
     @ObservationIgnored var onPresentationChange: (@MainActor () -> Void)?
 
     /// Whether media commands (play/pause, seek) are working. Optimistic until a
@@ -587,9 +592,11 @@ final class Coordinator {
             endScrubGrace()
         }
         // mediaActive lands after the state decision (on every exit path): each
-        // write runs a synchronous frame pass, and a pass seeing new
-        // mediaActive with the old state would transiently disarm the hover
-        // monitor mid-update, losing the pointer mirror.
+        // write runs a synchronous frame pass, and a pass seeing new mediaActive
+        // against the OLD state arms the invoke zone off a state that is about to
+        // change — the zone is the only thing that reads mediaActive
+        // (WindowManager, alongside `state == .hidden`). Hover is not at risk here
+        // whatever the order: it is armed from `state` alone.
         defer {
             if mediaActive != update.isPlaying {
                 mediaActive = update.isPlaying

@@ -3,9 +3,10 @@
 /// now-playing for a few seconds each, and surfacing every one is the
 /// opposite of discreet. Dedicated player apps are never filtered, so no
 /// allowlist is needed: the rule is "non-browser surfaces, browser doesn't".
-/// A future "include browsers" Settings toggle
-/// (Coordinator.ignoresBrowserMedia) will expose this; until then the default
-/// is the behavior.
+/// Settings exposes the override ("Include browser media", persisted and applied
+/// live through Coordinator.ignoresBrowserMedia), so this rule is the DEFAULT and
+/// not the whole behaviour — a reader deciding how strict to make it should know
+/// the user can already turn it off.
 enum MediaSourceFilter {
     /// Known browser families, by bundle-ID prefix — prefix matching covers
     /// the Beta/Dev/Canary/Nightly variants that share a family prefix, and

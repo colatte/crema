@@ -183,7 +183,18 @@ struct SurfaceHoverModelTests {
 
     /// Every band on an edge that can move during the open spring must absorb
     /// its overshoot, or the sweeping edge re-creates the flicker the regions
-    /// exist to kill. The exemption is per-edge, derived from the frame rule
+    /// exist to kill.
+    ///
+    /// Which direction it protects is worth stating, because the monitor's own doc
+    /// used to get it backwards. The region is retargeted from the frame as DRAWN,
+    /// every layout pass, so the overshoot is inside the region while it happens —
+    /// the band is what holds an engagement through the RETREAT, when the edge
+    /// sweeps back under a cursor that had legitimately entered. Same numeric
+    /// relation either way, which is why this assertion never needed to change:
+    /// a band narrower than the overshoot means the moving edge can cross the
+    /// cursor and drop it.
+    ///
+    /// The exemption is per-edge, derived from the frame rule
     /// itself over the VISIBLE states — hidden is excluded on purpose: its
     /// rule width is 0, but geometry never travels across the empty boundary
     /// (appearance/disappearance is a fade at the final rect — CLAUDE.md,
