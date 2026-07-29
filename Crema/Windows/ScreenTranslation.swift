@@ -58,16 +58,27 @@ enum ScreenTranslation {
         return DisplayUUID(rawValue: CFUUIDCreateString(nil, uuidRef) as String)
     }
 
+    /// The reverse trip: the domain's key back to the numeric ID a neighbouring
+    /// app speaks. Nil for a display that is no longer attached — the honest
+    /// answer for a command with nowhere to land.
+    nonisolated static func displayID(for uuid: DisplayUUID) -> CGDirectDisplayID? {
+        activeDisplayIDs().first { displayUUID(for: $0) == uuid }
+    }
+
     /// The built-in screen's numeric ID — what `display == nil` means when a
-    /// command has to name a display explicitly. Resolved fresh on every call
-    /// against the ACTIVE display list: numeric IDs are reassigned across sessions
-    /// and reconnections, so a cached one would eventually address another screen.
+    /// command has to name a display explicitly.
     nonisolated static func builtInDisplayID() -> CGDirectDisplayID? {
+        activeDisplayIDs().first { CGDisplayIsBuiltin($0) != 0 }
+    }
+
+    /// Read fresh on every call: numeric IDs are reassigned across sessions and
+    /// reconnections, so a cached list would eventually address another screen.
+    private nonisolated static func activeDisplayIDs() -> [CGDirectDisplayID] {
         var count: UInt32 = 0
-        guard CGGetActiveDisplayList(0, nil, &count) == .success, count > 0 else { return nil }
+        guard CGGetActiveDisplayList(0, nil, &count) == .success, count > 0 else { return [] }
         var ids = [CGDirectDisplayID](repeating: 0, count: Int(count))
-        guard CGGetActiveDisplayList(count, &ids, &count) == .success else { return nil }
-        return ids.prefix(Int(count)).first { CGDisplayIsBuiltin($0) != 0 }
+        guard CGGetActiveDisplayList(count, &ids, &count) == .success else { return [] }
+        return Array(ids.prefix(Int(count)))
     }
 
     /// Reads the notch geometry from NSScreen.

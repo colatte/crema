@@ -34,23 +34,33 @@ enum BetterDisplayOSDTranslation {
     /// `systemIconID` 1 = brightness (3 = volume, 4 = mute, 0 = no icon).
     private static let brightnessIconID = 1
 
-    /// Decodes one payload. `isBuiltInDisplay` answers whether BetterDisplay's raw
-    /// CGDirectDisplayID is the built-in screen — injected so this stays a pure
-    /// function; the system call lives in the source.
-    ///
-    /// Any other display is dropped, and that is a presentation limit rather than
-    /// an actuation one: Crema can now write to an external display through
-    /// BetterDisplay, but it draws the same HUD on every panel and no panel says
-    /// which display the bar belongs to. A bar on the built-in screen that
-    /// silently dims the monitor beside it is worse than no bar, so external
-    /// displays wait for per-display HUD presentation (ROADMAP.md).
+    /// Where a reported level belongs. Resolved at the border from BetterDisplay's
+    /// raw CGDirectDisplayID, because the domain keys displays by UUID and the
+    /// numeric ID is reassigned across sessions and reconnections.
+    enum Target: Equatable {
+        case builtIn
+        case external(DisplayUUID)
+
+        /// The domain's own spelling: nil is the built-in screen.
+        var display: DisplayUUID? {
+            switch self {
+            case .builtIn: nil
+            case .external(let uuid): uuid
+            }
+        }
+    }
+
+    /// Decodes one payload. `target` resolves BetterDisplay's raw display ID —
+    /// injected so this stays a pure function; the system call lives in the
+    /// source. A display it cannot resolve is dropped: a bar for a screen the app
+    /// cannot name is one it can neither place nor send a drag back to.
     ///
     /// Volume and mute are deliberately NOT translated even though BetterDisplay
     /// reports them: Core Audio already emits for every volume change whoever
     /// caused it, so a second source for the same event would draw two HUDs.
     /// Brightness has no such notification — that absence is the whole reason
     /// this source exists (docs/DECISIONS.md: media-key-chain-contention).
-    static func systemHUD(fromJSON json: String, isBuiltInDisplay: (Int) -> Bool) -> SystemHUD? {
+    static func systemHUD(fromJSON json: String, target: (Int) -> Target?) -> SystemHUD? {
         guard let data = json.data(using: .utf8),
               let payload = try? JSONDecoder().decode(Payload.self, from: data),
               let value = payload.value,
@@ -58,7 +68,7 @@ enum BetterDisplayOSDTranslation {
               isBrightness(payload),
               // A payload naming no display is the built-in one — the same
               // default the domain uses when the field is absent.
-              payload.displayID.map(isBuiltInDisplay) ?? true
+              let resolved = payload.displayID.map(target) ?? .builtIn
         else { return nil }
 
         // The scale is BetterDisplay's own (observed: 0...64 on a built-in
@@ -70,7 +80,12 @@ enum BetterDisplayOSDTranslation {
         guard let maxValue = payload.maxValue, maxValue > 0 else { return nil }
         let normalized = min(max(value / maxValue, 0), 1)
 
-        return SystemHUD(kind: .screenBrightness, value: normalized, authority: .betterDisplay)
+        return SystemHUD(
+            kind: .screenBrightness,
+            value: normalized,
+            display: resolved.display,
+            authority: .betterDisplay
+        )
     }
 
     /// The target names the control precisely, so it decides when present; the

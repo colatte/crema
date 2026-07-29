@@ -21,7 +21,7 @@ struct BetterDisplayOSDSourceTests {
     }
 
     private func makeSource() -> BetterDisplayOSDSource {
-        BetterDisplayOSDSource(isBuiltInDisplay: { $0 == 1 })
+        BetterDisplayOSDSource(target: { $0 == 1 ? .builtIn : nil })
     }
 
     @Test func aDeliveredPayloadBecomesAHUDOnTheStream() async {
@@ -58,7 +58,7 @@ struct BetterDisplayOSDSourceTests {
         // source, but the neighbour is the one applying and reporting. Without
         // this hand-off both draw for one press.
         var standDowns = 0
-        let source = BetterDisplayOSDSource(isBuiltInDisplay: { $0 == 1 }, onReport: { standDowns += 1 })
+        let source = BetterDisplayOSDSource(target: { $0 == 1 ? .builtIn : nil }, onReport: { standDowns += 1 })
 
         source.handle(json: #"{"controlTarget":"combinedBrightness","maxValue":64,"value":32}"#)
         source.handle(json: #"{"controlTarget":"contrast","maxValue":64,"value":32}"#)   // not ours

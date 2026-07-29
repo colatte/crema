@@ -56,11 +56,11 @@ final class BetterDisplayScreenBrightnessController: ScreenBrightnessController,
         }
     }
 
-    /// The production resolver, kept next to its only caller. Only the built-in
-    /// display is addressed today — see the scope note in
-    /// `BetterDisplayOSDTranslation`.
+    /// The production resolver, kept next to its only caller. Nil means the
+    /// built-in screen — the domain's own spelling — and anything else is a
+    /// display the roster knows by UUID.
     static func liveDisplayID(_ display: DisplayUUID?) -> Int? {
-        guard display == nil else { return nil }
-        return ScreenTranslation.builtInDisplayID().map(Int.init)
+        guard let display else { return ScreenTranslation.builtInDisplayID().map(Int.init) }
+        return ScreenTranslation.displayID(for: display).map(Int.init)
     }
 }

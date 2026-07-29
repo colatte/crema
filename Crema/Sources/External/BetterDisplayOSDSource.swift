@@ -41,7 +41,7 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     private(set) var hasReported = false
 
     private let continuation: AsyncStream<SystemHUD>.Continuation
-    private let isBuiltInDisplay: (Int) -> Bool
+    private let target: (Int) -> BetterDisplayOSDTranslation.Target?
     /// Called after each reported level, so the polled brightness source can spend
     /// the window a merely-observed key opened (see `ManuallySampledSource`).
     private let onReport: @MainActor () -> Void
@@ -54,13 +54,16 @@ final class BetterDisplayOSDSource: SystemHUDSource {
 
     private let logger = Logger.crema("External")
 
-    /// A custom `isBuiltInDisplay` means a test drives the source through
-    /// `handle(json:)` — the real DistributedNotificationCenter observer would only
-    /// add non-deterministic noise (a stray brightness change during a run), so it
-    /// is installed for the production resolver only. Same idiom as the screen-lock
+    /// A custom `target` means a test drives the source through `handle(json:)` —
+    /// the real DistributedNotificationCenter observer would only add
+    /// non-deterministic noise (a stray brightness change during a run), so it is
+    /// installed for the production resolver only. Same idiom as the screen-lock
     /// source's injected session reader.
-    init(isBuiltInDisplay: ((Int) -> Bool)? = nil, onReport: @escaping @MainActor () -> Void = {}) {
-        self.isBuiltInDisplay = isBuiltInDisplay ?? { CGDisplayIsBuiltin(CGDirectDisplayID($0)) != 0 }
+    init(
+        target: ((Int) -> BetterDisplayOSDTranslation.Target?)? = nil,
+        onReport: @escaping @MainActor () -> Void = {}
+    ) {
+        self.target = target ?? Self.resolveTarget
         self.onReport = onReport
 
         var cont: AsyncStream<SystemHUD>.Continuation!
@@ -69,7 +72,7 @@ final class BetterDisplayOSDSource: SystemHUDSource {
         updates = AsyncStream(bufferingPolicy: .bufferingNewest(4)) { cont = $0 }
         continuation = cont
 
-        if isBuiltInDisplay == nil { installObserver() }
+        if target == nil { installObserver() }
     }
 
     deinit {
@@ -92,8 +95,7 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     /// The payload entry point — a delivered OSD notification funnels here.
     /// Internal so a test can feed a captured payload without a real notification.
     func handle(json: String) {
-        guard let hud = BetterDisplayOSDTranslation.systemHUD(fromJSON: json, isBuiltInDisplay: isBuiltInDisplay)
-        else { return }
+        guard let hud = BetterDisplayOSDTranslation.systemHUD(fromJSON: json, target: target) else { return }
         if !hasReported {
             hasReported = true
             logger.info("BetterDisplay OSD integration is live — drawing screen brightness from it")
@@ -147,5 +149,17 @@ final class BetterDisplayOSDSource: SystemHUDSource {
             MainActor.assumeIsolated { self?.noteBetterDisplayTerminated() }
         }
         workspaceObservers.append(workspaceObserver)
+    }
+
+    /// BetterDisplay reports the raw CGDirectDisplayID; the domain keys displays by
+    /// UUID, so identity is resolved here at the border — through the same
+    /// translation the panel roster uses, or the two would disagree about which
+    /// screen is which and the bar would land on the wrong panel. A display with no
+    /// resolvable UUID is dropped: one Crema cannot name is one it can neither
+    /// place nor send a drag back to.
+    private static func resolveTarget(_ displayID: Int) -> BetterDisplayOSDTranslation.Target? {
+        let id = CGDirectDisplayID(displayID)
+        guard CGDisplayIsBuiltin(id) == 0 else { return .builtIn }
+        return ScreenTranslation.displayUUID(for: id).map { .external($0) }
     }
 }

@@ -435,12 +435,8 @@ configuration — a failed command falls back to the system actuator in the same
 drag (a smaller lie than a dead control), stops being asked until the neighbour's
 next report proves it is answering again, and never retries mid-gesture.
 
-**External displays stay out**, and the blocker is presentation, not actuation:
-the write reaches them fine (verified on hardware, both displays answering
-`result: true`), but Crema draws the same HUD on every panel and no panel says
-which display the bar is for. A bar on the built-in screen silently dimming the
-monitor beside it is worse than no bar — so this waits for per-display HUD
-presentation (ROADMAP.md), which is the same seam per-display styles need.
+External displays were held back one round for a presentation reason, not an
+actuation one, and `hud-belongs-to-its-display` is what unblocked them.
 
 The menu says which of the two is happening, because the user cannot see the tap
 chain: a **confirmation** once BetterDisplay has actually reported, and an
@@ -449,6 +445,25 @@ the keys and has never reported. Presence of the app is never treated as evidenc
 that the integration is on; only a delivered payload is, and that claim is
 dropped when the app terminates. The neighbour is matched by bundle ID, never by
 the localized name shown to the user.
+
+### hud-belongs-to-its-display
+The app has ONE state and one panel per screen, so every panel drew every HUD.
+Harmless while nothing named a display — and wrong the moment something did: a
+brightness bar for the external monitor, drawn on the laptop, is a control for a
+screen the user is not looking at, and its drag would dim the neighbour in
+silence. Rule: a HUD that NAMES a display (`display != nil`) is shown only on
+that display; every other panel treats the state as `.hidden`, which also disarms
+hover there, so an empty region never reacts to the pointer. A HUD naming NO
+display keeps appearing everywhere, deliberately: `nil` is overloaded — volume
+belongs to no display at all and the built-in brightness reads the same — so
+scoping it would move feedback nobody asked to move, and the asymmetry is the
+honest reading of an ambiguous field rather than an oversight. A HUD naming a
+display that is no longer attached shows nowhere, which is what an unplug between
+the report and the frame pass should look like. The decision lives in
+`WindowManager.effectiveState`, already the per-display policy seam (the
+"show now playing here" preference is its other rule), so presentation scoping
+never leaks into the Coordinator: the app's state stays whole and a drag on the
+panel that shows the bar still acts on the display the bar names.
 
 ### sample-dont-integrate
 A UI ticker that adds a fixed step per tick is a clock that runs slow. Timers are

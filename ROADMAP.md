@@ -15,15 +15,13 @@ Rather than reinvent that, the idea is to integrate with tools that already hand
 it well — [BetterDisplay](https://github.com/waydabber/BetterDisplay) or
 [Lunar](https://github.com/alin23/Lunar).
 
-Both directions are in for the **built-in** display: Crema draws the brightness
-HUD from BetterDisplay's OSD notification, and a drag on that bar is sent back to
-BetterDisplay so it lands on the same scale the bar was drawn in (see Usage in
-the [README](README.md#usage)). External displays are reachable the same way —
-the write works — but Crema draws the same HUD on every screen and none of them
-says which display the bar belongs to, so a bar on the laptop silently dimming
-the monitor next to it would be worse than no bar. **Per-display HUD presentation
-is what unlocks external displays**, and it is the same seam Per-display styles
-below needs. The equivalent integration for Lunar is still open.
+Brightness is in, both directions, on any display BetterDisplay manages: Crema
+draws the HUD from its OSD notification — on the screen the reading belongs to,
+not on all of them — and a drag on that bar is sent back to BetterDisplay so it
+lands on the same scale the bar was drawn in (see Usage in the
+[README](README.md#usage)). What's still open here: **volume** on external
+displays (DDC audio, which Core Audio cannot see), and the equivalent integration
+for [Lunar](https://github.com/alin23/Lunar).
 
 ## Per-display styles
 

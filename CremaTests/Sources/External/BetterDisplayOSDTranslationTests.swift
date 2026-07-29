@@ -6,8 +6,16 @@ import Testing
 /// shapes. If the app's format ever drifts, these are the tests that notice.
 struct BetterDisplayOSDTranslationTests {
 
+    private let externalUUID = DisplayUUID(rawValue: "UUID-FOR-99")
+
     private func translate(_ json: String) -> SystemHUD? {
-        BetterDisplayOSDTranslation.systemHUD(fromJSON: json) { id in id == 1 }
+        BetterDisplayOSDTranslation.systemHUD(fromJSON: json) { [externalUUID] id in
+            switch id {
+            case 1: .builtIn
+            case 99: .external(externalUUID)
+            default: nil          // a display the app cannot name
+            }
+        }
     }
 
     @Test func aCapturedBrightnessPayloadBecomesAScreenBrightnessHUD() {
@@ -27,12 +35,19 @@ struct BetterDisplayOSDTranslationTests {
         }
     }
 
-    @Test func anotherDisplaysBrightnessIsNotDrawnAtAll() {
-        // Crema CAN write to an external display through BetterDisplay now, but it
-        // draws the same HUD on every panel and no panel says which display the
-        // bar is for — a bar on one screen silently dimming another is worse than
-        // no bar, so these wait for per-display presentation.
-        #expect(translate(#"{"controlTarget":"combinedBrightness","displayID":99,"maxValue":64,"value":48}"#) == nil)
+    @Test func anExternalDisplaysBrightnessCarriesThatDisplay() {
+        // It names the screen it belongs to, which is what puts the bar on that
+        // panel and sends the drag back to that display.
+        let hud = translate(#"{"controlTarget":"combinedBrightness","displayID":99,"maxValue":64,"value":48}"#)
+        #expect(hud?.display == externalUUID)
+        #expect(hud?.value == 0.75)
+        #expect(hud?.authority == .betterDisplay)
+    }
+
+    @Test func aDisplayTheAppCannotNameIsDropped() {
+        // With no UUID there is no panel to place it on and no address to send a
+        // drag back to — a bar Crema can neither show nor move.
+        #expect(translate(#"{"controlTarget":"combinedBrightness","displayID":7,"maxValue":64,"value":48}"#) == nil)
     }
 
     @Test func aReportedLevelIsCreditedToTheAppThatReportedIt() {

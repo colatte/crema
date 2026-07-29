@@ -144,14 +144,26 @@ final class WindowManager {
         }
     }
 
-    /// Per-display policy: "show now playing here" (Preferences) suppresses the
-    /// now-playing surface on displays where it's off; HUDs are unaffected.
+    /// Per-display policy: what this display shows of the app's single state.
+    ///
+    /// Two rules, from two different reasons. "Show now playing here"
+    /// (Preferences) is the user's choice and suppresses the now-playing surface
+    /// where it is off. A HUD that NAMES a display is a fact rather than a
+    /// choice: it belongs to that screen, and a bar shown on another one would be
+    /// a control for a display the user is not looking at — its drag would dim
+    /// the neighbour in silence. A HUD naming no display keeps appearing
+    /// everywhere, deliberately: `nil` is overloaded (volume belongs to no
+    /// display at all, and the built-in brightness reads the same), so scoping it
+    /// would move feedback the user never asked to move.
     private func effectiveState(_ state: PresentationState, for screen: ScreenDescription) -> PresentationState {
-        if case .nowPlaying = state,
-           !preferences.showsNowPlaying(on: screen.id, isInternal: screen.isInternal) {
+        switch state {
+        case .nowPlaying where !preferences.showsNowPlaying(on: screen.id, isInternal: screen.isInternal):
             return .hidden
+        case .hud(let hud) where hud.display != nil && hud.display != screen.id:
+            return .hidden
+        default:
+            return state
         }
-        return state
     }
 
     /// Runs synchronously inside the Coordinator's state write (didSet), so
