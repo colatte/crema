@@ -19,7 +19,18 @@ import Foundation
 /// The source runs the adapter with `--no-diff`, so every line is a full
 /// snapshot and this translation stays stateless (no diff-merge to maintain).
 enum AdapterPayloadTranslation {
-    static func nowPlaying(fromLine line: String, at now: Date) -> NowPlaying? {
+    /// The snapshot plus the one mechanism value the source needs but the views
+    /// never do: the playback rate. It stays out of the domain deliberately —
+    /// `NowPlaying` describes what is shown, and a rate field would ride along
+    /// in `layoutContent`, making a speed change read as a content change (a
+    /// podcast at 1.5× would pop the surface like a new track).
+    struct Snapshot {
+        let nowPlaying: NowPlaying
+        /// 1 when the payload omits it, matching the position math's own default.
+        let rate: Double
+    }
+
+    static func snapshot(fromLine line: String, at now: Date) -> Snapshot? {
         guard let data = line.data(using: .utf8),
               let envelope = try? JSONDecoder().decode(Envelope.self, from: data),
               envelope.type == "data",
@@ -27,7 +38,18 @@ enum AdapterPayloadTranslation {
               let title = payload.title, !title.isEmpty else {
             return nil
         }
-        return NowPlaying(
+        return Snapshot(
+            nowPlaying: nowPlaying(from: payload, title: title, at: now),
+            rate: payload.playbackRate ?? 1
+        )
+    }
+
+    static func nowPlaying(fromLine line: String, at now: Date) -> NowPlaying? {
+        snapshot(fromLine: line, at: now)?.nowPlaying
+    }
+
+    private static func nowPlaying(from payload: Payload, title: String, at now: Date) -> NowPlaying {
+        NowPlaying(
             title: title,
             artist: payload.artist.flatMap { $0.isEmpty ? nil : $0 },
             artworkData: payload.artworkData.flatMap { Data(base64Encoded: $0).map(Array.init) },

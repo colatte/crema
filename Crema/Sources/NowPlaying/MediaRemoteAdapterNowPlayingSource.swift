@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// NowPlaying source backed by the mediaremote-adapter stream. Consumes the
 /// adapter's raw lines, translates each into a
@@ -36,10 +37,17 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
     /// never came — plain rules resume); a failed command also rolls it back
     /// (noteSeekFailed, restoring the pre-seek line).
     private var pendingSeek: (target: Double, anchorsLeft: Int, preSeekPosition: Double)?
+    /// The position the ticker extrapolates FROM: a known-good position, the
+    /// instant it was true, and the rate it advances at. Every tick recomputes
+    /// `position + age × rate` instead of adding a step, so a late, coalesced
+    /// or dropped tick costs nothing — the clock, not the tick count, is what
+    /// says how much playback happened (docs/DECISIONS.md: sample-dont-integrate).
+    private var anchor: (position: Double, instant: Date, rate: Double)?
     /// How many real anchors may arrive without confirming before the hint
     /// expires. Bounds the hold the same way the Coordinator's grace window
     /// bounds the display override.
     private static let pendingSeekAnchorBudget = 3
+    private let logger = Logger.crema("NowPlaying")
 
     init(
         lines: AsyncStream<String>,
@@ -121,6 +129,7 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
         let target = nowPlaying.duration.map { min(floored, $0) } ?? floored
         pendingSeek = (target, Self.pendingSeekAnchorBudget, nowPlaying.position)
         nowPlaying.position = target
+        anchor = (target, now(), anchor?.rate ?? 1)
         latest = nowPlaying
         tickerGeneration += 1
         let generation = tickerGeneration
@@ -140,6 +149,7 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
         pendingSeek = nil
         guard var nowPlaying = latest else { lock.unlock(); return }
         nowPlaying.position = pending.preSeekPosition
+        anchor = (pending.preSeekPosition, now(), anchor?.rate ?? 1)
         latest = nowPlaying
         tickerGeneration += 1
         let generation = tickerGeneration
@@ -150,15 +160,35 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
     }
 
     private func consume(_ line: String) {
-        guard var nowPlaying = AdapterPayloadTranslation.nowPlaying(fromLine: line, at: now()) else {
+        let deliveredAt = now()
+        guard let snapshot = AdapterPayloadTranslation.snapshot(fromLine: line, at: deliveredAt) else {
             markNothingPlaying()
             return
         }
+        var nowPlaying = snapshot.nowPlaying
         lock.lock()
         let rawAnchor = nowPlaying.position
+        let shownBefore = latest?.position
         nowPlaying.position = PositionReconciliation.position(
             for: nowPlaying, replacing: latest, pendingSeek: pendingSeek?.target
         )
+        // Re-anchor only when the reconciliation ACCEPTED this payload's line.
+        // When it holds the previous value (paused freeze, jitter, stale echo
+        // under a pending seek), re-anchoring at that held value with `now`
+        // would throw away the time already elapsed under the old anchor.
+        if nowPlaying.position == rawAnchor {
+            if let shownBefore, nowPlaying.isPlaying {
+                // The drift the anchor just corrected: the discriminating line
+                // for the field report about the bar losing sync. On a healthy
+                // clock this is player rounding (sub-second).
+                logger.debug("""
+                position re-anchored: shown \(shownBefore, privacy: .public)s → \
+                anchor \(rawAnchor, privacy: .public)s \
+                (drift \(rawAnchor - shownBefore, privacy: .public)s)
+                """)
+            }
+            anchor = (rawAnchor, deliveredAt, snapshot.rate)
+        }
         // The hint's exits, in order: confirmation (the RAW anchor near the
         // target — within tolerance, stale and echo are numerically the same
         // thing), track change, or the anchor budget running out (the echo
@@ -237,10 +267,21 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
         lock.lock()
         guard generation == tickerGeneration,
               var nowPlaying = latest, nowPlaying.isPlaying else { lock.unlock(); return }
-        nowPlaying.position += tickInterval
-        if let duration = nowPlaying.duration, nowPlaying.position > duration {
-            nowPlaying.position = duration
+        // Sampled, not accumulated: the position is whatever the anchor implies
+        // at this instant. A tick that arrives late (throttled app, coalesced
+        // timer) lands on the true position instead of adding a fixed second,
+        // and a tick that never arrives costs nothing — which is what keeps the
+        // bar in sync through a whole track, since players re-anchor only on
+        // state changes. Same guards as the payload math: a backward wall-clock
+        // jump freezes rather than rewinds, and the end of the track clamps.
+        // (docs/DECISIONS.md: sample-dont-integrate)
+        guard let anchor else { lock.unlock(); return }
+        let age = max(0, now().timeIntervalSince(anchor.instant))
+        var sampled = anchor.position + age * anchor.rate
+        if let duration = nowPlaying.duration, sampled > duration {
+            sampled = duration
         }
+        nowPlaying.position = sampled
         latest = nowPlaying
         continuation.yield(nowPlaying)
         lock.unlock()

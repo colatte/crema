@@ -337,3 +337,25 @@ deliberately rejected: the invalidation is a security signal ("this binary is
 not the one you approved"), and re-registering behind the user would contradict
 the app's own rule of never adding a login item uninvited. Measured and ruled
 out along the way: the DMG's quarantine attribute does not block registration.
+
+### sample-dont-integrate
+A UI ticker that adds a fixed step per tick is a clock that runs slow. Timers are
+not real time — they fire late under load, App Nap, battery coalescing — and the
+adapter source's 1 Hz tick used to do `position += 1` per delivered tick, so
+every late or dropped tick was playback time permanently lost from the bar.
+Measured: with music playing, the adapter emitted ONE payload in 20 s (players
+register elapsed+timestamp on state changes and never re-report during steady
+playback), so nothing re-anchored the display and the error accumulated for the
+whole track — always in the same direction, since a `sleep(1s)`-then-work loop
+never runs faster than its interval. Decision: the tick SAMPLES, never
+accumulates — the source keeps an anchor (position, instant, rate) and every
+tick recomputes `position + age × rate`, clamped to the duration, with a
+non-negative age so a backward wall-clock jump freezes instead of rewinding. A
+late tick lands on the truth, a dropped tick costs nothing, and two ticks in the
+same instant count once. This is the contract of the data model, not an
+invention: MediaRemote publishes elapsed WITH a timestamp and a rate, and the
+adapter's own help says to compute the current time from that pair rather than
+poll. Re-anchoring happens only where a payload's line is ACCEPTED by the
+reconciliation — when it holds the previous value, the old anchor stays, or the
+elapsed time under it would be discarded. The JXA fallback needs none of this:
+it re-polls the player's real position every 2 s.

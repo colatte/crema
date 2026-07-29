@@ -19,6 +19,17 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         #"{"type":"data","diff":false,"payload":{}}"#
     }
 
+    /// Wall clock the test drives, injected as the source's `now`. The ticker
+    /// samples it (docs/DECISIONS.md: sample-dont-integrate), so a tick only
+    /// moves the position if TIME moved — which is exactly the coupling the
+    /// old `+1 per tick` assertions were missing.
+    private final class TestWallClock: @unchecked Sendable {
+        private let lock = NSLock()
+        private var date = Date(timeIntervalSince1970: 1_000_000)
+        var now: @Sendable () -> Date { { self.lock.withLock { self.date } } }
+        func advance(_ seconds: Double) { lock.withLock { date = date.addingTimeInterval(seconds) } }
+    }
+
     @Test func emitsTranslatedNowPlaying() async {
         let (lines, feed) = AsyncStream<String>.makeStream()
         let source = MediaRemoteAdapterNowPlayingSource(lines: lines, availability: { true }, clock: TestSleepClock())
@@ -36,23 +47,105 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
     @Test func advancesPositionLocallyWhilePlaying() async {
         let (lines, feed) = AsyncStream<String>.makeStream()
         let clock = TestSleepClock()
-        let source = MediaRemoteAdapterNowPlayingSource(lines: lines, availability: { true }, clock: clock, tickInterval: 1)
+        let wall = TestWallClock()
+        let source = MediaRemoteAdapterNowPlayingSource(
+            lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now
+        )
         var iterator = source.updates.makeAsyncIterator()
 
         feed.yield(line(position: 10, playing: true))
         #expect(await iterator.next()?.position == 10)
 
         await clock.waitForSleep()
+        wall.advance(1)
         clock.advance()
         let ticked = await iterator.next()
         #expect(ticked?.position == 11)
         #expect(ticked?.title == "Breathe")   // same track, position advanced
     }
 
+    @Test func aLateTickLandsOnTheTruePositionInsteadOfOneSecond() async {
+        // The field bug (docs/DECISIONS.md: sample-dont-integrate): a throttled
+        // or coalesced tick used to add exactly one second no matter how long it
+        // had really been, and since players re-anchor only on state changes,
+        // the loss accumulated for the whole track.
+        let (lines, feed) = AsyncStream<String>.makeStream()
+        let clock = TestSleepClock()
+        let wall = TestWallClock()
+        let source = MediaRemoteAdapterNowPlayingSource(
+            lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now
+        )
+        var iterator = source.updates.makeAsyncIterator()
+
+        feed.yield(line(position: 10, playing: true))
+        #expect(await iterator.next()?.position == 10)
+
+        await clock.waitForSleep()
+        wall.advance(3)                      // the tick arrives three seconds late
+        clock.advance()
+        #expect(await iterator.next()?.position == 13)
+    }
+
+    @Test func ticksAreIdempotentWithinTheSameInstant() async {
+        // Two ticks and no time passing must not count twice — the tick reports
+        // the clock, it does not accumulate.
+        let (lines, feed) = AsyncStream<String>.makeStream()
+        let clock = TestSleepClock()
+        let wall = TestWallClock()
+        let source = MediaRemoteAdapterNowPlayingSource(
+            lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now
+        )
+        var iterator = source.updates.makeAsyncIterator()
+
+        feed.yield(line(position: 10, playing: true))
+        #expect(await iterator.next()?.position == 10)
+
+        wall.advance(2)
+        source.tick(ifCurrent: 1)
+        source.tick(ifCurrent: 1)
+        #expect(await iterator.next()?.position == 12)
+        #expect(await iterator.next()?.position == 12)
+    }
+
+    @Test func aBackwardWallClockJumpFreezesInsteadOfRewinding() async {
+        let (lines, feed) = AsyncStream<String>.makeStream()
+        let wall = TestWallClock()
+        let source = MediaRemoteAdapterNowPlayingSource(
+            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now
+        )
+        var iterator = source.updates.makeAsyncIterator()
+
+        feed.yield(line(position: 10, playing: true))
+        #expect(await iterator.next()?.position == 10)
+
+        wall.advance(-30)                    // NTP correction, manual clock change
+        source.tick(ifCurrent: 1)
+        #expect(await iterator.next()?.position == 10)
+    }
+
+    @Test func theTickHonorsThePlaybackRate() async {
+        // A podcast at 1.5×: the payload carries the rate and the anchor keeps
+        // it, so a second of wall clock is 1.5 s of playback.
+        let (lines, feed) = AsyncStream<String>.makeStream()
+        let wall = TestWallClock()
+        let source = MediaRemoteAdapterNowPlayingSource(
+            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now
+        )
+        var iterator = source.updates.makeAsyncIterator()
+
+        feed.yield(#"{"type":"data","diff":false,"payload":{"title":"Breathe","artist":"Pink Floyd","playing":true,"elapsedTime":10.0,"duration":169.0,"playbackRate":1.5}}"#)
+        #expect(await iterator.next()?.position == 10)
+
+        wall.advance(2)
+        source.tick(ifCurrent: 1)
+        #expect(await iterator.next()?.position == 13)
+    }
+
     @Test func noteSeekReanchorsTheTickerAndInvalidatesInFlightTicks() async {
         let (lines, feed) = AsyncStream<String>.makeStream()
+        let wall = TestWallClock()
         let source = MediaRemoteAdapterNowPlayingSource(
-            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1
+            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now
         )
         var iterator = source.updates.makeAsyncIterator()
 
@@ -60,6 +153,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         #expect(await iterator.next()?.position == 10)
 
         source.noteSeek(to: 120)                               // re-anchor, generation 2
+        wall.advance(1)
         source.tick(ifCurrent: 1)                              // in-flight pre-seek tick: dropped
         source.tick(ifCurrent: 2)                              // the fresh ticker counts from the target
         #expect(await iterator.next()?.position == 121)
@@ -100,8 +194,9 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
 
     @Test func aFailedSeekRestoresThePreSeekLine() async {
         let (lines, feed) = AsyncStream<String>.makeStream()
+        let wall = TestWallClock()
         let source = MediaRemoteAdapterNowPlayingSource(
-            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1
+            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now
         )
         var iterator = source.updates.makeAsyncIterator()
 
@@ -111,6 +206,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         source.noteSeek(to: 120)                               // generation 2
         source.noteSeekFailed()                                // generation 3, back to the pre-seek line
         #expect(await iterator.next()?.position == 10)
+        wall.advance(1)
         source.tick(ifCurrent: 3)
         #expect(await iterator.next()?.position == 11)         // ticking from the restored anchor
     }
@@ -166,12 +262,16 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
     @Test func aStaleAnchorOnPauseDoesNotRewindTheTickedPosition() async {
         let (lines, feed) = AsyncStream<String>.makeStream()
         let clock = TestSleepClock()
-        let source = MediaRemoteAdapterNowPlayingSource(lines: lines, availability: { true }, clock: clock, tickInterval: 1)
+        let wall = TestWallClock()
+        let source = MediaRemoteAdapterNowPlayingSource(
+            lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now
+        )
         var iterator = source.updates.makeAsyncIterator()
 
         feed.yield(line(position: 10, playing: true))
         #expect(await iterator.next()?.position == 10)
         await clock.waitForSleep()
+        wall.advance(1)
         clock.advance()
         #expect(await iterator.next()?.position == 11)
 
@@ -189,12 +289,16 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         // hold the last shown value, not snap to the start.
         let (lines, feed) = AsyncStream<String>.makeStream()
         let clock = TestSleepClock()
-        let source = MediaRemoteAdapterNowPlayingSource(lines: lines, availability: { true }, clock: clock, tickInterval: 1)
+        let wall = TestWallClock()
+        let source = MediaRemoteAdapterNowPlayingSource(
+            lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now
+        )
         var iterator = source.updates.makeAsyncIterator()
 
         feed.yield(line(position: 10, playing: true))
         #expect(await iterator.next()?.position == 10)
         await clock.waitForSleep()
+        wall.advance(1)
         clock.advance()
         #expect(await iterator.next()?.position == 11)
 
@@ -210,12 +314,16 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         // catches up.
         let (lines, feed) = AsyncStream<String>.makeStream()
         let clock = TestSleepClock()
-        let source = MediaRemoteAdapterNowPlayingSource(lines: lines, availability: { true }, clock: clock, tickInterval: 1)
+        let wall = TestWallClock()
+        let source = MediaRemoteAdapterNowPlayingSource(
+            lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now
+        )
         var iterator = source.updates.makeAsyncIterator()
 
         feed.yield(line(position: 10, playing: true))
         #expect(await iterator.next()?.position == 10)
         await clock.waitForSleep()
+        wall.advance(1)
         clock.advance()
         #expect(await iterator.next()?.position == 11)
         feed.yield(line(position: 0, playing: false))
@@ -224,6 +332,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         feed.yield(line(position: 11, playing: true))
         #expect(await iterator.next()?.position == 11)   // resync, shown at once
         await clock.waitForSleep()
+        wall.advance(1)
         clock.advance()
         #expect(await iterator.next()?.position == 12)    // and it advances
     }
@@ -236,7 +345,10 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         // is the fix; the timing can't be forced through the stream, so the
         // stale tick is driven directly.
         let (lines, feed) = AsyncStream<String>.makeStream()
-        let source = MediaRemoteAdapterNowPlayingSource(lines: lines, availability: { true }, clock: TestSleepClock())
+        let wall = TestWallClock()
+        let source = MediaRemoteAdapterNowPlayingSource(
+            lines: lines, availability: { true }, clock: TestSleepClock(), now: wall.now
+        )
         var iterator = source.updates.makeAsyncIterator()
 
         feed.yield(line(position: 10, playing: true))   // generation 1
@@ -244,6 +356,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         feed.yield(line(position: 20, playing: true))   // generation 2
         #expect(await iterator.next()?.position == 20)
 
+        wall.advance(1)             // a second of real time is available to be claimed
         source.tick(ifCurrent: 1)   // the stale wake-up: must be a no-op
 
         // A same-position anchor exposes any illegitimate advance: had the
@@ -252,6 +365,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         feed.yield(line(position: 20, playing: true))   // generation 3
         #expect(await iterator.next()?.position == 20)
 
+        wall.advance(1)             // a second under the FRESH anchor
         source.tick(ifCurrent: 3)   // the live generation still ticks
         #expect(await iterator.next()?.position == 21)
     }
