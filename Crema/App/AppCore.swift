@@ -208,16 +208,11 @@ final class AppCore {
         // so an extra trigger is safe; it also recovers plain observation (the
         // brightness HUD) when the suppressor is absent or the pref is off. Wired
         // on the concrete tap, which always exists, so wake recovery never depends
-        // on the suppressor graph. Delivered on the main queue so it runs on the
-        // same thread as the tap's main-run-loop callback (reinstallTap's
-        // teardown/create never races a delivered event).
-        let workspaceCenter = NSWorkspace.shared.notificationCenter
-        for name in [NSWorkspace.screensDidWakeNotification, NSWorkspace.didWakeNotification] {
-            let observer = workspaceCenter.addObserver(forName: name, object: nil, queue: .main) { [weak tapSource] _ in
-                tapSource?.reinstallTap()
-            }
-            wakeObservations.append(observer)
-        }
+        // on the suppressor graph.
+        wakeObservations = Self.wireWakeReinstall(
+            center: NSWorkspace.shared.notificationCenter,
+            reinstalling: tapSource
+        )
 
         if let consuming = mediaKeys as? any MediaKeyConsuming,
            let screenBackend = graph.screenBrightnessBackend,
@@ -326,6 +321,27 @@ final class AppCore {
     static func wireActiveSourceEnded(from chain: ChainedNowPlayingSource, to coordinator: Coordinator) {
         chain.setActiveSourceEndedHandler { [weak coordinator] in
             Task { @MainActor in coordinator?.activeNowPlayingSourceEnded() }
+        }
+    }
+
+    /// Wires the wake pair (the 1st and 2nd reinstall triggers of the family —
+    /// docs/DECISIONS.md: preventive-reinstall): display and system wake can
+    /// leave the tap ENABLED-but-deaf, and a plain display-sleep/wake fires no
+    /// lock edge, so the unlock seam below cannot cover it. Standalone and
+    /// static so a seam test pins the join (post the notification → reinstall)
+    /// through the exact production wiring; the injected center keeps the test
+    /// isolated from the process's real workspace notifications. Delivered on
+    /// the main queue so the reinstall runs on the tap's own thread —
+    /// teardown/create never races a delivered event. Returns the observer
+    /// tokens AppCore retains.
+    static func wireWakeReinstall(
+        center: NotificationCenter,
+        reinstalling source: CGEventTapMediaKeySource
+    ) -> [NSObjectProtocol] {
+        [NSWorkspace.screensDidWakeNotification, NSWorkspace.didWakeNotification].map { name in
+            center.addObserver(forName: name, object: nil, queue: .main) { [weak source] _ in
+                source?.reinstallTap()
+            }
         }
     }
 
