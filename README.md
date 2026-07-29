@@ -21,6 +21,14 @@ optionally replacing the system's.
 </p>
 
 <p align="center">
+  <a href="https://github.com/colatte/crema/releases/latest/download/Crema.dmg">
+    <img src="https://img.shields.io/badge/%E2%80%8B-Download%20for%20macOS-1d1d1f?style=for-the-badge&logo=apple&logoColor=white&labelColor=1d1d1f" alt="Download Crema for macOS">
+  </a>
+  <br>
+  <sub>Free & open source · then just drag it into Applications (<a href="#installation">guide</a>)</sub>
+</p>
+
+<p align="center">
   <img src="docs/assets/notch-expanded.png" width="640" alt="Crema's now playing expanded at the notch: title, artist, scrubber and transport controls">
 </p>
 
