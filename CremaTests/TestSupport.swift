@@ -14,6 +14,20 @@ func eventually(_ condition: @MainActor () -> Bool) async -> Bool {
     return condition()
 }
 
+/// The off-actor sibling, for conditions flipped by NON-MainActor work (stream
+/// consumer tasks, lock-protected sinks). Deliberately separate from
+/// `eventually`: an off-actor yield loop burns its budget on the global
+/// executor before parked MainActor tasks ever get a slot (the TestSleepClock
+/// lesson), so waits on MainActor progress must use `eventually` — and this
+/// one exists so the distinction is a choice, not a private copy per suite.
+func eventuallyOffActor(_ condition: () -> Bool) async -> Bool {
+    for _ in 0..<2000 {
+        if condition() { return true }
+        await Task.yield()
+    }
+    return condition()
+}
+
 /// Gives pending main-actor work a chance to run (for asserting that
 /// something did not happen).
 @MainActor

@@ -430,8 +430,10 @@ struct WindowManagerTests {
         #expect(await eventually { h.recorder.panel(for: externalScreen.id)?.appliedFrames.last == Style.card.frame(for: .hud(hud), on: externalScreen.geometry) })
     }
 
-    @Test func setShowsNowPlayingIsHonoredLiveBothDirections_pinnedLatentP5() async {
-        // Pinned-latent fence (CONTRACTS-AUDIT P5): setShowsNowPlaying has no
+    // Provenance: the pinned-latent fence P5 from CONTRACTS-AUDIT — kept by
+    // behavior, named by behavior.
+    @Test func setShowsNowPlayingIsHonoredLiveBothDirections() async {
+        // Pinned-latent fence: setShowsNowPlaying has no
         // Settings writer yet, but WindowManager honors the pref LIVE. This pins
         // the honored side by writing the pref DIRECTLY via Preferences (the
         // path a future toggle will take) and asserting both directions:

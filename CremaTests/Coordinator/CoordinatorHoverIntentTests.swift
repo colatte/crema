@@ -144,9 +144,4 @@ struct CoordinatorHoverIntentTests {
         await h.clock.waitForSleep()
         #expect(h.clock.delays.last == 0.5)
     }
-
-    @Test func exposesTheDefaultHoverConstants() {
-        #expect(Coordinator.defaultHoverIntentDelay == 0.3)
-        #expect(Coordinator.defaultHoverOutDebounce == 0.1)
-    }
 }

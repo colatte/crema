@@ -25,13 +25,8 @@ import Testing
 // Every wait is bounded (eventually / waitForSleep / fixed loops) so a genuine
 // wedge surfaces as an assertion failure, never a hung suite.
 
-/// data1 payload: keyCode in the high word, 0x0A down / 0x0B up in the second
-/// byte, repeat flag in bit 0 (mirrors MediaKeyTranslationTests' builder).
-private func mediaData1(_ keyCode: Int, down: Bool, isRepeat: Bool = false) -> Int {
-    (keyCode << 16) | ((down ? 0x0A : 0x0B) << 8) | (isRepeat ? 1 : 0)
-}
-
-/// NX_KEYTYPE_* codes for the keys this suite fires.
+/// NX_KEYTYPE_* codes for the keys this suite fires (payloads come from the
+/// shared mediaKeyData1 builder in Mocks/).
 private func keyCode(_ key: MediaKey) -> Int {
     switch key {
     case .volumeUp: 0
@@ -108,8 +103,8 @@ final class PostWakeSeamHarness {
     @discardableResult
     func press(_ key: MediaKey) -> Bool? {
         let code = keyCode(key)
-        let down = ops.deliver(data1: mediaData1(code, down: true))
-        _ = ops.deliver(data1: mediaData1(code, down: false))
+        let down = ops.deliver(data1: mediaKeyData1(keyCode: code, down: true))
+        _ = ops.deliver(data1: mediaKeyData1(keyCode: code, down: false))
         return down
     }
 
@@ -248,8 +243,8 @@ struct PostWakeConsumerReproTests {
         h.start()
         await settle()
         let oldIndex = h.ops.installCount - 1
-        #expect(h.ops.deliver(data1: mediaData1(1, down: true), index: oldIndex) == true)
-        _ = h.ops.deliver(data1: mediaData1(1, down: false), index: oldIndex)
+        #expect(h.ops.deliver(data1: mediaKeyData1(keyCode: 1, down: true), index: oldIndex) == true)
+        _ = h.ops.deliver(data1: mediaKeyData1(keyCode: 1, down: false), index: oldIndex)
 
         h.wake()                                        // reinstall: old port uninstalled
         await settle()
@@ -257,14 +252,14 @@ struct PostWakeConsumerReproTests {
 
         // Delivered to the OLD callback while a new port exists: still swallows,
         // because it consults the live consumer through the same source.
-        #expect(h.ops.deliver(data1: mediaData1(1, down: true), index: oldIndex) == true)
-        _ = h.ops.deliver(data1: mediaData1(1, down: false), index: oldIndex)
+        #expect(h.ops.deliver(data1: mediaKeyData1(keyCode: 1, down: true), index: oldIndex) == true)
+        _ = h.ops.deliver(data1: mediaKeyData1(keyCode: 1, down: false), index: oldIndex)
 
         // After a real disengage the SAME old-port callback passes through —
         // proof it reflects live state, not a snapshot from when it was minted.
         h.lock.set(safe: false)
         #expect(await eventually { !h.suppressor.isEngaged })
-        #expect(h.ops.deliver(data1: mediaData1(1, down: true), index: oldIndex) == false)
+        #expect(h.ops.deliver(data1: mediaKeyData1(keyCode: 1, down: true), index: oldIndex) == false)
         h.stop()
         withExtendedLifetime(h.source) {}
     }

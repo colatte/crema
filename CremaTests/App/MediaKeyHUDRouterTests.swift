@@ -15,7 +15,7 @@ struct MediaKeyHUDRouterTests {
         keys.emit(.screenBrightnessUp)
         keys.emit(.screenBrightnessDown)
 
-        #expect(await poll { screen.sampleCount == 2 })
+        #expect(await eventuallyOffActor { screen.sampleCount == 2 })
         #expect(keyboard.sampleCount == 0)
         withExtendedLifetime(router) {}
     }
@@ -30,7 +30,7 @@ struct MediaKeyHUDRouterTests {
         keys.emit(.keyboardBrightnessUp)
         keys.emit(.keyboardBrightnessDown)
 
-        #expect(await poll { keyboard.sampleCount == 2 })
+        #expect(await eventuallyOffActor { keyboard.sampleCount == 2 })
         #expect(screen.sampleCount == 0)
         withExtendedLifetime(router) {}
     }
@@ -51,14 +51,5 @@ struct MediaKeyHUDRouterTests {
         #expect(screen.sampleCount == 0)
         #expect(keyboard.sampleCount == 0)
         withExtendedLifetime(router) {}
-    }
-
-    /// Non-main-actor spin wait (these doubles aren't main-isolated).
-    private func poll(_ condition: () -> Bool) async -> Bool {
-        for _ in 0..<2000 {
-            if condition() { return true }
-            await Task.yield()
-        }
-        return condition()
     }
 }

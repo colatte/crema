@@ -339,19 +339,13 @@ struct DistributedNotificationScreenLockSourceTests {
     }
 }
 
-/// data1 for a volume-down press: NX_KEYTYPE_SOUND_DOWN (1) in the high word,
-/// 0x0A down / 0x0B up in the second byte (mirrors the repro suite's builder).
-@MainActor
-private func volumeDownData1(down: Bool) -> Int {
-    (1 << 16) | ((down ? 0x0A : 0x0B) << 8)
-}
-
-/// A full volume-down press (down then up) through the current captured port;
+/// A full volume-down press (down then up) through the current captured port
+/// (NX_KEYTYPE_SOUND_DOWN = 1, payload from the shared mediaKeyData1 builder);
 /// returns the key-down swallow decision (the meaningful one).
 @discardableResult
 @MainActor
 private func pressVolumeDown(_ ops: FakeEventTapOperating) -> Bool? {
-    let down = ops.deliver(data1: volumeDownData1(down: true))
-    _ = ops.deliver(data1: volumeDownData1(down: false))
+    let down = ops.deliver(data1: mediaKeyData1(keyCode: 1, down: true))
+    _ = ops.deliver(data1: mediaKeyData1(keyCode: 1, down: false))
     return down
 }

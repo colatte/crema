@@ -44,10 +44,14 @@ struct ChildProcessDeadlineTests {
         }
 
         await clock.waitForSleep(delay: 10)
-        clock.advance(delay: 10)
-
+        // Advance inside the poll (the OSD suites' load-robust handshake): the
+        // deadline's park can lag under the parallel suite, and an advance
+        // with no sleeper is a no-op — repeated advances are idempotent.
+        #expect(await eventuallyOffActor {
+            clock.advance(delay: 10)
+            return killed.value               // terminate ran
+        })
         #expect(await raceTask.value == -1)   // the timed-out value, not 42
-        #expect(killed.value)                 // terminate ran
         #expect(hang.wasReleased)             // and it unwound the operation
     }
 

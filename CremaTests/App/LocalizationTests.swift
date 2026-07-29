@@ -23,4 +23,27 @@ struct LocalizationTests {
         #expect(try value("style.card", in: "en") == "Card")
         #expect(try value("style.card", in: "pt-BR") == "Cartão")
     }
+
+    /// The whole catalog, not a sample: both compiled tables carry the same
+    /// key set and every value is non-empty. A key added without its pt-BR
+    /// unit ships showing the raw identifier in that language's UI — the
+    /// compiler never complains, so this is the only mechanical net under the
+    /// catalog's verbatim discipline.
+    @Test func everyCatalogKeyShipsInBothLanguages() throws {
+        func table(_ language: String) throws -> [String: String] {
+            let lproj = try #require(Bundle.main.path(forResource: language, ofType: "lproj"))
+            return try #require(NSDictionary(contentsOfFile: lproj + "/Localizable.strings") as? [String: String])
+        }
+        let english = try table("en")
+        let portuguese = try table("pt-BR")
+
+        #expect(!english.isEmpty)
+        #expect(Set(english.keys) == Set(portuguese.keys))
+        for (key, value) in english {
+            #expect(!value.isEmpty, "empty en value for \(key)")
+        }
+        for (key, value) in portuguese {
+            #expect(!value.isEmpty, "empty pt-BR value for \(key)")
+        }
+    }
 }

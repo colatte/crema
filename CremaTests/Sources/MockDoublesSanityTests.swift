@@ -1,7 +1,13 @@
 import Testing
 @testable import Crema
 
-struct SourceContractsTests {
+/// Sanity of the hand-written doubles in Mocks/ — these tests exercise the
+/// HARNESS, not any production contract (the source/actuator contracts are
+/// pinned where real implementations run: ChainedNowPlayingSourceTests,
+/// AdapterPayloadTranslationTests, the OSD suites). A broken fake fails one
+/// cheap test here instead of surfacing as noise across every suite built
+/// on top of it.
+struct MockDoublesSanityTests {
 
     // MARK: - Sources: streams driven by the test
 

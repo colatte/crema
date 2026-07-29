@@ -188,7 +188,9 @@ struct OSDSuppressionUnlockRegressionTests {
         #expect(h.screen.applied.last == h.screen.value)   // the write finally moved the value
     }
 
-    // MARK: - V3 · HUNT (priority e): burst kicks against the async probe
+    // MARK: - Burst kicks against the async probe (provenance: the V3 hunt,
+
+    // priority e)
 
     // Hammer immediate-probe kicks while the recovery probe's read is genuinely
     // async (parked on a real GCD hop / read-deadline), interleaved with backoff
@@ -196,7 +198,7 @@ struct OSDSuppressionUnlockRegressionTests {
     // restart hole that leaves the loop dead with the probeImmediately flag stuck
     // (so future kicks coalesce to no-ops) would wedge here, and the bounded
     // eventually turns that into a failure.
-    @Test func HUNT_burstKicksAgainstAsyncProbeStillRecover() async {
+    @Test func burstKicksAgainstAsyncProbeStillRecover() async {
         let h = OSDSuppressorHarness()
         h.screen.value = nil
         h.suppressor.setEngaged(true)

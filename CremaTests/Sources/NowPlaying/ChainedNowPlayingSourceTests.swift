@@ -112,7 +112,7 @@ struct ChainedNowPlayingSourceTests {
         let consumer = Task { for await value in chain.updates { collector.append(value) } }
 
         adapter.emit(track("A"))
-        #expect(await pollUntil { collector.all.last == track("A") })
+        #expect(await eventuallyOffActor { collector.all.last == track("A") })
 
         // Adapter process dies mid-playback and is no longer available.
         adapterUp.value = false
@@ -185,7 +185,7 @@ struct ChainedNowPlayingSourceTests {
         await fixture.clock.waitForSleep(delay: 30)
         fixture.adapterUp.value = true
         fixture.clock.advance(delay: 30)
-        _ = await pollUntil { fixture.adapterProbedUp.value }
+        _ = await eventuallyOffActor { fixture.adapterProbedUp.value }
         for _ in 0..<50 { await Task.yield() }
     }
 
@@ -311,7 +311,7 @@ struct ChainedNowPlayingSourceTests {
         // The source dies without the OUTER stream finishing (retry keeps it
         // alive): the seam must fire so the consumer drops the ghost.
         adapter.finish()
-        #expect(await pollUntil { ended.value })
+        #expect(await eventuallyOffActor { ended.value })
 
         chain.stop()
     }
@@ -342,10 +342,15 @@ struct ChainedNowPlayingSourceTests {
         await clock.waitForSleep(delay: 30)
 
         // The adapter recovers; the probe arms and forces the silent source's
-        // cutover, which fires the seam.
+        // cutover, which fires the seam. Advance inside the poll (the OSD
+        // suites' load-robust handshake): the probe's park can lag under the
+        // parallel suite, and an advance with no sleeper is a no-op — repeated
+        // advances are idempotent.
         adapterUp.value = true
-        clock.advance(delay: 30)
-        #expect(await pollUntil { ended.value })
+        #expect(await eventuallyOffActor {
+            clock.advance(delay: 30)
+            return ended.value
+        })
 
         chain.stop()
     }
@@ -395,15 +400,7 @@ struct ChainedNowPlayingSourceTests {
             onActiveChange: { isActive in flips.value = true; active.value = isActive }
         )
         _ = chain
-        #expect(await pollUntil { flips.value && active.value })
-    }
-
-    private func pollUntil(_ condition: () -> Bool) async -> Bool {
-        for _ in 0..<2000 {
-            if condition() { return true }
-            await Task.yield()
-        }
-        return condition()
+        #expect(await eventuallyOffActor { flips.value && active.value })
     }
 }
 

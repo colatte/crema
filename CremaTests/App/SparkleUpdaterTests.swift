@@ -36,7 +36,10 @@ struct SparkleUpdaterTests {
     @Test func infoPlistPreservesGeneratedKeys() {
         #expect(Bundle.main.object(forInfoDictionaryKey: "LSUIElement") as? Bool == true)
         #expect(Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String == "Crema")
-        #expect(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String == "1.1.0")
+        // Shape, not literal: release.sh stamps the shipping version by CLI, so a
+        // literal here would pin the pbxproj's stale number and go red on a bump.
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+        #expect(version?.wholeMatch(of: /\d+\.\d+\.\d+/) != nil)
         #expect(Bundle.main.object(forInfoDictionaryKey: "CFBundleIdentifier") as? String == "com.colatte.crema")
     }
 
