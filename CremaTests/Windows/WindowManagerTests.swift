@@ -163,6 +163,23 @@ struct WindowManagerTests {
         #expect(h.recorder.created.count == 2)
     }
 
+    @Test func twoScreensOnOneUUIDCostAPanelAndNotTheProcess() {
+        // Reconciliation used to index the roster with
+        // `Dictionary(uniqueKeysWithValues:)`, whose "no duplicate keys" is a
+        // PRECONDITION — a trap, not an error. That runs at every hotplug and
+        // reconfiguration, the one place this app owes graceful degradation, so a
+        // roster the border built badly must never take the process down. Whether
+        // real hardware ever produces the collision is unproven; the net costs
+        // nothing and the alternative is a crash.
+        let h = Harness()
+        let one = Self.screen("SAME")
+        let other = Self.screen("SAME", isInternal: false, frame: CGRect(x: 1000, y: 0, width: 1200, height: 800))
+
+        h.manager.updateScreens([one, other])
+
+        #expect(h.recorder.created.count == 1)
+    }
+
     @Test func refreshStylesSwapsThePanelWhenThePreferenceChanges() {
         let h = Harness()
         let a = Self.screen("A")

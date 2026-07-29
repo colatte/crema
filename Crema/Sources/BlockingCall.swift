@@ -34,3 +34,11 @@ func blockingCall<T: Sendable>(_ body: @escaping @Sendable () throws -> T) async
         }
     }
 }
+
+/// The non-throwing shape, so a call that cannot fail is not forced through
+/// `try` — the actuators throw, an image decode answers nil.
+func blockingCall<T: Sendable>(_ body: @escaping @Sendable () -> T) async -> T {
+    await withCheckedContinuation { continuation in
+        DispatchQueue.global().async { continuation.resume(returning: body()) }
+    }
+}

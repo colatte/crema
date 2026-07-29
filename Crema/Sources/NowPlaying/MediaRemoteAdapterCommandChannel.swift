@@ -1,9 +1,13 @@
 import Foundation
 
 /// Sends media commands through the adapter (one-shot perl per command). The
-/// adapter's `send` calls MRMediaRemoteSendCommand, which returns false when the
-/// platform blocks the write; the adapter then exits non-zero — so a non-zero
-/// exit here is the reliable signal that commands are unavailable on this macOS.
+/// adapter's `send` calls MRMediaRemoteSendCommand and exits non-zero when it
+/// returns false, so the exit code is the signal this channel reports on.
+///
+/// A non-zero exit is not evidence that the platform blocks writes: measured on
+/// macOS 26.5.2, `send` exits 0 and the player moves. Read it as "this command
+/// did not land", nothing more.
+///
 /// The exit code only covers delivery: a skip sent to media that prohibits it
 /// (radio, live) is delivered, ignored by the app, and exits 0 — that case is
 /// gated upstream by the stream's prohibitsSkip metadata (NowPlaying.supportsSkip),

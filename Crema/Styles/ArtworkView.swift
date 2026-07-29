@@ -36,10 +36,15 @@ struct ArtworkView: View {
         .frame(width: side, height: side)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .task(id: data) { [data] in
-            // Detached: the eager bounded decode stays off the render path.
-            let decoded = await Task.detached {
+            // ImageIO decoding is a blocking synchronous call, so it goes off the
+            // concurrency pools entirely rather than into a detached task — the
+            // pool has one thread per core and does not overcommit, and a big
+            // cover on a slow path would hold one (see `blockingCall`). It is not
+            // cancellable either way: ImageIO does not check for it, so the guard
+            // below is what keeps a stale cover off the successor's slot.
+            let decoded = await blockingCall {
                 ArtworkDecoding.thumbnail(from: data, maxSide: ArtworkDecoding.displayMaxSide)
-            }.value
+            }
             // A cancelled task means the bytes changed mid-decode: the stale
             // cover must not land over the successor's.
             guard !Task.isCancelled else { return }

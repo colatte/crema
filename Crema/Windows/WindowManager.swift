@@ -1,4 +1,5 @@
 import CoreGraphics
+import os
 
 /// Owns one panel per screen, resolves the style per display via Preferences,
 /// and pushes the state's rule frame to each panel by hand — the panel uses it
@@ -18,6 +19,7 @@ final class WindowManager {
     private var entries: [DisplayUUID: Entry] = [:]
     private var isApplyingFrames = false
     private var needsReapply = false
+    private let logger = Logger.crema("Windows")
 
     init(
         coordinator: Coordinator,
@@ -40,7 +42,19 @@ final class WindowManager {
     /// new screen → new panel; gone screen → panel closed; kept screen → kept
     /// panel (geometry refreshed).
     func updateScreens(_ screens: [ScreenDescription]) {
-        let incoming = Dictionary(uniqueKeysWithValues: screens.map { ($0.id, $0) })
+        // First key wins rather than trapping. `Dictionary(uniqueKeysWithValues:)`
+        // has "must not have duplicate keys" as a PRECONDITION, so a roster with
+        // two screens resolving to one DisplayUUID would take the process down —
+        // on a path that runs at every hotplug and reconfiguration, which is
+        // exactly where this app owes graceful degradation. Nothing here proves
+        // the collision is reachable (mirroring, two identical panels with no
+        // serial, AirPlay are the suspects), and that is the point: an extra screen
+        // in the roster must cost at most a panel, never the app. The notice is
+        // how it stops being invisible if it ever does happen.
+        let incoming = Dictionary(screens.map { ($0.id, $0) }) { first, _ in
+            logger.notice("two screens resolved to the same display UUID — keeping the first, the other gets no panel")
+            return first
+        }
 
         for (id, entry) in entries where incoming[id] == nil {
             entry.panel.close()

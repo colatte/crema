@@ -44,11 +44,21 @@ import os
 /// written by the user, and engagement still only follows a real safe=true.
 @MainActor
 final class DistributedNotificationScreenLockSource: ScreenLockSource {
-    // De-facto-stable private constants: the lock-edge notification names and
-    // the session-dictionary keys. Not public API, but stable for years and
-    // fine outside the Mac App Store; the authoritative poll (not the edge
-    // names) is the source of truth, so a renamed edge only costs latency, not
-    // correctness. kCGSSessionOnConsoleKey excludes fast-user-switch.
+    // Two different pedigrees, and calling them both private hid the one that is.
+    //
+    // The lock-edge notification names and `CGSSessionScreenIsLocked` are the
+    // undocumented half — no SDK header declares them — stable for years and fine
+    // outside the Mac App Store. The authoritative re-read, not the edge names, is
+    // the source of truth, so a renamed edge costs latency and not correctness.
+    //
+    // `kCGSSessionOnConsoleKey` is PUBLIC and documented: CGSession.h declares
+    // `kCGSessionOnConsoleKey` as exactly this string and documents the value as a
+    // **CFBoolean**. Which is worth knowing, because the read below casts it
+    // `as? Int` — measured on this machine the object is `__NSCFBoolean`, so that
+    // cast survives only through NSNumber bridging, not because the type matches.
+    // It works; it is not what the header describes. Its meaning is the reason it
+    // is read at all: on-console excludes fast-user-switch, where another session
+    // owns the screen.
     private static let screenIsLockedName = "com.apple.screenIsLocked"
     private static let screenIsUnlockedName = "com.apple.screenIsUnlocked"
     private static let sessionScreenIsLockedKey = "CGSSessionScreenIsLocked"

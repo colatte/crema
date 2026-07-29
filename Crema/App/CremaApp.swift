@@ -170,13 +170,22 @@ struct CremaApp: App {
 
 /// Opens the Settings window with the standard ⌘, shortcut. As an accessory
 /// (LSUIElement) app Crema has no regular windows, so it must activate itself
-/// or the Preferences window would open behind whatever is frontmost.
+/// or the Preferences window would open behind whatever is frontmost — and with
+/// no Dock tile and no app menu, a window that opens behind is a window the user
+/// cannot reach.
+///
+/// `activate()`, never `activate(ignoringOtherApps:)`: the SDK marks that
+/// selector API_DEPRECATED and names this replacement, available at this app's
+/// own deployment target (macOS 14). Nothing warns about the old one — the
+/// deprecation is spelled API_TO_BE_DEPRECATED, so the compiler stays quiet
+/// while the call rots. Neither form is a guarantee under cooperative
+/// activation, which is why the windows still order themselves front.
 private struct SettingsMenuButton: View {
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         Button(String(localized: "menu.settings", defaultValue: "Settings…")) {
-            NSApp.activate(ignoringOtherApps: true)
+            NSApp.activate()
             openSettings()
         }
         .keyboardShortcut(",")
@@ -193,7 +202,7 @@ private struct UpdaterMenuButton: View {
 
     var body: some View {
         Button(String(localized: "menu.checkForUpdates", defaultValue: "Check for Updates…")) {
-            NSApp.activate(ignoringOtherApps: true)
+            NSApp.activate()
             updater.checkForUpdates()
         }
         .disabled(!updater.canCheckForUpdates)

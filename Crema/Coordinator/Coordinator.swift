@@ -892,11 +892,15 @@ final class Coordinator {
         }
     }
 
-    /// Media command: success confirms the write path works; a genuine failure
-    /// (e.g. blocked on this macOS) flips the given availability flag so the
-    /// matching controls degrade — play/pause/seek update `commandsAvailable`,
-    /// next/previous update `skipCommandsAvailable` (they can be rejected
-    /// independently). `Task { @MainActor }` because it writes observable state.
+    /// Media command: success confirms the command path works; a genuine failure
+    /// (a non-zero adapter exit, a send that outlived its timeout, Automation
+    /// denied) flips the given availability flag so the matching controls degrade
+    /// — play/pause/seek update `commandsAvailable`, next/previous update
+    /// `skipCommandsAvailable` (they can be rejected independently). The
+    /// degradation is not a verdict on the platform and not permanent: the next
+    /// surfacing event re-enables both, so a transient failure costs the controls
+    /// until the next track or resurface, never the session.
+    /// `Task { @MainActor }` because it writes observable state.
     private func runMediaCommand(
         _ name: StaticString,
         updating availability: ReferenceWritableKeyPath<Coordinator, Bool> = \.commandsAvailable,

@@ -22,9 +22,16 @@ final class MediaRemoteAdapterProcess: @unchecked Sendable {
 
     private let logger = Logger.crema("NowPlaying")
 
-    /// `streamArguments` default omits artwork so the observed lines stay
-    /// readable; the real source decides what it needs.
-    init(paths: MediaRemoteAdapterPaths, streamArguments: [String] = ["stream", "--no-artwork"]) {
+    /// The default carries `--no-diff` because the only translation that exists
+    /// cannot read anything else: in diff mode the adapter emits partial payloads
+    /// under the same `"type":"data"` envelope (`diff` is a sibling BOOLEAN, not a
+    /// value of `type`, so no envelope check filters them out), and
+    /// `AdapterPayloadTranslation` reads a line with no title as "nothing
+    /// playing" — the surface would vanish and return on every metadata change.
+    /// A default that produces lines nothing can parse is a trap for the next
+    /// construction, so it is not offered. Artwork stays off because the observed
+    /// lines are meant to be readable; a source that wants covers asks.
+    init(paths: MediaRemoteAdapterPaths, streamArguments: [String] = ["stream", "--no-diff", "--no-artwork"]) {
         var continuation: AsyncStream<String>.Continuation!
         rawLines = AsyncStream { continuation = $0 }
         self.continuation = continuation

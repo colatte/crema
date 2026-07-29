@@ -516,7 +516,7 @@ final class AppCore {
     func presentAccessibilityOnboarding() {
         if let onboardingWindow {
             onboardingWindow.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
+            NSApp.activate()
             return
         }
 
@@ -532,7 +532,7 @@ final class AppCore {
         window.center()
         onboardingWindow = window
         window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activate()
     }
 
     private func presentAccessibilityOnboardingIfFirstLaunch() {
