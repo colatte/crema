@@ -498,6 +498,28 @@ final class AppCore {
     /// swapped from the re-resolved styles; the core
     /// (Sources/Domain/Coordinator) is untouched.
     func setStyleEverywhere(_ style: Style) {
+        Self.declareStyleEverywhere(style, in: preferences, applyingTo: windowManager)
+    }
+
+    /// Extracted as a static for the reason the other five wiring statics were
+    /// (`wireActiveSourceEnded`, the three `wire*Reinstall`, `reconcileLoginItemIntent`):
+    /// reaching it through an instance means constructing `AppCore`, which boots the
+    /// real system sources, so the behaviour was unreachable by any test. And this
+    /// one line IS the regression — swapping it back for the old
+    /// `for screen in describeAll() { setStyle(_:for:) }` restores a monitor plugged
+    /// in later drawing the shipped default under a picker that promises "applies to
+    /// every display", and leaves the whole suite green.
+    ///
+    /// Both collaborators are already constructible in a test without touching a
+    /// system API (Preferences over ephemeral defaults; WindowManager over the fake
+    /// panel factory), which is what makes the seam worth having. The residual is the
+    /// same one the other five accept and is stated so nobody reads more into it: a
+    /// mutation that removes the DELEGATION above is still not caught.
+    static func declareStyleEverywhere(
+        _ style: Style,
+        in preferences: Preferences,
+        applyingTo windowManager: WindowManager
+    ) {
         preferences.declareStyleEverywhere(style)
         windowManager.refreshStyles()
     }

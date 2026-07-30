@@ -685,29 +685,8 @@ playback), so nothing re-anchored the display and the error accumulated for the
 whole track — always in the same direction, since a `sleep(1s)`-then-work loop
 never runs faster than its interval. Decision: the tick SAMPLES, never
 accumulates — the source keeps an anchor (position, instant, rate) and every
-tick recomputes `position + age × rate`, clamped to the duration, aged with a
-non-negative age and — while the rate is forward — floored at the position
-already shown. Both floors are needed, and the non-negative age was once
-mistaken for covering both: `now` is the WALL clock, which an NTP step
-correction or a manual time change moves, and bounding the age only stops a
-future-dated anchor from sampling below its OWN position — a clock stepping BACK
-still rewound the bar by all the age it had accumulated (anchor 10 s, ticked to
-40 s, clock back 30 s, sampled 10 s), which on a source that re-anchors only on
-state changes is most of a track. The floor is the shown line, never a
-high-water mark: every anchor write rewrites that line too, so a legitimate
-backward re-anchor — a payload the reconciliation accepts, a seek, a failed
-seek's rollback — lowers the floor with it, where a remembered maximum would
-strand the bar above the truth for the rest of the track. The origin is kept
-rather than re-anchored on the backward edge, and the reason is this decision
-itself: a single backward step would actually be corrected exactly by moving the
-origin, but moving it makes the tick accumulate again, so a noisy clock ratchets
-the bar forward — sampling from a fixed origin is what makes every tick
-self-correcting. The residual is accepted: after a one-way step back the bar
-sits behind by the step size until the next payload, the same error the rewind
-left, minus the visible jump. A negative rate (a rewind scan) is exempt from the
-floor: there the bar moves back honestly, aged with the same sign the payload
-math uses, and the non-negative age is what keeps a backward clock from
-advancing it. A late tick lands on the truth, a dropped tick costs nothing, and
+tick recomputes `position + age × rate`, clamped to the duration and aged with a
+non-negative age. A late tick lands on the truth, a dropped tick costs nothing, and
 two ticks in the same instant count once. This is the contract of the data model, not an
 invention: MediaRemote publishes elapsed WITH a timestamp and a rate, and the
 adapter's own help says to compute the current time from that pair rather than
@@ -724,10 +703,19 @@ playback already shown, and forward, throwing it to the duration clamp until the
 next payload (which this adapter only sends on a state change). Every anchor is
 stamped with our own reading of that stopwatch when it is installed; the payload's
 own timestamp is folded into the position before then, so the wall clock is not
-part of the tick's arithmetic at all. A monotonic FLOOR was tried first and
-removed: it could only stop the backward half, and it needed a `rate > 0`
-exception so a rewind scan could still walk the bar back. One clock that cannot
-lie replaces both.
+part of the tick's arithmetic at all.
+A FLOOR at the position already shown was tried first and REMOVED — history now,
+and kept because the reasoning is what makes the current answer legible rather
+than lucky. It could only stop the backward half of a wall-clock step, and it
+needed a `rate > 0` exception so a rewind scan could still walk the bar back. Two
+things it got right, and any future floor has to get right again: it floored the
+SHOWN line and never a high-water mark (a remembered maximum strands the bar above
+the truth after a legitimate backward re-anchor — an accepted payload, a seek, a
+failed seek's rollback), and it kept the origin fixed instead of re-anchoring on
+the backward edge, because moving the origin is exactly what makes a tick
+accumulate again and lets a noisy clock ratchet the bar forward. What replaced it
+is smaller and covers both directions: read a clock that cannot lie. The `max(0, …)`
+still in the source is a clamp, not that mechanism, and its comment says so.
 
 Sleep is the second half of that choice, and the word "monotonic" hides it.
 `systemUptime` is `CLOCK_UPTIME_RAW`, which "does not increment while the system is
