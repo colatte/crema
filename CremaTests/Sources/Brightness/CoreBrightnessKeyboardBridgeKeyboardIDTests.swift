@@ -31,6 +31,28 @@ struct CoreBrightnessKeyboardBridgeKeyboardIDTests {
         #expect(bridge.read() == 0.7)
     }
 
+    @Test func aBridgeBuiltBeforeTheKeyboardIsListedComesAliveWithoutARelaunch() {
+        // The cold-boot shape. Two facts used to be one: whether the private class
+        // resolved (fixed for the process) and whether a built-in keyboard was
+        // listed at that instant (not fixed at all — the enumeration goes over a
+        // connection that may not be up yet). Requiring an ID at construction made
+        // a launch that listed none permanently unavailable, and the backlight HUD
+        // stayed dead for the session with nothing but a relaunch to fix it.
+        fakeKeyboard.reset(validID: 2, brightness: 0.4)
+        fakeKeyboard.setHasBuiltIn(false)
+
+        let bridge = CoreBrightnessKeyboardBridge(resolver: fakeClassResolver)
+        #expect(!bridge.isAvailable, "nothing is listed yet, so the channel cannot claim to be there")
+        #expect(bridge.read() == nil)
+
+        // The service comes up. Same bridge instance — no relaunch, no recreation.
+        fakeKeyboard.setHasBuiltIn(true)
+
+        #expect(bridge.isAvailable, "the keyboard is listed now and the bridge still says it is absent")
+        #expect(bridge.read() == 0.4)
+        #expect(bridge.write(0.7))
+    }
+
     @Test func aFrozenKeyboardIDReproducesTheStaleIDDeath() {
         // The pre-parity behavior, modeled by a constant provider: once the
         // valid ID moves, every read and write fails and the keyboard path is
@@ -57,6 +79,10 @@ private final class FakeKeyboardState: @unchecked Sendable {
     private let lock = NSLock()
     private var _validID: UInt64 = 1
     private var _brightness: Float = 0.5
+    /// Whether ANY enumerated keyboard reports as built-in. False models the cold
+    /// boot the bridge has to survive: the class and its selectors are there, the
+    /// connection answers, and the backlight simply is not listed yet.
+    private var _hasBuiltIn = true
 
     // The enumeration always carries a non-built-in extra (an external
     // keyboard) so the built-in filter is exercised, not bypassed.
@@ -66,6 +92,7 @@ private final class FakeKeyboardState: @unchecked Sendable {
         lock.withLock {
             _validID = validID
             _brightness = brightness
+            _hasBuiltIn = true
         }
     }
 
@@ -73,8 +100,12 @@ private final class FakeKeyboardState: @unchecked Sendable {
         lock.withLock { _validID = validID }
     }
 
+    func setHasBuiltIn(_ present: Bool) {
+        lock.withLock { _hasBuiltIn = present }
+    }
+
     func isBuiltIn(_ id: UInt64) -> Bool {
-        lock.withLock { id == _validID }
+        lock.withLock { _hasBuiltIn && id == _validID }
     }
 
     func brightness(for id: UInt64) -> Float {

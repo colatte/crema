@@ -37,7 +37,15 @@ final class FakeBrightnessBackend: BrightnessBackend, @unchecked Sendable {
         self.target = target
     }
 
-    var isAvailable: Bool { lock.withLock { _available } }
+    /// Settable, because availability is not a launch-time constant on the real
+    /// keyboard bridge: the backlight is enumerated over a connection that may not
+    /// answer yet at a cold boot, and the channel has to be able to come alive
+    /// later without a relaunch.
+    var isAvailable: Bool {
+        get { lock.withLock { _available } }
+        set { lock.withLock { _available = newValue } }
+    }
+
     var value: Float? {
         get { lock.withLock { _value } }
         set { lock.withLock { _value = newValue } }

@@ -51,8 +51,21 @@ final class CoreBrightnessKeyboardBridge: BrightnessBackend, @unchecked Sendable
     /// source type and one emit line (docs/DECISIONS.md: hud-target-is-a-role).
     var target: SystemHUD.Target { .noDisplay }
 
-    /// Available only when the class resolved and a built-in keyboard was found.
-    var isAvailable: Bool { resolved != nil }
+    /// Two different facts, and only one of them is stable: whether the private
+    /// class and its selectors resolved (fixed for the process — a dlopen that
+    /// failed will not start working) and whether a built-in keyboard answers RIGHT
+    /// NOW (not fixed at all — the enumeration goes over a connection to a service
+    /// that may not be up yet at a cold boot, and an external keyboard can arrive
+    /// or leave).
+    ///
+    /// Conflating them was the defect: availability used to require an ID at
+    /// construction, so a launch that enumerated nothing left this channel
+    /// permanently unavailable, its poll never armed, and the backlight HUD dead
+    /// for the session with no way back but relaunching. Asking the provider here
+    /// costs one enumeration per call and is what makes "operations re-resolve, so
+    /// a later change degrades per call, never fatally" true in BOTH directions
+    /// rather than only downward.
+    var isAvailable: Bool { resolved?.keyboardID() != nil }
 
     func read() -> Float? {
         guard let r = resolved, let id = r.keyboardID() else { return nil }
@@ -99,10 +112,9 @@ final class CoreBrightnessKeyboardBridge: BrightnessBackend, @unchecked Sendable
             }
         }
         let provider = keyboardIDProvider ?? enumerate
-        // Availability still requires a built-in keyboard NOW; operations
-        // re-resolve, so a later change degrades per call, never fatally.
-        guard provider() != nil else { return nil }
-
+        // Deliberately NOT gated on an ID existing right now. What this function
+        // resolves is the API; whether a keyboard answers is asked per operation
+        // and per availability check, because that is the half that changes.
         return Resolved(
             client: client,
             getSel: getSel,

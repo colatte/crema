@@ -302,4 +302,51 @@ struct BrightnessSourceTests {
         source.sample()             // value unchanged at the boundary
         #expect(await iterator.next() == Self.expected(kind, 0))
     }
+
+    // MARK: - A channel that answers late
+
+    @Test(arguments: kinds)
+    func aChannelUnavailableAtLaunchStillPollsOnceAKeyProvesItIsThere(kind: SystemHUD.Kind) async {
+        // The cold-boot shape, on the keyboard channel: the backlight is enumerated
+        // over a connection that may not answer yet, and availability used to be
+        // decided once, at launch. A channel that answered nothing then had no
+        // cadence for the rest of the session — its HUD dead until relaunch, with
+        // nothing the user could do about it.
+        //
+        // A key press is the evidence that the channel exists, so it is what arms
+        // the cadence. Deliberately not a retry timer: hardware with no backlight at
+        // all must never be polled, which is what the launch guard was protecting
+        // and what the last assertion here still protects.
+        let backend = Self.backend(kind, available: false)
+        let clock = TestSleepClock()
+        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1)
+
+        #expect(clock.pendingSleeps == 0, "launch armed a cadence for a channel that answered nothing")
+
+        backend.isAvailable = true
+        await sampleAndRead(source, backend)   // the key, and with it the arming
+
+        // Asserted as a parked sleep rather than as an emission, and bounded: with
+        // the fix reverted nothing ever emits, so awaiting a value would hang the
+        // suite instead of failing it — the exact shape the house forbids.
+        #expect(await eventually { clock.pendingSleeps == 1 },
+                "the key proved the channel is there and no cadence was armed")
+        _ = source
+    }
+
+    @Test(arguments: kinds)
+    func hardwareThatNeverAnswersIsNeverPolled(kind: SystemHUD.Kind) async {
+        // The other half, and the reason this is arming-on-evidence rather than a
+        // retry loop: a Mac with no keyboard backlight answers no key and must cost
+        // no cadence at all. A key that arrives while the channel is still absent
+        // arms nothing either — the read it queues is the only work it does.
+        let backend = Self.backend(kind, available: false)
+        let clock = TestSleepClock()
+        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1)
+
+        await sampleAndRead(source, backend)
+
+        #expect(clock.pendingSleeps == 0, "an absent channel armed a cadence it can never use")
+        _ = source
+    }
 }

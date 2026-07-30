@@ -83,7 +83,35 @@ final class PolledBrightnessSource: SystemHUDSource, ManuallySampledSource, @unc
             baseline: backend.read().map(BrightnessConversion.normalize)
         )
 
-        guard backend.isAvailable else { return }
+        startPollingIfAvailable()
+    }
+
+    /// Arms the cadence, once, and only for a channel that answers.
+    ///
+    /// Called at launch AND at the first key this channel sees, because
+    /// availability is not a launch-time constant: the keyboard backlight is
+    /// enumerated over a connection that may not be up yet at a cold boot, and a
+    /// channel that answered nothing at launch used to stay silent for the whole
+    /// session. A key press is the evidence that the channel is alive — the same
+    /// shape the suppressor uses when a user's press kicks a suspended domain's
+    /// probe ahead of its backoff, and the reason this is not a retry timer:
+    /// hardware that genuinely has no backlight is never polled at all, which is
+    /// exactly what the original launch guard was protecting.
+    private func startPollingIfAvailable() {
+        lock.lock()
+        let armed = pollTask != nil
+        lock.unlock()
+        // Availability asked OUTSIDE the lock: on the keyboard channel it is an
+        // enumeration over a connection, and holding this lock across it would put
+        // the gate — which `standDown()` takes from another thread, right behind a
+        // key — behind an IPC round trip.
+        guard !armed, backend.isAvailable else { return }
+        lock.lock()
+        defer { lock.unlock() }
+        // Re-checked under the lock: two callers can pass the test above at once,
+        // and the loser must not replace a running task with a second one that
+        // nothing cancels.
+        guard pollTask == nil else { return }
         // clock/interval captured by value so the sleep never retains self —
         // a strong ref parked across the await would make deinit unreachable
         // while the task it cancels is the very thing keeping self alive. The
@@ -115,7 +143,16 @@ final class PolledBrightnessSource: SystemHUDSource, ManuallySampledSource, @unc
         gate.armKeyWindow()
         pendingKeyReadings += 1
         lock.unlock()
-        queue.async { [weak self] in self?.readAndRegister(keyDriven: true) }
+        queue.async { [weak self] in
+            self?.readAndRegister(keyDriven: true)
+            // A key for this channel is the evidence that it exists, so it is also
+            // the moment to arm a cadence that launch could not. Here and not in the
+            // caller: this runs on the tap's own thread, and asking the backend
+            // whether it is available enumerates over a connection — a blocking call
+            // the tap thread must never make. `queue` is where this channel's
+            // blocking reads already live.
+            self?.startPollingIfAvailable()
+        }
     }
 
     /// Another source reported this channel's level (BetterDisplay's OSD
