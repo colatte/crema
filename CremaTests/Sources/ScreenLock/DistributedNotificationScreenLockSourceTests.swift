@@ -243,7 +243,9 @@ struct DistributedNotificationScreenLockSourceTests {
         let keyboard = MockOSDChannel()
         let suppressor = MediaKeyInterceptionOSDSuppressor(
             keys: source, volume: volume, screen: screen, keyboard: keyboard,
-            clock: TestSleepClock(), readClock: TestSleepClock()
+            // The lock policy is the subject here, not the aim: pin it to the panel
+            // this app drives so the suite reads only the engage/disengage story.
+            screenBrightnessTarget: { .builtIn }, clock: TestSleepClock(), readClock: TestSleepClock()
         )
 
         let box = SessionBox(locked: false, onConsole: true)   // safe at launch

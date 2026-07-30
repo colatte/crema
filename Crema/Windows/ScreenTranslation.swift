@@ -86,6 +86,22 @@ enum ScreenTranslation {
         return (ids.contains { CGDisplayIsBuiltin($0) != 0 }, ids.count)
     }
 
+    /// The displays a brightness key can aim at, in CoreGraphics' global display
+    /// space — the space `CGEvent.location` reports the pointer in, so the rule
+    /// that pairs the two never converts between spaces.
+    ///
+    /// The SAME active list `builtInDisplayID()` writes through and
+    /// `activeDisplayCensus()` is read from, for the reason spelled out above: a
+    /// key aiming by one list while the menu speaks from another is how a true
+    /// sentence ends up over the opposite behavior. Nonisolated because the
+    /// swallow decision is made on the event tap's thread, which cannot ask
+    /// NSScreen.
+    nonisolated static func brightnessKeyDisplays() -> [BrightnessKeyDisplay] {
+        activeDisplayIDs().map {
+            BrightnessKeyDisplay(bounds: CGDisplayBounds($0), isBuiltIn: CGDisplayIsBuiltin($0) != 0)
+        }
+    }
+
     /// The same screen in the domain's own currency. Needed because nil and this
     /// UUID name one display: the neighbour integration reports displays by ID and
     /// names the built-in like any other, so an actuator handed that UUID must

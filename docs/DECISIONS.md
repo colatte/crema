@@ -899,6 +899,13 @@ needs no edge to stay correct. The census is consulted only after the gate, so a
 silenced menu asks the system nothing.
 No warning glyph on either row. An arrangement is not a fault, and a ⚠️ on correct
 behavior trains the user past the lines that do ask for action.
+The row's SENTENCE was replaced when the keys learned to follow the pointer
+(`brightness-key-follows-the-pointer`). The three states, the census they come from
+and every gate above still hold; what changed is that the line describes an AIM
+instead of a limit, and stops short of saying what happens on the other display —
+this row appears only where no neighbour is ahead or reporting, which is exactly
+where nobody may be managing that display, so "left to the system" is the last true
+word available.
 
 ### menu-reads-mirrors
 A menu that names the track reads MIRRORS of title and artist, never the live
@@ -937,3 +944,93 @@ enabled Pause.
 Corollary for anything else the menu wants to show: the question is never "is this
 value cheap to read" but "how often is the property I subscribe to written". A
 per-second property is a per-second menu.
+
+### brightness-key-follows-the-pointer
+The brightness key always acted on the built-in panel, whatever the user was
+looking at. With a monitor as the main display that is a key which dims the laptop
+while the person reads the monitor — reported from the field — and it was correct
+by the old design: `DisplayServicesBridge` resolves the BUILT-IN display for every
+read and write, deliberately, because the framework governs no other panel.
+Decision: **a brightness key acts on the display under the POINTER** — the rule the
+display utilities that own these keys already use, and the one a person reading a
+screen expects. It lives in `BrightnessKeyTargeting`, pure over the cursor and the
+display bounds, and answers one of three things: the built-in panel, another
+display, or nothing at all.
+What the app DOES with the answer is the second half, and it is deliberately
+smaller than the rule. Crema reads and writes the built-in panel and no other, so
+only `.builtIn` is swallowed; any other answer hands the key back, where a display
+utility behind us in the tap chain — or macOS — applies it and draws its own
+indicator. That answers the obvious alternative, which is to keep dimming the
+built-in panel because it is the one we can move: a consumed key owes feedback, and
+a key consumed to change a screen the user is not looking at pays that debt in the
+wrong currency. The two other alternatives die on the same rule — swallowing and
+drawing nothing, or drawing a bar that refuses to move, which
+`betterdisplay-osd-source` already rejected for the neighbour's `lock` payload.
+Passing it back is also what makes the neighbour arrangement whole for the first
+time: with suppression on, Crema used to swallow the very key BetterDisplay was
+waiting for, so the monitor stopped responding at all. Now the neighbour receives
+it, applies it on its own display and reports the level back, which Crema draws on
+that display (`hud-belongs-to-its-display`).
+**A handed-back key stands the local bar down.** The tap keeps OBSERVING the key it
+declines, so `MediaKeyHUDRouter` arms the brightness poll, the poll reads the panel
+macOS just moved, and the app would draw a second bar over the system's own
+indicator — every press, in the exact arrangement this change targets. So the
+suppressor fires `onDeclinedForAnotherDisplay` and AppCore spends the source's key
+window with `standDown()`, the same seam the neighbour's report already uses. One
+press, one indicator, whoever drew it.
+Five properties of the rule, each one a case that cost a decision.
+**No fallback to the built-in panel**: that fallback IS the bug. Clamshell needs no
+branch of its own — with no built-in among the bounds the rule never answers
+`.builtIn` — and a pointer nobody can place answers nothing rather than picking a
+screen. A quiet consequence: in clamshell Crema no longer swallows a brightness key
+it cannot apply, so the escalation that used to end in "Crema couldn't apply the
+change" — five failed applies against a panel that is not there — cannot start.
+**A single display answers itself, pointer or no pointer**: with one screen
+attached the pointer disambiguates nothing, so a failed reading must not disable
+the keys on the Mac that has exactly one panel. Not a disguised fallback — in
+clamshell the single display is the external one and is answered as such.
+**One coordinate space, chosen so there is no conversion to get wrong.** The
+pointer is read with `CGEvent(source: nil)?.location` and the bounds with
+`CGDisplayBounds`: both are CoreGraphics' global display space, origin at the
+top-left of the main display, y growing DOWN. An earlier draft took the bounds from
+the AppKit panel roster and flipped y inside the rule; the flip's sign is the
+difference between the display above and the display below, and it is a line of
+arithmetic that exists only because the wrong list was chosen. Bounds are half-open
+on both axes, the way CoreGraphics tiles them, so a seam belongs to exactly one
+display and the answer never depends on list order — and the load-bearing seam,
+with a monitor placed ABOVE the laptop, is the laptop's menu bar sitting on the
+laptop's own `minY`, which the laptop owns for free.
+**The list is the ACTIVE display list, not the panel roster** — the same list the
+brightness write resolves its target from and the menu reads its census from, for
+the reason `brightness-key-target-in-the-menu` already wrote down: the roster drops
+displays with no NSScreenNumber or no resolvable UUID and collapses a mirror set to
+one NSScreen, so a key aiming by the roster while the menu speaks from the census
+is how a true sentence ends up over the opposite behavior. It is read fresh at each
+press rather than snapshotted at the topology edge: `CGGetActiveDisplayList` is
+nonisolated and local, so a snapshot would buy nothing and cost a lock, an
+invalidation edge, and a window in which a key aims at a display that already left.
+The only per-press readings are that list and the cursor — nothing like
+`CGGetEventTapList`, whose every call resets the latency counters of every tap on
+the machine (`media-key-chain-contention`), and nothing on any poll: a key-up pays
+nothing and the menu asks this nothing at all.
+**A mirror set gives the tie to the built-in.** Mirroring reports one rectangle per
+display, so the point is inside both and, without an explicit tie-break, list order
+decides — handing the key back half the time for a screen the built-in panel is
+itself lighting.
+The verdict is latched for the whole press, in BOTH directions
+(`SuppressionDecider`): a pointer crossing displays under a held key cannot turn a
+passed press into a swallowed one, which would leave the system downs with no up —
+the autorepeat nobody stops. Same latch that already kept a swallowed press
+swallowed, now stated as one rule.
+What is NOT here: applying on the external display, and any identity for it. The
+write half exists (`BetterDisplayScreenBrightnessController`, used by drags), but a
+stepped key also needs a LEVEL to step from and verify against, and the neighbour's
+brightness read (`neighbour-features-are-not-identifiers`) has no caller yet. Until
+it does, `.anotherDisplay` carries no UUID — a field nobody reads is a field that
+goes stale, and adding it back is one stored property.
+What this does NOT fix, stated plainly so nobody reads more into it: with no
+neighbour behind us, the key handed back goes to macOS, which dims the built-in
+panel anyway and shows its own indicator. Crema stops being the one that dims the
+wrong screen; it cannot stop the system from doing so. That is the same contract
+`per-domain-suspension` already accepts, and it is why the menu row promises an aim
+and never an outcome on the other display.

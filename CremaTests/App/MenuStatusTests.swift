@@ -101,16 +101,16 @@ struct MenuStatusTests {
         // Correct behavior nobody can see reads as a bug, so it is said — as a fact,
         // in the status block, never a warning
         // (docs/DECISIONS.md: brightness-key-target-in-the-menu).
-        #expect(status(brightnessTarget: .builtInAmongOthers).rows.contains(.brightnessBuiltInOnly))
+        #expect(status(brightnessTarget: .builtInAmongOthers).rows.contains(.brightnessFollowsPointer))
         #expect(status(brightnessTarget: .builtInAmongOthers).warnings.isEmpty)
         #expect(status(brightnessTarget: .noBuiltInDisplay).rows.contains(.brightnessNoBuiltIn))
-        #expect(!status().rows.contains(.brightnessBuiltInOnly))
+        #expect(!status().rows.contains(.brightnessFollowsPointer))
         // The composition upstream stands the target down for any chain answer but
         // `.quiet`, so the two brightness rows are mutually exclusive by
         // construction — this pins that they never both appear.
         let drawing = status(chainNotice: .drawingFromBetterDisplay, brightnessTarget: .quiet)
         #expect(drawing.rows.contains(.brightnessFromBetterDisplay))
-        #expect(!drawing.rows.contains(.brightnessBuiltInOnly))
+        #expect(!drawing.rows.contains(.brightnessFollowsPointer))
         #expect(!drawing.rows.contains(.brightnessNoBuiltIn))
     }
 
@@ -218,7 +218,7 @@ struct MenuStatusTests {
         // the neighbour's, or the suspension warning.
         for target in [BrightnessKeyTargetNotice.builtInAmongOthers, .noBuiltInDisplay] {
             #expect(status(brightnessTarget: target).rows.contains {
-                $0 == .brightnessBuiltInOnly || $0 == .brightnessNoBuiltIn
+                $0 == .brightnessFollowsPointer || $0 == .brightnessNoBuiltIn
             }, "\(target) should speak while Crema applies")
 
             for silenced in [
@@ -227,7 +227,7 @@ struct MenuStatusTests {
                 status(suspendedDomains: [.screenBrightness], brightnessTarget: target),
             ] {
                 #expect(!silenced.rows.contains {
-                    $0 == .brightnessBuiltInOnly || $0 == .brightnessNoBuiltIn
+                    $0 == .brightnessFollowsPointer || $0 == .brightnessNoBuiltIn
                 }, "\(target) must stay silent where Crema does not apply")
             }
         }

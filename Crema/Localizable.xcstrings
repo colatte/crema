@@ -647,19 +647,19 @@
         }
       }
     },
-    "menu.status.brightnessBuiltInOnly": {
+    "menu.status.brightnessFollowsPointer": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Crema controls brightness on the built-in display only, not on external displays."
+            "value": "Crema adjusts the built-in display while the pointer is on it — on any other display, the key is left to the system."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Crema controla o brilho só da tela integrada, não das telas externas."
+            "value": "O Crema ajusta a tela integrada enquanto o ponteiro está nela — em qualquer outra tela, a tecla fica com o sistema."
           }
         }
       }

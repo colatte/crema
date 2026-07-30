@@ -21,19 +21,19 @@ struct MenuStatus {
         case styleFallsBackToCard
         case replacingSystemIndicators
         case brightnessFromBetterDisplay
-        /// Correct behavior nobody can see reads as a bug: with a monitor as the
-        /// main display the brightness key dims the laptop panel the user is not
-        /// looking at. Crema drives the built-in panel because that is the only
-        /// display it has been TAUGHT to drive with the keys — not because an
-        /// external one is out of reach. It is reachable: the neighbour reads and
-        /// writes brightness, and an earlier claim to the contrary here was our own
-        /// probe asking through the metadata door
-        /// (docs/DECISIONS.md: neighbour-features-are-not-identifiers). Until the
-        /// keys learn to follow the screen in use, this row is the honest one.
-        case brightnessBuiltInOnly
-        /// No built-in panel in use: clamshell, or a Mac that has none. The write
-        /// degrades to false there rather than reaching for whatever display is
-        /// main, so the honest line is what Crema cannot do.
+        /// The rule the user cannot see: a brightness key acts on the display under
+        /// the pointer, Crema applies it only on the built-in panel, and every other
+        /// display is left to the system. Said out loud because both halves read as
+        /// a bug unnamed — the old behavior dimmed the laptop from the monitor, and
+        /// the new one makes the same key do two different things depending on where
+        /// the pointer rests. Deliberately does NOT promise that the other display
+        /// gets adjusted: this row only appears where no neighbour is ahead or
+        /// reporting, which is where nobody may be managing it
+        /// (docs/DECISIONS.md: brightness-key-follows-the-pointer).
+        case brightnessFollowsPointer
+        /// No built-in panel in use: clamshell, or a Mac that has none. Crema applies
+        /// no brightness key there — every display in use belongs to someone else —
+        /// so the honest line is what Crema cannot do.
         case brightnessNoBuiltIn
         case opensAtLogin
     }
@@ -131,11 +131,15 @@ struct MenuStatus {
             rows.append(.brightnessFromBetterDisplay)
         }
         // Gated on Crema being the one that applies, which is the whole subject of
-        // the sentence. Measured in the field, and this is why: with a neighbour
-        // ahead in the tap chain the keys follow the display under the POINTER, so
-        // "Crema drives the built-in only" would be true about Crema and useless to
-        // the person reading it — the monitor they are looking at responds. Where
-        // Crema does not apply, the row above is the one that speaks.
+        // the sentence: with the pref off, the suppressor absent, or the domain
+        // suspended, someone else applies the key and a line about Crema's aim
+        // explains nothing. The field measurement that shaped this row still holds —
+        // with a neighbour ahead in the tap chain the keys follow the display under
+        // the POINTER, which is where Crema's own rule came from — and where Crema
+        // does not apply, the row above is the one that speaks. It also qualifies
+        // the flat "replacing the system indicators" line above it, which for
+        // brightness is now true only while the pointer is on the built-in panel;
+        // that is why this row sits after it rather than before.
         if cremaApplies, let row = Self.brightnessRow(for: brightnessTarget) {
             rows.append(row)
         }
@@ -166,7 +170,7 @@ struct MenuStatus {
 
     private static func brightnessRow(for target: BrightnessKeyTargetNotice) -> Row? {
         switch target {
-        case .builtInAmongOthers: .brightnessBuiltInOnly
+        case .builtInAmongOthers: .brightnessFollowsPointer
         case .noBuiltInDisplay: .brightnessNoBuiltIn
         case .quiet: nil
         }

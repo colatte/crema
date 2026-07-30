@@ -12,6 +12,7 @@ final class RecordingOSDSuppressor: NativeOSDSuppressor {
     /// sequence across a lock cycle (e.g. no spurious re-engage).
     private(set) var engageHistory: [Bool] = []
     var onApplied: (@MainActor (MediaKey) -> Void)?
+    var onDeclinedForAnotherDisplay: (@MainActor (MediaKey) -> Void)?
 
     private(set) var longSuspendedDomains: Set<OSDSuppressionDomain> = []
     var onSuspensionStateChange: (@MainActor () -> Void)?

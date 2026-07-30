@@ -21,6 +21,13 @@ protocol NativeOSDSuppressor: AnyObject {
     /// value (a key-time sample reads the pre-apply one).
     var onApplied: (@MainActor (MediaKey) -> Void)? { get set }
 
+    /// Fired when a brightness key was handed back because the pointer is on a
+    /// display this app does not drive. The owner spends the local bar's key
+    /// window, so the poll that a merely OBSERVED key arms does not draw our bar
+    /// for a screen somebody else just changed — the same standing-down the
+    /// neighbour's own report triggers (docs/DECISIONS.md: betterdisplay-osd-source).
+    var onDeclinedForAnotherDisplay: (@MainActor (MediaKey) -> Void)? { get set }
+
     /// Domains that have failed long enough (with the channel present) to be
     /// worth telling the user about — the menu names these. Transient
     /// suspensions (a device swap re-engaging in seconds) never appear here.

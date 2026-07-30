@@ -88,10 +88,16 @@ struct MenuInformation: View {
                 localized: "menu.betterDisplay.drawing",
                 defaultValue: "The screen brightness indicator comes from BetterDisplay."
             )
-        case .brightnessBuiltInOnly:
+        case .brightnessFollowsPointer:
+            // Crema is the subject, never "the brightness keys": a sentence about
+            // the KEY would assert what macOS and other apps do with it
+            // (docs/DECISIONS.md: brightness-key-target-in-the-menu). And the second
+            // clause stops at "left to the system" — this row appears only where no
+            // neighbour is ahead or reporting, so promising that the other display
+            // gets adjusted would be the false half of a true sentence.
             String(
-                localized: "menu.status.brightnessBuiltInOnly",
-                defaultValue: "Crema controls brightness on the built-in display only, not on external displays."
+                localized: "menu.status.brightnessFollowsPointer",
+                defaultValue: "Crema adjusts the built-in display while the pointer is on it — on any other display, the key is left to the system."
             )
         case .brightnessNoBuiltIn:
             String(

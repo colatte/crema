@@ -74,6 +74,7 @@ final class PostWakeSeamHarness {
         source = CGEventTapMediaKeySource(permission: permission, clock: clock, tapOps: ops)
         suppressor = MediaKeyInterceptionOSDSuppressor(
             keys: source, volume: volume, screen: screen, keyboard: keyboard,
+            screenBrightnessTarget: { .builtIn },
             clock: suppClock, readClock: readClock
         )
         prefs = Preferences(defaults: defaults.defaults)

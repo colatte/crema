@@ -195,7 +195,8 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         let clock = TestSleepClock()
         let suppressor = MediaKeyInterceptionOSDSuppressor(
             keys: keys, volume: MockOSDVolumeChannel(),
-            screen: hang, keyboard: MockOSDChannel(), clock: clock
+            screen: hang, keyboard: MockOSDChannel(),
+            screenBrightnessTarget: { .builtIn }, clock: clock
         )
         suppressor.setEngaged(true)
 
@@ -224,7 +225,8 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         let applied = CounterBox()
         let suppressor = MediaKeyInterceptionOSDSuppressor(
             keys: keys, volume: MockOSDVolumeChannel(),
-            screen: hang, keyboard: MockOSDChannel(), clock: clock
+            screen: hang, keyboard: MockOSDChannel(),
+            screenBrightnessTarget: { .builtIn }, clock: clock
         )
         suppressor.onApplied = { [applied] _ in applied.count += 1 }
         suppressor.setEngaged(true)
@@ -256,7 +258,8 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         let clock = TestSleepClock()
         let suppressor = MediaKeyInterceptionOSDSuppressor(
             keys: keys, volume: MockOSDVolumeChannel(),
-            screen: hang, keyboard: MockOSDChannel(), clock: clock
+            screen: hang, keyboard: MockOSDChannel(),
+            screenBrightnessTarget: { .builtIn }, clock: clock
         )
         suppressor.setEngaged(true)
 

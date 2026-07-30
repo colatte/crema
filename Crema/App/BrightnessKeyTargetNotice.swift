@@ -1,27 +1,26 @@
 /// What the menu should say about which display Crema's screen brightness lands
 /// on.
 ///
-/// Crema drives the BUILT-IN panel and only it — today, and as a gap rather than
-/// a law. A consumed key owes an apply-verify cycle, and the cycle needs a level to
-/// step from; the neighbour supplies one, which an earlier version of this comment
-/// denied on the strength of a probe that asked through the wrong door
-/// (docs/DECISIONS.md: neighbour-features-are-not-identifiers). So this row
-/// describes what the app does now, and stops being needed the day the keys follow
-/// the screen in use. Correct, documented,
-/// and also invisible: with a monitor as the main display the brightness key dims
-/// the laptop panel nobody is looking at, and no surface said so
+/// A brightness key acts on the display under the POINTER: Crema applies it on the
+/// built-in panel, the one display it reads and writes itself, and hands the key to
+/// the system for every other display rather than moving a screen the user is not
+/// looking at (docs/DECISIONS.md: brightness-key-follows-the-pointer). The rule is
+/// invisible while it works — the key simply does what was expected — so the menu
+/// states it in the one arrangement where it explains something, which is also the
+/// arrangement where the old behavior read as a bug
 /// (docs/DECISIONS.md: brightness-key-target-in-the-menu).
 enum BrightnessKeyTargetNotice: Equatable {
-    /// Nothing worth saying: the built-in panel is the only display in use, so
-    /// there is no other screen to confuse it with — or the claim is not ours to
-    /// make, because something else is positioned to take the keys or is drawing
-    /// the bar.
+    /// Nothing worth saying: the built-in panel is the only display in use, so the
+    /// pointer can only ever be on it — or the claim is not ours to make, because
+    /// something else is positioned to take the keys or is drawing the bar.
     case quiet
     /// A built-in panel alongside at least one other display — the one arrangement
-    /// where the target surprises the user.
+    /// where the rule is worth explaining, because the same key does two different
+    /// things depending on where the pointer rests.
     case builtInAmongOthers
-    /// No built-in panel in use: clamshell, or a Mac that has none. The brightness
-    /// write degrades to false there rather than reaching for whatever display
-    /// happens to be main, so the honest line is what Crema cannot do.
+    /// No built-in panel in use: clamshell, or a Mac that has none. Crema applies no
+    /// brightness key at all there — every display in use belongs to someone else,
+    /// and the write would degrade to false anyway — so the honest line is what
+    /// Crema cannot do.
     case noBuiltInDisplay
 }

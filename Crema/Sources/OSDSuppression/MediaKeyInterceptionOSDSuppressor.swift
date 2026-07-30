@@ -85,6 +85,11 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     private let volume: any OSDVolumeChannel
     private let screen: any OSDChannel
     private let keyboard: any OSDChannel
+    /// Which display a screen-brightness key would land on, asked at the press. A
+    /// closure because the answer is a border reading (the live cursor plus the
+    /// active display list) and this type stays testable without either; called on
+    /// the tap thread, so it is Sendable and never hops.
+    private let screenBrightnessTarget: @Sendable () -> BrightnessKeyTarget
     private let clock: any SleepClock
     /// Clock the read deadline sleeps on. Separate from `clock` only for tests:
     /// read deadlines fire on the recovery-probe path too (probeOutcome's
@@ -101,6 +106,14 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     /// (Core Audio is event-driven and needs no poke; the media-key router's
     /// key-time poke still gives the HUD its instant appearance).
     var onApplied: (@MainActor (MediaKey) -> Void)?
+
+    /// Fired when a healthy domain's key was handed back because the pointer rule
+    /// declined it. The system draws that press, so AppCore spends the local
+    /// brightness source's key window with this — otherwise the tap's own
+    /// observation arms a poll, the poll reads the value macOS just moved, and the
+    /// app puts a second bar over the native indicator. Same seam the neighbour's
+    /// report uses (docs/DECISIONS.md: betterdisplay-osd-source).
+    var onDeclinedForAnotherDisplay: (@MainActor (MediaKey) -> Void)?
 
     private(set) var longSuspendedDomains: Set<OSDSuppressionDomain> = []
     var onSuspensionStateChange: (@MainActor () -> Void)?
@@ -149,11 +162,17 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
 
     private let logger = Logger.crema("OSD")
 
+    /// `screenBrightnessTarget` has no default on purpose. A default would be the
+    /// built-in panel, which is exactly the behaviour that dimmed the laptop while
+    /// the user read the monitor — and a construction that dropped the argument
+    /// would restore that bug with the whole suite green. Making it required turns
+    /// an untestable wiring risk into a compile error.
     init(
         keys: any MediaKeyConsuming,
         volume: any OSDVolumeChannel,
         screen: any OSDChannel,
         keyboard: any OSDChannel,
+        screenBrightnessTarget: @escaping @Sendable () -> BrightnessKeyTarget,
         clock: any SleepClock = ContinuousSleepClock(),
         readClock: any SleepClock = ContinuousSleepClock(),
         applyDeadline: Double = MediaKeyInterceptionOSDSuppressor.defaultApplyDeadline
@@ -162,6 +181,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         self.volume = volume
         self.screen = screen
         self.keyboard = keyboard
+        self.screenBrightnessTarget = screenBrightnessTarget
         self.clock = clock
         self.readClock = readClock
         self.applyDeadline = applyDeadline
@@ -184,8 +204,13 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
                 guard let self else { return false }
                 // The swallow decision is synchronous and must be made here, on
                 // the tap thread; the side effects (apply, probe kick) hop to
-                // the main actor.
-                let swallow = self.decider.decide(key: key, isDown: isDown)
+                // the main actor. Where the key would LAND is read here for the
+                // same reason — the answer is where the pointer is right now, and
+                // there is no hop available to go and ask. Only a down can change a
+                // verdict, since the decider latches it for the rest of the press,
+                // so only a down pays the reading.
+                let canApply = isDown ? self.canApplyHere(key) : true
+                let swallow = self.decider.decide(key: key, isDown: isDown, canApply: canApply)
                 if isDown {
                     Task { @MainActor in
                         self.handleConsumedDown(key, fine: fine, swallowed: swallow, generation: installedGeneration)
@@ -211,14 +236,42 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         }
     }
 
+    /// The pointer's half of the swallow decision: whether this key's change is
+    /// this app's to make at all. Screen brightness is the only domain a display
+    /// can own — volume belongs to no display, the backlight to the one keyboard —
+    /// and this app reads and writes the built-in panel and no other, so a key
+    /// aimed anywhere else goes back to whoever can move that screen (a display
+    /// utility behind us in the tap chain, or macOS), each of which draws its own
+    /// feedback. Swallowing it would move a screen the user is not looking at, or
+    /// eat a press and draw nothing
+    /// (docs/DECISIONS.md: brightness-key-follows-the-pointer). Nonisolated because
+    /// the tap thread asks it synchronously at the press; it reads nothing but the
+    /// injected border closure. The other half — a domain suspended after a failed
+    /// apply — is the decider's own.
+    private nonisolated func canApplyHere(_ key: MediaKey) -> Bool {
+        guard OSDSuppressionDomain(key) == .screenBrightness else { return true }
+        return screenBrightnessTarget() == .builtIn
+    }
+
     private func handleConsumedDown(_ key: MediaKey, fine: Bool, swallowed: Bool, generation: Int) {
         guard generation == self.generation, isEngaged else { return }
         if swallowed {
             enqueue(key, fine: fine, generation: generation)
-        } else {
+            return
+        }
+        let domain = OSDSuppressionDomain(key)
+        if decider.isSuspended(domain) {
             // A suspended domain's key passed to the system; an active user
             // pressing it is a cue to try recovering now, ahead of the backoff.
-            kickProbe(OSDSuppressionDomain(key))
+            kickProbe(domain)
+        } else {
+            // Passed with the domain healthy, which leaves exactly one reason: the
+            // pointer rule declined it. Derived from the state rather than carried
+            // down from the tap so an autorepeat that passes on the LATCH — after
+            // the pointer has already crossed back — stands down too; otherwise the
+            // router's poll re-arms mid-hold and the local bar returns over the
+            // system's own indicator.
+            onDeclinedForAnotherDisplay?(key)
         }
     }
 

@@ -263,7 +263,12 @@ final class AppCore {
                 keys: consuming,
                 volume: CoreAudioOSDVolumeChannel(controller: graph.volumeController),
                 screen: ScreenBrightnessOSDChannel(backend: screenBackend, controller: graph.screenBrightnessController),
-                keyboard: KeyboardBrightnessOSDChannel(backend: keyboardBackend, controller: graph.keyboardBrightnessController)
+                keyboard: KeyboardBrightnessOSDChannel(backend: keyboardBackend, controller: graph.keyboardBrightnessController),
+                // The pointer rule's border, read fresh on the tap thread at each
+                // press (rationale on the type). No default exists for this
+                // argument, so no future construction can quietly aim every
+                // brightness key at the built-in panel again.
+                screenBrightnessTarget: BrightnessKeyTargetReading.target
             )
             osdSuppressor = suppressor
             // Surface long-suspended domains in the menu. The suppressor fires
@@ -330,6 +335,20 @@ final class AppCore {
                     volumeSampler.sample()
                 case .mute:
                     break   // a real toggle: Core Audio always echoes it
+                }
+            }
+            // The mirror of the poke above, for the press this app does NOT take:
+            // with the pointer off the built-in panel the key goes to the system,
+            // which draws its own indicator — so the local source spends its key
+            // window instead of adding a second bar over it. Brightness only; no
+            // other domain can be declined (docs/DECISIONS.md:
+            // brightness-key-follows-the-pointer).
+            osdSuppressor?.onDeclinedForAnotherDisplay = { key in
+                switch key {
+                case .screenBrightnessUp, .screenBrightnessDown:
+                    screenSampler.standDown()
+                case .keyboardBrightnessUp, .keyboardBrightnessDown, .volumeUp, .volumeDown, .mute:
+                    break
                 }
             }
         }

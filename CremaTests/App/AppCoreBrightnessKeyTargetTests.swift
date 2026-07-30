@@ -2,12 +2,16 @@ import Testing
 @testable import Crema
 
 /// Which display Crema's screen brightness lands on, as the menu bar has to say
-/// it. Crema drives the built-in panel by decision, not by accident: a consumed
-/// key owes an apply-verify cycle, and a neighbouring app's brightness can be
-/// written but never read, so an external display offers no level to step from and
-/// nothing to verify against
-/// (docs/DECISIONS.md: external-brightness-is-write-only). Correct, documented —
-/// and invisible, which is what the menu row closes.
+/// it. The behavior behind the sentence is the pointer rule: a brightness key acts
+/// on the display under the pointer, Crema applies it on the built-in panel and
+/// hands the key to the system for any other display
+/// (docs/DECISIONS.md: brightness-key-follows-the-pointer). Invisible while it
+/// works, which is what the menu row closes. The rule itself is pinned in
+/// BrightnessKeyTargetingTests; this suite covers only WHEN the row speaks.
+/// (The anchor cited here before, `external-brightness-is-write-only`, no longer
+/// exists in DECISIONS.md and its claim was retracted by
+/// `neighbour-features-are-not-identifiers` — a stale pointer this round removes
+/// rather than carries.)
 ///
 /// Pure over the census, the chain reading and the permission — no AppCore
 /// instance and no system API, the same reason `styleAuthorityOrder` is static

@@ -18,10 +18,20 @@ final class OSDSuppressorHarness {
     let readClock = TestSleepClock()
     let suppressor: MediaKeyInterceptionOSDSuppressor
     private(set) var suspensionChanges = 0
+    /// Where the brightness keys aim. Mutable so a suite can move the pointer to
+    /// another display; `.builtIn` by default because that is what every suite
+    /// written before the pointer rule assumes — one Mac, the key applies here.
+    /// The suppressor's own parameter has NO default on purpose (a default would
+    /// be the reported bug), so the choice is made here, once, in the open.
+    ///
+    /// Behind a lock-guarded box rather than a stored property: the suppressor
+    /// reads it from the TAP thread, synchronously, inside the swallow decision.
+    let brightnessTarget = BrightnessTargetBox()
 
     init() {
         suppressor = MediaKeyInterceptionOSDSuppressor(
             keys: keys, volume: volume, screen: screen, keyboard: keyboard,
+            screenBrightnessTarget: { [brightnessTarget] in brightnessTarget.value },
             clock: clock, readClock: readClock
         )
         suppressor.onSuspensionStateChange = { [weak self] in self?.suspensionChanges += 1 }
@@ -54,6 +64,7 @@ final class OSDSuppressorLockHarness {
         prefs.suppressesNativeOSD = true
         suppressor = MediaKeyInterceptionOSDSuppressor(
             keys: keys, volume: volume, screen: screen, keyboard: keyboard,
+            screenBrightnessTarget: { .builtIn },
             clock: clock, readClock: readClock
         )
         controller = SuppressionLockController(
@@ -63,6 +74,17 @@ final class OSDSuppressorLockHarness {
         // capture needs a fully-formed self, and `controller` is the last.
         suppressor.onSuspensionStateChange = { [weak self] in self?.suspensionChanges += 1 }
         controller.start()
+    }
+}
+
+/// The aim, readable from the tap thread. Its own type for the same reason the
+/// channel doubles have one: the suppressor asks synchronously, off the actor.
+final class BrightnessTargetBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: BrightnessKeyTarget = .builtIn
+    var value: BrightnessKeyTarget {
+        get { lock.withLock { stored } }
+        set { lock.withLock { stored = newValue } }
     }
 }
 
