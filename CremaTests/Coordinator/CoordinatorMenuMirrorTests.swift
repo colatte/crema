@@ -10,22 +10,23 @@ import Testing
 /// pinned here — a guard that compares is one keystroke from a muzzle that never
 /// writes (docs/DECISIONS.md: menu-reads-mirrors).
 ///
-/// UNRESOLVED, and measured rather than assumed: `thePositionTickTouchesNeitherMirror`
-/// does NOT detect the mutation it looks like it detects. Replace the comparing
-/// guard in `Coordinator.publishTrackNames` with an unconditional
+/// SETTLED, by measurement, and the answer was the first of the two possibilities
+/// this note used to leave open.
 ///
-///     nowPlayingTitle = title
-///     nowPlayingArtist = artist
+/// `thePositionTickTouchesNeitherMirror` does not detect the removal of the
+/// comparing guard in `Coordinator.publishTrackNames`, and that is correct rather
+/// than defective: the tick DOES reach the writer (Coordinator publishes the names
+/// on every update, ahead of every early return), and a write of an equal value
+/// simply invalidates nothing. Measured directly on Swift 6.3.3 with a throwaway
+/// @Observable subject: tracking one property, an equal-value write fired no
+/// onChange, an unequal one fired. So the guard is not what keeps the tick quiet —
+/// the runtime is — and no test can separate the two.
 ///
-/// and this suite stays green. Inverting the assertion to `#expect(namesChanged.value)`
-/// under that mutation shows why: the flag is still FALSE, so no notification fires
-/// for the same-value write at all — which contradicts the reasoning written on the
-/// mirrors' own declaration, that Observation invalidates per property and not per
-/// value. Either that reasoning is wrong (and the guard is decoration), or the tick
-/// does not reach the writer in this harness (and the test proves nothing about the
-/// tick). The guard stays either way, because it costs nothing and the failure it
-/// guards against is a 1 Hz system-wide tap probe — but nobody should read this file
-/// as proof that it works until that is settled.
+/// What this suite therefore pins is the CONTRACT, not the mechanism: the tick
+/// leaves the mirrors alone, a real track change does not, and discarding the media
+/// clears them. All three are what the menu depends on. The guard stays for the
+/// reason written at `publishTrackNames`: the protection would otherwise rest on an
+/// optimization inside Observation that no Apple document promises.
 @MainActor
 struct CoordinatorMenuMirrorTests {
 

@@ -989,6 +989,17 @@ enabled Pause.
 Corollary for anything else the menu wants to show: the question is never "is this
 value cheap to read" but "how often is the property I subscribe to written". A
 per-second property is a per-second menu.
+One correction to part (1), because a comment beside that guard used to justify it
+with the opposite of what the runtime does. "Invalidates per property, not per
+value" is about the property you SUBSCRIBE to — reading `nowPlaying?.title` binds
+you to `nowPlaying`, whose value genuinely changes every second because the position
+moves — and it is true. What is NOT true is the narrower claim that writing an equal
+value to a mirror would itself invalidate: measured on Swift 6.3.3, an equal-value
+write through the generated setter fires nothing at all. So the guard is
+belt-and-braces rather than load-bearing, and no test can tell it from an unguarded
+write. It stays because the alternative is resting a 1 Hz system-wide tap probe on an
+optimization inside Observation that no Apple document promises — the same reason
+this codebase never leans on behaviour it cannot see the other side of.
 
 ### brightness-key-follows-the-pointer
 The brightness key always acted on the built-in panel, whatever the user was

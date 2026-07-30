@@ -706,10 +706,27 @@ final class Coordinator {
         }
     }
 
-    /// The single writer of the name mirrors, and the comparison is the whole
-    /// point: an @Observable set fires its observers even when the value is
-    /// unchanged, so an unguarded write here would rebuild the menu once per
-    /// second — the exact cost the mirrors exist to avoid (see their declaration).
+    /// The single writer of the name mirrors.
+    ///
+    /// The comparison is belt-and-braces, and saying so is the point: an earlier
+    /// version of this comment claimed an @Observable set fires its observers even
+    /// when the value is unchanged, and that is not what the runtime does. Measured
+    /// on Swift 6.3.3, writing an equal value through the generated setter fires
+    /// NOTHING, while an unequal one fires — so this guard removes no invalidation
+    /// that would otherwise happen, and the suite cannot tell it apart from an
+    /// unguarded write.
+    ///
+    /// It stays anyway. The mirrors exist to keep the menu off a 1 Hz rebuild whose
+    /// cost is a system-wide tap probe (see their declaration), and that protection
+    /// would then rest entirely on an optimization inside Observation that no Apple
+    /// document promises. A comparison here costs one string compare per second and
+    /// makes the guarantee local — the same trade the house makes wherever the truth
+    /// lives on the other side of a boundary we do not control.
+    ///
+    /// Do not read the green suite as proof that this guard works: it is proof that
+    /// the tick does not invalidate the mirrors, which is true with the guard and,
+    /// on this toolchain, without it (CoordinatorMenuMirrorTests states the
+    /// measurement).
     private func publishTrackNames(title: String?, artist: String?) {
         if nowPlayingTitle != title { nowPlayingTitle = title }
         if nowPlayingArtist != artist { nowPlayingArtist = artist }
