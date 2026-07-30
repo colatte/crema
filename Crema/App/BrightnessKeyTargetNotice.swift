@@ -1,11 +1,13 @@
 /// What the menu should say about which display Crema's screen brightness lands
 /// on.
 ///
-/// Crema drives the BUILT-IN panel and only it, by decision: a consumed key owes
-/// an apply-verify cycle, and a neighbouring app's brightness can be written but
-/// never read — measured, every spelling of the level is refused — so an external
-/// display offers no level to step from and nothing to verify against
-/// (docs/DECISIONS.md: external-brightness-is-write-only). Correct, documented,
+/// Crema drives the BUILT-IN panel and only it — today, and as a gap rather than
+/// a law. A consumed key owes an apply-verify cycle, and the cycle needs a level to
+/// step from; the neighbour supplies one, which an earlier version of this comment
+/// denied on the strength of a probe that asked through the wrong door
+/// (docs/DECISIONS.md: neighbour-features-are-not-identifiers). So this row
+/// describes what the app does now, and stops being needed the day the keys follow
+/// the screen in use. Correct, documented,
 /// and also invisible: with a monitor as the main display the brightness key dims
 /// the laptop panel nobody is looking at, and no surface said so
 /// (docs/DECISIONS.md: brightness-key-target-in-the-menu).

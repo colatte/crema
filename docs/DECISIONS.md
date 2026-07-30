@@ -708,30 +708,33 @@ removed: it could only stop the backward half, and it needed a `rate > 0`
 exception so a rewind scan could still walk the bar back. One clock that cannot
 lie replaces both.
 
-### external-brightness-is-write-only
-A neighbouring app's brightness can be WRITTEN but not READ, and that asymmetry
-decides which display the media keys drive.
-Measured over BetterDisplay's request/response channel (macOS 26.5.2, BD 4.3.5):
-`get` is alive and the request shape is right — `UUID`, `name`, `serial`, `vendor`,
-`model` and `productName` all answer `result=true` with a payload, and the UUID it
-returns matches the one macOS reports for the same panel. Every spelling of the
-level is refused with `result=false, payload=nil`: `brightness`,
-`combinedBrightness`, `hardwareBrightness`, `softwareBrightness`, `ddcBrightness`.
-Consequence: the apply-verify cycle cannot run against an external display. There
-is no `before` to step from and no read-back to verify with, and a consumed key
-that cannot be verified is exactly what the suppression contract forbids — so the
-brightness KEYS stay on the built-in panel, verified, while the SLIDER (which
-carries its own absolute value and needs no read) goes back through the neighbour.
-Decision: keys drive the built-in; external brightness is slider-only. Two designs
-were considered and both trade the verification away — seeding the level from the
-neighbour's own OSD report (which never arrives while we swallow the key, so the
-first press of a session has no seed) and letting the first press through to
-harvest a report (which hands that press's feedback to the neighbour). Neither
-ships without a decision to drop verification for one domain.
-Corollary: `BetterDisplayCommandTranslation.identifierRequest` had no caller and
-its shape had never been exercised in production — this probe is what validated
-it. It stays as the seam any future attempt needs, with the refusal recorded at the
-call site so nobody rediscovers it.
+### neighbour-features-are-not-identifiers
+BetterDisplay's request channel answers two different vocabularies, and asking in
+the wrong one looks exactly like a platform limitation.
+
+METADATA is asked for through `identifier`: `{"commands":["get"],"parameters":
+{"displayID":"2","identifier":"UUID"}}` answers UUID, name, serial, vendor, model,
+productName. A FEATURE is asked for by its own name as the parameter KEY, with no
+value: `{"commands":["get"],"parameters":{"displayID":"2","brightness":""}}` →
+`result=true, payload=0.063`. Same for `combinedBrightness` and
+`hardwareBrightness`. And a relative write is the documented `offset` parameter —
+`{"set", {"brightness":"-5%","offset":""}}` → `result=true` — not a sign on the
+value, which is read as an absolute (a probe sending `+0.0625` set the monitor to
+6.3% and looked like it had been accepted as a delta).
+
+This entry replaces one that claimed the opposite. Five spellings of brightness
+were measured through `identifier` — the metadata door — all refused, and that
+became an anchor, a public ROADMAP item and a code comment asserting the neighbour
+could be written but never read. The consequence was not a wrong sentence: it
+retired a feature. "Brightness keys follow the screen you are working on" was
+declined as impossible, because stepping needs a `before` and there appeared to be
+none. There is one, so the apply-verify cycle runs against an external display like
+any other.
+Decision: an integration's own documentation is a primary source and gets read
+BEFORE a refusal becomes a limitation. Five failures in one category are evidence
+about that category, never about the platform — and a vendor wiki was one search
+away the whole time. When a measurement says a neighbouring app cannot do something
+its docs describe, the null hypothesis is that we are asking wrong.
 
 ### automation-is-fallback-only
 The app required a permission it never named. The now-playing chain is adapter →
@@ -853,10 +856,11 @@ Management once per rebuild — one reading, not two, which is why the instance-
 ### brightness-key-target-in-the-menu
 Correct behavior nobody can see reads as a bug: with an external monitor as the
 main display, the brightness key dims the laptop panel the user is not looking at.
-Crema's screen brightness drives the built-in panel by decision — a neighbour's
-brightness can be written but not read, so a consumed key has no level to step from
-and nothing to verify against (`external-brightness-is-write-only`) — and no
-surface said so.
+Crema's screen brightness drives the built-in panel because that is what it has
+been taught to drive, and no surface said so. (The first version of this entry
+justified it as a limit of the integration — the neighbour readable only for
+writing — which was our own probe asking through the metadata door; see
+`neighbour-features-are-not-identifiers`. The row is right; the reason was not.)
 Decision: the menu names the target, in one row of the status block, and only where
 the row is both true and informative. Three states, from the display census: a lone
 built-in panel says nothing (there is no other screen to confuse it with); a

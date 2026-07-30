@@ -24,15 +24,12 @@ displays (DDC audio, which Core Audio cannot see), and the equivalent integratio
 for [Lunar](https://github.com/alin23/Lunar).
 
 Also open, and the one people actually notice: the **brightness keys always drive
-the built-in panel**, whichever display you are working on. Drag Crema's bar on
-the monitor and the monitor responds; press F1/F2 while looking at that same
-monitor and the laptop panel dims instead. Making the keys follow the screen you
-are using needs the monitor's CURRENT level to compute the next step from, and
-BetterDisplay's request channel does not hand that out — measured, its `get`
-answers a display's UUID, name and serial happily and refuses every spelling of
-brightness. Without a level to read there is nothing to step from and nothing to
-verify afterwards, and a consumed key that cannot be verified is the one thing
-this app does not ship (docs/DECISIONS.md: external-brightness-is-write-only).
+the built-in panel**, whichever display you are working on. Drag Crema's bar on the
+monitor and the monitor responds; press F1/F2 while looking at that same monitor
+and the laptop panel dims instead. This is a feature Crema has not built yet, not
+a limit of the integration — an earlier version of this paragraph said the
+neighbour's brightness could not be read, and that was our own measurement error
+(docs/DECISIONS.md: neighbour-features-are-not-identifiers).
 
 ## Per-display styles
 

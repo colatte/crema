@@ -44,23 +44,21 @@ enum BetterDisplayCommandTranslation {
         ))
     }
 
-    /// A read of one identifier. No production caller — kept because it is the seam
-    /// any future attempt at reading the neighbour needs, and because what it can
-    /// and cannot fetch is now measured rather than assumed.
+    /// A read of one METADATA identifier — UUID, name, serial, vendor, model,
+    /// productName. No production caller yet; kept because it is the seam a reader
+    /// of the neighbour needs, and because the shape is now measured.
     ///
-    /// This shape WORKS: `UUID`, `name`, `serial`, `vendor`, `model` and
-    /// `productName` all come back with `result=true` and a payload, and the UUID it
-    /// answers matches what macOS reports for the same panel. The LEVEL does not:
-    /// `brightness`, `combinedBrightness`, `hardwareBrightness`,
-    /// `softwareBrightness` and `ddcBrightness` are each refused with
-    /// `result=false, payload=nil` (macOS 26.5.2, BetterDisplay 4.3.5).
+    /// `identifier` is the metadata door and ONLY that. A feature is asked for by
+    /// its own name as the parameter key with no value — `parameters: ["displayID":
+    /// "2", "brightness": ""]` answers `result=true, payload=0.063` — and a relative
+    /// write uses the documented `offset` parameter rather than a sign on the value,
+    /// which is read as an absolute.
     ///
-    /// That refusal is why the brightness KEYS stay on the built-in display: with no
-    /// level to read there is no step to compute and no read-back to verify, and a
-    /// consumed key that cannot be verified is what the suppression contract
-    /// forbids. The slider needs no read — it carries its own absolute value — which
-    /// is why dragging works on an external and pressing the key does not.
-    /// (docs/DECISIONS.md: external-brightness-is-write-only)
+    /// Worth stating because the mistake was expensive: five spellings of brightness
+    /// were probed through `identifier`, all refused, and that became a written
+    /// claim that the neighbour could be written but never read — which retired the
+    /// feature that needed the read. It was the wrong door, not a missing one
+    /// (docs/DECISIONS.md: neighbour-features-are-not-identifiers).
     static func identifierRequest(uuid: String, identifier: String, displayID: Int) -> String? {
         encode(Request(
             uuid: uuid,

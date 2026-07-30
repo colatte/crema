@@ -23,10 +23,13 @@ struct MenuStatus {
         case brightnessFromBetterDisplay
         /// Correct behavior nobody can see reads as a bug: with a monitor as the
         /// main display the brightness key dims the laptop panel the user is not
-        /// looking at. Crema drives the built-in panel by decision — a neighbour's
-        /// brightness can be written but never read, so a consumed key has no level
-        /// to step from and nothing to verify against
-        /// (docs/DECISIONS.md: external-brightness-is-write-only).
+        /// looking at. Crema drives the built-in panel because that is the only
+        /// display it has been TAUGHT to drive with the keys — not because an
+        /// external one is out of reach. It is reachable: the neighbour reads and
+        /// writes brightness, and an earlier claim to the contrary here was our own
+        /// probe asking through the metadata door
+        /// (docs/DECISIONS.md: neighbour-features-are-not-identifiers). Until the
+        /// keys learn to follow the screen in use, this row is the honest one.
         case brightnessBuiltInOnly
         /// No built-in panel in use: clamshell, or a Mac that has none. The write
         /// degrades to false there rather than reaching for whatever display is
