@@ -704,3 +704,28 @@ part of the tick's arithmetic at all. A monotonic FLOOR was tried first and
 removed: it could only stop the backward half, and it needed a `rate > 0`
 exception so a rewind scan could still walk the bar back. One clock that cannot
 lie replaces both.
+
+### external-brightness-is-write-only
+A neighbouring app's brightness can be WRITTEN but not READ, and that asymmetry
+decides which display the media keys drive.
+Measured over BetterDisplay's request/response channel (macOS 26.5.2, BD 4.3.5):
+`get` is alive and the request shape is right — `UUID`, `name`, `serial`, `vendor`,
+`model` and `productName` all answer `result=true` with a payload, and the UUID it
+returns matches the one macOS reports for the same panel. Every spelling of the
+level is refused with `result=false, payload=nil`: `brightness`,
+`combinedBrightness`, `hardwareBrightness`, `softwareBrightness`, `ddcBrightness`.
+Consequence: the apply-verify cycle cannot run against an external display. There
+is no `before` to step from and no read-back to verify with, and a consumed key
+that cannot be verified is exactly what the suppression contract forbids — so the
+brightness KEYS stay on the built-in panel, verified, while the SLIDER (which
+carries its own absolute value and needs no read) goes back through the neighbour.
+Decision: keys drive the built-in; external brightness is slider-only. Two designs
+were considered and both trade the verification away — seeding the level from the
+neighbour's own OSD report (which never arrives while we swallow the key, so the
+first press of a session has no seed) and letting the first press through to
+harvest a report (which hands that press's feedback to the neighbour). Neither
+ships without a decision to drop verification for one domain.
+Corollary: `BetterDisplayCommandTranslation.identifierRequest` had no caller and
+its shape had never been exercised in production — this probe is what validated
+it. It stays as the seam any future attempt needs, with the refusal recorded at the
+call site so nobody rediscovers it.

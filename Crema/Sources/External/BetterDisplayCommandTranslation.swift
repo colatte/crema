@@ -44,7 +44,23 @@ enum BetterDisplayCommandTranslation {
         ))
     }
 
-    /// A read of one identifier, used to confirm a display is the one we mean.
+    /// A read of one identifier. No production caller — kept because it is the seam
+    /// any future attempt at reading the neighbour needs, and because what it can
+    /// and cannot fetch is now measured rather than assumed.
+    ///
+    /// This shape WORKS: `UUID`, `name`, `serial`, `vendor`, `model` and
+    /// `productName` all come back with `result=true` and a payload, and the UUID it
+    /// answers matches what macOS reports for the same panel. The LEVEL does not:
+    /// `brightness`, `combinedBrightness`, `hardwareBrightness`,
+    /// `softwareBrightness` and `ddcBrightness` are each refused with
+    /// `result=false, payload=nil` (macOS 26.5.2, BetterDisplay 4.3.5).
+    ///
+    /// That refusal is why the brightness KEYS stay on the built-in display: with no
+    /// level to read there is no step to compute and no read-back to verify, and a
+    /// consumed key that cannot be verified is what the suppression contract
+    /// forbids. The slider needs no read — it carries its own absolute value — which
+    /// is why dragging works on an external and pressing the key does not.
+    /// (docs/DECISIONS.md: external-brightness-is-write-only)
     static func identifierRequest(uuid: String, identifier: String, displayID: Int) -> String? {
         encode(Request(
             uuid: uuid,
