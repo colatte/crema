@@ -23,13 +23,23 @@ lands on the same scale the bar was drawn in (see Usage in the
 displays (DDC audio, which Core Audio cannot see), and the equivalent integration
 for [Lunar](https://github.com/alin23/Lunar).
 
-Also open, and the one people actually notice: the **brightness keys always drive
-the built-in panel**, whichever display you are working on. Drag Crema's bar on the
-monitor and the monitor responds; press F1/F2 while looking at that same monitor
-and the laptop panel dims instead. This is a feature Crema has not built yet, not
-a limit of the integration — an earlier version of this paragraph said the
-neighbour's brightness could not be read, and that was our own measurement error
-(docs/DECISIONS.md: neighbour-features-are-not-identifiers).
+The **brightness keys follow the pointer**: with the cursor on the laptop, F1/F2
+dims the laptop and Crema draws the bar; with the cursor on the monitor, the key
+goes whole to whoever drives that screen — BetterDisplay, if you have it, which
+applies it and reports back, so the bar appears on the monitor you are looking at.
+
+What is still open is Crema **applying** the change on an external display itself,
+rather than handing the key over. That would give an external monitor the same step
+size and the same fine step (hold Option-Shift) as the built-in panel, and a bar
+even with the neighbour's own OSD reporting turned off. The mechanism exists: the
+neighbour's request channel both reads and writes brightness, so the apply-verify
+cycle Crema owes every key it consumes can run over it. One trap is worth writing
+down for whoever builds this, because it costs nothing to avoid and is invisible
+once made: with the laptop closed the pointer is necessarily on an external display,
+so a gate that takes the key only when it aims at the built-in panel turns that
+entire cycle into dead code in the one arrangement it was written for — and the test
+suite stays green while it does (docs/DECISIONS.md:
+brightness-key-follows-the-pointer).
 
 ## Per-display styles
 

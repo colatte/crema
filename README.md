@@ -145,7 +145,11 @@ xattr -dr com.apple.quarantine /Applications/Crema.app
 - To have Crema **replace the system's HUDs**, turn that on in
   **Settings → System HUD**. Crema then intercepts the volume and brightness
   keys — the system never sees them, so it never draws its HUD; Crema shows its
-  own and applies the change itself. It's off by default, reversible at any
+  own and applies the change itself. A **brightness** key is the one exception,
+  and it follows your pointer: Crema takes it while the cursor is on the built-in
+  display, which is the one panel it drives, and lets it go by untouched when the
+  cursor is on any other screen — dimming a display you aren't looking at is not
+  an improvement on the system HUD. It's off by default, reversible at any
   time, and needs the Accessibility permission. If one channel ever fails to
   apply — say a Bluetooth output disappears mid-press — only that channel
   (volume, screen brightness, or keyboard backlight) hands its keys back to the
