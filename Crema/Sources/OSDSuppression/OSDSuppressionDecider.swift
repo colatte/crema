@@ -37,9 +37,9 @@ final class SuppressionDecider: @unchecked Sendable {
     /// way. Needed because the reason a down passes can change under a held key:
     /// the pointer crosses onto another display (`canApply` flips) or a probe
     /// re-engages the domain mid-hold. Without this latch the rest of that press
-    /// would be swallowed, leaving the system downs with no up — the autorepeat
-    /// nobody stops, which is the failure the swallow latch already avoids in the
-    /// other direction.
+    /// would be swallowed, leaving the system downs with no up — half a press with
+    /// no closing event, the same orphaned pair the swallow latch already avoids in
+    /// the other direction.
     private var passedDowns: Set<MediaKey> = []
 
     func isSuspended(_ domain: OSDSuppressionDomain) -> Bool {
@@ -63,9 +63,14 @@ final class SuppressionDecider: @unchecked Sendable {
     /// tap that suspends between its down and its up leaves the system an up with
     /// no down. That is the direction to err in. The alternative — keeping the up
     /// swallowed while letting the repeats through — leaves the system DOWNS with
-    /// no up, and a media-key down with no up is what starts an autorepeat nobody
-    /// stops: the volume would keep travelling on its own. An orphan up only ever
-    /// ends a repeat that was never running.
+    /// no up, which is the half of this type's pairing rule that has no closing
+    /// event: nothing the system receives later ends that press. An orphan up only
+    /// ever ends a press nobody was tracking. What is NOT at risk in either
+    /// direction is the AUTOREPEAT — it is generated upstream of every CGEventTap,
+    /// by a timer inside the HID event system that the physical key-down arms and
+    /// the physical key-up cancels (IOHIDFamily: IOHIDKeyboardFilter.mm
+    /// processKeyRepeats; IOHIKeyboard::setRepeat on the legacy path), so no tap
+    /// ever sees those events, let alone swallows them.
     func suspend(_ domain: OSDSuppressionDomain) {
         lock.withLock {
             suspended.insert(domain)

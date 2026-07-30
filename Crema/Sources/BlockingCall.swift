@@ -5,10 +5,15 @@ import Foundation
 ///
 /// An `async` signature is not proof of a suspension point. A function declared
 /// `async` whose body is a straight-line C call never suspends: it runs to
-/// completion on whatever thread picked it up. And because a nonisolated `async`
-/// function hops off its caller's actor onto the global concurrent executor, the
-/// thread it occupies is a cooperative-pool thread — no matter whether the call
-/// came from a detached task or from a `@MainActor` one.
+/// completion on whatever thread picked it up. WHICH thread that is depends on one
+/// upcoming feature, and the hop below is the right answer under either. Absent
+/// `NonisolatedNonsendingByDefault` — this project's state today — a nonisolated
+/// `async` function switches to the generic concurrent executor on entry, so the
+/// thread it burns is a cooperative-pool one whether the call came from a detached
+/// task or from a `@MainActor` one. Under that flag (SE-0461, implemented in Swift
+/// 6.2, opt-in today and the default in a future language mode) it stays on its
+/// caller's actor instead, and the same straight-line C call blocks the MAIN THREAD
+/// outright. The hazard changes address; only an explicit hop off answers both.
 ///
 /// That matters because the cooperative pool has a fixed width (one thread per
 /// core) and does not overcommit. Enough blocked calls and nothing scheduled on

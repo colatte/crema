@@ -27,7 +27,8 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
     /// (docs/DECISIONS.md: sample-dont-integrate), so a tick only moves the position
     /// if time moved — the coupling the old `+1 per tick` assertions were missing.
     ///
-    /// Two of them because the source ages on a monotonic stopwatch and reads the
+    /// Two of them because the source ages on a suspending stopwatch (it stops while
+    /// the machine sleeps) and reads the
     /// wall clock only to age a payload's timestamp to delivery. `advance` moves
     /// both, which is time actually passing. `jumpWallClock` moves ONLY the wall
     /// clock, which is what an NTP step correction or a manual time change does —

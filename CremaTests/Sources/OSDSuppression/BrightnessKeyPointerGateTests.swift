@@ -103,7 +103,7 @@ struct BrightnessKeyPointerGateTests {
         #expect(!harness.keys.pressDown(.screenBrightnessUp))
         // The pointer crosses onto the laptop mid-hold. The verdict must not flip:
         // swallowing the rest of a press the system already saw the down of leaves
-        // it downs with no up — the autorepeat nobody stops.
+        // it downs with no up — half a press nobody closes.
         harness.brightnessTarget.value = .builtIn
         #expect(!harness.keys.pressDown(.screenBrightnessUp))   // autorepeat
         #expect(!harness.keys.pressUp(.screenBrightnessUp))

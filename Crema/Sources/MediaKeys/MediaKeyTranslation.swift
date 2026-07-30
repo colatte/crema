@@ -12,7 +12,10 @@ enum MediaKeyTranslation {
     static let auxiliaryControlSubtype: Int16 = 8
 
     /// Full decode of an aux-button `data1` payload: keyCode in the high word,
-    /// key state in the second byte (0x0A down / 0x0B up), repeat flag in bit 0.
+    /// key state in the second byte (0x0A down / 0x0B up), repeat in the low byte.
+    /// Not folklore: the producer packs it as `(flavor << 16) | (eventType << 8) |
+    /// repeat` and Apple's own NX event dumper reads it back with those exact shifts
+    /// (IOHIDFamily 701.20.10 IOHIDSystem.cpp; 1633 tools/IOHIDNXEventDescription.c).
     /// Key-ups return nil; autorepeats emit (holding a key keeps adjusting).
     static func mediaKey(fromData1 data1: Int) -> MediaKey? {
         let keyCode = (data1 & 0xFFFF_0000) >> 16

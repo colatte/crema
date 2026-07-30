@@ -210,6 +210,22 @@ one caller that happens to bound it — the actuators wrap their C call in
 drag are covered by construction. Reviewing "is this async?" means reading the
 body: a signature is a promise about the caller, never evidence about the
 callee.
+The hop is not a property of the language mode's number, but of one upcoming
+feature. Absent `NonisolatedNonsendingByDefault` — this project's state today — a
+nonisolated `async` function switches away from its caller's actor; under it
+(SE-0461, implemented in Swift 6.2, opt-in now and the default in a future language
+mode) it stays on the caller's actor, so the same straight-line C call blocks the
+main thread rather than the pool. The hazard changes address instead of going away,
+and `blockingCall` answers both. The idiomatic replacement, when the floor allows
+it, is SE-0417's task executor preference, whose own motivation names this exact
+case ("you may not want to perform [blocking IO primitives] on the width-limited
+default pool of Swift Concurrency") — but `TaskExecutor` and
+`withTaskExecutorPreference` are macOS 15.0+ and `DispatchQueue`'s conformance to
+it macOS 15.4+, against this app's macOS 14.0 target, so the
+continuation-plus-`DispatchQueue` shape is not a workaround for a missing idiom, it
+is the one available spelling. What bounds the residual GCD's growing pool costs is
+not a count of call sites but their shape: every one is single-flight (one apply per
+key, one read in flight per channel, one decode per panel).
 
 ### child-process-deadline
 Every one-shot subprocess interaction is time-bounded: waiting on a
@@ -708,6 +724,30 @@ removed: it could only stop the backward half, and it needed a `rate > 0`
 exception so a rewind scan could still walk the bar back. One clock that cannot
 lie replaces both.
 
+Sleep is the second half of that choice, and the word "monotonic" hides it.
+`systemUptime` is `CLOCK_UPTIME_RAW`, which "does not increment while the system is
+asleep" and is "identical to the result of mach_absolute_time" (clock_gettime(3);
+Apple's own mach_absolute_time page says the same and points at CLOCK_UPTIME_RAW as
+the equivalent). Read side by side on a Mac that had slept 8.74 h since boot, it
+sits exactly that far behind `mach_continuous_time`/`CLOCK_MONOTONIC_RAW` — and
+behind `CLOCK_MONOTONIC` too, which on Darwin likewise keeps counting through sleep
+— and exactly equal to `SuspendingClock.now`. So the Swift twin of this reading is
+`SuspendingClock`, NOT `ContinuousClock`: on Darwin SE-0329 maps the continuous one
+to the monotonic clock, the one that keeps counting through sleep. That is the
+behaviour a music position wants — the machine sleeping stops the playback too, so
+the bar must not be credited with the closed-lid hours; a continuous reading would
+jump it to the duration clamp on wake, and this adapter only sends again on a state
+change. The residual is honest: audio that really did keep playing elsewhere
+(handed off to another device) advanced while we slept, and the bar sits behind
+until the next payload re-anchors it — the same class of residual the
+backward-step rule already accepts. The other timeline in the same file is
+deliberate, not drift: the ticker WAITS on `SleepClock`/`ContinuousSleepClock`,
+i.e. `Task.sleep(for:)`, whose default clock is `.continuous`, so that wait keeps
+running through sleep and its deadline should already be past at wake (reasoned
+from the documented default clock, not measured across a real sleep — and by the
+sampling rule above a late tick answers the same anyway). Waiting continuous,
+ageing suspending: unifying the two would be a regression in whichever direction.
+
 ### neighbour-features-are-not-identifiers
 BetterDisplay's request channel answers two different vocabularies, and asking in
 the wrong one looks exactly like a platform limitation.
@@ -1020,8 +1060,10 @@ itself lighting.
 The verdict is latched for the whole press, in BOTH directions
 (`SuppressionDecider`): a pointer crossing displays under a held key cannot turn a
 passed press into a swallowed one, which would leave the system downs with no up —
-the autorepeat nobody stops. Same latch that already kept a swallowed press
-swallowed, now stated as one rule.
+half a press with no closing event. (Not the autorepeat: that one is generated
+upstream of every CGEventTap, armed and cancelled by the physical key edges, so no
+tap can strand it.) Same latch that already kept a swallowed press swallowed, now
+stated as one rule.
 What is NOT here: applying on the external display, and any identity for it. The
 write half exists (`BetterDisplayScreenBrightnessController`, used by drags), but a
 stepped key also needs a LEVEL to step from and verify against, and the neighbour's
@@ -1034,3 +1076,37 @@ panel anyway and shows its own indicator. Crema stops being the one that dims th
 wrong screen; it cannot stop the system from doing so. That is the same contract
 `per-domain-suspension` already accepts, and it is why the menu row promises an aim
 and never an outcome on the other display.
+
+### assumed-isolation-is-measured
+The rule first, because it outlives the case: an assumption that cannot be caught
+may rest on an archived guarantee only if it ALSO rests on a measurement someone
+can re-run, and the comment names both — archive status included. A citation that
+hides its own age reads as authority it no longer has.
+Nine `MainActor.assumeIsolated` calls sit on system callbacks, each a fatalError if
+its callback ever arrives off the main thread, and they do not all rest on the same
+footing. Five are NotificationCenter block observers registered with `queue: .main`
+— live, undeprecated doc that names the exact predicate ("the operation queue where
+the block runs", and `OperationQueue.main` is "the operation queue associated with
+the main thread"). Four are NSEvent monitors, and for those Apple's only written
+statement is in the Documentation Archive: the Cocoa Event Handling Guide,
+"Monitoring Events", updated 2016-09-13 — "The handlers are always called on the
+main thread". The live NSEvent pages, the AppKit header and the SDK annotations are
+all silent.
+The trap is kept, for reasons that outlive the citation. What the runtime checks is
+thread identity, not dispatch-queue identity: outside Swift Concurrency the
+main-executor check is `isMainExecutor() && isExecutingOnMainThread()`, bottoming
+out in `pthread_main_np()`. So "main thread" is the right guarantee and not an
+approximation of one — and a custom OperationQueue with `underlyingQueue = .main`
+would NOT be the same contract, which is the edit to refuse here. The non-trapping
+alternative — guard on `Thread.isMainThread`, hop otherwise — guards on the same
+predicate in practice, so its fallback is unreachable, and the hop it would perform
+is the reordering these call sites exist to avoid (`settle-rereads` depends on that
+ordering). Graceful degradation has nothing to degrade to: `sample()`,
+`routeClicks()` and the Coordinator are all MainActor, so off-main delivery is
+already corruption, and a trap beats corrupting quietly.
+What changed is the evidence, not the code. Measured on macOS 26.5.2 / Swift 6.3.3,
+posting from a background thread: all five mechanisms (local monitor, GLOBAL
+monitor, NotificationCenter, DistributedNotificationCenter, NSWorkspace center)
+delivered on the main thread — which is the predicate the runtime checks, so the
+assumption holds by construction. The global monitor is the one no live document
+covers at all, and it was the one never measured.

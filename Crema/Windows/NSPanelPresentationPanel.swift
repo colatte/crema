@@ -348,6 +348,13 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// re-synchronization point after the cursor crosses the boundary mid-drag.
     private func installMouseRouting() {
         let events: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseUp, .rightMouseUp, .otherMouseUp]
+        // Both handlers assume the MainActor instead of hopping: NSEvent monitor
+        // handlers are delivered on the main thread. It is an unconditional trap if
+        // that ever stops being true, and Apple states it only in an archived guide —
+        // the citation, its archive status and the measurement that outranks it are
+        // written out once, at SurfaceHoverMonitor.install()
+        // (docs/DECISIONS.md: assumed-isolation-is-measured), so there is one place
+        // to re-verify instead of two copies to drift apart.
         localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: events) { [weak self] event in
             MainActor.assumeIsolated {
                 // Click-invoke: the mouse-up of a click the panel captured

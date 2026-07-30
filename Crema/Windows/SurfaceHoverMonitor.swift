@@ -117,11 +117,31 @@ final class SurfaceHoverMonitor {
         // catches moves over our panel, global catches the cursor leaving it —
         // either alone is half a hover.
         //
-        // `MainActor.assumeIsolated` below is a trap if the delivery is ever off the
-        // main thread, so it rests on a guarantee and not on a habit: Apple's Event
-        // Handling Guide states "The handlers are always called on the main thread"
-        // for both monitors. The AppKit HEADER does not say it — reading only the
-        // header makes this look like an assumption, which is how it got questioned.
+        // `MainActor.assumeIsolated` below is an unconditional trap — a fatalError,
+        // SIGTRAP, no throw and no degraded path — so it rests on a guarantee, and
+        // the guarantee it needs is MAIN THREAD, which is exactly what the runtime
+        // checks: outside Swift Concurrency (a runloop callout is outside it) the
+        // main-executor check is `isMainExecutor() && isExecutingOnMainThread()` —
+        // thread identity, never "the main dispatch queue".
+        //
+        // The only WRITTEN source is Apple's Cocoa Event Handling Guide, "Monitoring
+        // Events": "The handlers are always called on the main thread", for both
+        // monitors. That page sits in the Documentation Archive, last updated
+        // 2016-09-13; the live NSEvent pages say nothing about threads, and as of the
+        // macOS 26 SDK neither the AppKit header nor any @MainActor annotation on the
+        // handler says it either. So the durable evidence is MEASURED, not cited:
+        // posting from a background thread on macOS 26.5.2 / Swift 6.3.3, local AND
+        // global monitor both arrived on the main thread. Re-running it is not
+        // obvious — post a synthetic `.mouseMoved` on `.cghidEventTap` AT THE CURRENT
+        // CURSOR POINT from a background thread with this process not frontmost, and
+        // print `Thread.isMainThread` in both handlers; waving the mouse by hand
+        // proves nothing, because the global monitor never observes its own app's
+        // events. An archived page can be withdrawn, a measurement can be repeated.
+        //
+        // Guarding on `Thread.isMainThread` instead would test the same predicate the
+        // runtime consults, so its else-branch is dead code no test reaches, and the
+        // hop it would perform is the reordering these assumptions exist to avoid.
+        // (docs/DECISIONS.md: assumed-isolation-is-measured)
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: Self.sampleEventMask) { [weak self] event in
             MainActor.assumeIsolated { self?.sample() }
             return event

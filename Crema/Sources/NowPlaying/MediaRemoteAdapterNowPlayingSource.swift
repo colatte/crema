@@ -22,12 +22,19 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
     /// Injected so the anchor-aging math in the translation stays testable
     /// with fixed instants.
     private let now: @Sendable () -> Date
-    /// Seconds on a MONOTONIC timeline, which is what the ticker ages against.
+    /// Seconds on the SUSPENDING timeline: a stopwatch that no NTP correction or
+    /// manual clock change can move AND that stops while the machine sleeps
+    /// (`systemUptime` is `CLOCK_UPTIME_RAW`). Both halves are load-bearing.
     /// Separate from `now` because the two answer different questions: `now` is
-    /// wall-clock time, needed to age a payload's own timestamp to delivery, and
-    /// this one is a stopwatch that no NTP correction or manual clock change can
-    /// move. Injected so a test can move one without the other — which is exactly
-    /// what a clock correction does in the field.
+    /// wall-clock time, needed to age a payload's own timestamp to delivery. And
+    /// sleep must NOT count: playback stops when the machine does, so a continuous
+    /// timeline would credit the bar with the closed-lid hours and throw it to the
+    /// duration clamp on wake. The stdlib twin of this reading is therefore
+    /// `SuspendingClock`, never `ContinuousClock` — and it must NOT be unified with
+    /// the ticker's `SleepClock`, which waits on the continuous one on purpose
+    /// (docs/DECISIONS.md: sample-dont-integrate). Injected so a test can move one
+    /// timeline without the other — which is exactly what a clock correction does
+    /// in the field.
     private let uptime: @Sendable () -> Double
     private let lock = NSLock()
     private var latest: NowPlaying?
@@ -283,7 +290,8 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
         // bar in sync through a whole track, since players re-anchor only on
         // state changes. (docs/DECISIONS.md: sample-dont-integrate)
         guard let anchor else { lock.unlock(); return }
-        // Aged on a MONOTONIC stopwatch, never the wall clock. Sampling means the
+        // Aged on the SUSPENDING stopwatch (`systemUptime`, which stops while the
+        // machine sleeps), never the wall clock. Sampling means the
         // bar follows whatever clock it reads, so reading the wall clock let an NTP
         // step correction or a manual time change move the bar with it — backward,
         // undoing playback already shown, and forward, throwing it ahead to be
