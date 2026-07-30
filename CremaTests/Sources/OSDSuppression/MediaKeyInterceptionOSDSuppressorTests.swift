@@ -170,8 +170,11 @@ struct MediaKeyInterceptionOSDSuppressorTests {
 
     @Test func aConsumedKeyOnAnUnavailableScreenChannelNoOpsWithoutSuspending() async {
         // A channel whose capability is genuinely absent (private symbols never
-        // resolved) is a no-op like the native handler — never a suspension,
-        // and never a silent swallow beyond the logged pass-through.
+        // resolved) writes nothing and never suspends: there is no failure to
+        // recover from. Both presses land before the first apply has answered, so
+        // both are still taken — what happens once the absence IS known (the key
+        // goes to the system, which draws it) is pinned in
+        // AbsentCapabilityHandbackTests, not here.
         let h = OSDSuppressorHarness()
         h.screen.available = false
         h.suppressor.setEngaged(true)

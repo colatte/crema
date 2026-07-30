@@ -338,18 +338,20 @@ final class AppCore {
                 }
             }
             // The mirror of the poke above, for the press this app does NOT take:
-            // with the pointer off the built-in panel the key goes to the system,
-            // which draws its own indicator — so the local source spends its key
-            // window instead of adding a second bar over it. Brightness only; no
-            // other domain can be declined (docs/DECISIONS.md:
-            // brightness-key-follows-the-pointer).
-            osdSuppressor?.onDeclinedForAnotherDisplay = { key in
-                switch key {
-                case .screenBrightnessUp, .screenBrightnessDown:
-                    screenSampler.standDown()
-                case .keyboardBrightnessUp, .keyboardBrightnessDown, .volumeUp, .volumeDown, .mute:
-                    break
-                }
+            // the key goes to the system, which applies it and draws its own
+            // indicator — so the local source spends its key window instead of
+            // adding a second bar over it. Two reasons arrive here and both want the
+            // same thing. The pointer is off the built-in panel, which only screen
+            // brightness can be (docs/DECISIONS.md:
+            // brightness-key-follows-the-pointer); or the channel reports no such
+            // control, which any domain can hit (absent-capability-hands-the-key-back).
+            // That second reason is why the BACKLIGHT stands down too: a Mac whose
+            // keyboard enumerates late hands its key back until it answers, and the
+            // poll that key arms would read the value macOS just moved and draw over
+            // the native HUD. Volume needs nothing here — Core Audio is event-driven
+            // and the router arms no poll for it.
+            if let suppressor = osdSuppressor {
+                Self.wireHandbackStandDown(from: suppressor, screen: screenSampler, keyboard: keyboardSampler)
             }
         }
         Self.wireBrightnessEcho(to: coordinator, graph: graph)
@@ -370,6 +372,30 @@ final class AppCore {
     /// rather than resurrect dead media. Standalone and static so the exact
     /// production wiring is pinned by a test — the isolated halves never exercise
     /// it. (docs/DECISIONS.md: ghost-discard)
+    /// The mirror of the post-apply poke, for the press this app does NOT take.
+    ///
+    /// Standalone and static for the reason the other wiring statics are: reaching it
+    /// through an instance means constructing `AppCore`, which boots the real system
+    /// sources, so the production wiring itself was unreachable by any test — and the
+    /// keyboard arm of this switch is exactly the kind of line that is deleted in
+    /// silence, because the isolated halves each keep passing without it.
+    static func wireHandbackStandDown(
+        from suppressor: any NativeOSDSuppressor,
+        screen: any ManuallySampledSource,
+        keyboard: any ManuallySampledSource
+    ) {
+        suppressor.onHandedBackToTheSystem = { key in
+            switch key {
+            case .screenBrightnessUp, .screenBrightnessDown:
+                screen.standDown()
+            case .keyboardBrightnessUp, .keyboardBrightnessDown:
+                keyboard.standDown()
+            case .volumeUp, .volumeDown, .mute:
+                break   // Core Audio is event-driven; the router arms no poll for it
+            }
+        }
+    }
+
     static func wireActiveSourceEnded(from chain: ChainedNowPlayingSource, to coordinator: Coordinator) {
         chain.setActiveSourceEndedHandler { [weak coordinator] in
             Task { @MainActor in coordinator?.activeNowPlayingSourceEnded() }

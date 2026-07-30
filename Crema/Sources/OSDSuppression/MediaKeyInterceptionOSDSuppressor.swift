@@ -35,17 +35,28 @@ import os
 ///   keys keep being consumed; a blocking synchronous C read
 ///   (AudioObjectGetPropertyData, DisplayServicesGetBrightness) run inline would
 ///   be worse — freezing the whole app (HUD, now playing, menu) and wedging the
-///   queue (the deadline covers the pre-read, read-back, mute-plane reads and the
-///   volume capability guards; brightness guards stay inline as pure dlsym
-///   nil-checks that never block; docs/DECISIONS.md: read-deadline-pool-rule).
+///   queue (the deadline covers the pre-read, read-back, mute-plane reads and every
+///   capability guard that can block: the volume and mute guards are Core Audio IPC,
+///   and the keyboard-backlight guard enumerates the backlight IDs over the private
+///   client's connection, so it is IPC too. Only the SCREEN-brightness guard stays
+///   inline, because DisplayServices answers it from two dlsym results resolved once
+///   at init and it cannot block; docs/DECISIONS.md: read-deadline-pool-rule).
 ///   On timeout the domain is suspended and the operation
 ///   abandoned; a late orphan is bounded and pure — a write moves the value one
 ///   step with no HUD (the consumed press's own intent), a read writes nothing —
 ///   because the domain is suspended and the queued keys fall through the
 ///   suspension guard rather than starting new work.
 /// - An absent capability is not a failure: outputs without a volume/mute
-///   control and Macs without a keyboard backlight no-op (as the native
-///   handler does) instead of suspending the domain on ordinary hardware.
+///   control and Macs without a keyboard backlight have nothing malfunctioning and
+///   nothing for a probe to recover, so they never suspend a domain and never reach
+///   the menu. They do not stay SWALLOWED either — the key goes back to the system,
+///   which applies it and draws its own indicator, because a consumed key always
+///   owes feedback and this app has none to give for a control that does not exist.
+///   The absence is learned on the apply, the only place that asks the channel, and
+///   read at the next press, so the first press of an episode is the mute one that
+///   buys the answer; a key held across that press has its swallow latch released
+///   with the mark, or the whole hold would go dead
+///   (docs/DECISIONS.md: absent-capability-hands-the-key-back).
 @MainActor
 final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     /// Generous against slow-but-alive devices (Bluetooth volume writes can
@@ -107,13 +118,16 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     /// key-time poke still gives the HUD its instant appearance).
     var onApplied: (@MainActor (MediaKey) -> Void)?
 
-    /// Fired when a healthy domain's key was handed back because the pointer rule
-    /// declined it. The system draws that press, so AppCore spends the local
-    /// brightness source's key window with this — otherwise the tap's own
-    /// observation arms a poll, the poll reads the value macOS just moved, and the
-    /// app puts a second bar over the native indicator. Same seam the neighbour's
-    /// report uses (docs/DECISIONS.md: betterdisplay-osd-source).
-    var onDeclinedForAnotherDisplay: (@MainActor (MediaKey) -> Void)?
+    /// Fired when a healthy domain's key was handed back to the system, for either
+    /// reason this app has one: the pointer rule declined it, or the key's control
+    /// is known absent on this route. The seam does not tell them apart because the
+    /// consequence is identical and is the only thing the owner acts on — somebody
+    /// else draws that press, so AppCore spends the local brightness source's key
+    /// window with this. Otherwise the tap's own observation arms a poll, the poll
+    /// reads the value macOS just moved, and the app puts a second bar over the
+    /// native indicator. Same seam the neighbour's report uses (docs/DECISIONS.md:
+    /// betterdisplay-osd-source, absent-capability-hands-the-key-back).
+    var onHandedBackToTheSystem: (@MainActor (MediaKey) -> Void)?
 
     private(set) var longSuspendedDomains: Set<OSDSuppressionDomain> = []
     var onSuspensionStateChange: (@MainActor () -> Void)?
@@ -246,8 +260,11 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     /// eat a press and draw nothing
     /// (docs/DECISIONS.md: brightness-key-follows-the-pointer). Nonisolated because
     /// the tap thread asks it synchronously at the press; it reads nothing but the
-    /// injected border closure. The other half — a domain suspended after a failed
-    /// apply — is the decider's own.
+    /// injected border closure, which is why the other two reasons a key is handed
+    /// back are NOT here: a domain suspended after a failed apply and a control the
+    /// channel already answered it does not have are both memory rather than a live
+    /// reading, and both live under the decider's one lock, so the tap takes a
+    /// single lock per press and this stays a pure border question.
     private nonisolated func canApplyHere(_ key: MediaKey) -> Bool {
         guard OSDSuppressionDomain(key) == .screenBrightness else { return true }
         return screenBrightnessTarget() == .builtIn
@@ -265,13 +282,77 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
             // pressing it is a cue to try recovering now, ahead of the backoff.
             kickProbe(domain)
         } else {
-            // Passed with the domain healthy, which leaves exactly one reason: the
-            // pointer rule declined it. Derived from the state rather than carried
-            // down from the tap so an autorepeat that passes on the LATCH — after
-            // the pointer has already crossed back — stands down too; otherwise the
-            // router's poll re-arms mid-hold and the local bar returns over the
-            // system's own indicator.
-            onDeclinedForAnotherDisplay?(key)
+            // Passed with the domain healthy, which leaves the two reasons this app
+            // hands a key back: the pointer rule declined it, or its control is
+            // known absent. The seam below needs neither name — both mean somebody
+            // else applies and draws this press. Still derived from the state rather
+            // than carried down from the tap, so an autorepeat that passes on the
+            // LATCH — after the pointer has already crossed back — stands down too;
+            // otherwise the router's poll re-arms mid-hold and the local bar returns
+            // over the system's own indicator.
+            let capability = OSDSuppressionCapability(key)
+            if decider.isCapabilityAbsent(capability) {
+                // The user's next press IS the invalidation: no timer, no probe. The
+                // fact only changes when hardware does, and a press proves an active
+                // user is there to notice the recovery. Gated on the capability
+                // actually being marked so a key the POINTER declined never pays a
+                // border read — that path costs nothing today and must keep costing
+                // nothing under autorepeat.
+                recheckCapability(capability, generation: generation)
+            }
+            onHandedBackToTheSystem?(key)
+        }
+    }
+
+    /// Capabilities with a re-check in flight. Autorepeat arrives at the HID timer's
+    /// cadence, not the user's, so without this every repeat of a handed-back key
+    /// would start its own border read; the probe's kick is coalesced the same way.
+    /// MainActor-only state, like every other field here.
+    private var rechecksInFlight: Set<OSDSuppressionCapability> = []
+
+    /// Asks the channel whether the missing control came back — off the MainActor,
+    /// read-only, and clear-only.
+    ///
+    /// Off the MainActor because it must be: in production the tap callback is
+    /// delivered on the main run loop, so this hop lands on the same thread the tap
+    /// uses, and the volume/mute guards are Core Audio IPC while the keyboard guard
+    /// enumerates over the private client's connection. Asked inline, that is a
+    /// blocking round trip once per press (docs/DECISIONS.md: read-deadline-pool-rule
+    /// — a blocking call raced against a deadline runs on the GCD global queue, never
+    /// on the cooperative pool, which the deadline itself sleeps on).
+    ///
+    /// Read-only because the key already went to the system, which applied it; a
+    /// re-apply here would move the value twice for one press. Clear-only because a
+    /// stale or timed-out answer must never re-assert an absence: a stall is not an
+    /// answer, so the mark stays and the key keeps going to the system, which is the
+    /// safe side to be wrong on.
+    private func recheckCapability(_ capability: OSDSuppressionCapability, generation: Int) {
+        guard rechecksInFlight.insert(capability).inserted else { return }
+        Task { [weak self] in
+            await self?.runCapabilityRecheck(capability, generation: generation)
+        }
+    }
+
+    private func runCapabilityRecheck(_ capability: OSDSuppressionCapability, generation: Int) async {
+        defer { rechecksInFlight.remove(capability) }
+        guard let present = try? await readWithDeadline(capabilityGuard(capability)), present else { return }
+        // The read awaited: a disengage may have landed, and a fresh engagement was
+        // already born with no absences at all, so clearing under a stale generation
+        // would be writing into a world that no longer exists.
+        guard generation == self.generation, isEngaged else { return }
+        decider.clearAbsentCapability(capability)
+        logger.info("\(String(describing: capability), privacy: .public) reports a control again — its key is ours to take once more")
+    }
+
+    /// The one border question each capability answers. Sendable and closed over the
+    /// channel alone, because it is handed to the deadline racer and runs on a GCD
+    /// thread, never here.
+    private func capabilityGuard(_ capability: OSDSuppressionCapability) -> @Sendable () -> Bool {
+        switch capability {
+        case .volumeLevel: return { [volume] in volume.isAvailable() }
+        case .mute: return { [volume] in volume.supportsMute() }
+        case .screenBrightness: return { [screen] in screen.isAvailable() }
+        case .keyboardBrightness: return { [keyboard] in keyboard.isAvailable() }
         }
     }
 
@@ -314,24 +395,31 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     /// without a volume or mute control, a Mac without a keyboard backlight, the
     /// private symbols never resolving) is not a failure and does not suspend —
     /// there is nothing malfunctioning to report and nothing for a probe to
-    /// recover.
+    /// recover, so it never counts toward escalation and never reaches the menu.
     ///
-    /// It is, however, the one place where a key is swallowed and the user gets
-    /// NOTHING: no bar of ours, and no native OSD either, since the tap already
-    /// ate the press. That is a live gap against the rule that a consumed key
-    /// always produces feedback, and this log line is its only trace today —
-    /// once per channel, so a degradation stays diagnosable without spamming
-    /// every autorepeat. Do not read the quiet as intended: closing it means
-    /// letting the domain step aside so the system draws its own answer, which
-    /// is a behaviour change this seam has not made yet.
-    /// Channel names match the domain's camelCase spelling so one Console
-    /// filter catches both — plus "mute", which is a channel of its own here
-    /// even though it rides with volume as a suspension domain.
-    private var reportedUnavailable: Set<String> = []
-
-    private func reportUnavailable(_ channel: String) {
-        guard reportedUnavailable.insert(channel).inserted else { return }
-        logger.notice("consumed a \(channel, privacy: .public) key but its channel reports no such control — nothing was written and nothing was drawn")
+    /// What it must not do is stay swallowed. This apply wrote nothing and drew
+    /// nothing, and the tap had already eaten the press, so the user got no answer
+    /// at all — the one place this app broke its own rule that a consumed key owes
+    /// feedback. Recording the absence is what closes it: the next press reads the
+    /// mark before the tap decides, the key goes to the system, and the system
+    /// applies it and draws its own indicator. THIS press is the one that pays for
+    /// the answer, and a key held through it has its swallow latch released with the
+    /// mark, or the rest of the hold would be as silent as the press that bought it.
+    ///
+    /// Per CAPABILITY, never per domain: mute rides with volume for recovery, so
+    /// marking the domain would hand back the volume keys of a device whose level
+    /// works and whose mute plane simply does not exist. Cleared by a re-check that
+    /// proves the control back, or by an engage/disengage flip, which is born
+    /// healthy like every other axis (docs/DECISIONS.md:
+    /// absent-capability-hands-the-key-back).
+    ///
+    /// The log line is no longer deduplicated for the life of the process: once the
+    /// mark is set the key stops being swallowed, so no apply runs to log again, and
+    /// the recurring case worth seeing — a route that loses a control, gets it back
+    /// and loses it again — leaves one line per episode instead of one forever.
+    private func noteAbsent(_ capability: OSDSuppressionCapability) {
+        guard decider.noteAbsentCapability(capability) else { return }
+        logger.notice("no \(String(describing: capability), privacy: .public) control on this route — that key goes to the system until one answers")
     }
 
     /// What an apply actually did, which the success path must distinguish. A
@@ -375,11 +463,23 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         case .volumeUp, .volumeDown:
             return try await applyVolumeStep(key, fine: fine)
         case .screenBrightnessUp, .screenBrightnessDown:
-            guard screen.isAvailable() else { reportUnavailable("screenBrightness"); return .noOp }
+            // Inline on purpose: DisplayServices answers availability from two dlsym
+            // results resolved once at init, so it cannot block — and, being fixed
+            // for the process, an absence here is one the re-check can never undo.
+            // Its keyboard sibling below is a different animal and gets different
+            // treatment; that divergence is the reason both are commented.
+            guard screen.isAvailable() else { noteAbsent(.screenBrightness); return .noOp }
             try await step(screen, key: key, fine: fine)
             return .verified
         case .keyboardBrightnessUp, .keyboardBrightnessDown:
-            guard keyboard.isAvailable() else { reportUnavailable("keyboardBrightness"); return .noOp }
+            // Raced like the volume guards: CoreBrightness answers this by
+            // enumerating the backlight IDs over the private client's connection —
+            // IPC, not a nil-check — and it is re-asked per call precisely because a
+            // cold boot can answer "no keyboard" before the service is up. Inline,
+            // this blocked the MainActor once per backlight key.
+            guard try await readWithDeadline({ [keyboard] in keyboard.isAvailable() }) else {
+                noteAbsent(.keyboardBrightness); return .noOp
+            }
             try await step(keyboard, key: key, fine: fine)
             return .verified
         }
@@ -390,7 +490,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         // write, never a failure. Reads are deadline-raced — supportsMute and
         // readMuted are Core Audio IPC that can stall.
         guard try await readWithDeadline({ [volume] in volume.supportsMute() }) else {
-            reportUnavailable("mute"); return .noOp
+            noteAbsent(.mute); return .noOp
         }
         guard let muted = try await readWithDeadline({ [volume] in volume.readMuted() }) else {
             throw ApplyFailure.currentValueUnreadable
@@ -409,20 +509,35 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         // The availability/mute guards are Core Audio IPC (defaultOutputDeviceID)
         // that can stall, so they race the deadline like the reads.
         guard try await readWithDeadline({ [volume] in volume.isAvailable() }) else {
-            reportUnavailable("volume"); return .noOp
+            noteAbsent(.volumeLevel); return .noOp
         }
         // Volume-up unmutes first, like the native handler — otherwise the key
         // "does nothing" audible while the device stays muted. Verified like any
         // write: a dead mute plane must suspend the domain, not leave the user
         // pressing a silent volume key.
-        if key == .volumeUp,
-           try await readWithDeadline({ [volume] in volume.supportsMute() }),
-           try await readWithDeadline({ [volume] in volume.readMuted() }) == true {
-            try await withDeadline { [volume] in try await volume.setMuted(false) }
-            guard let stillMuted = try await readWithDeadline({ [volume] in volume.readMuted() }) else {
-                throw ApplyFailure.currentValueUnreadable
+        if key == .volumeUp {
+            // Unfolded from a condition chain because this reading is an ANSWER to
+            // record in BOTH directions, not just a branch to skip. It asks the same
+            // fact `applyMute` guards on and is the more frequent of the two by a
+            // wide margin — volume-up is pressed far more than mute — so learning
+            // only in `applyMute` would leave the mute key swallowed through every
+            // volume press that had already proved the plane missing, and forgetting
+            // only there would leave it handed to the system through every volume
+            // press that had already proved it back. Clearing here is safe for the
+            // same reason the re-check's clear is: only a positive answer from the
+            // channel itself ever removes a mark.
+            if try await readWithDeadline({ [volume] in volume.supportsMute() }) {
+                decider.clearAbsentCapability(.mute)
+                if try await readWithDeadline({ [volume] in volume.readMuted() }) == true {
+                    try await withDeadline { [volume] in try await volume.setMuted(false) }
+                    guard let stillMuted = try await readWithDeadline({ [volume] in volume.readMuted() }) else {
+                        throw ApplyFailure.currentValueUnreadable
+                    }
+                    guard !stillMuted else { throw ApplyFailure.verificationFailed }
+                }
+            } else {
+                noteAbsent(.mute)
             }
-            guard !stillMuted else { throw ApplyFailure.verificationFailed }
         }
         try await step(volume, key: key, fine: fine)
         return .verified
@@ -473,7 +588,11 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         do {
             return try await raceReadDeadline(seconds: applyDeadline, clock: readClock, read)
         } catch is DeadlineExceeded {
-            logger.error("a channel read exceeded the \(self.applyDeadline, privacy: .public)s deadline — abandoning the hung read, suspending the domain")
+            // Deliberately does not name a consequence: the apply path maps this
+            // onto a domain suspension, while the capability re-check is clear-only
+            // and just leaves the absence standing. Naming one would lie to whoever
+            // reads the other in Console.
+            logger.error("a channel read exceeded the \(self.applyDeadline, privacy: .public)s deadline — abandoning the hung read")
             throw ApplyFailure.readTimedOut
         }
     }
@@ -607,10 +726,19 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
                 guard present else { return .failedChannelAbsent }
                 let value = try await readWithDeadline { [channel] in channel.read() }
                 return value != nil ? .recovered : .failedChannelPresent
-            case .screenBrightness, .keyboardBrightness:
-                // Brightness isAvailable() is a pure dlsym nil-check (never
-                // blocks); only the DisplayServices read can hang and is raced.
+            case .screenBrightness:
+                // DisplayServices availability is two dlsym results resolved once at
+                // init, so it cannot block; only the read can hang and is raced.
                 let present = channel.isAvailable()
+                let value = try await readWithDeadline { [channel] in channel.read() }
+                if value != nil { return .recovered }
+                return present ? .failedChannelPresent : .failedChannelAbsent
+            case .keyboardBrightness:
+                // Unlike its screen sibling, CoreBrightness availability enumerates
+                // the backlight IDs over the private client's connection — IPC that
+                // can stall — so it is raced like the read beside it. Inline, it
+                // blocked the MainActor once per backoff cycle of this loop.
+                let present = try await readWithDeadline { [channel] in channel.isAvailable() }
                 let value = try await readWithDeadline { [channel] in channel.read() }
                 if value != nil { return .recovered }
                 return present ? .failedChannelPresent : .failedChannelAbsent

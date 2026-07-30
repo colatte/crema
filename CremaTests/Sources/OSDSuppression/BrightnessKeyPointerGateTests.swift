@@ -64,7 +64,7 @@ struct BrightnessKeyPointerGateTests {
         // (docs/DECISIONS.md: betterdisplay-osd-source).
         let harness = OSDSuppressorHarness()
         let declined = CounterBox()
-        harness.suppressor.onDeclinedForAnotherDisplay = { [declined] _ in declined.count += 1 }
+        harness.suppressor.onHandedBackToTheSystem = { [declined] _ in declined.count += 1 }
         harness.suppressor.setEngaged(true)
 
         // Ours: applied, drawn by us, nothing to stand down.

@@ -1019,9 +1019,15 @@ that display (`hud-belongs-to-its-display`).
 declines, so `MediaKeyHUDRouter` arms the brightness poll, the poll reads the panel
 macOS just moved, and the app would draw a second bar over the system's own
 indicator — every press, in the exact arrangement this change targets. So the
-suppressor fires `onDeclinedForAnotherDisplay` and AppCore spends the source's key
+suppressor fires `onHandedBackToTheSystem` and AppCore spends the source's key
 window with `standDown()`, the same seam the neighbour's report already uses. One
-press, one indicator, whoever drew it.
+press, one indicator, whoever drew it. The seam is named for the consequence and
+not for this rule, because a second reason to hand a key back arrived later — a
+control the route does not have (`absent-capability-hands-the-key-back`) — and it
+wants the identical standing-down. The suppressor still DERIVES the handback from
+its own state rather than carrying a reason down from the tap: an autorepeat that
+passes on the latch, after the pointer has already crossed back, must stand down
+too, and a carried reason would say it is ours.
 Five properties of the rule, each one a case that cost a decision.
 **No fallback to the built-in panel**: that fallback IS the bug. Clamshell needs no
 branch of its own — with no built-in among the bounds the rule never answers
@@ -1189,3 +1195,106 @@ monitor, NotificationCenter, DistributedNotificationCenter, NSWorkspace center)
 delivered on the main thread — which is the predicate the runtime checks, so the
 assumption holds by construction. The global monitor is the one no live document
 covers at all, and it was the one never measured.
+
+### absent-capability-hands-the-key-back
+With suppression on, a key consumed for a control that does not exist produced
+nothing at all. Not our bar — the apply returned a no-op, and `applyVerified` had
+no branch for a no-op, so no HUD poke and no echo — and not the native OSD either,
+because the tap had already eaten the press. An HDMI output with no volume control,
+a device with volume and no mute plane, a Mac whose keyboard backlight had not
+enumerated yet: press, silence. On screen brightness with the private symbols
+unresolved it was worse than silence, since every brightness key was swallowed
+forever and the panel simply stopped responding, with one `logger.notice` as the
+only trace. That breaks the rule this project already wrote down in
+`brightness-key-follows-the-pointer`: **a consumed key owes feedback**, and
+swallowing while drawing nothing is the alternative that rule already killed.
+Decision: **an absent capability hands that key back to the system, which applies
+it and draws its own indicator.** It is not a new state and not a new machine. It
+is the answer the app already knows how to give — "this key is not mine to take" —
+so it rides the seam that answer already has: the swallow verdict is refused at the
+press, the whole press goes back (down and up together, never half), and the local
+bar stands down so one press produces one indicator.
+**Absence is not failure, and the two must never be conflated.** A suspension means
+something malfunctioned, so it opens a recovery probe, feeds the write-health axis
+and can escalate to the menu with a repair button. A missing control has nothing to
+repair: it never suspends, never counts toward escalation, never reaches the menu.
+That separation is enforced by WHERE the fact may be written — only at the five
+guards that ask a channel for a capability. Five guards for four capabilities: the
+mute plane is asked twice, by the mute key's own plan and by volume-up's
+unmute-first step, and both must record, because volume-up is pressed far more
+often and a suite that learns only through the mute key would let that second site
+be deleted in silence, never in the `catch`. AirPods dropping
+between the write and the verify fails INSIDE the apply and throws; it must stay on
+the suspension path with its probe, and it does, because the absence guards run
+before any write and return rather than throw.
+**The grain is the CAPABILITY, not the domain.** Mute rides with volume as a
+suspension domain, deliberately, because their recovery is one. But `supportsVolume`
+and `supportsMute` are two separate Core Audio properties on the same device and
+plenty of outputs answer yes to one and no to the other — the channel protocol says
+so in as many words. Marking the domain when only the mute plane is missing would
+hand back volume-up and volume-down on hardware whose volume works perfectly, which
+loses the app's own bar for the domain that is the point of the feature. So there
+are four capabilities (volume level, mute, screen brightness, keyboard backlight),
+and what is learned is named by the GUARD that answered, never derived from the key
+that ran it: a volume-up press consults both the level and, for its unmute-first
+step, the mute plane, and deriving the name from the key would mark the level absent
+on a device whose level is fine.
+**Learned asynchronously, read synchronously.** The tap asks for a verdict on its
+own thread — in production the main run loop, with no actor isolation — and cannot
+block, while the guards it would need are IPC: Core Audio for volume and mute, and
+an enumeration over the private client's connection for the backlight. So the fact
+is learned on the apply, which already runs off the tap and already asks, and is
+read at the press from the decider's lock-guarded set, next to the suspended set it
+already reads there. One lock, one take per press.
+**The latch release is not a detail; it is the difference between the fix and a
+second copy of the bug.** The decider commits a verdict at the first down and keeps
+it for the rest of the press, so a key HELD while the apply discovers the absence
+would stay swallowed until the user let go — press, nothing, for the length of the
+hold. That is verbatim the dead gesture per-domain suspension already releases the
+latch to avoid, and holding volume-down to zero on an output with no volume control
+is how a person meets it. Marking an absence therefore releases that capability's
+swallow latch in the same lock take, filtered by capability so freeing the mute key
+never frees a held volume key, and it inherits the same asymmetry: the pending up
+leaks, which is the direction to err, since an orphan up only ends a press nobody
+tracked while an orphan down has no closing event at all.
+**The price, said plainly: the first press of an episode is mute.** Only that press
+can discover the absence, because the apply is what asks. A held key costs the down
+plus the few autorepeats until the apply answers. This is not "by construction" for
+every capability — the default output device changes are pushed to this app already,
+and a sweep at engage would cover the facts that are process constants — and both
+were left out deliberately: the hang doubles share one semaphore per channel, so an
+extra availability read at engage would consume the release a deadline test arms for
+its key press, and doing it properly means reworking those doubles. Written here so
+the next round knows it is a deferred improvement and not an impossibility.
+**Invalidation is the user's next press, never a timer and never a probe.** The tap
+keeps OBSERVING a key it hands back, so the press itself is the evidence, and it
+also proves an active user is there to notice the recovery. The re-check runs off
+the MainActor against the read deadline (the guards block), is coalesced to one in
+flight per capability because autorepeat runs at the HID timer's cadence, is
+read-only because the system already applied that press, and is **clear-only**: a
+stale answer or a stall never re-asserts an absence, so this axis can never make the
+app swallow a key on worse evidence than it had. It costs one native HUD on the way
+back — the same price the pointer rule already pays. An engage/disengage flip clears
+the whole set, like every other axis: a re-engagement is born healthy.
+**The menu says nothing, and that is decided rather than overlooked.** A missing
+control is not a defect and has no repair, so it is not a `Warning` — the retry
+button would have nothing to retry. The flat "Crema replaces the system indicators"
+line does become partly false for that one key, which is the same partiality that
+made a suspended domain take the line away entirely; the difference is what the user
+sees instead. On the dominant case, an output with no volume control, macOS draws
+its "prohibited" HUD, and that explains the hardware better than any line in a menu
+would. Adding a `Row` in the `brightnessNoBuiltIn` mould stays the honest option if
+the field says otherwise; it was not taken because it costs four catalog keys for a
+fact already on screen.
+**Two known overlaps, both degrading toward the system.** Volume's availability
+fuses "no default output device right now" with "this device has no volume control",
+so a press landing inside an output transition is read as an absence and that key
+goes to the system — one native HUD instead of one silent press, and the recovery is
+the next press. The probe path already classifies the same reading as
+`failedChannelAbsent` and already refuses to escalate it, so the two axes agree
+about what the fact means; they differ only in what it costs. And the screen-
+brightness case is a process constant: DisplayServices resolves its two symbols once
+at init, so an absence there is never re-checked into existence and clamshell is not
+this case at all — clamshell is handled earlier by the pointer rule, and a nil read
+there is a failure, not an absence. The fourth case is kept for totality of the enum,
+not because it fixes a scenario anyone can reproduce twice.
