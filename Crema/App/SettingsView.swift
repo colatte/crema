@@ -249,91 +249,7 @@ private struct NowPlayingSettingsView: View {
     }
 }
 
-// MARK: - System HUD
-
-private struct SystemHUDSettingsView: View {
-    let core: AppCore
-    @AppStorage(Preferences.suppressesNativeOSDKey) private var suppress = false
-
-    private var canSuppress: Bool {
-        core.permissionMonitor.isGranted && core.osdSuppressor != nil
-    }
-
-    var body: some View {
-        Form {
-            Section {
-                Toggle(isOn: $suppress) {
-                    Text(String(localized: "settings.hud.suppress", defaultValue: "Replace the system indicators"))
-                }
-                .disabled(!canSuppress)
-                .onChange(of: suppress) { _, new in core.setNativeOSDSuppression(new) }
-            } footer: {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(String(
-                        localized: "settings.hud.suppress.footer",
-                        defaultValue: "Hides the built-in volume and brightness HUDs and shows Crema's instead."
-                    ))
-                    // The indicator-style picker lives in General, beside the
-                    // Style picker it depends on — this line is the trail for
-                    // whoever comes to the HUD tab looking for it.
-                    Text(String(
-                        localized: "settings.hud.appearanceHint",
-                        defaultValue: "The indicator's appearance is set in the General tab."
-                    ))
-                    if !canSuppress {
-                        Text(String(
-                            localized: "settings.hud.suppress.needsPermission",
-                            defaultValue: "Requires Accessibility access — grant it in the Permissions tab."
-                        ))
-                        .foregroundStyle(.orange)
-                    }
-                }
-                .settingsFootnote()
-            }
-        }
-        .formStyle(.grouped)
-    }
-}
-
 // MARK: - Permissions
-
-private struct PermissionsSettingsView: View {
-    let core: AppCore
-
-    private var granted: Bool { core.permissionMonitor.isGranted }
-
-    var body: some View {
-        Form {
-            Section {
-                LabeledContent {
-                    Label(
-                        granted
-                            ? String(localized: "settings.permissions.granted", defaultValue: "Granted")
-                            : String(localized: "settings.permissions.notGranted", defaultValue: "Not granted"),
-                        systemImage: granted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
-                    )
-                    .foregroundStyle(granted ? .green : .orange)
-                } label: {
-                    Text(String(localized: "settings.permissions.accessibility", defaultValue: "Accessibility"))
-                }
-
-                if !granted {
-                    Button(String(localized: "settings.permissions.grant", defaultValue: "Grant Accessibility Access…")) {
-                        core.requestAccessibilityAccess()
-                    }
-                }
-            } footer: {
-                Text(String(
-                    localized: "settings.permissions.footer",
-                    // swiftlint:disable:next line_length
-                    defaultValue: "Crema needs Accessibility access to capture the media keys — for its volume and brightness HUDs and to replace the system indicators. Without it the app still runs; it just can't react to those keys. Granting is picked up automatically, no relaunch needed."
-                ))
-                .settingsFootnote()
-            }
-        }
-        .formStyle(.grouped)
-    }
-}
 
 // MARK: - About
 
@@ -412,7 +328,11 @@ private struct AboutSettingsView: View {
     }
 }
 
-private extension View {
+// Internal rather than fileprivate: the tab views live in their own files now
+// (SettingsView.swift was approaching the 500-line ceiling with no opt-out, and
+// two more rows were going in), and every one of them dresses its footers with
+// this.
+extension View {
     /// The muted, small footnote style shared by every Settings section footer.
     func settingsFootnote() -> some View {
         font(.callout)
