@@ -5,6 +5,15 @@ import Testing
 /// The border that carries BetterDisplay's OSD notification into the domain
 /// stream. The real DistributedNotificationCenter never enters a test — the
 /// source takes a resolver, and a payload is fed the way one would arrive.
+///
+/// Which means the PRODUCTION resolver (`resolveTarget`) is not exercised here, and
+/// a mutation re-adding a branch to it survives this suite. That is deliberate
+/// rather than a hole to plug: it enumerates displays through CoreGraphics, which a
+/// unit test may not touch, and after the scoping fix it makes no decision left to
+/// pin — it is one call to `ScreenTranslation.displayUUID(for:)`. The decision that
+/// used to live there was `CGDisplayIsBuiltin` collapsing the built-in into "no
+/// display named", and that is exactly the bug the field found: the bar drawn on
+/// every panel instead of the one the neighbour named.
 @MainActor
 struct BetterDisplayOSDSourceTests {
 
@@ -22,7 +31,7 @@ struct BetterDisplayOSDSourceTests {
     }
 
     private func makeSource() -> BetterDisplayOSDSource {
-        BetterDisplayOSDSource(target: { $0 == 1 ? .builtIn : nil })
+        BetterDisplayOSDSource(target: { $0 == 1 ? .display(DisplayUUID(rawValue: "BUILT-IN")) : nil })
     }
 
     @Test func aDeliveredPayloadBecomesAHUDOnTheStream() async {
@@ -35,7 +44,7 @@ struct BetterDisplayOSDSourceTests {
         #expect(await eventually { collector.values.count == 1 })
         #expect(collector.values.first?.kind == .screenBrightness)
         #expect(collector.values.first?.value == 0.75)
-        #expect(collector.values.first?.display == nil)
+        #expect(collector.values.first?.display == DisplayUUID(rawValue: "BUILT-IN"))
     }
 
     @Test func aPayloadWithNoHUDOfOursNeverReachesTheStream() async {
@@ -74,7 +83,7 @@ struct BetterDisplayOSDSourceTests {
         defer { collector.stop() }
 
         let source = BetterDisplayOSDSource(
-            target: { $0 == 1 ? .builtIn : nil },
+            target: { $0 == 1 ? .display(DisplayUUID(rawValue: "BUILT-IN")) : nil },
             onReport: { polled.standDown() }
         )
 
@@ -109,7 +118,7 @@ struct BetterDisplayOSDSourceTests {
         defer { collector.stop() }
 
         let source = BetterDisplayOSDSource(
-            target: { $0 == 1 ? .builtIn : nil },
+            target: { $0 == 1 ? .display(DisplayUUID(rawValue: "BUILT-IN")) : nil },
             onReport: { polled.standDown() }
         )
 

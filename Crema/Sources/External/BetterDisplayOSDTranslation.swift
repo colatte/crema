@@ -37,15 +37,25 @@ enum BetterDisplayOSDTranslation {
     /// Where a reported level belongs. Resolved at the border from BetterDisplay's
     /// raw CGDirectDisplayID, because the domain keys displays by UUID and the
     /// numeric ID is reassigned across sessions and reconnections.
+    ///
+    /// It deliberately does NOT distinguish built-in from external. What matters is
+    /// whether the neighbour NAMED a display, and it names one every time — folding
+    /// "it named the built-in" into the domain's nil threw that away, and nil is
+    /// what the presentation layer reads as "nobody said which screen, so draw on
+    /// all of them" (docs/DECISIONS.md: hud-belongs-to-its-display). Field symptom:
+    /// with the pointer on the laptop the bar appeared on BOTH displays, while with
+    /// the pointer on the monitor it correctly appeared only there.
     enum Target: Equatable {
-        case builtIn
-        case external(DisplayUUID)
+        /// The payload carried no display at all — genuinely unnamed.
+        case unnamed
+        /// The display the neighbour named, built-in included.
+        case display(DisplayUUID)
 
-        /// The domain's own spelling: nil is the built-in screen.
+        /// The domain's own spelling: nil means no display was named.
         var display: DisplayUUID? {
             switch self {
-            case .builtIn: nil
-            case .external(let uuid): uuid
+            case .unnamed: nil
+            case .display(let uuid): uuid
             }
         }
     }
@@ -68,7 +78,7 @@ enum BetterDisplayOSDTranslation {
               isBrightness(payload),
               // A payload naming no display is the built-in one — the same
               // default the domain uses when the field is absent.
-              let resolved = payload.displayID.map(target) ?? .builtIn
+              let resolved = payload.displayID.map(target) ?? .unnamed
         else { return nil }
 
         // The scale is BetterDisplay's own (observed: 0...64 on a built-in

@@ -5,7 +5,14 @@ import Testing
 /// unavailable backend and an external display both throw (no DDC).
 struct BrightnessControllerTests {
 
-    private let external = DisplayUUID(rawValue: "37D8832A-2D66-02CA-B9F7-8F30A301B230")
+    /// Unmistakably NOT the built-in. The previous fixture carried
+    /// 37D8832A-2D66-02CA-B9F7-8F30A301B230 under the name `external` — copied from
+    /// real hardware, where it is the BUILT-IN panel's UUID. It passed only because
+    /// the controller used to reject every non-nil display, so the value never
+    /// mattered; the moment the controller learned to recognise its own screen, the
+    /// fixture started asserting the opposite of its name.
+    private let external = DisplayUUID(rawValue: "EXTERNAL-NOT-THE-BUILT-IN")
+    private let builtIn = DisplayUUID(rawValue: "THE-BUILT-IN-PANEL")
 
     // MARK: - Screen
 
@@ -21,12 +28,36 @@ struct BrightnessControllerTests {
 
     @Test func screenControllerRejectsExternalDisplay() async {
         let backend = FakeBrightnessBackend(available: true)
-        let controller = DisplayServicesScreenBrightnessController(backend: backend)
+        // Injected rather than resolved: reading the real built-in means
+        // enumerating displays, and a unit test never touches system API.
+        let controller = DisplayServicesScreenBrightnessController(
+            backend: backend, builtInDisplay: { [builtIn] in builtIn }
+        )
 
         await #expect(throws: BrightnessCommandError.self) {
             try await controller.setBrightness(0.5, on: external)
         }
         #expect(backend.writes.isEmpty)
+    }
+
+    @Test func screenControllerAcceptsItsOwnDisplayNamedExplicitly() async throws {
+        // nil and the built-in's own UUID name the same screen. Rejecting every
+        // non-nil display read as correct while nil was the only way to say "the
+        // built-in" — then the neighbour integration began naming displays, and this
+        // controller would have thrown externalDisplayUnsupported for the panel it
+        // exists to drive, swallowing a drag on its own bar with only a log line.
+        let backend = FakeBrightnessBackend(available: true)
+        let controller = DisplayServicesScreenBrightnessController(
+            backend: backend, builtInDisplay: { [builtIn] in builtIn }
+        )
+
+        try await controller.setBrightness(0.5, on: builtIn)
+        try await controller.setBrightness(0.25, on: nil)
+
+        #expect(backend.writes == [
+            BrightnessConversion.denormalize(0.5),
+            BrightnessConversion.denormalize(0.25),
+        ])
     }
 
     @Test func screenControllerThrowsWhenBackendUnavailable() async {

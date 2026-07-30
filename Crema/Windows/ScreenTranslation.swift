@@ -71,6 +71,14 @@ enum ScreenTranslation {
         activeDisplayIDs().first { CGDisplayIsBuiltin($0) != 0 }
     }
 
+    /// The same screen in the domain's own currency. Needed because nil and this
+    /// UUID name one display: the neighbour integration reports displays by ID and
+    /// names the built-in like any other, so an actuator handed that UUID must
+    /// recognise it as its own rather than as somebody else's screen.
+    nonisolated static func builtInDisplayUUID() -> DisplayUUID? {
+        builtInDisplayID().flatMap(displayUUID(for:))
+    }
+
     /// Read fresh on every call: numeric IDs are reassigned across sessions and
     /// reconnections, so a cached list would eventually address another screen.
     private nonisolated static func activeDisplayIDs() -> [CGDirectDisplayID] {

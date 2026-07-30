@@ -7,12 +7,16 @@ import Testing
 struct BetterDisplayOSDTranslationTests {
 
     private let externalUUID = DisplayUUID(rawValue: "UUID-FOR-99")
+    /// The built-in panel is named like any other display: the neighbour reports it
+    /// by ID and the border resolves it to a UUID, so nothing here is nil except a
+    /// payload that named no display at all.
+    private let builtInUUID = DisplayUUID(rawValue: "UUID-FOR-1")
 
     private func translate(_ json: String) -> SystemHUD? {
-        BetterDisplayOSDTranslation.systemHUD(fromJSON: json) { [externalUUID] id in
+        BetterDisplayOSDTranslation.systemHUD(fromJSON: json) { [externalUUID, builtInUUID] id in
             switch id {
-            case 1: .builtIn
-            case 99: .external(externalUUID)
+            case 1: .display(builtInUUID)
+            case 99: .display(externalUUID)
             default: nil          // a display the app cannot name
             }
         }
@@ -24,7 +28,10 @@ struct BetterDisplayOSDTranslationTests {
         )
         #expect(hud?.kind == .screenBrightness)
         #expect(hud?.value == 40.0 / 64.0)     // the scale is BetterDisplay's, not 0...1
-        #expect(hud?.display == nil)           // nil is the domain's word for the built-in screen
+        // The built-in is NAMED here, not nil: the neighbour said which screen, and
+        // nil is reserved for a payload that named none. Folding the two together
+        // sent the bar to EVERY panel — measured in the field, pointer on the laptop.
+        #expect(hud?.display == builtInUUID)
     }
 
     @Test func everyBrightnessFlavourIsTheSameBarToTheUser() {

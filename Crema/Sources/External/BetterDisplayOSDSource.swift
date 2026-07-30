@@ -159,7 +159,10 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     /// place nor send a drag back to.
     private static func resolveTarget(_ displayID: Int) -> BetterDisplayOSDTranslation.Target? {
         let id = CGDirectDisplayID(displayID)
-        guard CGDisplayIsBuiltin(id) == 0 else { return .builtIn }
-        return ScreenTranslation.displayUUID(for: id).map { .external($0) }
+        // Every display resolves the same way, the built-in included: naming it is
+        // the whole point, and a display whose UUID we cannot read is dropped —
+        // a bar for a screen the app cannot place is one it can neither draw nor
+        // send a drag back to.
+        return ScreenTranslation.displayUUID(for: id).map { .display($0) }
     }
 }
