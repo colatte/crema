@@ -66,6 +66,19 @@ jobs:
         # parses Swift itself, so it needs no sourcekitd/DEVELOPER_DIR.
         run: swiftformat --lint .
 
+      - name: String Catalog discipline
+        # The one house rule with no toolchain behind it. Measured: with
+        # extractionState "manual", xcstringstool sync walks past an entry whose
+        # en value has drifted from the code — intact, no warning — and never
+        # marks an orphan, so Xcode gives this catalog zero drift and zero orphan
+        # detection. Pure stdlib Python, no install step, runs before the build
+        # because a missing key is cheaper to find here than in a release.
+        # The self-test runs first: a checker that silently stops checking reports
+        # the same "clean" as one that works.
+        run: |
+          python3 scripts/check-catalog-selftest.py
+          python3 scripts/check-catalog.py .
+
       - name: Build and test
         # The CI build is not code-signed (the runner has no signing identity), so
         # signing is disabled — otherwise xcodebuild would try to sign and fail.
