@@ -103,10 +103,13 @@ private struct GeneralSettingsView: View {
             // carries the proximity-scope: the indicator is a facet of the Card
             // style, right below it.
             Section {
-                Picker(selection: $style) {
-                    ForEach(Style.allCases, id: \.self) { style in
-                        Text(style.displayName).tag(style)
-                    }
+                // Pictures rather than a menu of three nouns: the names describe a
+                // shape in a place, which a person has not seen yet at the moment
+                // they are asked to choose. Each thumbnail is computed from that
+                // skin's own frame rule, so it cannot describe a layout the app no
+                // longer draws.
+                LabeledContent {
+                    StylePicker(selection: $style)
                 } label: {
                     Text(String(localized: "settings.general.style", defaultValue: "Style"))
                 }
