@@ -483,7 +483,10 @@ of it. `CGGetEventTapList` is the only view of that from outside the process;
 list order is insertion order and therefore delivery order — verified on hardware
 in both directions, but NOT documented (what the SDK does promise is that a HID
 tap precedes every session tap, and that each read resets every tap's min/max
-latencies, so it is read only when the menu is opened, never on a poll).
+latencies — for every tap in the system, neighbouring apps included). Never on a
+poll, then; and not once per menu rebuild either, because a SwiftUI body is
+rebuilt whenever SwiftUI invalidates it and the app does not choose when — the
+reading sits behind a coalescing window (see `menu-status-before-warnings`).
 Decision: **Crema does not fight for the position.** Re-inserting periodically is
 an arms race decided by whoever moved last, with a key-loss window on every
 reinstall; moving to `kCGHIDEventTap` wins deterministically but silently takes
@@ -729,3 +732,149 @@ Corollary: `BetterDisplayCommandTranslation.identifierRequest` had no caller and
 its shape had never been exercised in production — this probe is what validated
 it. It stays as the seam any future attempt needs, with the refusal recorded at the
 call site so nobody rediscovers it.
+
+### menu-status-before-warnings
+The menu bar was six conditional warning blocks stacked above three actions, each
+followed by its own separator, and the only positive line in it — the one saying
+the BetterDisplay integration was working — sat among them behind a "✓". With two
+conditions firing at once it read as a wall of warning glyphs; with none firing it
+said nothing at all about what the app was doing.
+Decision: the menu is **status first, warnings only when they exist, actions
+last**, and the whole split is decided in one pure place (`MenuStatus`) so the
+order and the gating are pinned by tests rather than resting on the shape of a view
+body.
+Five rules that type enforces:
+- **A status row is a fact, never a wish.** Every row is gated on the feature being
+  in effect: the suppression row needs the preference AND a suppressor in the graph
+  AND the permission, and a domain suspended by a failed apply takes the claim away
+  entirely (the warning is the news then).
+- **The style row reports what the displays DRAW, not only what the picker
+  declared.** On any Mac without a slit the shipped default declares Notch while
+  every panel draws Card, so "Style: Notch" alone is false there — the same
+  contradiction `rendered-style-gates-settings` was written about. The fallback gets
+  its own row, in the very sentence the Settings footer already uses.
+- **The neighbour reporting is status, not a warning.** Same reading, moved: it is
+  the arrangement the app asked the user to make, not a fault.
+- **The brightness target is status too** — see `brightness-key-target-in-the-menu`.
+- **Warnings are ordered by urgency, and the order is the contract**: Accessibility
+  first (without it no media key arrives at all, and the chain reading cannot even
+  see us), launch-at-login last (it is about the next launch, not this session). A
+  warning that offers a repair is fenced by separators from its neighbours, stated
+  as one rule over the PAIR so two adjacent actionable warnings produce one
+  separator instead of two. One warning carries no button but a second sentence
+  instead — the dead Now Playing, whose trail out is the Automation access its
+  backup reader needs.
+Emoji are out, in both directions. "⚠️" carried the meaning the sentence has to
+carry anyway, VoiceOver reads it mid-sentence as noise, and six of them stacked is
+what made the menu unreadable. "✓" was worse than decorative: a checkmark in an
+NSMenu means a CHECKED item, so a title starting with one reads as a toggle that is
+on — which is exactly why the app's only good news read as noise. AppKit's own
+status menus (Wi-Fi, Bluetooth, Time Machine) carry no glyph on an informational
+row; they use plain disabled sentences, and that is what ships. SF Symbols via
+`Label` were considered and dropped: menu-item icons are for items that stand for
+an object, and a symbol that silently fails to render on an informational row
+leaves the sentence unmarked anyway.
+Cost, faced rather than inherited: the block reads two things that live outside the
+process, and one of them — `CGGetEventTapList`, behind `mediaKeyChainNotice()` —
+resets the min/max latency counters of every tap in the system, neighbouring apps'
+included. A view body is rebuilt whenever SwiftUI invalidates it, which is NOT the
+same as the user opening the menu, so a status block with more inputs means more
+rebuilds and, unbounded, more of those reads. `MediaKeyChainNotice.Cache` bounds
+them with a one-second **coalescing window**: a burst of rebuilds costs one
+reading, and the answer is never more than a window old. A window and not a set of
+invalidation edges, deliberately — the edges that change the answer are not
+enumerable from in here (a neighbour can install or drop a tap while already
+running, which is exactly what toggling its key handling does, with no notification
+behind it), so an edge list would serve a stale line for an unbounded time, and the
+stale line here is an ACCUSATION against a named neighbour — the direction
+`media-key-chain-contention` says to err away from. The neighbour's delivered
+payload is a different kind of input, a free local flag that can flip with no
+notification at all, so it is part of the memo KEY rather than of its age.
+Two things the window deliberately does not buy: freshness within the window, and
+any claim about `loginItem.status`, which still crosses into Background Task
+Management once per rebuild — one reading, not two, which is why the instance-level
+`loginItemOutcome()` was removed in favour of `menuStatus`.
+
+### brightness-key-target-in-the-menu
+Correct behavior nobody can see reads as a bug: with an external monitor as the
+main display, the brightness key dims the laptop panel the user is not looking at.
+Crema's screen brightness drives the built-in panel by decision — a neighbour's
+brightness can be written but not read, so a consumed key has no level to step from
+and nothing to verify against (`external-brightness-is-write-only`) — and no
+surface said so.
+Decision: the menu names the target, in one row of the status block, and only where
+the row is both true and informative. Three states, from the display census: a lone
+built-in panel says nothing (there is no other screen to confuse it with); a
+built-in panel alongside another display gets the naming row; no built-in panel in
+use — clamshell, or a Mac that has none — gets a row about what Crema cannot do,
+because the brightness write degrades to false there instead of reaching for
+whatever display happens to be main.
+Four constraints shaped it.
+The subject of the sentence is CREMA, never "the brightness keys". Suppression is
+opt-in and off by default, so on most installs the key is applied by macOS and not
+by us; a line claiming what the KEY does would assert someone else's behavior, and
+on a Mac driving an Apple external display it can be plainly false.
+The census is read from CoreGraphics' ACTIVE display list — the same list
+`DisplayServicesBridge` resolves its write target from — and deliberately not from
+the panel roster, which disagrees: the roster drops displays with no NSScreenNumber
+or no resolvable UUID, and AppKit collapses a mirror set to one NSScreen. Sharing
+the list is what makes the sentence unable to contradict the hardware: wherever the
+list has no built-in entry the write returns false for the same reason, so line and
+behavior fail together instead of disagreeing.
+Silence has three causes and only two are contention. Without the Accessibility
+permission there is no tap and the top-of-block warning is the only true thing to
+say; with an app ahead of us the keys may never arrive, and naming a target under
+that warning would contradict it. The third is load-bearing: once the neighbour is
+reporting, the HUD slider writes ITS display through the neighbour's channel, so
+the sentence would be false rather than merely unhelpful — narrowing the gate to
+the two "someone is ahead" cases ships a lie. The arrangement this loses is a
+neighbour that reports without being ahead: the keys are ours and we say nothing,
+the same asymmetry the chain lines already accept, where a lost line costs a
+diagnostic and a false one misinforms (`media-key-chain-contention`).
+It is a pull-read, not a mirrored value. An @Observable mirror recomputed at the
+display-topology edge was designed first and rejected: it would add an invalidation
+source to a body whose every rebuild costs a `CGGetEventTapList`. The census is the
+cheap kind — `CGGetActiveDisplayList`, local and side-effect free — so reading it
+where the menu is built adds zero expensive reads, is as fresh as the build, and
+needs no edge to stay correct. The census is consulted only after the gate, so a
+silenced menu asks the system nothing.
+No warning glyph on either row. An arrangement is not a fault, and a ⚠️ on correct
+behavior trains the user past the lines that do ask for action.
+
+### menu-reads-mirrors
+A menu that names the track reads MIRRORS of title and artist, never the live
+snapshot.
+`Coordinator.nowPlaying` is rewritten once per second by the position tick — which
+is exactly why the tick stays out of `state` (CLAUDE.md, Fluxo de estado) — and
+Observation invalidates per PROPERTY, not per value: any read of that property,
+`nowPlaying?.title` included, subscribes the reader to a 1 Hz rebuild. The reader
+here is a `MenuBarExtra` content body, which SwiftUI re-evaluates whenever it likes
+and not when the user opens the menu, and the block beside it pull-reads the
+event-tap chain (`AppCore.mediaKeyChainNotice()`, whose every call resets the
+min/max latencies of every tap on the machine, third-party taps included). So the
+naive line does not cost a menu line: it costs a system-wide diagnostic probe once
+per second, forever, invisible from inside the app.
+Decision, three parts. (1) The Coordinator publishes `nowPlayingTitle` and
+`nowPlayingArtist` as GUARDED mirrors — written only when the value actually
+changes, exactly like `skipSupportedByTrack` — and clears them with the snapshot in
+`discardActiveMedia`, so a dead track cannot keep naming itself under an enabled
+transport. (2) The media lines live in their own View, because observation is
+tracked per body: a real track change then repaints that view and leaves the status
+block's pull-reads untouched. (3) The Play/Pause label comes from `mediaActive`,
+already written only on play/pause edges, so no second flag learns a fact the
+Coordinator already publishes.
+Half a contract is worse than none here: a guard that compares is one keystroke
+from a muzzle that never writes, so both directions are pinned — a tick fires no
+observation, a track change does (`CoordinatorMenuMirrorTests`).
+The menu's transport RENDERS the Coordinator's existing verdicts
+(`commandsAvailable`, `skipControlsEnabled` — the same two the surface binds to)
+and adds only "is there media at all", which the surface never needs because it
+exists only when media does. One decision, two renderers: a menu that decided
+availability for itself would drift from the surface the first time a source
+accepted play/pause and rejected a skip. That one added predicate comes off the
+SAME value the status row is drawn from (`NowPlayingMenuLine.namesMedia`) — a
+separate `title != nil` test is how a row saying "Nothing playing" ends up over an
+enabled Pause.
+Corollary for anything else the menu wants to show: the question is never "is this
+value cheap to read" but "how often is the property I subscribe to written". A
+per-second property is a per-second menu.

@@ -20,104 +20,21 @@ struct CremaApp: App {
             String(localized: "app.menubar.title", defaultValue: "Crema"),
             image: "MenuBarIcon"
         ) {
-            if !core.permissionMonitor.isGranted {
-                Text(String(
-                    localized: "menu.accessibilityWarning",
-                    defaultValue: "⚠️ Accessibility permission missing — media keys are not captured"
-                ))
-                Button(String(localized: "menu.grantAccessibility", defaultValue: "Grant Accessibility Access…")) {
-                    core.presentAccessibilityOnboarding()
-                }
-                Divider()
-            }
-            // Who is receiving the media keys. Pull-read here, like the
-            // login-item verdict below: the answer lives outside this process and
-            // changes whenever any app installs a tap. Read-only, for the same
-            // reason as that verdict — and it carries a cost noted on
-            // AppCore.mediaKeyChainNotice().
-            switch core.mediaKeyChainNotice() {
-            case .drawingFromBetterDisplay:
-                Text(String(
-                    localized: "menu.betterDisplay.drawing",
-                    defaultValue: "✓ Screen brightness HUD comes from BetterDisplay"
-                ))
-                Divider()
-            case .betterDisplayAheadAndSilent:
-                Text(String(
-                    localized: "menu.betterDisplay.silent",
-                    defaultValue: "⚠️ BetterDisplay takes the brightness keys — turn on its OSD notification integration and Crema can draw the HUD"
-                ))
-                Divider()
-            case .anotherAppAhead(let app):
-                // Stated as the fact it is — a position in the chain, not a
-                // malfunction — because from inside the app the symptom is
-                // indistinguishable from a broken tap, and no user can diagnose
-                // it unaided.
-                Text(String(
-                    localized: "menu.mediaKeysPrecededBy",
-                    defaultValue: "⚠️ \(app) receives the media keys before Crema — some HUDs may not appear"
-                ))
-                Divider()
-            case .quiet:
-                EmptyView()
-            }
-            if !core.nowPlayingMonitor.isActive {
-                Text(String(
-                    localized: "menu.nowPlayingUnavailable",
-                    defaultValue: "⚠️ Now Playing unavailable — no media source"
-                ))
-                Divider()
-            }
-            if !core.coordinator.commandsAvailable {
-                Text(String(
-                    localized: "menu.mediaControlsBlocked",
-                    defaultValue: "⚠️ Media controls blocked by macOS — showing playback only"
-                ))
-                Divider()
-            }
-            // Pull-read and never cached: the registration's truth lives on the
-            // other side of the system. READ-ONLY — this closure is a view body,
-            // rebuilt whenever SwiftUI invalidates it and not only when the user
-            // opens the menu, so anything with a side effect here would be a
-            // domain mutation driven by rendering. The intent bookkeeping runs at
-            // a lifecycle edge instead (AppCore.reconcileLoginItemIntent).
-            switch core.loginItemOutcome() {
-            case .revokedByUpdate:
-                Text(String(
-                    localized: "menu.loginItem.revoked",
-                    defaultValue: "⚠️ Open at login was turned off — the app changed since you enabled it"
-                ))
-                Button(String(
-                    localized: "menu.loginItem.reactivate",
-                    defaultValue: "Turn it back on"
-                )) {
-                    core.reactivateLoginItem()
-                }
-                Divider()
-            case .needsApproval:
-                Text(String(
-                    localized: "menu.loginItem.needsApproval",
-                    defaultValue: "⚠️ Open at login is waiting for your approval"
-                ))
-                Button(String(
-                    localized: "menu.loginItem.openSettings",
-                    defaultValue: "Open Login Items settings…"
-                )) {
-                    core.openLoginItemsSettings()
-                }
-                Divider()
-            case .quiet, .userRemoved:
-                EmptyView()
-            }
-            let suspended = core.osdSuppressionMonitor.longSuspendedDomains
-            if !suspended.isEmpty {
-                Text(osdSuspendedWarning(suspended))
-                Button(String(
-                    localized: "menu.osdSuspended.retry",
-                    defaultValue: "Try to reactivate now"
-                )) {
-                    core.retryOSDSuppression()
-                }
+            // Information first, actions last: what Crema IS doing, then what needs
+            // attention. Which lines exist, in what order, and behind which gate is
+            // decided in one pure place (MenuStatus) so it is pinned by tests
+            // instead of resting on the shape of this closure; the block closes with
+            // the separator that divides it from the actions below.
+            // (docs/DECISIONS.md: menu-status-before-warnings)
+            MenuInformation(core: core)
+            // Gated on the chain being alive: with no media source at all the
+            // warning inside the block above already tells that story, and four grey
+            // rows that can never work are noise, not a disabled control the user
+            // can wait on. Reads the one observable the scene body already read
+            // before this round, so the expensive block above rebuilds no more often
+            // than it did.
+            if core.nowPlayingMonitor.isActive {
+                NowPlayingMenuSection(coordinator: core.coordinator)
                 Divider()
             }
             SettingsMenuButton()
@@ -139,31 +56,6 @@ struct CremaApp: App {
 
         Settings {
             SettingsView(core: core)
-        }
-    }
-
-    /// The menu line naming the domains whose native OSD is back. The names are
-    /// joined with a locale-aware list format (", " vs " e " vs " and ") in a
-    /// stable, enum-declared order.
-    private func osdSuspendedWarning(_ domains: Set<OSDSuppressionDomain>) -> String {
-        let names = OSDSuppressionDomain.allCases
-            .filter(domains.contains)
-            .map(localizedDomainName)
-            .formatted(.list(type: .and))
-        return String(
-            localized: "menu.osdSuspended.warning",
-            defaultValue: "⚠️ System HUD restored for \(names) — Crema couldn't apply the change"
-        )
-    }
-
-    private func localizedDomainName(_ domain: OSDSuppressionDomain) -> String {
-        switch domain {
-        case .volume:
-            String(localized: "osd.domain.volume", defaultValue: "Volume")
-        case .screenBrightness:
-            String(localized: "osd.domain.screenBrightness", defaultValue: "Screen brightness")
-        case .keyboardBrightness:
-            String(localized: "osd.domain.keyboardBrightness", defaultValue: "Keyboard brightness")
         }
     }
 }

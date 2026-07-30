@@ -70,7 +70,10 @@ final class Coordinator {
     /// the style's region surfaces the compact appearance. Hover never does;
     /// an empty region does not react to the pointer (the region sits on the
     /// menu-bar traffic lane, and hover-invocation fired by accident).
-    /// Written only on play/pause flips, never on the position tick.
+    /// Written only on play/pause flips, never on the position tick — the menu
+    /// bar's Play/Pause label leans on that guarantee too: it renders this flag
+    /// directly, and a per-tick write would rebuild the menu (the cost of that is
+    /// spelled out on `nowPlayingTitle`).
     private(set) var mediaActive = false {
         didSet { onPresentationChange?() }
     }
@@ -122,6 +125,25 @@ final class Coordinator {
     /// the transport doesn't re-render on every position tick; written only
     /// when the value actually flips.
     private(set) var skipSupportedByTrack = true
+
+    /// Title and artist of the current media, for readers outside the surface —
+    /// the menu bar first among them. Mirrors for the same reason as
+    /// `skipSupportedByTrack`, one order of magnitude sharper: `nowPlaying` is
+    /// rewritten once per second by the position tick, and Observation invalidates
+    /// per PROPERTY rather than per value, so ANY read of it — `nowPlaying?.title`
+    /// included — subscribes the reader to a 1 Hz rebuild. The menu's status block
+    /// pull-reads the event-tap chain, and each of those reads resets the min/max
+    /// latency counters of every tap on the machine, so the naive read costs a
+    /// system-wide probe per second rather than a menu line
+    /// (docs/DECISIONS.md: menu-reads-mirrors).
+    ///
+    /// Written only when the value actually changes; nil means there is no media to
+    /// name. Both borders drop a titleless payload and map a blank artist to nil
+    /// (AdapterPayloadTranslation, JXANowPlayingTranslation), so a present title is
+    /// a real one — the menu still tests emptiness rather than trust that
+    /// (NowPlayingMenuLine), because a blank row reads as a broken app.
+    private(set) var nowPlayingTitle: String?
+    private(set) var nowPlayingArtist: String?
 
     /// What the transport's prev/next bind to: the write paths must be alive
     /// and the media must accept skips — prohibiting media (radio, live)
@@ -582,6 +604,10 @@ final class Coordinator {
         if skipSupportedByTrack != update.supportsSkip {
             skipSupportedByTrack = update.supportsSkip
         }
+        // Ahead of every early return below, the .hud one included: the menu bar is
+        // not the surface and does not inherit its priority — it names what is
+        // playing even while a HUD owns the screen.
+        publishTrackNames(title: update.title, artist: update.artist)
         // Scrub grace: the update lands whole first (the thresholds below and
         // mediaActive read it), then its POSITION is weighed against a seek in
         // flight — a stale echo must not clobber what the user just set
@@ -595,9 +621,10 @@ final class Coordinator {
         // mediaActive lands after the state decision (on every exit path): each
         // write runs a synchronous frame pass, and a pass seeing new mediaActive
         // against the OLD state arms the invoke zone off a state that is about to
-        // change — the zone is the only thing that reads mediaActive
-        // (WindowManager, alongside `state == .hidden`). Hover is not at risk here
-        // whatever the order: it is armed from `state` alone.
+        // change — the invoke zone is the only reader this ORDER protects
+        // (WindowManager, alongside `state == .hidden`); the menu bar's Play/Pause
+        // label reads the same flag but only ever wants its value. Hover is not at
+        // risk here whatever the order: it is armed from `state` alone.
         defer {
             if mediaActive != update.isPlaying {
                 mediaActive = update.isPlaying
@@ -679,6 +706,15 @@ final class Coordinator {
         }
     }
 
+    /// The single writer of the name mirrors, and the comparison is the whole
+    /// point: an @Observable set fires its observers even when the value is
+    /// unchanged, so an unguarded write here would rebuild the menu once per
+    /// second — the exact cost the mirrors exist to avoid (see their declaration).
+    private func publishTrackNames(title: String?, artist: String?) {
+        if nowPlayingTitle != title { nowPlayingTitle = title }
+        if nowPlayingArtist != artist { nowPlayingArtist = artist }
+    }
+
     /// The now-playing stream ended: no source is left to emit, so the last
     /// snapshot is a ghost — playing it back on hover (or keeping hover armed)
     /// would offer a frozen scrubber and dead controls.
@@ -701,8 +737,9 @@ final class Coordinator {
     }
 
     /// Drops the active snapshot and everything armed on it: surface, click zone,
-    /// hover, and the HUD's promise to resurface. Shared by stream end, the
-    /// browser filter and the live filter toggle — all mean "there is no media the
+    /// hover, the names the menu bar shows, and the HUD's promise to resurface.
+    /// Shared by stream end, the browser filter and the live filter toggle — all
+    /// mean "there is no media the
     /// app should represent". A scrub in flight dies with it: a dead snapshot
     /// cannot retain a position target.
     ///
@@ -717,6 +754,10 @@ final class Coordinator {
     private func discardActiveMedia() {
         endScrubGrace()
         nowPlaying = nil
+        // The mirrors go with the snapshot: a menu still naming dead media would
+        // sit above a transport that reads enabled for a track no live source can
+        // command.
+        publishTrackNames(title: nil, artist: nil)
         resumeNowPlayingAfterHUD = false
         if mediaActive {
             mediaActive = false

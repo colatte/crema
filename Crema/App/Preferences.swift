@@ -23,14 +23,23 @@ struct Preferences {
     /// UI control has to ask the rendered answer, never this one.
     /// (docs/DECISIONS.md: global-style-default, rendered-style-gates-settings)
     static let declaredStyleKey = "declaredStyle"
+    /// The shipped default, named once: the menu bar reads this same key (through
+    /// the resolver below), and a second literal `.notch` over there would start
+    /// lying the day this default changes. Why notch is safe to declare everywhere
+    /// is the comment above.
+    static let defaultDeclaredStyle = Style.notch
+
+    /// The key's whole reading rule, over the raw value: unset — or a rawValue a
+    /// future version retired — resolves to the shipped default. Static so the two
+    /// readers of this key, this type and the menu's @AppStorage, cannot disagree
+    /// about either half.
+    static func declaredStyle(fromRawValue raw: String?) -> Style {
+        guard let raw, let style = Style(rawValue: raw) else { return defaultDeclaredStyle }
+        return style
+    }
+
     var declaredStyle: Style {
-        get {
-            guard let raw = defaults.string(forKey: Self.declaredStyleKey),
-                  let style = Style(rawValue: raw) else {
-                return .notch
-            }
-            return style
-        }
+        get { Self.declaredStyle(fromRawValue: defaults.string(forKey: Self.declaredStyleKey)) }
         nonmutating set { defaults.set(newValue.rawValue, forKey: Self.declaredStyleKey) }
     }
 

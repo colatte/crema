@@ -86,10 +86,15 @@ final class AppCore {
     #endif
 
     private let accessibilityPermission = AXAccessibilityPermission()
-    /// Read only from the menu's content build, never on a poll — and that build
-    /// is not the same thing as the user opening the menu (cost on
-    /// `mediaKeyChainNotice()`).
+    /// Read only from the menu's content build, never on a poll — and that build is
+    /// not the same thing as the user opening the menu, which is why the reading
+    /// goes through the coalescing window below instead of happening once per
+    /// rebuild (cost on `mediaKeyChainNotice()`).
     private let eventTapRegistry: any EventTapRegistry = LiveEventTapRegistry()
+    /// That window. Non-observable by design: it is filled from inside a view body,
+    /// and observed state written there would be mutation driven by rendering
+    /// (rationale on the type).
+    private let chainNoticeCache = MediaKeyChainNotice.Cache()
     /// Kept past the merge so the menu can report whether the neighbour's OSD
     /// integration is actually feeding us; nil on demo sources.
     private let betterDisplaySource: BetterDisplayOSDSource?
@@ -511,61 +516,6 @@ final class AppCore {
         )
     }
 
-    // MARK: - Accessibility onboarding
-
-    /// Requests the permission (system prompt registers the app in the
-    /// Accessibility list) and deep-links to the exact Settings pane.
-    func requestAccessibilityAccess() {
-        Self.requestAccessibility(accessibilityPermission, thenOpenSettings: {
-            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-                NSWorkspace.shared.open(url)
-            }
-        })
-    }
-
-    /// Standalone and static so a test pins the sequence without booting the
-    /// graph (same reason as the login-item and wake seams). The ORDER is the
-    /// contract, not a detail: the prompt is what registers the app in the
-    /// Accessibility list, so opening the pane first — or without asking at all —
-    /// lands the user on a list Crema is not in, with nothing to switch on.
-    static func requestAccessibility(_ permission: any AccessibilityPermission, thenOpenSettings: () -> Void) {
-        permission.requestAccess()
-        thenOpenSettings()
-    }
-
-    func presentAccessibilityOnboarding() {
-        if let onboardingWindow {
-            onboardingWindow.makeKeyAndOrderFront(nil)
-            NSApp.activate()
-            return
-        }
-
-        let view = AccessibilityOnboardingView(
-            monitor: permissionMonitor,
-            openSettings: { [weak self] in self?.requestAccessibilityAccess() },
-            dismiss: { [weak self] in self?.closeAccessibilityOnboarding() }
-        )
-        let window = NSWindow(contentViewController: NSHostingController(rootView: view))
-        window.styleMask = [.titled, .closable]
-        window.title = String(localized: "onboarding.title", defaultValue: "Crema needs Accessibility access")
-        window.isReleasedWhenClosed = false
-        window.center()
-        onboardingWindow = window
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate()
-    }
-
-    private func presentAccessibilityOnboardingIfFirstLaunch() {
-        guard !accessibilityPermission.isGranted(), !preferences.hasSeenAccessibilityOnboarding else { return }
-        preferences.hasSeenAccessibilityOnboarding = true
-        presentAccessibilityOnboarding()
-    }
-
-    private func closeAccessibilityOnboarding() {
-        onboardingWindow?.close()
-        onboardingWindow = nil
-    }
-
     // MARK: - Graph builders
 
     /// The default graph: real system HUD sources + actuators, the now-playing
@@ -752,25 +702,12 @@ extension AppCore {
         return (loginItem.isEnabled || loginItem.requiresApproval, loginItem.requiresApproval)
     }
 
-    /// What the menu bar should say about launch-at-login right now — pull-read on
-    /// demand (like the suppression warning) so there is no cached copy of a truth
-    /// that lives on the other side of the system.
-    ///
-    /// Read-only, and that is the contract, not an accident: the caller is a
-    /// SwiftUI view body, rebuilt whenever SwiftUI invalidates it — the app does
-    /// not choose when, and it is not tied to the user opening the menu — so a
-    /// write here would be domain mutation driven by rendering. The forgetting this
-    /// used to do runs at a lifecycle edge instead (reconcileLoginItemIntent).
-    func loginItemOutcome() -> LoginItemReconciler.Outcome {
-        Self.loginItemOutcome(
-            preferences: preferences,
-            status: loginItem.status,
-            currentBuild: Self.currentBuild
-        )
-    }
-
-    /// Standalone and static so a test pins the read — including its purity —
-    /// without booting the graph (same reason as the reinstall seams).
+    /// What the menu bar should say about launch-at-login right now. Standalone and
+    /// static so a test pins the read — including its purity — without booting the
+    /// graph (same reason as the reinstall seams). Called from `menuStatus`, which
+    /// takes the ONE `loginItem.status` reading the menu is allowed per rebuild and
+    /// derives both this warning and the "opens at login" row from it; the read-only
+    /// contract that governs it lives there.
     static func loginItemOutcome(
         preferences: Preferences,
         status: LoginItemStatus,
@@ -843,6 +780,69 @@ extension AppCore {
     }
 }
 
+// MARK: - Accessibility onboarding
+
+/// Its own extension for the same reason the graph builders keep theirs — and it
+/// is what holds the class body inside the type_body_length ceiling, which the
+/// composition root leans on with every feature wired into it. In THIS file and
+/// not another: `presentAccessibilityOnboardingIfFirstLaunch` is private and is
+/// called from `init`, and SE-0169 grants that only to a same-file extension.
+@MainActor
+extension AppCore {
+    /// Requests the permission (system prompt registers the app in the
+    /// Accessibility list) and deep-links to the exact Settings pane.
+    func requestAccessibilityAccess() {
+        Self.requestAccessibility(accessibilityPermission, thenOpenSettings: {
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                NSWorkspace.shared.open(url)
+            }
+        })
+    }
+
+    /// Standalone and static so a test pins the sequence without booting the
+    /// graph (same reason as the login-item and wake seams). The ORDER is the
+    /// contract, not a detail: the prompt is what registers the app in the
+    /// Accessibility list, so opening the pane first — or without asking at all —
+    /// lands the user on a list Crema is not in, with nothing to switch on.
+    static func requestAccessibility(_ permission: any AccessibilityPermission, thenOpenSettings: () -> Void) {
+        permission.requestAccess()
+        thenOpenSettings()
+    }
+
+    func presentAccessibilityOnboarding() {
+        if let onboardingWindow {
+            onboardingWindow.makeKeyAndOrderFront(nil)
+            NSApp.activate()
+            return
+        }
+
+        let view = AccessibilityOnboardingView(
+            monitor: permissionMonitor,
+            openSettings: { [weak self] in self?.requestAccessibilityAccess() },
+            dismiss: { [weak self] in self?.closeAccessibilityOnboarding() }
+        )
+        let window = NSWindow(contentViewController: NSHostingController(rootView: view))
+        window.styleMask = [.titled, .closable]
+        window.title = String(localized: "onboarding.title", defaultValue: "Crema needs Accessibility access")
+        window.isReleasedWhenClosed = false
+        window.center()
+        onboardingWindow = window
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+    }
+
+    private func presentAccessibilityOnboardingIfFirstLaunch() {
+        guard !accessibilityPermission.isGranted(), !preferences.hasSeenAccessibilityOnboarding else { return }
+        preferences.hasSeenAccessibilityOnboarding = true
+        presentAccessibilityOnboarding()
+    }
+
+    private func closeAccessibilityOnboarding() {
+        onboardingWindow?.close()
+        onboardingWindow = nil
+    }
+}
+
 // MARK: - Media-key chain
 
 @MainActor
@@ -853,12 +853,14 @@ extension AppCore {
     ///
     /// Pull-based, read where the menu's content is built and never on a poll: the
     /// answer lives entirely outside our process and changes whenever any app
-    /// installs a tap. The cost is real and worth stating plainly — each read
-    /// resets the min/max latency counters of every tap in the system — and a
-    /// SwiftUI body is rebuilt whenever SwiftUI invalidates it, which is not the
-    /// same as the user opening the menu, so the number of reads follows state
-    /// changes rather than user intent. Bounding that is an open cost of this
-    /// call, not something the caller decides.
+    /// installs a tap. The cost is real and worth stating plainly — each read resets
+    /// the min/max latency counters of every tap in the system, neighbouring apps'
+    /// included — and a SwiftUI body is rebuilt whenever SwiftUI invalidates it,
+    /// which is not the same as the user opening the menu. So the number of READS is
+    /// not allowed to follow the number of rebuilds: `Cache` collapses a burst of
+    /// them into one reading and keeps the answer at most one window old, while the
+    /// neighbour's delivered payload — a free local flag that can flip with no
+    /// notification behind it — is part of the memo key rather than of its age.
     ///
     /// Losing the position is not a failure Crema repairs. Taking it back would
     /// mean out-inserting a neighbour forever, or moving to the HID location and
@@ -866,11 +868,13 @@ extension AppCore {
     /// names who won and leaves the choice to the user, which is the only place
     /// it can be made (docs/DECISIONS.md: media-key-chain-contention).
     func mediaKeyChainNotice() -> MediaKeyChainNotice {
-        Self.mediaKeyChainNotice(
-            registry: eventTapRegistry,
-            ourPID: ProcessInfo.processInfo.processIdentifier,
-            betterDisplayIsFeedingUs: betterDisplaySource?.hasReported ?? false
-        )
+        chainNoticeCache.notice(betterDisplayIsFeedingUs: betterDisplaySource?.hasReported ?? false) { feeding in
+            Self.mediaKeyChainNotice(
+                registry: eventTapRegistry,
+                ourPID: ProcessInfo.processInfo.processIdentifier,
+                betterDisplayIsFeedingUs: feeding
+            )
+        }
     }
 
     /// The composition, standalone and static so a test pins it without booting
@@ -943,5 +947,102 @@ extension AppCore {
     /// app would adopt a style the picker never displayed.
     static func styleAuthorityOrder(_ screens: [ScreenDescription]) -> [DisplayUUID] {
         (screens.filter(\.isInternal) + screens.filter { !$0.isInternal }).map(\.id)
+    }
+}
+
+// MARK: - Menu bar
+
+/// Extension in THIS file, not another: `menuStatus` reads `preferences`, which is
+/// `private` — a cross-file extension cannot see it.
+@MainActor
+extension AppCore {
+    /// What the menu shows, gathered in ONE reading of each fact so a rebuild never
+    /// pays twice: `loginItem.status` crosses into Background Task Management, and
+    /// the tap-chain reading carries the cost documented on `mediaKeyChainNotice()`.
+    ///
+    /// Read-only, and that is the contract rather than a habit: the caller is a
+    /// SwiftUI view body, rebuilt whenever SwiftUI invalidates it — the app does not
+    /// choose when, and it is not tied to the user opening the menu — so a write
+    /// here would be domain mutation driven by rendering. The one write the
+    /// login-item reading used to do (forgetting an intent the user revoked
+    /// themselves) runs at a lifecycle edge instead (reconcileLoginItemIntent).
+    ///
+    /// `style` and `suppressionEnabled` come IN from the view: both are persisted
+    /// preferences, and only an OBSERVED read (@AppStorage) rebuilds the menu when
+    /// Settings changes them — read here, the block would keep asserting the old
+    /// state until something unrelated invalidated it.
+    func menuStatus(style: Style, suppressionEnabled: Bool) -> MenuStatus {
+        let loginStatus = loginItem.status
+        let chain = mediaKeyChainNotice()
+        return MenuStatus(
+            style: style,
+            // What the displays DRAW, not only what the picker declared: on a Mac
+            // with no slit the shipped default declares Notch while every panel
+            // draws Card, and a lone "Style: Notch" beside a Card-shaped HUD is the
+            // contradiction Settings already learned to name out loud.
+            fallsBackToCard: style == .notch && !rendersAnywhere(.notch) && rendersAnywhere(.card),
+            accessibilityGranted: permissionMonitor.isGranted,
+            suppressionEnabled: suppressionEnabled,
+            // The wish is not the fact: with no permission, or no suppressor in the
+            // graph (demo sources), the preference persists and nothing engages —
+            // the same gate the Settings toggle disables itself on.
+            suppressionAvailable: osdSuppressor != nil && permissionMonitor.isGranted,
+            suspendedDomains: osdSuppressionMonitor.longSuspendedDomains,
+            chainNotice: chain,
+            // The chain reading is passed IN rather than taken again: one build of
+            // this menu owes exactly one CGGetEventTapList.
+            brightnessTarget: Self.brightnessKeyTargetNotice(
+                chain: chain,
+                keysAreCaptured: permissionMonitor.isGranted,
+                census: ScreenTranslation.activeDisplayCensus
+            ),
+            nowPlayingActive: nowPlayingMonitor.isActive,
+            mediaCommandsAvailable: coordinator.commandsAvailable,
+            loginOutcome: Self.loginItemOutcome(
+                preferences: preferences,
+                status: loginStatus,
+                currentBuild: Self.currentBuild
+            ),
+            // Only the registration macOS honours: requiresApproval opens nothing
+            // yet and has its own warning.
+            loginRegistered: loginStatus == .enabled
+        )
+    }
+
+    /// Which display Crema's screen brightness lands on. Standalone and static so a
+    /// test pins the whole rule without booting the graph; the census is injected so
+    /// every arrangement is a test case instead of a hardware trip.
+    ///
+    /// Three reasons to say nothing, and only two of them are contention.
+    /// `.drawingFromBetterDisplay` is the load-bearing one and is NOT about
+    /// position: it means the neighbour is reporting, and then the HUD slider really
+    /// does write an external display through the neighbour's channel — the sentence
+    /// would be FALSE, not merely unhelpful, so narrowing this guard to the two
+    /// "someone is ahead" cases ships a lie. An app ahead of us may swallow the key
+    /// before Crema ever sees it, and naming a target under the warning printed
+    /// right above would contradict it. Without the Accessibility permission there
+    /// is no tap at all, and that warning is the only true thing to say about the
+    /// keys. The arrangement this costs is a neighbour reporting without being
+    /// ahead: the keys are ours and we stay quiet — the same asymmetry the chain
+    /// lines already accept, where a lost line costs a diagnostic and a false one
+    /// misinforms (docs/DECISIONS.md: media-key-chain-contention).
+    ///
+    /// The census is consulted only after the gate, so a silenced menu asks the
+    /// system nothing.
+    ///
+    /// A lone built-in panel says nothing: naming the target only informs where
+    /// there is another screen the user could have been looking at. "No built-in
+    /// panel in use" answers for both clamshell and a Mac that never had one — the
+    /// brightness write degrades to false in both, because `DisplayServicesBridge`
+    /// refuses to reach for whatever display happens to be main.
+    static func brightnessKeyTargetNotice(
+        chain: MediaKeyChainNotice,
+        keysAreCaptured: Bool,
+        census: () -> (hasBuiltIn: Bool, count: Int)
+    ) -> BrightnessKeyTargetNotice {
+        guard keysAreCaptured, chain == .quiet else { return .quiet }
+        let displays = census()
+        guard displays.hasBuiltIn else { return .noBuiltInDisplay }
+        return displays.count > 1 ? .builtInAmongOthers : .quiet
     }
 }

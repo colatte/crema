@@ -330,13 +330,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "⚠️ Accessibility permission missing — media keys are not captured"
+            "value": "Accessibility access is missing — Crema can't react to the volume or brightness keys."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "⚠️ Sem permissão de Acessibilidade — as teclas de mídia não são capturadas"
+            "value": "Falta o acesso de Acessibilidade — o Crema não reage às teclas de volume e brilho."
           }
         }
       }
@@ -347,13 +347,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "✓ Screen brightness HUD comes from BetterDisplay"
+            "value": "The screen brightness indicator comes from BetterDisplay."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "✓ O HUD de brilho da tela vem do BetterDisplay"
+            "value": "O indicador de brilho da tela vem do BetterDisplay."
           }
         }
       }
@@ -364,13 +364,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "⚠️ BetterDisplay takes the brightness keys — turn on its OSD notification integration and Crema can draw the HUD"
+            "value": "BetterDisplay receives the brightness keys. Turn on its OSD notification integration and Crema can show the indicator."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "⚠️ O BetterDisplay fica com as teclas de brilho — ligue a integração de notificação de OSD dele e o Crema desenha o HUD"
+            "value": "O BetterDisplay recebe as teclas de brilho. Ligue a integração de notificação de OSD dele e o Crema mostra o indicador."
           }
         }
       }
@@ -415,13 +415,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "⚠️ Open at login is waiting for your approval"
+            "value": "Open at login is waiting for your approval."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "⚠️ A abertura no login aguarda sua aprovação"
+            "value": "A abertura ao iniciar sessão aguarda sua aprovação."
           }
         }
       }
@@ -466,13 +466,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "⚠️ Open at login was turned off — the app changed since you enabled it"
+            "value": "Open at login was turned off because the app changed since you enabled it."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "⚠️ A abertura no login foi desativada — o app mudou desde que você ativou"
+            "value": "A abertura ao iniciar sessão foi desativada porque o app mudou desde que você ativou."
           }
         }
       }
@@ -483,13 +483,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "⚠️ Media controls blocked by macOS — showing playback only"
+            "value": "macOS is blocking the playback controls — the player stays view-only."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "⚠️ Controles de mídia bloqueados pelo macOS — apenas visualização"
+            "value": "O macOS está bloqueando os controles de reprodução — o player fica só de visualização."
           }
         }
       }
@@ -500,13 +500,47 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "⚠️ %@ receives the media keys before Crema — some HUDs may not appear"
+            "value": "%@ receives the media keys before Crema — some of Crema's indicators may not appear."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "⚠️ %@ recebe as teclas de mídia antes do Crema — alguns HUDs podem não aparecer"
+            "value": "%@ recebe as teclas de mídia antes do Crema — alguns indicadores do Crema podem não aparecer."
+          }
+        }
+      }
+    },
+    "menu.nowPlaying.nothing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing playing"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nada tocando"
+          }
+        }
+      }
+    },
+    "menu.nowPlaying.titleAndArtist": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ — %2$@"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ — %2$@"
           }
         }
       }
@@ -517,13 +551,30 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "⚠️ Now Playing unavailable — no media source"
+            "value": "Now Playing is unavailable — no media source is reporting."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "⚠️ Tocando Agora indisponível — sem fonte de mídia"
+            "value": "Tocando Agora está indisponível — nenhuma fonte de mídia está reportando."
+          }
+        }
+      }
+    },
+    "menu.nowPlayingUnavailable.fallbackHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crema's backup reader needs Automation access — see the Permissions tab"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O leitor reserva do Crema precisa de acesso de Automação — veja a aba Permissões"
           }
         }
       }
@@ -551,13 +602,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "⚠️ System HUD restored for %@ — Crema couldn't apply the change"
+            "value": "The system indicator is back for %@ — Crema couldn't apply the change."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "⚠️ HUD do sistema restaurado para %@ — o Crema não conseguiu aplicar a mudança"
+            "value": "O indicador do sistema voltou para %@ — o Crema não conseguiu aplicar a mudança."
           }
         }
       }
@@ -592,6 +643,108 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ajustes…"
+          }
+        }
+      }
+    },
+    "menu.status.brightnessBuiltInOnly": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crema controls brightness on the built-in display only, not on external displays."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Crema controla o brilho só da tela integrada, não das telas externas."
+          }
+        }
+      }
+    },
+    "menu.status.brightnessNoBuiltIn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crema can't control screen brightness — it works only with the built-in display, and none is in use."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Crema não controla o brilho da tela — ele funciona só com a tela integrada, e não há nenhuma em uso."
+          }
+        }
+      }
+    },
+    "menu.status.opensAtLogin": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crema opens at login."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Crema abre ao iniciar sessão."
+          }
+        }
+      }
+    },
+    "menu.status.replacingIndicators": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replacing the system volume and brightness indicators."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Substituindo os indicadores de volume e brilho do sistema."
+          }
+        }
+      }
+    },
+    "menu.status.style": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Style: %@"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estilo: %@"
+          }
+        }
+      }
+    },
+    "menu.status.styleFallsBack": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No connected display has a notch, so every one is drawing Card."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nenhuma tela conectada tem fenda, então todas estão desenhando o Cartão."
           }
         }
       }
@@ -1306,6 +1459,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Próxima Faixa"
+          }
+        }
+      }
+    },
+    "transport.pause": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pausar"
+          }
+        }
+      }
+    },
+    "transport.play": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reproduzir"
           }
         }
       }

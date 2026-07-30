@@ -71,6 +71,21 @@ enum ScreenTranslation {
         activeDisplayIDs().first { CGDisplayIsBuiltin($0) != 0 }
     }
 
+    /// What the menu's brightness row is decided from: whether a built-in panel is
+    /// among the ACTIVE displays, and how many displays there are at all.
+    ///
+    /// Deliberately the same list `builtInDisplayID()` resolves the brightness write
+    /// target from, and deliberately NOT the panel roster, which disagrees: the
+    /// roster drops any display with no NSScreenNumber or no resolvable UUID, and
+    /// AppKit collapses a mirror set to a single NSScreen. Sharing the list is what
+    /// keeps the menu from contradicting the hardware — wherever this reports no
+    /// built-in entry, the write returns false for the same reason, so the sentence
+    /// and the behavior fail together instead of disagreeing.
+    nonisolated static func activeDisplayCensus() -> (hasBuiltIn: Bool, count: Int) {
+        let ids = activeDisplayIDs()
+        return (ids.contains { CGDisplayIsBuiltin($0) != 0 }, ids.count)
+    }
+
     /// The same screen in the domain's own currency. Needed because nil and this
     /// UUID name one display: the neighbour integration reports displays by ID and
     /// names the built-in like any other, so an actuator handed that UUID must

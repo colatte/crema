@@ -46,4 +46,25 @@ struct LocalizationTests {
             #expect(!value.isEmpty, "empty pt-BR value for \(key)")
         }
     }
+
+    /// The composed track line must survive translation with BOTH names intact: a
+    /// pt-BR unit that lost a placeholder ships a menu row missing the artist, and
+    /// the compiler cannot see it — `everyCatalogKeyShipsInBothLanguages` cannot
+    /// either, since the key exists and the value is non-empty. Formatting it is
+    /// the only mechanical check, because the catalog value may legitimately be
+    /// `%@ … %@` or the positional `%1$@ … %2$@`.
+    @Test func theTrackLineKeepsBothNamesInEveryLanguage() throws {
+        for language in ["en", "pt-BR"] {
+            let lproj = try #require(Bundle.main.path(forResource: language, ofType: "lproj"))
+            let bundle = try #require(Bundle(path: lproj))
+            let format = bundle.localizedString(
+                forKey: "menu.nowPlaying.titleAndArtist",
+                value: nil,
+                table: nil
+            )
+            let line = String(format: format, "TRACK", "BAND")
+            #expect(line.contains("TRACK"), "\(language) drops the title")
+            #expect(line.contains("BAND"), "\(language) drops the artist")
+        }
+    }
 }

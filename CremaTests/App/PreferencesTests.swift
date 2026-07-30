@@ -16,6 +16,28 @@ struct PreferencesTests {
         #expect(preferences.style(for: internalDisplay) == .notch)
     }
 
+    /// Two readers of one key: this type, and the menu bar's @AppStorage, which
+    /// cannot call an instance getter. The shared resolver is what keeps them from
+    /// disagreeing about the shipped default or about a rawValue a future version
+    /// retires — a second literal on the menu side would start lying the day the
+    /// default changes.
+    @Test func theMenuAndThePreferenceResolveTheDeclaredStyleTheSameWay() {
+        let preferences = Preferences(defaults: store.defaults)
+
+        // Unset: both sides land on the same shipped default.
+        #expect(Preferences.declaredStyle(fromRawValue: nil) == preferences.declaredStyle)
+        #expect(Preferences.declaredStyle(fromRawValue: nil) == Preferences.defaultDeclaredStyle)
+        // A style removed since ("pill", "circular") is no declaration at all.
+        #expect(Preferences.declaredStyle(fromRawValue: "pill") == Preferences.defaultDeclaredStyle)
+
+        // And a real declaration reads back identically from the raw value the
+        // menu's @AppStorage sees.
+        preferences.declaredStyle = .classic
+        let raw = store.defaults.string(forKey: Preferences.declaredStyleKey)
+        #expect(Preferences.declaredStyle(fromRawValue: raw) == .classic)
+        #expect(preferences.declaredStyle == .classic)
+    }
+
     /// A persisted rawValue of a removed style ("circular", "pill") — or any
     /// garbage — is no override at all: with nothing declared it degrades to the
     /// shipped default, never crashing or misdispatching (the same rawValue
