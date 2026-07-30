@@ -33,6 +33,7 @@ final class FakeEventTapOperating: EventTapOperating, @unchecked Sendable {
     private var _valid = false
     private var _setEnabledCalls: [Bool] = []
     private var _operations: [String] = []
+    private var _offMainMutations: [String] = []
 
     /// How many times a tap was installed (a revive must not increment this —
     /// re-enabling keeps the same port and its consumer wiring; a reinstall
@@ -57,6 +58,23 @@ final class FakeEventTapOperating: EventTapOperating, @unchecked Sendable {
     /// paired uninstall→install (old port torn down first, no orphan) rather
     /// than a bare re-create over a still-live port.
     var operations: [String] { lock.withLock { _operations } }
+    /// Every port reconfiguration that ran OFF the main thread. The live border puts
+    /// the run-loop source on the MAIN run loop, which is also the thread the
+    /// callback is delivered on, so a mutation from anywhere else can land between a
+    /// delivered event and the callback handling it — and contends the source's lock
+    /// with that callback across a WindowServer round-trip. Empty is the invariant
+    /// (docs/DECISIONS.md: tap-mutation-on-its-own-thread). Read it only in tests
+    /// that drive the POLL: the synchronous seams (setConsumer, reinstallTap) are
+    /// main-thread by their callers' isolation in production, and tests call them
+    /// straight off-actor.
+    var offMainMutations: [String] { lock.withLock { _offMainMutations } }
+
+    /// Called BEFORE taking the lock — NSLock is not recursive and every mutating
+    /// operation below already holds it.
+    private func noteMutationThread(_ operation: String) {
+        guard !Thread.isMainThread else { return }
+        lock.withLock { _offMainMutations.append(operation) }
+    }
 
     /// Simulate the system disabling the tap without delivering a callback. The
     /// port stays valid, so the health-check revives it in place.
@@ -76,7 +94,8 @@ final class FakeEventTapOperating: EventTapOperating, @unchecked Sendable {
         callback: @escaping CGEventTapCallBack,
         userInfo: UnsafeMutableRawPointer
     ) -> AnyObject? {
-        lock.withLock {
+        noteMutationThread("install")
+        return lock.withLock {
             let token = Token()
             _installs.append(Install(token: token, callback: callback, userInfo: userInfo))
             _token = token
@@ -96,6 +115,7 @@ final class FakeEventTapOperating: EventTapOperating, @unchecked Sendable {
     }
 
     func setEnabled(_ token: AnyObject, _ enabled: Bool) {
+        noteMutationThread("setEnabled")
         lock.withLock {
             _setEnabledCalls.append(enabled)
             if (token as AnyObject) === _token { _enabled = enabled }
@@ -103,6 +123,7 @@ final class FakeEventTapOperating: EventTapOperating, @unchecked Sendable {
     }
 
     func uninstall(_ token: AnyObject) {
+        noteMutationThread("uninstall")
         lock.withLock {
             _operations.append("uninstall")
             if (token as AnyObject) === _token {

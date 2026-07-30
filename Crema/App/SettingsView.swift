@@ -58,6 +58,11 @@ struct SettingsView: View {
 private struct GeneralSettingsView: View {
     let core: AppCore
     @State private var style: Style
+    /// Whether any connected display RENDERS Card — the gate for the Card-scoped
+    /// Indicator picker below. A mirror of what is drawn, not of the declaration:
+    /// the two disagree on notchless hardware, where the default declaration is
+    /// Notch and every display draws Card.
+    @State private var rendersCard: Bool
     @AppStorage(Preferences.hudIndicatorStyleKey) private var indicatorStyle = HUDIndicatorStyle.slider.rawValue
     /// Mirrors the real login-item status (enabled or pending approval), and is
     /// re-read from it after every attempt — the toggle is a view onto reality,
@@ -67,11 +72,13 @@ private struct GeneralSettingsView: View {
 
     init(core: AppCore) {
         self.core = core
-        // Pinned-latent (see CONTRACTS-AUDIT S4): `style` is seeded once and
-        // never re-synced, so a style changed by another writer while Settings
-        // is open leaves this picker — and the Indicator's .disabled(style != .card)
-        // gate below — showing the stale value until the window reopens.
+        // Pinned-latent (see CONTRACTS-AUDIT S4): both mirrors are seeded once and
+        // re-read only when this picker writes, so a style changed by another
+        // writer — or a display hotplugged — while Settings is open leaves the
+        // picker and the Indicator gate below on the stale answer until the window
+        // reopens.
         _style = State(initialValue: core.currentStyle())
+        _rendersCard = State(initialValue: core.rendersAnywhere(.card))
         _launchesAtLogin = State(initialValue: core.loginItem.isEnabled || core.loginItem.requiresApproval)
         _loginNeedsApproval = State(initialValue: core.loginItem.requiresApproval)
     }
@@ -91,7 +98,14 @@ private struct GeneralSettingsView: View {
                 } label: {
                     Text(String(localized: "settings.general.style", defaultValue: "Style"))
                 }
-                .onChange(of: style) { _, new in core.setStyleEverywhere(new) }
+                // The declaration decides what every display renders, so the
+                // Indicator gate is re-read from the panels right after they are
+                // re-resolved — never inferred from `new`, which says nothing about
+                // which of the connected displays has a slit.
+                .onChange(of: style) { _, new in
+                    core.setStyleEverywhere(new)
+                    rendersCard = core.rendersAnywhere(.card)
+                }
             } footer: {
                 Text(String(
                     localized: "settings.general.style.footer",
@@ -100,10 +114,13 @@ private struct GeneralSettingsView: View {
                 .settingsFootnote()
             }
 
-            // Kept visible but disabled outside Card (the macOS dependent-setting
-            // pattern) — the declared global style is the source of truth, so a
-            // notchless display whose Notch selection renders as Card still reads
-            // the picker as inert; the footer names the scope.
+            // Kept visible but disabled when nothing on screen renders Card (the
+            // macOS dependent-setting pattern). The gate is the RENDERED style, not
+            // the declared one: on hardware without a notch the default declaration
+            // is Notch while every display draws Card, so gating on the declaration
+            // grayed out the only control over that HUD's appearance in the state
+            // the app ships in (docs/DECISIONS.md: rendered-style-gates-settings).
+            // The footer still names the scope.
             Section {
                 Picker(selection: $indicatorStyle) {
                     ForEach(HUDIndicatorStyle.allCases, id: \.rawValue) { style in
@@ -112,7 +129,7 @@ private struct GeneralSettingsView: View {
                 } label: {
                     Text(String(localized: "settings.hud.indicator", defaultValue: "Indicator style"))
                 }
-                .disabled(style != .card)
+                .disabled(!rendersCard)
                 .onChange(of: indicatorStyle) { _, new in
                     core.setHUDIndicatorStyle(HUDIndicatorStyle(rawValue: new) ?? .slider)
                 }

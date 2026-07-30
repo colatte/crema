@@ -272,12 +272,32 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
         // timer) lands on the true position instead of adding a fixed second,
         // and a tick that never arrives costs nothing — which is what keeps the
         // bar in sync through a whole track, since players re-anchor only on
-        // state changes. Same guards as the payload math: a backward wall-clock
-        // jump freezes rather than rewinds, and the end of the track clamps.
-        // (docs/DECISIONS.md: sample-dont-integrate)
+        // state changes. (docs/DECISIONS.md: sample-dont-integrate)
         guard let anchor else { lock.unlock(); return }
+        // `now` is the WALL clock, which an NTP step correction or a manual time
+        // change moves while the ticker's own clock keeps running — and sampling
+        // means the bar follows it. The floor is what stops a backward step from
+        // UNDOING age already shown (anchor 10 s, ticked to 40 s, clock back
+        // 30 s, sampled 10 s); a non-negative age never covered that, since it
+        // only bounds the anchor's own instant. It floors the SHOWN line, never
+        // a remembered maximum: every anchor write rewrites that line too (an
+        // accepted payload, noteSeek, noteSeekFailed), so a legitimate backward
+        // re-anchor lowers the floor with it instead of stranding the bar above
+        // the truth. And the origin stays put rather than being re-anchored on
+        // the backward edge: moving it makes the tick accumulate again, so clock
+        // noise would ratchet the bar forward. The residual, accepted: after a
+        // one-way step back the bar sits behind by the step until the next
+        // payload — the same error the rewind left, minus the visible jump.
         let age = max(0, now().timeIntervalSince(anchor.instant))
         var sampled = anchor.position + age * anchor.rate
+        // Forward playback only: a negative rate (a rewind scan, aged with the
+        // same sign by the payload math) is the bar moving back honestly, and it
+        // is the one case the non-negative age still decides — with the rate
+        // negative, a backward clock would otherwise ADVANCE the bar.
+        if anchor.rate > 0 {
+            sampled = max(nowPlaying.position, sampled)
+        }
+        // Clamped last, so the end of the track outranks the floor.
         if let duration = nowPlaying.duration, sampled > duration {
             sampled = duration
         }

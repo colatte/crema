@@ -29,6 +29,22 @@ struct StyleTests {
         #expect(Style.classic.rawValue == "classic")
     }
 
+    /// The render rule every reader shares (`Style.resolved(on:)`): panels are
+    /// built through it and Settings gates its Card-scoped controls on it, so the
+    /// declared style and the drawn one cannot disagree by accident
+    /// (docs/DECISIONS.md: rendered-style-gates-settings).
+    @Test func notchRendersAsCardExactlyWhereThereIsNoSlit() {
+        #expect(Style.notch.resolved(on: geometry) == .card)
+        #expect(Style.notch.resolved(on: notched) == .notch)
+    }
+
+    @Test func theSlitlessFallbackTouchesTheNotchStyleOnly() {
+        for style in [Style.card, .classic] {
+            #expect(style.resolved(on: geometry) == style)
+            #expect(style.resolved(on: notched) == style)
+        }
+    }
+
     @Test func cardCaseDispatchesToTheCardFrameRule() {
         let states: [PresentationState] = [
             .hidden,

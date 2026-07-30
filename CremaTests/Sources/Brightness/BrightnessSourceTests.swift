@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import Crema
 
@@ -13,6 +14,79 @@ import Testing
 /// not.
 struct BrightnessSourceTests {
     private static let kinds: [SystemHUD.Kind] = [.screenBrightness, .keyboardBrightness]
+
+    /// `sample()` plus the barrier saying the reading it queued has been taken.
+    /// The source reads off the caller's thread on purpose (the real read is a
+    /// blocking private-API call), so a test that moves the backend value after a
+    /// sample must know the previous reading already happened — otherwise the
+    /// mutation races it and the assertion pins whichever order won. Used exactly
+    /// where a mutation or a silence-assertion follows a sample; where the next
+    /// line awaits the emission that sample owes, that await IS the barrier.
+    /// Bounded by wall clock, never a sleep: the condition is the backend's own
+    /// reading count, and expiry fails here, loudly.
+    private func sampleAndRead(_ source: PolledBrightnessSource, _ backend: FakeBrightnessBackend) async {
+        let mark = backend.readCount
+        source.sample()
+        #expect(await backend.awaitRead(after: mark), "the sample's reading never landed")
+    }
+
+    @MainActor
+    @Test(arguments: kinds)
+    func aKeyDrivenSampleReadsOffTheCallersThread(kind: SystemHUD.Kind) async {
+        // The freeze this seam exists to prevent. `sample()` is called ON THE
+        // MAINACTOR by the suppressor's post-apply poke and by the slider echo —
+        // the latter once per drag frame — and the real read is a blocking
+        // private-API call (a dlsym'd DisplayServices entry point; a round trip
+        // that re-enumerates the keyboard IDs). Inline, a stalled daemon froze
+        // HUD, now playing and menu on the healthy path, with the key already
+        // swallowed. Counted, not timed: no lucky schedule satisfies it.
+        let backend = FakeBrightnessBackend(available: true, value: 0.5)
+        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1)
+        var iterator = source.updates.makeAsyncIterator()
+        // The launch baseline is deliberately still read on this thread (see the
+        // source's init), so the claim is about every reading after construction.
+        let atLaunch = backend.mainThreadReads
+
+        backend.value = 0.8
+        source.sample()
+        #expect(await iterator.next() == SystemHUD(kind: kind, value: BrightnessConversion.normalize(0.8)))
+        #expect(backend.mainThreadReads == atLaunch)
+    }
+
+    @Test(arguments: kinds)
+    func aPollDoesNotReParkWhileItsReadingIsStillInFlight(kind: SystemHUD.Kind) async {
+        // One reading in flight per channel, ever: the poll awaits the reading it
+        // queued. Without the await a stalled read lets the cadence pile up work
+        // items that all land at once when it clears — and every `waitForSleep()`
+        // in this file stops being a barrier, because the next mutation races a
+        // reading that is still running.
+        //
+        // The gate is a DispatchSemaphore, like BlockingCallTests: the subject is a
+        // read deliberately stuck, so a waiter that needed that read to finish
+        // could not observe the state being asserted.
+        let backend = FakeBrightnessBackend(available: true, value: 0.5)
+        let clock = TestSleepClock()
+        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1)
+        await clock.waitForSleep()          // parked; the launch baseline is read
+
+        let held = DispatchSemaphore(value: 0)
+        backend.readGate = held
+        defer { backend.readGate = nil; held.signal() }
+
+        let started = backend.readsStarted
+        clock.advance()                     // the poll wakes and queues a reading
+        // The barrier the assertion needs: the reading is provably IN FLIGHT, so a
+        // quiet clock cannot be a poll task that simply has not run yet. Counting
+        // returned readings could not say this — the gate parks before the return.
+        #expect(await backend.awaitReadStarted(after: started))
+        await settle()
+        #expect(clock.pendingSleeps == 0, "the poll must be suspended on its reading, not sleeping again")
+
+        backend.readGate = nil
+        held.signal()
+        #expect(await eventuallyOffActor { clock.pendingSleeps == 1 })
+        withExtendedLifetime(source) {}     // nothing else references it after init
+    }
 
     @Test(arguments: kinds)
     func sourceIsUnavailableWhenBackendIsUnavailable(kind: SystemHUD.Kind) async {
@@ -51,7 +125,10 @@ struct BrightnessSourceTests {
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1)
         var iterator = source.updates.makeAsyncIterator()
 
-        source.sample()             // key observed; value not applied yet
+        // Barriered: without it the key's reading can land after the line below
+        // and see 0.8 itself, which emits the right value by the wrong path and
+        // leaves the armed poll — the whole subject here — untested.
+        await sampleAndRead(source, backend)   // key observed; not applied yet
         await clock.waitForSleep()
         backend.value = 0.8         // OS applies
         clock.advance()
@@ -153,12 +230,15 @@ struct BrightnessSourceTests {
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1)
         var iterator = source.updates.makeAsyncIterator()
 
+        // Every mutation here follows a sample, so every one needs the barrier:
+        // otherwise the new value races the reading the previous sample queued and
+        // the assertion pins whichever order won.
         backend.value = 0.7
-        source.sample()
+        await sampleAndRead(source, backend)
         backend.value = 0.7         // same mid-scale → no emit
-        source.sample()
+        await sampleAndRead(source, backend)
         backend.value = 0.3
-        source.sample()
+        await sampleAndRead(source, backend)
 
         #expect(await iterator.next() == SystemHUD(kind: kind, value: BrightnessConversion.normalize(0.7)))
         #expect(await iterator.next() == SystemHUD(kind: kind, value: BrightnessConversion.normalize(0.3)))

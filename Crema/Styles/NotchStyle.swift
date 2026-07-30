@@ -19,9 +19,9 @@ struct NotchStyle: PresentationStyle {
     }
 
     func frame(for state: PresentationState, on geometry: ScreenGeometry) -> CGRect {
-        // No physical notch here → behave like the card. Defensive: the
-        // WindowManager also resolves notch→card on non-notch displays, so this
-        // rule normally only runs on notched geometry.
+        // No physical notch here → behave like the card. Defensive only: the
+        // render rule (`Style.resolved(on:)`) already maps notch→card on a
+        // slitless display, so this rule normally runs on notched geometry.
         guard geometry.safeTop > 0 else {
             return CardStyle().frame(for: state, on: geometry)
         }

@@ -27,9 +27,20 @@ import Foundation
 /// does — the same bounded, honest residual the read side accepts. There is
 /// nothing to cancel: a blocked C call cannot observe cancellation, so callers
 /// bound it with a deadline and abandon it rather than waiting.
-func blockingCall<T: Sendable>(_ body: @escaping @Sendable () throws -> T) async throws -> T {
+///
+/// `queue` defaults to the global pool, whose width grows as its own threads
+/// block. A caller passes its own SERIAL queue when the calls need ordering
+/// against each other on top of a thread that may block: one border's readings
+/// have to register in the order they were asked for, or a slow read lands a
+/// stale value after a fast newer one. The trade is explicit — a blocked call
+/// then holds that queue — so only work already meant to run one-at-a-time
+/// belongs on it (PolledBrightnessSource, one reader per channel).
+func blockingCall<T: Sendable>(
+    on queue: DispatchQueue = .global(),
+    _ body: @escaping @Sendable () throws -> T
+) async throws -> T {
     try await withCheckedThrowingContinuation { continuation in
-        DispatchQueue.global().async {
+        queue.async {
             continuation.resume(with: Result { try body() })
         }
     }

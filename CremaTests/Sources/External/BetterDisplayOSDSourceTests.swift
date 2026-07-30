@@ -91,6 +91,53 @@ struct BetterDisplayOSDSourceTests {
         #expect(collector.values.isEmpty)
     }
 
+    @Test func aReportedLevelAlsoSilencesTheKeysOwnReadingStillInFlight() async {
+        // The same press as above, but the reading the key asked for is still in
+        // flight when the neighbour reports — reachable because that reading no
+        // longer runs on the caller's thread (a blocking private-API read must
+        // never land there). A key-driven reading emits on any change, window or
+        // not, so ordering alone stopped protecting this press: it has to come back
+        // knowing it was spoken for, or it draws our hardware-scale bar on top of
+        // the neighbour's — the exact double bar standDown exists to prevent
+        // (docs/DECISIONS.md: betterdisplay-osd-source).
+        let backend = FakeBrightnessBackend(value: 0.5)
+        let clock = TestSleepClock()
+        let polled = PolledBrightnessSource(
+            kind: .screenBrightness, backend: backend, clock: clock, pollInterval: 0.5
+        )
+        let collector = Collector(polled.updates)
+        defer { collector.stop() }
+
+        let source = BetterDisplayOSDSource(
+            target: { $0 == 1 ? .builtIn : nil },
+            onReport: { polled.standDown() }
+        )
+
+        let held = DispatchSemaphore(value: 0)
+        backend.readGate = held
+        defer { backend.readGate = nil; held.signal() }
+
+        let started = backend.readsStarted
+        let taken = backend.readCount
+        polled.sample()                 // the observed key: its reading parks
+        #expect(await backend.awaitReadStarted(after: started))
+
+        source.handle(json: #"{"controlTarget":"combinedBrightness","maxValue":64,"value":32}"#)
+        backend.value = 0.34            // the neighbour applied: the hardware moves
+
+        backend.readGate = nil
+        held.signal()                   // the key's reading returns now, seeing 0.34
+        #expect(await backend.awaitRead(after: taken))
+
+        // Proven by what comes next rather than by silence alone: a fresh key the
+        // source can see must be the FIRST thing the stream ever yields — had the
+        // spoken-for reading emitted, it would sit ahead of it.
+        backend.value = 0.42
+        polled.sample()
+        #expect(await eventually { collector.values.count == 1 })
+        #expect(collector.values.map(\.value) == [BrightnessConversion.normalize(0.42)])
+    }
+
     @Test func onlyADeliveredPayloadCountsAsAWorkingIntegration() {
         // Presence of the app proves nothing: its OSD notification setting can be
         // off with BetterDisplay running, so the menu must not claim otherwise.

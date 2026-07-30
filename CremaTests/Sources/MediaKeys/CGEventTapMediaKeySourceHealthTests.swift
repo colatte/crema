@@ -249,4 +249,100 @@ struct CGEventTapMediaKeySourceHealthTests {
         #expect(!ops.isInstalled)
         withExtendedLifetime(source) {}
     }
+
+    // MARK: - Which thread the poll reconfigures the port on
+
+    /// Port reconfiguration belongs to the tap's OWN thread — the main run loop,
+    /// where the live border registers the run-loop source and where the callback is
+    /// delivered. The poll does not live there (its Task is born in a nonisolated
+    /// init, so it runs on the cooperative pool), so its install has to hop; the
+    /// four preventive-reinstall edges buy the same invariant with `queue: .main`.
+    /// (docs/DECISIONS.md: tap-mutation-on-its-own-thread)
+    @Test func pollInstallsOnTheTapsOwnThread() async {
+        let (source, ops, _) = await installedSource()
+
+        #expect(ops.isInstalled)
+        #expect(ops.offMainMutations.isEmpty)
+        withExtendedLifetime(source) {}
+    }
+
+    /// Both heal responses hop, not just the expensive one. The reinstall is the
+    /// dangerous half: it invalidates a mach port whose callback the main thread may
+    /// be running at that very moment, and it holds the source's lock — the one the
+    /// callback also takes — across the round-trip.
+    @Test func pollHealsOnTheTapsOwnThread() async {
+        let (source, ops, clock) = await installedSource()
+
+        ops.simulateSystemDisable()
+        clock.advance()
+        await clock.waitForSleep()
+        #expect(ops.isCurrentlyEnabled)                 // the re-enable happened…
+        #expect(ops.offMainMutations.isEmpty)           // …on the tap's own thread
+
+        ops.simulateSystemInvalidate()
+        clock.advance()
+        await clock.waitForSleep()
+        #expect(ops.installCount == 2)                  // the reinstall happened…
+        #expect(ops.offMainMutations.isEmpty)           // …on the tap's own thread
+        withExtendedLifetime(source) {}
+    }
+
+    /// The teardown hops too: removing the run-loop source and invalidating the port
+    /// is a reconfiguration like any other, however local it looks from here.
+    @Test func pollTearsDownOnTheTapsOwnThread() async {
+        let permission = MockAccessibilityPermission(granted: true)
+        let (source, ops, clock) = await installedSource(permission: permission)
+
+        permission.granted = false
+        clock.advance()
+        await clock.waitForSleep()
+
+        #expect(!ops.isInstalled)
+        #expect(ops.operations.contains("uninstall"))
+        #expect(ops.offMainMutations.isEmpty)
+        withExtendedLifetime(source) {}
+    }
+
+    /// The instrument's own pin. `offMainMutations` is asserted EMPTY three times
+    /// above, and empty is also what a recorder that records nothing returns — so
+    /// prove it records: drive a port mutation from a detached task (never the main
+    /// thread) and watch it appear. Without this control, deleting the fake's
+    /// thread bookkeeping would leave those three tests green forever.
+    @Test func offMainMutationsRecordsAMutationThatRanOffTheMainThread() async {
+        let (source, ops, _) = await installedSource()
+        #expect(ops.offMainMutations.isEmpty)          // the poll's install hopped
+
+        // Exactly what production never does (the four edges deliver on `.main`).
+        await Task.detached { source.reinstallTap() }.value
+
+        #expect(ops.operations == ["install", "uninstall", "install"])
+        #expect(ops.offMainMutations == ["uninstall", "install"])
+        withExtendedLifetime(source) {}
+    }
+
+    /// The other half of the split, and the reason the whole tick does not just move
+    /// to the main thread: a tick with nothing to change must not touch it at all.
+    /// `AXIsProcessTrusted` is a blocking TCC round-trip, so a poll that hopped
+    /// unconditionally would hand the main thread a blocking IPC every 2 s forever —
+    /// a guaranteed periodic cost traded for a rare race. Detection therefore stays
+    /// on the poll's own thread and only a mutating tick hops.
+    @Test func aHealthyTickNeverReadsThePermissionOnTheMainThread() async {
+        let permission = MockAccessibilityPermission(granted: true)
+        let (source, ops, clock) = await installedSource(permission: permission)
+        // The install tick DID hop and re-read the permission there — which is also
+        // what proves this counter counts at all; from here the tap is healthy, so
+        // the main-thread count must stand still.
+        let afterInstall = permission.mainThreadChecks
+        #expect(afterInstall > 0)
+
+        clock.advance()
+        await clock.waitForSleep()
+        clock.advance()
+        await clock.waitForSleep()
+
+        #expect(ops.installCount == 1)
+        #expect(ops.isCurrentlyEnabled)
+        #expect(permission.mainThreadChecks == afterInstall)
+        withExtendedLifetime(source) {}
+    }
 }

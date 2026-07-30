@@ -437,12 +437,24 @@ final class AppCore {
 
     // MARK: - Settings (live preference changes)
 
-    /// The value the all-displays picker shows: the leading display's resolved
-    /// style, which IS the global declaration unless that display still carries
-    /// a legacy per-display override (docs/DECISIONS.md: global-style-default).
+    /// The value the all-displays picker shows: what the leading display has
+    /// DECLARED — the global declaration, unless that display still carries a
+    /// legacy per-display override. Never what it draws: no geometry enters here,
+    /// which is why a style-scoped control gates on `rendersAnywhere` instead
+    /// (docs/DECISIONS.md: global-style-default).
     func currentStyle() -> Style {
         let leading = Self.styleAuthorityOrder(ScreenTranslation.describeAll()).first
         return leading.map { preferences.style(for: $0) } ?? preferences.declaredStyle
+    }
+
+    /// Whether any connected display RENDERS this style — the gate for
+    /// style-scoped Settings controls, and deliberately not `currentStyle()`:
+    /// that reports the declaration, and on a Mac without a notch the shipped
+    /// default declares notch while every panel draws card, which left the
+    /// Card-only indicator picker gray with the HUD it governs on screen
+    /// (docs/DECISIONS.md: rendered-style-gates-settings).
+    func rendersAnywhere(_ style: Style) -> Bool {
+        windowManager.renders(style)
     }
 
     /// The "all displays" entry: declares the style globally and drops the

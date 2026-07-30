@@ -7,7 +7,28 @@ import Testing
 ///
 /// `register` mutates, so each call is bound to a local before `#expect` (the
 /// macro would otherwise capture the gate immutably).
+///
+/// Arming is its own call (`armKeyWindow()`, at key time on the key's thread)
+/// because the reading it explains comes back later, off that thread. So the
+/// tests about the WINDOW arm explicitly, and the ones about the keyDriven leg
+/// alone — a changed key reading, the boundary refresh, de-dup — deliberately do
+/// not: those must hold with no window open, or the two legs get silently welded
+/// together.
 struct KeyOriginBrightnessGateTests {
+
+    @Test func aKeyDrivenReadingDoesNotArmTheWindowByItself() {
+        // Recording is not arming. The window has to be stamped when the KEY
+        // arrives, because the reading it explains comes back later from the
+        // border's serial queue — a blocking private-API read never runs on the
+        // caller's thread. If registering armed too, the window would start when
+        // the read RETURNED, and a poll inside that shifted window would be read
+        // as the user's press.
+        var g = gate()
+        let atKey = g.register(0.5, keyDriven: true)      // no window opened
+        let atPoll = g.register(0.8, keyDriven: false)    // so this is a sensor
+        #expect(!atKey)
+        #expect(!atPoll)
+    }
 
     private func gate(baseline: Double? = 0.5, window: Double = 1.5, now: ManualNow = ManualNow()) -> KeyOriginBrightnessGate {
         KeyOriginBrightnessGate(window: window, now: { now.now }, baseline: baseline)
@@ -29,6 +50,7 @@ struct KeyOriginBrightnessGateTests {
         // Suppression-off timing: the key arms before the value applies, so the
         // key read finds no change; the poll a beat later, still armed, emits.
         var g = gate()
+        g.armKeyWindow()                                  // the key arrived: window opens now
         let atKey = g.register(0.5, keyDriven: true)      // key observed, not applied yet
         let atPoll = g.register(0.8, keyDriven: false)    // applied, armed
         #expect(!atKey)
@@ -41,8 +63,9 @@ struct KeyOriginBrightnessGateTests {
         // not add its own reading on top: the two measure different things, and
         // the later one would win the HUD.
         var g = gate()
+        g.armKeyWindow()                                  // the key arrived
         let atKey = g.register(0.5, keyDriven: true)
-        g.standDown()
+        g.standDown()                                     // the neighbour reported: spend it
         let atPoll = g.register(0.8, keyDriven: false)
         #expect(!atKey)
         #expect(!atPoll)
@@ -58,7 +81,8 @@ struct KeyOriginBrightnessGateTests {
     @Test func aPollChangeAfterTheWindowExpiresIsSilent() {
         let now = ManualNow()
         var g = gate(now: now)
-        let atKey = g.register(0.5, keyDriven: true)      // arms until now + 1.5
+        g.armKeyWindow()                                  // arms until now + 1.5
+        let atKey = g.register(0.5, keyDriven: true)
         now.advance(by: 2)
         let atPoll = g.register(0.8, keyDriven: false)    // window passed → sensor
         #expect(!atKey)
@@ -67,6 +91,7 @@ struct KeyOriginBrightnessGateTests {
 
     @Test func anEmitConsumesTheWindow() {
         var g = gate()
+        g.armKeyWindow()
         let atKey = g.register(0.8, keyDriven: true)      // key HUD, window consumed
         let inTail = g.register(0.6, keyDriven: false)    // sensor in the tail → silent
         #expect(atKey)
@@ -78,7 +103,8 @@ struct KeyOriginBrightnessGateTests {
         // whose value has not applied); one following sensor change leaks, then
         // the emit consumes the window.
         var g = gate()
-        let atKey = g.register(0.5, keyDriven: true)      // no-op key: arms only
+        g.armKeyWindow()                                  // the key arrived
+        let atKey = g.register(0.5, keyDriven: true)      // no-op key: nothing to show
         let leak = g.register(0.4, keyDriven: false)      // the one bounded leak
         let after = g.register(0.3, keyDriven: false)     // window consumed → silent
         #expect(!atKey)

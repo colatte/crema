@@ -16,6 +16,7 @@ struct BlockingCallTests {
     private final class Counter: @unchecked Sendable {
         private let lock = NSLock()
         private var value = 0
+        var count: Int { lock.withLock { value } }
         func increment() -> Int { lock.withLock { value += 1; return value } }
     }
 

@@ -108,6 +108,10 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
     }
 
     @Test func aBackwardWallClockJumpFreezesInsteadOfRewinding() async {
+        // The rewind needs ROOM: only an anchor that has already AGED can be
+        // undone, so the bar has to tick forward before the clock steps back —
+        // stepping back at age 0 proves nothing, since the shown position IS
+        // the anchor's own position there.
         let (lines, feed) = AsyncStream<String>.makeStream()
         let wall = TestWallClock()
         let source = MediaRemoteAdapterNowPlayingSource(
@@ -117,10 +121,93 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
 
         feed.yield(line(position: 10, playing: true))
         #expect(await iterator.next()?.position == 10)
-
-        wall.advance(-30)                    // NTP correction, manual clock change
+        wall.advance(30)
         source.tick(ifCurrent: 1)
-        #expect(await iterator.next()?.position == 10)
+        #expect(await iterator.next()?.position == 40)
+
+        wall.advance(-30)                    // NTP step correction, manual clock change
+        source.tick(ifCurrent: 1)
+        #expect(await iterator.next()?.position == 40)   // frozen, never back to the anchor
+
+        // The origin is kept, not re-anchored on the backward edge: moving it
+        // would return the tick to accumulating, and clock noise would ratchet
+        // the bar forward (docs/DECISIONS.md: sample-dont-integrate). The cost
+        // pinned here is the bar staying behind by the step, not jumping ahead.
+        wall.advance(31)
+        source.tick(ifCurrent: 1)
+        #expect(await iterator.next()?.position == 41)
+    }
+
+    @Test func anAcceptedBackwardAnchorLowersTheFloorTheTickSamplesAgainst() async {
+        // A seek made in the player's own UI arrives as a payload, not a hint:
+        // the reconciliation accepts the large backward step, re-anchors, and
+        // the tick must count from THERE. A floor that remembered the highest
+        // position ever shown would strand the bar at the pre-seek value for the
+        // rest of the track, since the adapter re-anchors only on state changes.
+        let (lines, feed) = AsyncStream<String>.makeStream()
+        let wall = TestWallClock()
+        let source = MediaRemoteAdapterNowPlayingSource(
+            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now
+        )
+        var iterator = source.updates.makeAsyncIterator()
+
+        feed.yield(line(position: 100, playing: true))         // generation 1
+        #expect(await iterator.next()?.position == 100)
+        wall.advance(30)
+        source.tick(ifCurrent: 1)
+        #expect(await iterator.next()?.position == 130)
+
+        feed.yield(line(position: 20, playing: true))          // generation 2, a real backward seek
+        #expect(await iterator.next()?.position == 20)
+        wall.advance(1)
+        source.tick(ifCurrent: 2)
+        #expect(await iterator.next()?.position == 21)
+    }
+
+    @Test func aBackwardSeekLowersTheFloorWithTheReanchoredTicker() async {
+        // The scrubber's release re-anchors through the hint instead of a
+        // payload, and the floor depends on the same invariant: noteSeek
+        // rewrites the shown line together with the anchor, so the floor moves
+        // down with it and the ticker counts from the target.
+        let (lines, feed) = AsyncStream<String>.makeStream()
+        let wall = TestWallClock()
+        let source = MediaRemoteAdapterNowPlayingSource(
+            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now
+        )
+        var iterator = source.updates.makeAsyncIterator()
+
+        feed.yield(line(position: 100, playing: true))         // generation 1
+        #expect(await iterator.next()?.position == 100)
+
+        source.noteSeek(to: 20)                                // generation 2, no echo of its own
+        wall.advance(1)
+        source.tick(ifCurrent: 2)
+        #expect(await iterator.next()?.position == 21)
+    }
+
+    @Test func aNegativeRateStillWalksTheBarBackward() async {
+        // The floor guards the CLOCK, not the direction of playback: a rewind
+        // scan reports a negative rate, the payload math ages by that sign, and
+        // the tick must agree instead of freezing. This is also the one case the
+        // non-negative age still decides — with the rate negative, a backward
+        // clock would otherwise advance the bar.
+        let (lines, feed) = AsyncStream<String>.makeStream()
+        let wall = TestWallClock()
+        let source = MediaRemoteAdapterNowPlayingSource(
+            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now
+        )
+        var iterator = source.updates.makeAsyncIterator()
+
+        feed.yield(#"{"type":"data","diff":false,"payload":{"title":"Breathe","artist":"Pink Floyd","playing":true,"elapsedTime":100.0,"duration":169.0,"playbackRate":-1.0}}"#)
+        #expect(await iterator.next()?.position == 100)
+
+        wall.advance(2)
+        source.tick(ifCurrent: 1)
+        #expect(await iterator.next()?.position == 98)         // honestly backward, not floored
+
+        wall.advance(-5)
+        source.tick(ifCurrent: 1)
+        #expect(await iterator.next()?.position == 100)        // the age floors at 0, never negative
     }
 
     @Test func theTickHonorsThePlaybackRate() async {

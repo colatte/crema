@@ -8,8 +8,9 @@ import os
 /// session activate/resign notifications (NSWorkspace, fast-user-switch) give
 /// latency, and every edge re-reads `CGSessionCopyCurrentDictionary` for the
 /// truth. An edge alone never flips the state — reconciliation runs the poll
-/// through `ScreenLockReconciler`, which is where all the logic (and its tests)
-/// live. This class is the thin border: it wires notifications and reads the
+/// through `ScreenLockReconciler`, and the dictionary itself is decoded by
+/// `ScreenLockSessionTranslation`; between them they hold all the logic (and its
+/// tests). This class is the thin border: it wires notifications and fetches the
 /// session dictionary, nothing else.
 ///
 /// The probe in docs/internal/LOCKSCREEN-INVESTIGATION.md validated exactly this
@@ -44,25 +45,16 @@ import os
 /// written by the user, and engagement still only follows a real safe=true.
 @MainActor
 final class DistributedNotificationScreenLockSource: ScreenLockSource {
-    // Two different pedigrees, and calling them both private hid the one that is.
+    // The lock-edge notification names: undocumented — no SDK header declares
+    // them — stable for years and fine outside the Mac App Store. The
+    // authoritative re-read, not the edge names, is the source of truth, so a
+    // renamed edge costs latency and not correctness.
     //
-    // The lock-edge notification names and `CGSSessionScreenIsLocked` are the
-    // undocumented half — no SDK header declares them — stable for years and fine
-    // outside the Mac App Store. The authoritative re-read, not the edge names, is
-    // the source of truth, so a renamed edge costs latency and not correctness.
-    //
-    // `kCGSSessionOnConsoleKey` is PUBLIC and documented: CGSession.h declares
-    // `kCGSessionOnConsoleKey` as exactly this string and documents the value as a
-    // **CFBoolean**. Which is worth knowing, because the read below casts it
-    // `as? Int` — measured on this machine the object is `__NSCFBoolean`, so that
-    // cast survives only through NSNumber bridging, not because the type matches.
-    // It works; it is not what the header describes. Its meaning is the reason it
-    // is read at all: on-console excludes fast-user-switch, where another session
-    // owns the screen.
+    // The session-dictionary keys are a different pedigree (one of them public,
+    // one of them not) and live with the decoding that owns their shape, their
+    // value types and what a missing key means: `ScreenLockSessionTranslation`.
     private static let screenIsLockedName = "com.apple.screenIsLocked"
     private static let screenIsUnlockedName = "com.apple.screenIsUnlocked"
-    private static let sessionScreenIsLockedKey = "CGSSessionScreenIsLocked"
-    private static let sessionOnConsoleKey = "kCGSSessionOnConsoleKey"
 
     /// After each edge, re-read the authoritative session a few times on a short
     /// backoff to close the notification-vs-session-dict race (see the type
@@ -108,7 +100,9 @@ final class DistributedNotificationScreenLockSource: ScreenLockSource {
     /// The in-flight settle re-read chain; at most one, restarted per edge.
     private var settleTask: Task<Void, Never>?
 
-    private let logger = Logger.crema("ScreenLock")
+    // Static because `readSession` is: the production reader runs inside `init`,
+    // before `self` exists, so instance and border share this one logger.
+    private static let logger = Logger.crema("ScreenLock")
 
     init(
         clock: any SleepClock = ContinuousSleepClock(),
@@ -228,23 +222,24 @@ final class DistributedNotificationScreenLockSource: ScreenLockSource {
             // missed transition — the stale-edge latch in the act. The field
             // discriminator: a late flip with no notification edge immediately
             // before it.
-            logger.notice("settle re-read caught a missed lock transition → safe=\(safe, privacy: .public)")
+            Self.logger.notice("settle re-read caught a missed lock transition → safe=\(safe, privacy: .public)")
         }
-        logger.info("suppression-safe → \(safe, privacy: .public) (locked=\(session.locked, privacy: .public) onConsole=\(session.onConsole, privacy: .public))")
+        Self.logger.info("suppression-safe → \(safe, privacy: .public) (locked=\(session.locked, privacy: .public) onConsole=\(session.onConsole, privacy: .public))")
         continuation.yield(safe)
     }
 
-    /// The authoritative read. Absent dictionary or missing keys degrade to the
-    /// safe/present interpretation (locked=false, onConsole=true) — a lock
-    /// source that cannot read the session must not strand the user with
-    /// suppression they can no longer see turned off; here it errs toward the
-    /// normal desktop, where the poll on the next edge corrects it.
+    /// The authoritative read, and the whole of this type's system contact: fetch
+    /// the session dictionary and hand it to the decoding that owns the keys, the
+    /// value types and what an unreadable session means — NOT safe to suppress,
+    /// never "normal desktop" (`ScreenLockSessionTranslation`, docs/DECISIONS.md:
+    /// unreadable-session-is-unsafe). A missing dictionary is logged because it is
+    /// believed unreachable inside an Aqua session (measured: always present), and
+    /// the line is what would prove otherwise.
     private static func readSession() -> (locked: Bool, onConsole: Bool) {
-        guard let dictionary = CGSessionCopyCurrentDictionary() as? [String: Any] else {
-            return (locked: false, onConsole: true)
+        let dictionary = CGSessionCopyCurrentDictionary() as? [String: Any]
+        if dictionary == nil {
+            logger.error("session dictionary unreadable — decoding the session as unsafe to suppress")
         }
-        let locked = (dictionary[sessionScreenIsLockedKey] as? Int ?? 0) != 0
-        let onConsole = (dictionary[sessionOnConsoleKey] as? Int ?? 1) != 0
-        return (locked: locked, onConsole: onConsole)
+        return ScreenLockSessionTranslation.decode(dictionary)
     }
 }

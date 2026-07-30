@@ -17,9 +17,11 @@ struct Preferences {
     /// instead of the shipped default. Deliberately NOT keyed under the `style.`
     /// prefix: that prefix is swept when the overrides are dropped, and the
     /// declaration has to survive its own sweep. Unset reads as the notch — the
-    /// app's hero surface, which the WindowManager resolves to the card on a
-    /// display without a physical slit, so it is safe everywhere.
-    /// (docs/DECISIONS.md: global-style-default)
+    /// app's hero surface, safe to DECLARE everywhere because the render rule
+    /// (`Style.resolved(on:)`) draws it as the card where there is no physical
+    /// slit. Safe to declare is not what a display draws, though: a style-scoped
+    /// UI control has to ask the rendered answer, never this one.
+    /// (docs/DECISIONS.md: global-style-default, rendered-style-gates-settings)
     static let declaredStyleKey = "declaredStyle"
     var declaredStyle: Style {
         get {

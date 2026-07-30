@@ -9,6 +9,17 @@ enum Style: String, CaseIterable, Equatable, Sendable {
     case card
     case classic
 
+    /// The style a display actually RENDERS: the notch skin needs a physical
+    /// slit, so a notch DECLARATION on a slitless panel — an external monitor, or
+    /// a Mac with no notch at all (mini, Studio, iMac, older Air) — renders as
+    /// the card, the floating skin. The one place that maps a declared style to
+    /// the drawn one: the WindowManager builds every panel through it and Settings
+    /// gates its Card-scoped controls on the same answer, so the two cannot
+    /// disagree by accident (docs/DECISIONS.md: rendered-style-gates-settings).
+    func resolved(on geometry: ScreenGeometry) -> Self {
+        self == .notch && geometry.safeTop <= 0 ? .card : self
+    }
+
     /// Pure frame-rule dispatch — same purity and testability as each style's
     /// own rule; receives ScreenGeometry, never NSScreen.
     func frame(for state: PresentationState, on geometry: ScreenGeometry) -> CGRect {

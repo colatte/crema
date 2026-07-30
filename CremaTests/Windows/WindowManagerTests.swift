@@ -12,6 +12,10 @@ import Testing
 /// WindowManager logic over fake screens and panels: screen
 /// reconciliation, state-driven frames, per-display style resolution.
 @MainActor
+// Past the body ceiling for the same reason the file opts out of file_length
+// above: every case shares the one panel harness, so splitting the suite to fit
+// a line count would splinter it.
+// swiftlint:disable:next type_body_length
 struct WindowManagerTests {
 
     @MainActor
@@ -228,6 +232,55 @@ struct WindowManagerTests {
         // Resolution matches the initial card → no spurious panel swap.
         #expect(h.recorder.created.count == 1)
         #expect(h.recorder.panel(for: a.id)?.closed == false)
+    }
+
+    /// What Settings gates its Card-scoped controls on: the RENDERED style, read
+    /// off the panel roster (docs/DECISIONS.md: rendered-style-gates-settings).
+    /// No preference is written on purpose — the shipped default declares notch,
+    /// and this is exactly the state in which a Mac without a notch draws card on
+    /// every display while the indicator picker sat gray and unreachable.
+    @Test func aSlitlessDisplayRendersCardUnderTheShippedDefault() {
+        let h = Harness()
+        h.manager.updateScreens([Self.screen("A")])   // safeTop == 0: no physical notch
+
+        #expect(h.preferences.declaredStyle == .notch)
+        #expect(h.manager.renders(.card))
+        #expect(!h.manager.renders(.notch))
+    }
+
+    @Test func aNotchedDisplayRendersNotchAndNotCard() {
+        let h = Harness()
+        h.manager.updateScreens([Self.notchedScreen("N")])
+
+        #expect(h.manager.renders(.notch))
+        #expect(!h.manager.renders(.card))
+    }
+
+    /// Mixed setup: the answer is an ANY over displays, never the leading one — a
+    /// notched laptop plus an external monitor renders both skins at once, and the
+    /// Card-scoped controls belong to the monitor.
+    @Test func rendersAnswersPerDisplayInAMixedSetup() {
+        let h = Harness()
+        h.manager.updateScreens([
+            Self.notchedScreen("N"),
+            Self.screen("EXT", isInternal: false, frame: CGRect(x: 1512, y: 0, width: 1920, height: 1080)),
+        ])
+
+        #expect(h.manager.renders(.notch))
+        #expect(h.manager.renders(.card))
+    }
+
+    /// The answer moves in the same beat the panels do, which is what lets Settings
+    /// re-read it right after writing the declaration.
+    @Test func rendersFollowsANewDeclarationAfterRefreshStyles() {
+        let h = Harness()
+        h.manager.updateScreens([Self.notchedScreen("N")])
+        #expect(!h.manager.renders(.card))
+
+        h.preferences.declareStyleEverywhere(.card)
+        h.manager.refreshStyles()
+
+        #expect(h.manager.renders(.card))
     }
 
     @Test func safeTopChangeOnAKeptDisplayRebuildsThePanel() {

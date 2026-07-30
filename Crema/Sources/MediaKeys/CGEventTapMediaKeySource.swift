@@ -42,12 +42,18 @@ final class CGEventTapMediaKeySource: MediaKeySource, MediaKeyConsuming, @unchec
         pollInterval: Double = 2,
         tapOps: any EventTapOperating = LiveEventTapOperating()
     ) {
-        // Bounded and newest-first because the consumer (MediaKeyHUDRouter) samples
-        // a brightness source per key, and a held key delivers autorepeats faster
-        // than that sampling returns: an unbounded buffer would queue stale presses
-        // behind it and replay a burst the user already finished. Dropping the
-        // oldest is right for this stream — the newest press is the one that
-        // describes where the level actually is.
+        // Bounded and newest-first, and dropping is safe here for a reason worth
+        // stating: every element is a poke to re-sample a brightness level, never a
+        // key's FATE. The swallow decision travels the consumer callback
+        // synchronously (below), so no dropped element can leave a key wrongly
+        // consumed or wrongly passed.
+        //
+        // Bounded because the single consumer (MediaKeyHUDRouter) samples a
+        // brightness source per element, and a held key delivers autorepeats faster
+        // than that sampling returns: unbounded, stale pokes would queue behind it
+        // and replay a burst the user already finished. Newest-first because the
+        // latest press is the one that describes where the level actually is — a
+        // dropped poke costs at most a HUD refresh the next one supersedes.
         var continuation: AsyncStream<MediaKey>.Continuation!
         updates = AsyncStream(bufferingPolicy: .bufferingNewest(8)) { continuation = $0 }
         self.continuation = continuation
@@ -72,18 +78,73 @@ final class CGEventTapMediaKeySource: MediaKeySource, MediaKeyConsuming, @unchec
         // reach the system and the native OSD comes back alongside ours.
         // clock/interval captured by value so the sleep never retains self —
         // a strong ref parked across the await would make deinit (which owns
-        // the tap uninstall and this task's cancel) unreachable.
+        // the tap uninstall and this task's cancel) unreachable. The tick's own
+        // strong binding is scoped to the tick, so it spans the tick's hop to the
+        // main thread but never the sleep — that is the line that matters. Bound
+        // with `if let self` because SwiftLint's self_binding requires it.
         pollTask = Task { [weak self, clock, pollInterval] in
             while !Task.isCancelled {
-                self?.pollTick()
+                if let self { await self.pollTick() }
                 try? await clock.sleep(for: pollInterval)
             }
         }
     }
 
-    /// One health-check pass, synchronous so the poll loop holds self only for
-    /// the tick — never across its sleep.
-    private func pollTick() {
+    /// One health-check pass: it DETECTS on the poll's own thread and MUTATES on
+    /// the main one.
+    ///
+    /// Reconfiguring the port — install, uninstall, setEnabled — belongs to the
+    /// thread that owns its run-loop source, which `LiveEventTapOperating` puts on
+    /// the MAIN run loop and which is therefore also the thread the callback is
+    /// delivered on. From anywhere else, two things go wrong: the callback takes
+    /// `lock`, so a mutation holding it across a WindowServer round-trip stalls the
+    /// main thread *inside* a tap callback — and a callback the system deems slow
+    /// gets the tap disabled; and invalidating a mach port whose callback is
+    /// mid-flight loses that event's swallow decision (the key applies AND reaches
+    /// the system — the double HUD this whole family cures). Mutating on the main
+    /// thread makes both impossible by construction. Same invariant the four
+    /// preventive-reinstall edges buy with `queue: .main`.
+    /// (docs/DECISIONS.md: tap-mutation-on-its-own-thread)
+    ///
+    /// Only a tick with something to change hops: `isGranted` and `install` are
+    /// both blocking IPC, so hopping unconditionally would hand the main thread a
+    /// periodic round-trip forever to close a rare race.
+    private func pollTick() async {
+        guard pollNeedsMutation() else { return }
+        await MainActor.run { self.applyPollMutation() }
+    }
+
+    /// Whether this tick has anything to reconfigure — the filter that keeps a
+    /// healthy poll off the main thread. Advisory by design: the state it reads can
+    /// change under it (a wake-edge reinstall on the main thread), so it may hop for
+    /// a fault someone else already fixed — `applyPollMutation` re-derives every
+    /// decision under the lock and no-ops. It cannot latch either: a read answering
+    /// "healthy" is the same read the mutation would take, and the next tick asks
+    /// again one interval later.
+    ///
+    /// The port reads stay OUT of the lock so a main-thread mutation never queues
+    /// behind a round-trip held here; the local binding keeps the token alive even if
+    /// it is uninstalled meanwhile. They are blocking C calls on a cooperative-pool
+    /// thread, which is what `blockingCall` exists to avoid — unreachable here
+    /// because the token is a non-Sendable `AnyObject` and cannot cross into a
+    /// `@Sendable` closure. One periodic caller parks at most one pool thread, which
+    /// is why that is tolerable and not a licence to add more.
+    /// (docs/DECISIONS.md: read-deadline-pool-rule)
+    private func pollNeedsMutation() -> Bool {
+        // Revoked with a token still stored: the teardown is what keeps the state
+        // honest, so a later re-grant installs a fresh port instead of trusting a
+        // stale one that still reads healthy.
+        guard permission.isGranted() else { return lock.withLock { self.tap != nil } }
+        let stored = lock.withLock { self.tap }
+        guard let stored else { return true }
+        return !tapOps.isValid(stored) || !tapOps.isEnabled(stored)
+    }
+
+    /// The mutating half, on the tap's own thread. Every guard is evaluated again
+    /// here — the permission, then the port state under the lock — so a tick that
+    /// hopped on a since-fixed fault changes nothing.
+    @MainActor
+    private func applyPollMutation() {
         if permission.isGranted() {
             if installTapIfAuthorized() {
                 healTapIfNeeded(reason: "poll")

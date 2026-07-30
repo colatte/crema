@@ -115,6 +115,29 @@ nor lock) — independent of the suppression preference: the deafness kills plai
 brightness observation too, so pref-off must still reinstall. Order is pinned:
 unlock → reinstall → re-engage.
 
+### tap-mutation-on-its-own-thread
+Reconfiguring the tap's mach port — install, uninstall, setEnabled — happens only
+on the thread that owns its run-loop source (the main run loop), because that is
+also the thread the callback is delivered on. From anywhere else two things go
+wrong: the callback takes the source's lock, so a mutation holding it across a
+WindowServer round-trip stalls the main thread *inside* a tap callback — and a
+callback the system deems slow gets the tap disabled; and invalidating a port whose
+callback is mid-flight loses that event's swallow decision (the key applies AND
+reaches the system — the double HUD the reinstall family exists to cure). Mutating
+on the main thread makes both impossible by construction.
+The four preventive-reinstall edges buy this with `queue: .main`. The 2 s health
+poll buys it by splitting DETECTION from MUTATION: it reads the permission and the
+port state on its own thread (both blocking IPC, which must not become a periodic
+cost on the main thread) and hops only for the rare tick with something to change,
+where every guard is re-derived under the lock. Detection is therefore advisory: a
+stale "faulty" read costs a hop that no-ops, a stale "healthy" read is retried one
+interval later, so the filter can never latch. Those two reads stay on the
+cooperative pool rather than `blockingCall`/`DispatchQueue.global` because the tap
+token is a non-Sendable `AnyObject` and cannot cross into a `@Sendable` closure;
+one periodic caller parks at most one pool thread. Still open by design: `deinit`
+uninstalls on whatever thread drops the last reference — a lifecycle fix (an
+explicit main-thread stop), not a threading one.
+
 ### settle-rereads
 The lock source never lets a notification edge flip state directly: each edge
 fires an authoritative `CGSession` re-read and puts a short, finite backoff in
@@ -125,6 +148,27 @@ probabilistically; the launch-armed tail makes it deterministic and covers the
 [launch, first-edge) window when the session's first lock notification is
 dropped (DistributedNotificationCenter is best-effort). Same class of safety
 poll as the tap health-check — the cure for J6.
+
+### unreadable-session-is-unsafe
+The lock source decodes the session dictionary through a pure translation
+(`ScreenLockSessionTranslation`), and the absences that dictionary can have point
+opposite ways on purpose. `CGSSessionScreenIsLocked` is absent while unlocked and
+appears only once the screen locks (measured), so a missing key is the normal
+desktop — reading it as locked would suspend suppression forever and kill the
+feature in silence. Anything else unreadable — no dictionary at all, or a session
+that cannot report `kCGSSessionOnConsoleKey` — is "cannot tell", and cannot tell
+decodes as NOT safe: suppression steps aside.
+Rationale: being wrong is asymmetric. Engaged over a lock shield the user gets no
+feedback at all — native OSD swallowed, our own HUD impossible there, the NO-GO
+the whole lock-aware policy exists to prevent; disengaged on a healthy session
+costs only our own HUD, with the native OSD taking over. The unreadable-dictionary
+trigger is believed unreachable for a GUI app (the dictionary is there for any
+process inside an Aqua session), so this is a direction chosen for a case nobody
+has seen, and logged so the field can prove or refute it. Holding the last reading
+instead was rejected: launch has no last reading, so the same choice would still
+have to be made, with one more path to get wrong. The decoding sits above the
+border for the same reason `ScreenLockReconciler` does — the production read was
+the one part of this source no test could reach.
 
 ### write-health-axis
 A second recovery axis beside the read-only probe: a counter of unconfirmed apply
@@ -368,6 +412,25 @@ the Accessibility permission there is no tap, no key origin, and therefore no
 brightness HUD at all — volume (event-driven via Core Audio) still flows. The
 docs must never promise brightness HUDs without Accessibility.
 
+Second decision, same gate: arming and reading run in different places. The
+value read is a blocking private-API call (a dlsym'd DisplayServices entry
+point; a round trip to the keyboard-backlight client, which re-enumerates the
+keyboard IDs on every call), and `sample()` is called on the MainActor by the
+suppressor's post-apply poke and by the slider echo — once per drag frame — as
+well as on the cooperative pool by the router and the poll. So the reading moved
+to the channel's own serial queue (read-deadline-pool-rule; the volume sibling
+had already paid for that lesson) and the window stayed on the caller's thread
+as `armKeyWindow()`. Splitting them is not tidiness: the window has to carry the
+key's own instant rather than whenever the read returned. And because a
+key-driven reading emits on any change whether the window is open or not, a
+reading in flight is no longer protected by ordering — so `standDown()` now
+speaks for the readings the key already asked for, and one that comes back
+spoken for degrades to a plain reading (see betterdisplay-osd-source: without
+that, a neighbour reporting the same press gets our hardware-scale bar drawn on
+top of its own). The launch baseline read is the deliberate exception, once per
+process on the constructing thread, because that thread is already blocked far
+harder building the backend.
+
 ### login-item-intent
 The launch-at-login registration lives beyond the Background Task Management
 boundary, and macOS revokes it whenever the bundle's code identity changes — a
@@ -477,7 +540,12 @@ Crema's own key-origin window — so the polled source would draw a second,
 hardware-only reading a beat later and win, which is the wrong number exactly
 where combined brightness and hardware brightness diverge. Hence `standDown()`:
 a reported level spends that window (`ManuallySampledSource`, default no-op for
-sources with no origin gate). One press, one bar, whoever applied it.
+sources with no origin gate) AND speaks for the readings the key already asked
+for: those come back from the source's own serial queue (a blocking private-API
+read must never run on the caller's thread), and a key-driven reading emits on
+any change whether the window is open or not — so ordering alone stopped being
+enough the moment the read left the caller's thread. One press, one bar, whoever
+applied it.
 
 **The way back.** Drawing a neighbour's level and then writing through the
 system's own actuator would be a bar in one scale and a write in another —
@@ -555,6 +623,33 @@ fallen to the shipped default while another carried the user's choice adopts tha
 choice on the next launch. An install with no override writes no key at all, so
 the shipped default stays a decision the app can still change.
 
+### rendered-style-gates-settings
+Settings gated the Card-only indicator picker on `.disabled(style != .card)`,
+where `style` is the DECLARATION the all-displays picker holds. But what a display
+draws is that declaration put through one fallback — the notch skin needs a
+physical slit, so notch renders as card wherever `safeTop <= 0` — and the shipped
+default declares notch. So on every Mac without a notch (mini, Studio, iMac, older
+Air) and on any external-only or clamshell setup, the app drew the Card HUD on
+every display in the DEFAULT state while the one control over that HUD's
+appearance sat gray, the only escape being to pick "Card" explicitly: the style
+already on screen. Not an edge case — a class of hardware, out of the box.
+Decision: the declared→drawn mapping lives once, in `Style.resolved(on:)`, and
+every reader asks IT. `WindowManager.resolvedStyle` builds each panel through it,
+and the panel roster answers `WindowManager.renders(_:)` — is any connected
+display drawing this style right now — which is what Settings gates on, via
+`AppCore.rendersAnywhere(_:)`. The gate is an ANY over displays, never the leading
+one: a notched laptop with an external monitor renders both skins at once and the
+Card controls belong to the monitor.
+Three consequences are load bearing. The mapping stays in that one function — the
+notch style's own `safeTop > 0` guard is in-skin defense for a rule that would
+run anyway, not a second resolver, and a third copy (least of all in a view) would
+be the same divergence in a new place. The gate reads the ROSTER rather than
+re-resolving from Preferences, so "what the user declared" and "what is on screen"
+cannot drift apart by construction; Settings re-reads it immediately after writing
+the declaration, since the panels are re-resolved synchronously there. And the
+declaration reader keeps its own name (`currentStyle()` — what the picker shows),
+so the two questions stay impossible to confuse at the call site.
+
 ### sample-dont-integrate
 A UI ticker that adds a fixed step per tick is a clock that runs slow. Timers are
 not real time — they fire late under load, App Nap, battery coalescing — and the
@@ -566,10 +661,30 @@ playback), so nothing re-anchored the display and the error accumulated for the
 whole track — always in the same direction, since a `sleep(1s)`-then-work loop
 never runs faster than its interval. Decision: the tick SAMPLES, never
 accumulates — the source keeps an anchor (position, instant, rate) and every
-tick recomputes `position + age × rate`, clamped to the duration, with a
-non-negative age so a backward wall-clock jump freezes instead of rewinding. A
-late tick lands on the truth, a dropped tick costs nothing, and two ticks in the
-same instant count once. This is the contract of the data model, not an
+tick recomputes `position + age × rate`, clamped to the duration, aged with a
+non-negative age and — while the rate is forward — floored at the position
+already shown. Both floors are needed, and the non-negative age was once
+mistaken for covering both: `now` is the WALL clock, which an NTP step
+correction or a manual time change moves, and bounding the age only stops a
+future-dated anchor from sampling below its OWN position — a clock stepping BACK
+still rewound the bar by all the age it had accumulated (anchor 10 s, ticked to
+40 s, clock back 30 s, sampled 10 s), which on a source that re-anchors only on
+state changes is most of a track. The floor is the shown line, never a
+high-water mark: every anchor write rewrites that line too, so a legitimate
+backward re-anchor — a payload the reconciliation accepts, a seek, a failed
+seek's rollback — lowers the floor with it, where a remembered maximum would
+strand the bar above the truth for the rest of the track. The origin is kept
+rather than re-anchored on the backward edge, and the reason is this decision
+itself: a single backward step would actually be corrected exactly by moving the
+origin, but moving it makes the tick accumulate again, so a noisy clock ratchets
+the bar forward — sampling from a fixed origin is what makes every tick
+self-correcting. The residual is accepted: after a one-way step back the bar
+sits behind by the step size until the next payload, the same error the rewind
+left, minus the visible jump. A negative rate (a rewind scan) is exempt from the
+floor: there the bar moves back honestly, aged with the same sign the payload
+math uses, and the non-negative age is what keeps a backward clock from
+advancing it. A late tick lands on the truth, a dropped tick costs nothing, and
+two ticks in the same instant count once. This is the contract of the data model, not an
 invention: MediaRemote publishes elapsed WITH a timestamp and a rate, and the
 adapter's own help says to compute the current time from that pair rather than
 poll. Re-anchoring happens only where a payload's line is ACCEPTED by the

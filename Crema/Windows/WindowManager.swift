@@ -110,16 +110,27 @@ final class WindowManager {
         runFramePass()
     }
 
-    /// The Preferences style, except: the notch style only makes sense on a
-    /// display that has a notch. A notch preference orphaned onto a non-notch
-    /// display (external monitor, or the setting carried over) falls back to the
-    /// card — the floating skin; the graceful path called for.
+    /// This display's declared style (or its per-display override) put through
+    /// the render rule, which owns the notch→card fallback for a slitless panel —
+    /// an orphaned notch choice degrades to the floating skin instead of drawing
+    /// nothing. The rule lives on `Style` because Settings needs the same answer
+    /// to gate its Card-scoped controls, and a second copy of the slit test would
+    /// drift from this one (docs/DECISIONS.md: rendered-style-gates-settings).
     private func resolvedStyle(for screen: ScreenDescription) -> Style {
-        let preferred = preferences.style(for: screen.id)
-        if preferred == .notch, screen.geometry.safeTop <= 0 {
-            return .card
-        }
-        return preferred
+        preferences.style(for: screen.id).resolved(on: screen.geometry)
+    }
+
+    /// Whether any connected display is RENDERING this style right now — read off
+    /// the panel roster, whose entries already hold the resolved value, so the
+    /// answer cannot disagree with what is on screen. Settings gates its Card-only
+    /// indicator picker on it: on hardware without a notch the declaration stays
+    /// notch while every panel draws card, and gating on the declaration left that
+    /// picker gray in the shipped default. An ANY over displays, never the leading
+    /// one — a notched laptop with an external monitor renders both skins at once,
+    /// and the Card controls belong to the monitor
+    /// (docs/DECISIONS.md: rendered-style-gates-settings).
+    func renders(_ style: Style) -> Bool {
+        entries.values.contains { $0.style == style }
     }
 
     // MARK: - State-driven frames

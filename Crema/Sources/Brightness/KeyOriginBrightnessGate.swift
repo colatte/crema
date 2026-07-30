@@ -9,12 +9,21 @@ import Foundation
 /// the window, so one key press is one HUD and a sensor change in its tail is
 /// silent. The launch value baselines without emitting.
 ///
-/// Known limit (rare, self-healing): the owning source's poll and a key
-/// `register` race under the source's lock, so a poll landing in the sliver
-/// between the OS applying a key's value and the router's `sample()` absorbs
-/// that value silently and the HUD is missed until the next key. The tap wakes
-/// the router before the event reaches the OS, so it takes a delayed router
-/// task on a single tap to hit; a held key re-arms and self-corrects.
+/// Arming and recording are two calls because they happen in different places:
+/// `armKeyWindow()` runs on the thread the key arrived on, `register` when the
+/// reading it explains comes back from the border's serial queue (the value read
+/// is a blocking private-API call and must never run on the caller's thread). So
+/// `register(keyDriven: true)` records a reading a key asked for; it does not
+/// open the window. Whether such a reading may still SPEAK for its key is the
+/// owning source's call, not this gate's — a neighbour reporting the same press
+/// spends the window here and marks the in-flight readings there.
+///
+/// Known limit (rare, self-healing): a poll reading already in flight when the
+/// key arrives registers before the window is armed, so it absorbs the key's
+/// value silently and the HUD is missed until the next key. The tap wakes the
+/// router before the event reaches the OS, and the window is now armed at key
+/// time rather than when the key's own reading returns, so the sliver is one
+/// reading narrower than it was; a held key re-arms and self-corrects.
 ///
 /// Contract: a consumed media key always produces feedback. At a scale
 /// boundary the clamped write is a no-op (the read comes back unchanged), yet
@@ -51,11 +60,22 @@ struct KeyOriginBrightnessGate {
         keyActivityUntil = nil
     }
 
+    /// Opens the key-origin window, stamped with the key's own instant. Kept out
+    /// of `register` so two orderings survive the reading arriving later, off the
+    /// caller's thread: the window measures from the key rather than from
+    /// whenever the read returned, and a `standDown()` that follows the key acts
+    /// on a window that is already open instead of racing an arm queued behind a
+    /// blocking read.
+    mutating func armKeyWindow() {
+        keyActivityUntil = now().addingTimeInterval(window)
+    }
+
     /// Records a reading and returns whether it warrants a HUD. `keyDriven` is
-    /// true for the external `sample()` (the media-key router or the
-    /// suppressor's post-apply poke), false for the passive poll.
+    /// true for a reading the external `sample()` asked for (the media-key
+    /// router, the suppressor's post-apply poke, the slider echo) and still
+    /// speaks for it, false for the passive poll. It never arms —
+    /// `armKeyWindow()` does, at key time.
     mutating func register(_ value: Double, keyDriven: Bool) -> Bool {
-        if keyDriven { keyActivityUntil = now().addingTimeInterval(window) }
         let previous = lastValue
         lastValue = value
         let armed = keyActivityUntil.map { now() < $0 } ?? false
