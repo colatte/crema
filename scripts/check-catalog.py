@@ -62,6 +62,13 @@ LOCALIZED = re.compile(
     r"String\(" + SKIP_BETWEEN + r"localized:" + SKIP_BETWEEN + r'"([^"]+)"' + SKIP_BETWEEN
     + r"," + SKIP_BETWEEN + r"defaultValue:" + SKIP_BETWEEN + r'"((?:[^"\\]|\\.)*)"'
 )
+# A multiline literal is the one shape the pattern above reads as an EMPTY default,
+# which then reports as drift against every real catalog value — a true failure with
+# a misleading name. Detected on its own so the message says what actually happened.
+MULTILINE_DEFAULT = re.compile(
+    r'String\(' + SKIP_BETWEEN + r'localized:' + SKIP_BETWEEN + r'"([^"]+)"' + SKIP_BETWEEN
+    + r',' + SKIP_BETWEEN + r'defaultValue:' + SKIP_BETWEEN + r'"""'
+)
 TEXT_WITH_COMMENT = re.compile(r'Text\(\s*"([a-z][a-zA-Z0-9.]*\.[a-zA-Z0-9.]+)"\s*,\s*comment:')
 
 SKIP_DIRS = {".git", "build", "DerivedData", ".build"}
@@ -110,6 +117,7 @@ def main():
     strings = json.loads(catalog_path.read_text()).get("strings", {})
 
     used = {}
+    unparsed = []
     for path in sorted(root.rglob("*.swift")):
         if any(part in SKIP_DIRS for part in path.parts):
             continue
@@ -119,8 +127,16 @@ def main():
         for key in TEXT_WITH_COMMENT.findall(text):
             # No defaultValue to compare: None means "key exists, value unverifiable".
             used.setdefault(key, []).append((path.relative_to(root), None))
+        for key in MULTILINE_DEFAULT.findall(text):
+            unparsed.append((key, path.relative_to(root)))
 
     problems = []
+    for key, site in sorted(unparsed):
+        problems.append(
+            f"UNPARSED   {key}  ({site}) uses a multiline string literal for defaultValue; "
+            f"this checker only reads a single-line one, so its value cannot be compared"
+        )
+
     for key, sites in sorted(used.items()):
         entry = strings.get(key)
         if entry is None:

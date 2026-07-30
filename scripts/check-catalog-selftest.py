@@ -84,6 +84,13 @@ CASES = [
     ("a translation that reorders its positional holes", None,
      {"strings": {"a.b": entry("%1$@ of %2$@", "%2$@ de %1$@")}},
      r'String(localized: "a.b", defaultValue: "\(x) of \(y)")'),
+
+    # A shape the checker cannot read must SAY so. Left unhandled it matched as an
+    # empty default and reported drift against every real value — a true alarm under
+    # a name that sends the reader to the catalog instead of to the call site.
+    ("a defaultValue written as a multiline literal", "UNPARSED",
+     {"strings": {"a.b": entry("Hi", "Oi")}},
+     'String(localized: "a.b", defaultValue: """\n    Hi\n    """)'),
 ]
 
 

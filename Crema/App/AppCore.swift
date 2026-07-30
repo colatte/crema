@@ -917,6 +917,21 @@ extension AppCore {
     /// silently stealing keys from every other app that wants them — so the app
     /// names who won and leaves the choice to the user, which is the only place
     /// it can be made (docs/DECISIONS.md: media-key-chain-contention).
+    /// Whether the neighbour has actually delivered a reading in this session.
+    ///
+    /// Read STRAIGHT off the source, never through `mediaKeyChainNotice()`, which
+    /// carries the same flag but pays a `CGGetEventTapList` to answer — a call that
+    /// resets the min/max latency counters of every tap on the machine, this app's
+    /// neighbours included. Settings reads this from a Form body that SwiftUI
+    /// rebuilds whenever it likes, so routing it through that cache would make a
+    /// settings pane a periodic system-wide probe.
+    ///
+    /// Evidence and not presence, which is the whole reason this is a delivered
+    /// payload rather than "is BetterDisplay running": the neighbour being open
+    /// proves nothing about whether its OSD integration is switched on, and the
+    /// claim dies with the app that made it (docs/DECISIONS.md: betterdisplay-osd-source).
+    var betterDisplayIsReporting: Bool { betterDisplaySource?.hasReported ?? false }
+
     func mediaKeyChainNotice() -> MediaKeyChainNotice {
         chainNoticeCache.notice(betterDisplayIsFeedingUs: betterDisplaySource?.hasReported ?? false) { feeding in
             Self.mediaKeyChainNotice(

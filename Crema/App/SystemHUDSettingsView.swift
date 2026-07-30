@@ -39,6 +39,50 @@ struct SystemHUDSettingsView: View {
                 }
                 .settingsFootnote()
             }
+
+            // Explaining the integration is always worth doing — that is what a
+            // settings pane is for, and someone seeing two bars or none has nowhere
+            // else to look. What is NOT always said is that it is WORKING: that
+            // sentence appears only once a payload has actually arrived, because a
+            // neighbour being installed, or even running, proves nothing about
+            // whether its OSD integration is switched on
+            // (docs/DECISIONS.md: betterdisplay-osd-source).
+            Section {
+                LabeledContent {
+                    Text(core.betterDisplayIsReporting
+                        ? String(
+                            localized: "settings.hud.betterDisplay.receiving",
+                            defaultValue: "Receiving"
+                        )
+                        : String(
+                            localized: "settings.hud.betterDisplay.notReceiving",
+                            defaultValue: "Not receiving"
+                        ))
+                        .foregroundStyle(core.betterDisplayIsReporting ? .primary : .secondary)
+                } label: {
+                    Text(String(
+                        localized: "settings.hud.betterDisplay",
+                        defaultValue: "BetterDisplay integration"
+                    ))
+                }
+            } footer: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(String(
+                        localized: "settings.hud.betterDisplay.footer",
+                        // swiftlint:disable:next line_length
+                        defaultValue: "With BetterDisplay 4.2.1 or newer, Crema can show the brightness indicator for an external display. Nothing to enable here."
+                    ))
+                    // Named as the two switches they are, in the neighbour's own
+                    // words, because this is the one place a user can act on it —
+                    // and the second is what stops two bars from appearing at once.
+                    Text(String(
+                        localized: "settings.hud.betterDisplay.howTo",
+                        // swiftlint:disable:next line_length
+                        defaultValue: "In BetterDisplay, turn on Settings → Application → Integration → OSD notification, and turn its own OSD off in that same panel."
+                    ))
+                }
+                .settingsFootnote()
+            }
         }
         .formStyle(.grouped)
     }

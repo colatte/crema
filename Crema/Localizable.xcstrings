@@ -1004,6 +1004,91 @@
         }
       }
     },
+    "settings.hud.betterDisplay": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BetterDisplay integration"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Integração com o BetterDisplay"
+          }
+        }
+      }
+    },
+    "settings.hud.betterDisplay.footer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "With BetterDisplay 4.2.1 or newer, Crema can show the brightness indicator for an external display. Nothing to enable here."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Com o BetterDisplay 4.2.1 ou mais novo, o Crema consegue mostrar o indicador de brilho de uma tela externa. Nada a ativar aqui."
+          }
+        }
+      }
+    },
+    "settings.hud.betterDisplay.howTo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In BetterDisplay, turn on Settings → Application → Integration → OSD notification, and turn its own OSD off in that same panel."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No BetterDisplay, ative Settings → Application → Integration → OSD notification e desligue o OSD dele nesse mesmo painel."
+          }
+        }
+      }
+    },
+    "settings.hud.betterDisplay.notReceiving": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not receiving"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não está recebendo"
+          }
+        }
+      }
+    },
+    "settings.hud.betterDisplay.receiving": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Receiving"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recebendo"
+          }
+        }
+      }
+    },
     "settings.hud.indicator": {
       "extractionState": "manual",
       "localizations": {
