@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Crema asks your music app what is playing, as a backup for when it cannot read the system's Now Playing information.</string>
 	<key>SUFeedURL</key>
 	<string>https://colatte.github.io/crema/appcast.xml</string>
 	<key>SUPublicEDKey</key>

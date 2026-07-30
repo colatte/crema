@@ -166,6 +166,7 @@ Permanente. Um comentário desatualizado é **bug de doc**, não detalhe menor �
 
 - Cadeia do now playing: adapter → JXA → feature desligada. Sem crash em nenhum elo; o estado é sinalizado no menu da barra.
 - Sem permissão de Acessibilidade: o app roda sem captura de teclas + aviso no menu.
+- Sem permissão de **Automação** (Apple Events): cai só o elo **JXA** da cadeia do now playing — o adapter não a usa, então o Tocando Agora segue igual, e é por isso que a linha dela na aba Permissões é neutra, nunca alarme. O estado é descoberto **sem nunca provocar o prompt** (`AEDeterminePermissionToAutomateTarget` com `askUserIfNeeded: false`) e as ausências de resposta ficam separadas da recusa (app-alvo fechado ⇒ `procNotFound`, que é o estado de REPOUSO de quem não tem app de música aberto e por isso tem texto próprio; consentimento nunca pedido ⇒ `errAEEventWouldRequireUserConsent`) — chamar ausência de recusa acusaria o usuário de um "não" que ele nunca deu. A leitura é bloqueante, roda **só a partir das bordas de ciclo de vida da aba** e para enquanto o diálogo de consentimento está aberto; o observable dela **nunca** é lido pelo menu, cujo corpo já paga o `CGGetEventTapList` (docs/DECISIONS.md: automation-is-fallback-only).
 - Sem o BetterDisplay instalado (ou com a integração de OSD dele desligada): nenhuma notificação chega, a fonte fica inerte e todo o resto opera igual — é por isso que ela não tem preferência nenhuma pra ligar ou desligar.
 
 ### Capacidade por build-config

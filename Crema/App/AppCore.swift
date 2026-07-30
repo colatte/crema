@@ -56,6 +56,15 @@ final class AppCore {
     private let windowManager: WindowManager
     private let preferences: Preferences
     let permissionMonitor: AccessibilityPermissionMonitor
+    /// Automation (Apple Events) state for the Permissions row. NOT started at
+    /// launch and never read by the menu: each pass is a blocking consent-daemon
+    /// round trip per player, nothing outside that row depends on the answer (the
+    /// JXA fallback finds out by trying), and a state the menu read would rebuild
+    /// that menu — re-running the tap-chain read on `mediaKeyChainNotice()`, which
+    /// zeroes every tap's latency counters system-wide. Settings starts and stops
+    /// it with the tab; the intents live in AppCoreAutomation.swift.
+    /// (docs/DECISIONS.md: automation-is-fallback-only)
+    let automationMonitor = AutomationPermissionMonitor()
     let nowPlayingMonitor: NowPlayingMonitor
     /// Menu signal for domains whose native-OSD suppression stayed
     /// unrecoverable long enough to escalate — a failed apply suspends only its

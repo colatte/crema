@@ -733,6 +733,61 @@ its shape had never been exercised in production — this probe is what validate
 it. It stays as the seam any future attempt needs, with the refusal recorded at the
 call site so nobody rediscovers it.
 
+### automation-is-fallback-only
+The app required a permission it never named. The now-playing chain is adapter →
+JXA → off, and the JXA elbow spawns `osascript` against Spotify/Music, which needs
+Automation (Apple Events) consent — nothing in the app read that state, mentioned
+it, or offered a way to it. The Permissions tab covered Accessibility only, so a
+user whose adapter had died read "Accessibility: Granted", saw "Now Playing
+unavailable", and had nowhere to go.
+Decision: Automation gets a row, and the row is allowed to say "I don't know".
+State is read with `AEDeterminePermissionToAutomateTarget(askUserIfNeeded: false)`,
+which answers from the consent database and CANNOT prompt. Measured, not assumed: a
+RUNNING target macOS had never decided about returns -1744
+(`errAEEventWouldRequireUserConsent`) with no dialog; a closed or uninstalled one
+returns -600 (`procNotFound`); only -1743 (`errAEEventNotPermitted`) is a refusal;
+the bundle ID matches case-insensitively, so only a wrong id fails, never a typo in
+case. The four answers stay distinct because three of them are not a refusal, and
+collapsing either absence into `denied` would accuse the user of a "no" they never
+said. `procNotFound` in particular is the RESTING state of a machine with no music
+app open, which is why it gets its own words in the UI ("No music app open") rather
+than sharing "Unknown" with the answer we could not interpret — same word for two
+states that offer different buttons is what confuses people.
+The aggregate over players is optimistic on purpose: ONE granted target is a
+working fallback, since the fallback reads whichever player is playing.
+The row's action follows the same honesty. Never-asked offers the prompt, and that
+prompt is the whole path to a grant — so, unlike the Accessibility flow, there is
+no pane to open afterwards. A refusal offers only the pane, because the prompt never
+comes back. The two absences offer the prompt VISIBLE-but-DISABLED rather than the
+pane: an app that has never asked for consent is not listed in the Automation pane,
+so sending someone there lands them on a list Crema is absent from — the same trap
+the Accessibility path avoids by prompting before it opens its pane.
+Two scoping rules are load bearing. First, tone: a missing grant here costs the
+BACKUP reader, not Now Playing, so the row states a fact in the neutral style and
+never the warning orange — the escalation lives in the menu's existing
+"unavailable" warning, which now carries the trail to this tab and names the same
+concept ("backup reader") the tab does. Second, cost: the read is a blocking round
+trip to the consent daemon per player, so it is polled only from the Permissions
+tab's lifecycle edges — and the observable it writes is read ONLY by that row, never
+the menu, whose body also reads `CGGetEventTapList` (which zeroes the min/max
+latency counters of every tap in the system), so a state changing on a 2 s poll
+would have re-run that read on someone else's dime. Scoping to a tab is as strong as
+SwiftUI's tab lifecycle: both ends are idempotent, so the worst case a missed edge
+buys is one poll while the Settings window is open in front of the user, and the
+menu's cost is unchanged either way.
+The poll also stands down while the consent dialog is up. A non-prompting read taken
+then can only report the pre-decision state, and it merges last-writer-wins — it
+would land after the grant and undo it on screen.
+What deliberately gets NO row: the Media/Apple Music consent (`kTCCServiceMediaLibrary`).
+The app has no MusicKit/iTunesLibrary/MPMediaLibrary call anywhere — scripting
+Music.app is Automation, not the media library — so a row for it would assert a
+requirement that does not exist and could never leave "unknown".
+The subject of the question is worth recording: the events are sent by a spawned
+`osascript`, and macOS attributes them to the RESPONSIBLE process (Crema), which is
+what this check asks about. Probed from the other side — a child process asking this
+question gets its parent's grant back. If that attribution ever changed, the row
+would report a state unrelated to the fallback's real luck.
+
 ### menu-status-before-warnings
 The menu bar was six conditional warning blocks stacked above three actions, each
 followed by its own separator, and the only positive line in it — the one saying

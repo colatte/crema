@@ -1242,6 +1242,176 @@
         }
       }
     },
+    "settings.permissions.automation": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automation"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automação"
+          }
+        }
+      }
+    },
+    "settings.permissions.automation.denied": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turned off in System Settings. Now Playing still works through the usual reader."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desativada nos Ajustes do Sistema. O Tocando Agora continua funcionando pelo leitor principal."
+          }
+        }
+      }
+    },
+    "settings.permissions.automation.footer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only Crema's backup reader needs this — it asks %@ what is playing. The usual reader needs no permission, so Now Playing works either way."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Só o leitor reserva do Crema precisa disso — ele pergunta para %@ o que está tocando. O leitor principal não precisa de permissão nenhuma, então o Tocando Agora funciona de qualquer forma."
+          }
+        }
+      }
+    },
+    "settings.permissions.automation.noAppOpen": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No music app open"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nenhum app de música aberto"
+          }
+        }
+      }
+    },
+    "settings.permissions.automation.noTarget": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS only answers about an app that is open — open %@ to check."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O macOS só responde sobre um app que esteja aberto — abra %@ para verificar."
+          }
+        }
+      }
+    },
+    "settings.permissions.automation.openSettings": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Automation Settings…"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir Ajustes de Automação…"
+          }
+        }
+      }
+    },
+    "settings.permissions.automation.request": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Request Automation Access…"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solicitar acesso de Automação…"
+          }
+        }
+      }
+    },
+    "settings.permissions.automation.undecided": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS hasn't asked you about this yet. Request it and macOS shows its own dialog."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O macOS ainda não perguntou nada sobre isso. Solicite e o próprio macOS mostra o diálogo dele."
+          }
+        }
+      }
+    },
+    "settings.permissions.automation.unknown": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS didn't answer. Crema checks again while this tab is open."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O macOS não respondeu. O Crema verifica de novo enquanto esta aba estiver aberta."
+          }
+        }
+      }
+    },
+    "settings.permissions.checking": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking…"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verificando…"
+          }
+        }
+      }
+    },
     "settings.permissions.footer": {
       "extractionState": "manual",
       "localizations": {
@@ -1306,6 +1476,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Não concedida"
+          }
+        }
+      }
+    },
+    "settings.permissions.notRequested": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not requested yet"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ainda não solicitada"
+          }
+        }
+      }
+    },
+    "settings.permissions.unknown": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unknown"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desconhecida"
           }
         }
       }
