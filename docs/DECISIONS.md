@@ -691,3 +691,16 @@ poll. Re-anchoring happens only where a payload's line is ACCEPTED by the
 reconciliation — when it holds the previous value, the old anchor stays, or the
 elapsed time under it would be discarded. The JXA fallback needs none of this:
 it re-polls the player's real position every 2 s.
+
+Which clock it samples is part of the decision. The tick ages on a MONOTONIC
+stopwatch (`ProcessInfo.systemUptime`), never the wall clock: sampling means the
+bar follows whatever clock it reads, so reading the wall clock let an NTP step
+correction or a manual time change move the bar with it — backward, undoing
+playback already shown, and forward, throwing it to the duration clamp until the
+next payload (which this adapter only sends on a state change). Every anchor is
+stamped with our own reading of that stopwatch when it is installed; the payload's
+own timestamp is folded into the position before then, so the wall clock is not
+part of the tick's arithmetic at all. A monotonic FLOOR was tried first and
+removed: it could only stop the backward half, and it needed a `rate > 0`
+exception so a rewind scan could still walk the bar back. One clock that cannot
+lie replaces both.

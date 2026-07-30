@@ -22,6 +22,13 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
     /// Injected so the anchor-aging math in the translation stays testable
     /// with fixed instants.
     private let now: @Sendable () -> Date
+    /// Seconds on a MONOTONIC timeline, which is what the ticker ages against.
+    /// Separate from `now` because the two answer different questions: `now` is
+    /// wall-clock time, needed to age a payload's own timestamp to delivery, and
+    /// this one is a stopwatch that no NTP correction or manual clock change can
+    /// move. Injected so a test can move one without the other — which is exactly
+    /// what a clock correction does in the field.
+    private let uptime: @Sendable () -> Double
     private let lock = NSLock()
     private var latest: NowPlaying?
     private var tickerGeneration = 0
@@ -42,7 +49,7 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
     /// `position + age × rate` instead of adding a step, so a late, coalesced
     /// or dropped tick costs nothing — the clock, not the tick count, is what
     /// says how much playback happened (docs/DECISIONS.md: sample-dont-integrate).
-    private var anchor: (position: Double, instant: Date, rate: Double)?
+    private var anchor: (position: Double, uptime: Double, rate: Double)?
     /// How many real anchors may arrive without confirming before the hint
     /// expires. Bounds the hold the same way the Coordinator's grace window
     /// bounds the display override.
@@ -54,12 +61,14 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
         availability: @escaping @Sendable () async -> Bool,
         clock: any SleepClock = ContinuousSleepClock(),
         tickInterval: Double = 1,
-        now: @escaping @Sendable () -> Date = { Date() }
+        now: @escaping @Sendable () -> Date = { Date() },
+        uptime: @escaping @Sendable () -> Double = { ProcessInfo.processInfo.systemUptime }
     ) {
         var continuation: AsyncStream<NowPlaying>.Continuation!
         updates = AsyncStream(bufferingPolicy: .bufferingNewest(16)) { continuation = $0 }
         self.continuation = continuation
         self.availability = availability
+        self.uptime = uptime
         self.clock = clock
         self.tickInterval = tickInterval
         self.now = now
@@ -129,7 +138,7 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
         let target = nowPlaying.duration.map { min(floored, $0) } ?? floored
         pendingSeek = (target, Self.pendingSeekAnchorBudget, nowPlaying.position)
         nowPlaying.position = target
-        anchor = (target, now(), anchor?.rate ?? 1)
+        anchor = (target, uptime(), anchor?.rate ?? 1)
         latest = nowPlaying
         tickerGeneration += 1
         let generation = tickerGeneration
@@ -149,7 +158,7 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
         pendingSeek = nil
         guard var nowPlaying = latest else { lock.unlock(); return }
         nowPlaying.position = pending.preSeekPosition
-        anchor = (pending.preSeekPosition, now(), anchor?.rate ?? 1)
+        anchor = (pending.preSeekPosition, uptime(), anchor?.rate ?? 1)
         latest = nowPlaying
         tickerGeneration += 1
         let generation = tickerGeneration
@@ -187,7 +196,7 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
                 (drift \(rawAnchor - shownBefore, privacy: .public)s)
                 """)
             }
-            anchor = (rawAnchor, deliveredAt, snapshot.rate)
+            anchor = (rawAnchor, uptime(), snapshot.rate)
         }
         // The hint's exits, in order: confirmation (the RAW anchor near the
         // target — within tolerance, stale and echo are numerically the same
@@ -274,34 +283,29 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
         // bar in sync through a whole track, since players re-anchor only on
         // state changes. (docs/DECISIONS.md: sample-dont-integrate)
         guard let anchor else { lock.unlock(); return }
-        // `now` is the WALL clock, which an NTP step correction or a manual time
-        // change moves while the ticker's own clock keeps running — and sampling
-        // means the bar follows it. The floor is what stops a backward step from
-        // UNDOING age already shown (anchor 10 s, ticked to 40 s, clock back
-        // 30 s, sampled 10 s); a non-negative age never covered that, since it
-        // only bounds the anchor's own instant. It floors the SHOWN line, never
-        // a remembered maximum: every anchor write rewrites that line too (an
-        // accepted payload, noteSeek, noteSeekFailed), so a legitimate backward
-        // re-anchor lowers the floor with it instead of stranding the bar above
-        // the truth. And the origin stays put rather than being re-anchored on
-        // the backward edge: moving it makes the tick accumulate again, so clock
-        // noise would ratchet the bar forward. The residual, accepted: after a
-        // one-way step back the bar sits behind by the step until the next
-        // payload — the same error the rewind left, minus the visible jump.
-        let age = max(0, now().timeIntervalSince(anchor.instant))
-        var sampled = anchor.position + age * anchor.rate
-        // Forward playback only: a negative rate (a rewind scan, aged with the
-        // same sign by the payload math) is the bar moving back honestly, and it
-        // is the one case the non-negative age still decides — with the rate
-        // negative, a backward clock would otherwise ADVANCE the bar.
-        if anchor.rate > 0 {
-            sampled = max(nowPlaying.position, sampled)
-        }
-        // Clamped last, so the end of the track outranks the floor.
-        if let duration = nowPlaying.duration, sampled > duration {
-            sampled = duration
-        }
-        nowPlaying.position = sampled
+        // Aged on a MONOTONIC stopwatch, never the wall clock. Sampling means the
+        // bar follows whatever clock it reads, so reading the wall clock let an NTP
+        // step correction or a manual time change move the bar with it — backward,
+        // undoing playback already shown, and forward, throwing it ahead to be
+        // clamped at the duration. Neither is playback; both are the clock. Every
+        // anchor is stamped with our own reading of this stopwatch at the moment it
+        // is installed (the payload's own timestamp is already folded into the
+        // position by then), so the wall clock is not part of this arithmetic at all
+        // and the bar is immune to it in both directions.
+        //
+        // This is what a monotonic floor would have approximated: a floor could only
+        // stop the backward half, left the forward half untouched, and needed a
+        // rate > 0 exception so a rewind scan could still walk the bar back. One
+        // clock that cannot lie replaces all of it.
+        //
+        // `max(0, …)` is cheap defence, not a mechanism: this stopwatch does not go
+        // backward, and if one ever did, aging by a negative span would move the bar
+        // the wrong way at whatever sign the rate carries.
+        let age = max(0, uptime() - anchor.uptime)
+        let sampled = anchor.position + age * anchor.rate
+        // Clamped last: the end of the track outranks the extrapolation, however
+        // long the anchor has been aging.
+        nowPlaying.position = nowPlaying.duration.map { min(sampled, $0) } ?? sampled
         latest = nowPlaying
         continuation.yield(nowPlaying)
         lock.unlock()

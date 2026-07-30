@@ -817,6 +817,23 @@
         }
       }
     },
+    "settings.general.style.footer.fallingBack": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Applies to every display. No connected display has a notch, so every one is drawing Card."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vale para todas as telas. Nenhuma tela conectada tem fenda, então todas estão desenhando o Cartão."
+          }
+        }
+      }
+    },
     "settings.hud.appearanceHint": {
       "extractionState": "manual",
       "localizations": {

@@ -1,3 +1,7 @@
+// The ticker's contract is one subject with many faces — anchors, seek hints,
+// pause freezes, clock corrections, playback rate — and splitting it would
+// duplicate the two-clock harness into every piece.
+// swiftlint:disable file_length
 import Foundation
 import Testing
 @testable import Crema
@@ -19,15 +23,34 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         #"{"type":"data","diff":false,"payload":{}}"#
     }
 
-    /// Wall clock the test drives, injected as the source's `now`. The ticker
-    /// samples it (docs/DECISIONS.md: sample-dont-integrate), so a tick only
-    /// moves the position if TIME moved — which is exactly the coupling the
-    /// old `+1 per tick` assertions were missing.
+    /// Both clocks the source reads, driven together or apart. The ticker samples
+    /// (docs/DECISIONS.md: sample-dont-integrate), so a tick only moves the position
+    /// if time moved — the coupling the old `+1 per tick` assertions were missing.
+    ///
+    /// Two of them because the source ages on a monotonic stopwatch and reads the
+    /// wall clock only to age a payload's timestamp to delivery. `advance` moves
+    /// both, which is time actually passing. `jumpWallClock` moves ONLY the wall
+    /// clock, which is what an NTP step correction or a manual time change does —
+    /// and the point of that split is that it must move nothing on screen.
     private final class TestWallClock: @unchecked Sendable {
         private let lock = NSLock()
         private var date = Date(timeIntervalSince1970: 1_000_000)
+        private var seconds: Double = 5_000
+
         var now: @Sendable () -> Date { { self.lock.withLock { self.date } } }
-        func advance(_ seconds: Double) { lock.withLock { date = date.addingTimeInterval(seconds) } }
+        var uptime: @Sendable () -> Double { { self.lock.withLock { self.seconds } } }
+
+        func advance(_ delta: Double) {
+            lock.withLock {
+                date = date.addingTimeInterval(delta)
+                seconds += delta
+            }
+        }
+
+        /// A clock correction: the wall moves, the stopwatch does not.
+        func jumpWallClock(_ delta: Double) {
+            lock.withLock { date = date.addingTimeInterval(delta) }
+        }
     }
 
     @Test func emitsTranslatedNowPlaying() async {
@@ -49,7 +72,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let clock = TestSleepClock()
         let wall = TestWallClock()
         let source = MediaRemoteAdapterNowPlayingSource(
-            lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now
+            lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
         var iterator = source.updates.makeAsyncIterator()
 
@@ -73,7 +96,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let clock = TestSleepClock()
         let wall = TestWallClock()
         let source = MediaRemoteAdapterNowPlayingSource(
-            lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now
+            lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
         var iterator = source.updates.makeAsyncIterator()
 
@@ -93,7 +116,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let clock = TestSleepClock()
         let wall = TestWallClock()
         let source = MediaRemoteAdapterNowPlayingSource(
-            lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now
+            lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
         var iterator = source.updates.makeAsyncIterator()
 
@@ -107,15 +130,14 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         #expect(await iterator.next()?.position == 12)
     }
 
-    @Test func aBackwardWallClockJumpFreezesInsteadOfRewinding() async {
-        // The rewind needs ROOM: only an anchor that has already AGED can be
-        // undone, so the bar has to tick forward before the clock steps back —
-        // stepping back at age 0 proves nothing, since the shown position IS
-        // the anchor's own position there.
+    @Test func aWallClockJumpMovesTheBarInNeitherDirection() async {
+        // A jump needs ROOM to be visible: only an anchor that has already AGED can
+        // be undone, so the bar ticks forward first — stepping the clock at age 0
+        // proves nothing, since the shown position IS the anchor's position there.
         let (lines, feed) = AsyncStream<String>.makeStream()
         let wall = TestWallClock()
         let source = MediaRemoteAdapterNowPlayingSource(
-            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now
+            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
         var iterator = source.updates.makeAsyncIterator()
 
@@ -125,20 +147,28 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         source.tick(ifCurrent: 1)
         #expect(await iterator.next()?.position == 40)
 
-        wall.advance(-30)                    // NTP step correction, manual clock change
+        // Backward: an NTP step correction or a manual clock change. The bar used to
+        // follow it straight back to the anchor's own position, undoing playback the
+        // user had already watched.
+        wall.jumpWallClock(-30)
         source.tick(ifCurrent: 1)
-        #expect(await iterator.next()?.position == 40)   // frozen, never back to the anchor
+        #expect(await iterator.next()?.position == 40)
 
-        // The origin is kept, not re-anchored on the backward edge: moving it
-        // would return the tick to accumulating, and clock noise would ratchet
-        // the bar forward (docs/DECISIONS.md: sample-dont-integrate). The cost
-        // pinned here is the bar staying behind by the step, not jumping ahead.
-        wall.advance(31)
+        // Forward, the half a monotonic floor could never have covered: the bar was
+        // thrown ahead and clamped at the duration, and stayed there until the next
+        // payload — which on this adapter only arrives on a state change.
+        wall.jumpWallClock(600)
+        source.tick(ifCurrent: 1)
+        #expect(await iterator.next()?.position == 40)
+
+        // And real time still moves it, which is what says the tick is alive rather
+        // than merely pinned.
+        wall.advance(1)
         source.tick(ifCurrent: 1)
         #expect(await iterator.next()?.position == 41)
     }
 
-    @Test func anAcceptedBackwardAnchorLowersTheFloorTheTickSamplesAgainst() async {
+    @Test func anAcceptedBackwardAnchorIsWhereTheTickCountsFrom() async {
         // A seek made in the player's own UI arrives as a payload, not a hint:
         // the reconciliation accepts the large backward step, re-anchors, and
         // the tick must count from THERE. A floor that remembered the highest
@@ -147,7 +177,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let (lines, feed) = AsyncStream<String>.makeStream()
         let wall = TestWallClock()
         let source = MediaRemoteAdapterNowPlayingSource(
-            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now
+            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
         var iterator = source.updates.makeAsyncIterator()
 
@@ -164,7 +194,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         #expect(await iterator.next()?.position == 21)
     }
 
-    @Test func aBackwardSeekLowersTheFloorWithTheReanchoredTicker() async {
+    @Test func aBackwardSeekReanchorsTheTickerAtItsTarget() async {
         // The scrubber's release re-anchors through the hint instead of a
         // payload, and the floor depends on the same invariant: noteSeek
         // rewrites the shown line together with the anchor, so the floor moves
@@ -172,7 +202,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let (lines, feed) = AsyncStream<String>.makeStream()
         let wall = TestWallClock()
         let source = MediaRemoteAdapterNowPlayingSource(
-            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now
+            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
         var iterator = source.updates.makeAsyncIterator()
 
@@ -185,7 +215,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         #expect(await iterator.next()?.position == 21)
     }
 
-    @Test func aNegativeRateStillWalksTheBarBackward() async {
+    @Test func aNegativeRateWalksTheBarBackward() async {
         // The floor guards the CLOCK, not the direction of playback: a rewind
         // scan reports a negative rate, the payload math ages by that sign, and
         // the tick must agree instead of freezing. This is also the one case the
@@ -194,7 +224,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let (lines, feed) = AsyncStream<String>.makeStream()
         let wall = TestWallClock()
         let source = MediaRemoteAdapterNowPlayingSource(
-            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now
+            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
         var iterator = source.updates.makeAsyncIterator()
 
@@ -205,9 +235,12 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         source.tick(ifCurrent: 1)
         #expect(await iterator.next()?.position == 98)         // honestly backward, not floored
 
-        wall.advance(-5)
+        // A clock correction cannot walk a rewind scan the wrong way either: with a
+        // negative rate, a backward wall clock used to ADVANCE the bar, which is why
+        // the removed floor needed a rate exception to begin with.
+        wall.jumpWallClock(-5)
         source.tick(ifCurrent: 1)
-        #expect(await iterator.next()?.position == 100)        // the age floors at 0, never negative
+        #expect(await iterator.next()?.position == 98)
     }
 
     @Test func theTickHonorsThePlaybackRate() async {
@@ -216,7 +249,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let (lines, feed) = AsyncStream<String>.makeStream()
         let wall = TestWallClock()
         let source = MediaRemoteAdapterNowPlayingSource(
-            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now
+            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
         var iterator = source.updates.makeAsyncIterator()
 
@@ -232,7 +265,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let (lines, feed) = AsyncStream<String>.makeStream()
         let wall = TestWallClock()
         let source = MediaRemoteAdapterNowPlayingSource(
-            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now
+            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
         var iterator = source.updates.makeAsyncIterator()
 
@@ -283,7 +316,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let (lines, feed) = AsyncStream<String>.makeStream()
         let wall = TestWallClock()
         let source = MediaRemoteAdapterNowPlayingSource(
-            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now
+            lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
         var iterator = source.updates.makeAsyncIterator()
 
@@ -351,7 +384,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let clock = TestSleepClock()
         let wall = TestWallClock()
         let source = MediaRemoteAdapterNowPlayingSource(
-            lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now
+            lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
         var iterator = source.updates.makeAsyncIterator()
 
@@ -378,7 +411,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let clock = TestSleepClock()
         let wall = TestWallClock()
         let source = MediaRemoteAdapterNowPlayingSource(
-            lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now
+            lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
         var iterator = source.updates.makeAsyncIterator()
 
@@ -403,7 +436,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let clock = TestSleepClock()
         let wall = TestWallClock()
         let source = MediaRemoteAdapterNowPlayingSource(
-            lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now
+            lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
         var iterator = source.updates.makeAsyncIterator()
 
@@ -434,7 +467,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let (lines, feed) = AsyncStream<String>.makeStream()
         let wall = TestWallClock()
         let source = MediaRemoteAdapterNowPlayingSource(
-            lines: lines, availability: { true }, clock: TestSleepClock(), now: wall.now
+            lines: lines, availability: { true }, clock: TestSleepClock(), now: wall.now, uptime: wall.uptime
         )
         var iterator = source.updates.makeAsyncIterator()
 

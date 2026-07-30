@@ -63,6 +63,10 @@ private struct GeneralSettingsView: View {
     /// the two disagree on notchless hardware, where the default declaration is
     /// Notch and every display draws Card.
     @State private var rendersCard: Bool
+    /// Whether any connected display actually draws the notch skin — the signal
+    /// that separates "Notch selected and honoured" from "Notch selected and
+    /// falling back everywhere", which is what the footer has to say out loud.
+    @State private var rendersNotch: Bool
     @AppStorage(Preferences.hudIndicatorStyleKey) private var indicatorStyle = HUDIndicatorStyle.slider.rawValue
     /// Mirrors the real login-item status (enabled or pending approval), and is
     /// re-read from it after every attempt — the toggle is a view onto reality,
@@ -79,8 +83,16 @@ private struct GeneralSettingsView: View {
         // reopens.
         _style = State(initialValue: core.currentStyle())
         _rendersCard = State(initialValue: core.rendersAnywhere(.card))
+        _rendersNotch = State(initialValue: core.rendersAnywhere(.notch))
         _launchesAtLogin = State(initialValue: core.loginItem.isEnabled || core.loginItem.requiresApproval)
         _loginNeedsApproval = State(initialValue: core.loginItem.requiresApproval)
+    }
+
+    /// Notch is what the user picked, and nothing on screen is honouring it.
+    /// Deliberately not `!rendersNotch` alone: with Card or Classic selected there
+    /// is no fallback to report, and the generic sentence is the right one.
+    private var fallbackIsInEffect: Bool {
+        style == .notch && !rendersNotch && rendersCard
     }
 
     var body: some View {
@@ -105,13 +117,26 @@ private struct GeneralSettingsView: View {
                 .onChange(of: style) { _, new in
                     core.setStyleEverywhere(new)
                     rendersCard = core.rendersAnywhere(.card)
+                    rendersNotch = core.rendersAnywhere(.notch)
                 }
             } footer: {
-                Text(String(
-                    localized: "settings.general.style.footer",
-                    defaultValue: "Applies to every display. On a display without a notch, the Notch style falls back to Card."
-                ))
-                .settingsFootnote()
+                // Say what is happening HERE, not only what could happen. With Notch
+                // selected on hardware that has none, the generic sentence left the
+                // window contradicting itself: the picker reads Notch while every
+                // display draws Card, and the Indicator control right below —
+                // enabled, because it governs that Card HUD — looked like it
+                // belonged to a style the user had not chosen. Naming the fallback
+                // as a fact resolves the adjacency instead of explaining it away.
+                Text(fallbackIsInEffect
+                    ? String(
+                        localized: "settings.general.style.footer.fallingBack",
+                        defaultValue: "Applies to every display. No connected display has a notch, so every one is drawing Card."
+                    )
+                    : String(
+                        localized: "settings.general.style.footer",
+                        defaultValue: "Applies to every display. On a display without a notch, the Notch style falls back to Card."
+                    ))
+                    .settingsFootnote()
             }
 
             // Kept visible but disabled when nothing on screen renders Card (the
