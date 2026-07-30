@@ -41,7 +41,7 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     private(set) var hasReported = false
 
     private let continuation: AsyncStream<SystemHUD>.Continuation
-    private let target: (Int) -> BetterDisplayOSDTranslation.Target?
+    private let target: (Int) -> SystemHUD.Target?
     /// Called after each reported level, so the polled brightness source can spend
     /// the window a merely-observed key opened (see `ManuallySampledSource`).
     private let onReport: @MainActor () -> Void
@@ -60,7 +60,7 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     /// installed for the production resolver only. Same idiom as the screen-lock
     /// source's injected session reader.
     init(
-        target: ((Int) -> BetterDisplayOSDTranslation.Target?)? = nil,
+        target: ((Int) -> SystemHUD.Target?)? = nil,
         onReport: @escaping @MainActor () -> Void = {}
     ) {
         self.target = target ?? Self.resolveTarget
@@ -157,7 +157,7 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     /// screen is which and the bar would land on the wrong panel. A display with no
     /// resolvable UUID is dropped: one Crema cannot name is one it can neither
     /// place nor send a drag back to.
-    private static func resolveTarget(_ displayID: Int) -> BetterDisplayOSDTranslation.Target? {
+    private static func resolveTarget(_ displayID: Int) -> SystemHUD.Target? {
         let id = CGDirectDisplayID(displayID)
         // Every display resolves the same way, the built-in included: naming it is
         // the whole point, and a display whose UUID we cannot read is dropped —

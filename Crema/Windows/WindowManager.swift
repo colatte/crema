@@ -19,7 +19,23 @@ final class WindowManager {
     private var entries: [DisplayUUID: Entry] = [:]
     private var isApplyingFrames = false
     private var needsReapply = false
+    /// The no-owner condition already reported, so the diagnostic below states a
+    /// CHANGE instead of repeating itself. The frame pass runs on every state
+    /// WRITE, not every state change — the Coordinator's `didSet` has no equality
+    /// guard and a HUD is republished per key repeat and per drag frame — and the
+    /// conditions themselves last as long as a mirroring session, so an unguarded
+    /// notice would put tens of identical lines a second into the log for one fact
+    /// (docs/DECISIONS.md: hud-target-is-a-role).
+    private var reportedUnownedHUD: UnownedHUD?
     private let logger = Logger.crema("Windows")
+
+    /// The two ways a HUD can end up with no panel that owns it, kept apart
+    /// because they are opposite outcomes: the first draws nowhere (deliberate),
+    /// the second draws everywhere (the fall-open).
+    private enum UnownedHUD: Equatable {
+        case namedDisplayGone(DisplayUUID)
+        case noBuiltInPanel
+    }
 
     init(
         coordinator: Coordinator,
@@ -137,8 +153,16 @@ final class WindowManager {
 
     private func applyFrames() {
         let state = coordinator.state
+        // Which panel is the built-in one, answered ONCE per pass and from the
+        // roster itself (`isInternal`, taken in the same snapshot that created the
+        // panel). Deliberately not from the wider active-display list: the two
+        // disagree by design, and a UUID resolved from that list can name a screen
+        // no panel carries — which would hide the bar everywhere instead of scoping
+        // it (docs/DECISIONS.md: hud-target-is-a-role).
+        let builtInPanel = entries.values.first { $0.screen.isInternal }?.screen.id
+        logIfNoPanelOwns(state, builtInPanel: builtInPanel)
         for entry in entries.values {
-            let effective = effectiveState(state, for: entry.screen)
+            let effective = effectiveState(state, for: entry.screen, builtInPanel: builtInPanel)
             // Per display: "show now playing here" off ⇒ never armed, and the
             // panel's view suppresses now-playing content.
             let shows = preferences.showsNowPlaying(on: entry.screen.id, isInternal: entry.screen.isInternal)
@@ -148,9 +172,11 @@ final class WindowManager {
             // the pointer: invocation is the click zone below.
             let hoverArmed = effective != .hidden
             // Content-level scoping, the other half of `effectiveState`: the
-            // window is fixed and never orders out, so a panel that is not this
-            // HUD's display has to be told not to DRAW it — an empty frame only
-            // stops it from being touched (docs/DECISIONS.md:
+            // window is fixed and never orders out, so a panel the HUD's target
+            // does not speak for has to be told not to DRAW it — an empty frame
+            // only stops it from being touched, and a bar still rendered there is
+            // a live control for a screen the user is not looking at
+            // (docs/DECISIONS.md: hud-target-is-a-role,
             // hud-belongs-to-its-display).
             let showsHUD: Bool
             if case .hud = state {
@@ -189,21 +215,78 @@ final class WindowManager {
     ///
     /// Two rules, from two different reasons. "Show now playing here"
     /// (Preferences) is the user's choice and suppresses the now-playing surface
-    /// where it is off. A HUD that NAMES a display is a fact rather than a
-    /// choice: it belongs to that screen, and a bar shown on another one would be
-    /// a control for a display the user is not looking at — its drag would dim
-    /// the neighbour in silence. A HUD naming no display keeps appearing
-    /// everywhere, deliberately: `nil` is overloaded (volume belongs to no
-    /// display at all, and the built-in brightness reads the same), so scoping it
-    /// would move feedback the user never asked to move.
-    private func effectiveState(_ state: PresentationState, for screen: ScreenDescription) -> PresentationState {
+    /// where it is off. A HUD's TARGET is a fact rather than a choice: a bar for
+    /// one screen drawn on another is a live control for a display the user is not
+    /// looking at, and its drag would dim the neighbour in silence. So the three
+    /// targets answer three different questions here — no screen owns it (volume,
+    /// the keyboard backlight) and it appears everywhere; a NAMED display and it
+    /// appears only there, and nowhere at all if that display is gone, which is
+    /// what an unplug between the report and this pass should look like; the
+    /// built-in panel and it appears only on the internal one.
+    ///
+    /// That last one falls OPEN when the roster carries no internal panel: it then
+    /// shows on every display, which is exactly today's behaviour. The case is
+    /// reachable with the key already swallowed — a mirror set collapses to one
+    /// NSScreen that may not be the internal one, and a screen with no
+    /// NSScreenNumber is dropped from the roster — and a consumed key owes
+    /// feedback, so too much of it beats none. Narrow on purpose: it is decided
+    /// BEFORE there is an owner and never rescues a display that was named and is
+    /// gone (docs/DECISIONS.md: hud-target-is-a-role).
+    private func effectiveState(
+        _ state: PresentationState,
+        for screen: ScreenDescription,
+        builtInPanel: DisplayUUID?
+    ) -> PresentationState {
         switch state {
         case .nowPlaying where !preferences.showsNowPlaying(on: screen.id, isInternal: screen.isInternal):
             return .hidden
-        case .hud(let hud) where hud.display != nil && hud.display != screen.id:
+        case .hud(let hud) where !panelOwns(hud.target, panel: screen.id, builtInPanel: builtInPanel):
             return .hidden
         default:
             return state
+        }
+    }
+
+    /// Whether this panel is one the HUD's target speaks for. No UUID is resolved
+    /// here — `builtInPanel` came from the roster this method is scoping.
+    private func panelOwns(_ target: SystemHUD.Target, panel: DisplayUUID, builtInPanel: DisplayUUID?) -> Bool {
+        switch target {
+        case .noDisplay: true
+        case .builtIn: builtInPanel == nil || builtInPanel == panel
+        case .display(let named): named == panel
+        }
+    }
+
+    /// A HUD nobody draws is the worst outcome of scoping and the only one with no
+    /// visible trace, so it leaves a line instead of vanishing silently. Both
+    /// shapes: a named display the roster does not carry (drawn nowhere — the
+    /// deliberate answer for an unplug) and a built-in HUD with no internal panel
+    /// (fallen open to every display, so this one is a diagnostic, not damage).
+    /// Reported on CHANGE, and that is not tidiness: this runs inside the frame
+    /// pass, which fires on every state WRITE — a held key republishes the HUD per
+    /// repeat, a drag per frame — while the conditions last as long as the
+    /// arrangement that causes them. Repeating the line would bury the one moment
+    /// it carries information.
+    private func logIfNoPanelOwns(_ state: PresentationState, builtInPanel: DisplayUUID?) {
+        let condition = unownedHUD(state, builtInPanel: builtInPanel)
+        guard condition != reportedUnownedHUD else { return }
+        reportedUnownedHUD = condition
+        switch condition {
+        case .namedDisplayGone:
+            logger.notice("a HUD names a display with no panel — no display draws it")
+        case .noBuiltInPanel:
+            logger.notice("a built-in HUD with no built-in panel in the roster — showing it on every display")
+        case nil:
+            break
+        }
+    }
+
+    private func unownedHUD(_ state: PresentationState, builtInPanel: DisplayUUID?) -> UnownedHUD? {
+        guard case .hud(let hud) = state else { return nil }
+        switch hud.target {
+        case .display(let named) where entries[named] == nil: return .namedDisplayGone(named)
+        case .builtIn where builtInPanel == nil: return .noBuiltInPanel
+        default: return nil
         }
     }
 

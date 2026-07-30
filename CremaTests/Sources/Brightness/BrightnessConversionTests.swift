@@ -32,15 +32,4 @@ struct BrightnessConversionTests {
         #expect(BrightnessConversion.denormalize(.infinity) == 1)
         #expect(BrightnessConversion.denormalize(-.infinity) == 0)
     }
-
-    @Test func hudMapsKindAndClampsValue() {
-        let screen = BrightnessConversion.hud(kind: .screenBrightness, raw: 0.8)
-        #expect(screen.kind == .screenBrightness)
-        #expect(screen.value == Double(Float(0.8)))
-        #expect(screen.display == nil)
-
-        let keyboard = BrightnessConversion.hud(kind: .keyboardBrightness, raw: 1.5)
-        #expect(keyboard.kind == .keyboardBrightness)
-        #expect(keyboard.value == 1)
-    }
 }

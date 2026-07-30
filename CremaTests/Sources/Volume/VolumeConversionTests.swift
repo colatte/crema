@@ -53,7 +53,14 @@ struct VolumeConversionTests {
         #expect(hud.kind == .volume)
         #expect(hud.value == Double(Float(0.8)))
         #expect(!hud.isMuted)
-        #expect(hud.display == nil)
+        // No screen owns a volume reading — the default output device does — so its
+        // bar belongs on every panel, and the actuator refuses a named display
+        // outright, which makes this a contract of actuation and not only of
+        // presentation. Asserted as the ROLE and as the actuation spelling, because
+        // the two stopped being the same word
+        // (docs/DECISIONS.md: hud-target-is-a-role).
+        #expect(hud.target == .noDisplay)
+        #expect(hud.commandDisplay == nil)
     }
 
     @Test func hudPassesMuteThroughAndStillClampsValue() {

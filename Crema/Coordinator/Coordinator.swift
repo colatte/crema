@@ -571,8 +571,8 @@ final class Coordinator {
             // unmute from a fast drag echoing a stale snapshot is idempotent.
             let unmute = hud.isMuted && value > 0
             run("setVolume") { [volumeController] in
-                if unmute { try await volumeController.setMuted(false, on: hud.display) }
-                try await volumeController.setVolume(value, on: hud.display)
+                if unmute { try await volumeController.setMuted(false, on: hud.commandDisplay) }
+                try await volumeController.setVolume(value, on: hud.commandDisplay)
             }
         case .screenBrightness:
             applyScreenBrightness(value, on: hud)
@@ -904,20 +904,20 @@ final class Coordinator {
         let viaNeighbour = hud.authority == .betterDisplay && externalBrightnessReachable
         guard let external = externalScreenBrightnessController, viaNeighbour else {
             applyBrightness("setBrightness(screen)", applied: applied.by(.system)) { [screenBrightnessController] in
-                try await screenBrightnessController.setBrightness(value, on: hud.display)
+                try await screenBrightnessController.setBrightness(value, on: hud.commandDisplay)
             }
             return
         }
 
         Task { @MainActor in
             do {
-                try await external.setBrightness(value, on: hud.display)
+                try await external.setBrightness(value, on: hud.commandDisplay)
                 onBrightnessApplied?(applied)
             } catch {
                 logger.error("setBrightness(screen) via BetterDisplay failed: \(error, privacy: .public)")
                 externalBrightnessReachable = false
                 do {
-                    try await screenBrightnessController.setBrightness(value, on: hud.display)
+                    try await screenBrightnessController.setBrightness(value, on: hud.commandDisplay)
                     onBrightnessApplied?(applied.by(.system))
                 } catch {
                     logger.error("setBrightness(screen) fallback failed: \(error, privacy: .public)")

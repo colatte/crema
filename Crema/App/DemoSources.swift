@@ -139,7 +139,9 @@ final class DemoHUDEngine: SystemHUDSource, VolumeController, ScreenBrightnessCo
             self.muted = muted
             return levels[.volume] ?? 0.5
         }
-        continuation.yield(SystemHUD(kind: .volume, value: value, isMuted: muted, display: display))
+        continuation.yield(
+            SystemHUD(kind: .volume, value: value, isMuted: muted, target: Self.target(.volume, display))
+        )
     }
 
     func setBrightness(_ value: Double, on display: DisplayUUID?) async throws {
@@ -158,7 +160,19 @@ final class DemoHUDEngine: SystemHUDSource, VolumeController, ScreenBrightnessCo
         levels[kind] = value
         let muted = self.muted
         lock.unlock()
-        continuation.yield(SystemHUD(kind: kind, value: value, isMuted: kind == .volume ? muted : false, display: nil))
+        continuation.yield(
+            SystemHUD(kind: kind, value: value, isMuted: kind == .volume ? muted : false, target: Self.target(kind, nil))
+        )
+    }
+
+    /// A command carries the ACTUATION spelling, where nil means "my own panel", so
+    /// the loopback has to put the role back the way the real producers state it —
+    /// otherwise the demo bar would jump from the built-in panel to every screen
+    /// mid-drag, which is the shipped bug this menu exists to reproduce without
+    /// hardware (docs/DECISIONS.md: hud-target-is-a-role).
+    private static func target(_ kind: SystemHUD.Kind, _ display: DisplayUUID?) -> SystemHUD.Target {
+        guard kind == .screenBrightness else { return .noDisplay }
+        return display.map { .display($0) } ?? .builtIn
     }
 
     private func emit(_ kind: SystemHUD.Kind, value: Double, display: DisplayUUID?) {
@@ -166,7 +180,9 @@ final class DemoHUDEngine: SystemHUDSource, VolumeController, ScreenBrightnessCo
         levels[kind] = value
         let muted = self.muted
         lock.unlock()
-        continuation.yield(SystemHUD(kind: kind, value: value, isMuted: kind == .volume ? muted : false, display: display))
+        continuation.yield(
+            SystemHUD(kind: kind, value: value, isMuted: kind == .volume ? muted : false, target: Self.target(kind, display))
+        )
     }
 }
 #endif

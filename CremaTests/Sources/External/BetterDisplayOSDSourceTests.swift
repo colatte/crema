@@ -44,7 +44,7 @@ struct BetterDisplayOSDSourceTests {
         #expect(await eventually { collector.values.count == 1 })
         #expect(collector.values.first?.kind == .screenBrightness)
         #expect(collector.values.first?.value == 0.75)
-        #expect(collector.values.first?.display == DisplayUUID(rawValue: "BUILT-IN"))
+        #expect(collector.values.first?.target == .display(DisplayUUID(rawValue: "BUILT-IN")))
     }
 
     @Test func aPayloadWithNoHUDOfOursNeverReachesTheStream() async {
@@ -178,7 +178,10 @@ struct BetterDisplayOSDSourceTests {
         let collector = Collector(source.updates)
         defer { collector.stop() }
 
-        // No displayID: the built-in screen, so this holds on any machine.
+        // No displayID, so the payload names no screen and the reading stays
+        // `.noDisplay` — which is precisely why this holds on any machine: it
+        // asserts the DELIVERY, never which panel ends up drawing it
+        // (docs/DECISIONS.md: hud-target-is-a-role).
         DistributedNotificationCenter.default().postNotificationName(
             Notification.Name(BetterDisplayOSDSource.notificationName),
             object: #"{"controlTarget":"combinedBrightness","maxValue":64,"value":16}"#,

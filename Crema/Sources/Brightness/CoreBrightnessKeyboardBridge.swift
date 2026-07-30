@@ -44,6 +44,13 @@ final class CoreBrightnessKeyboardBridge: BrightnessBackend, @unchecked Sendable
         resolved = Self.resolve(resolver, keyboardIDProvider: keyboardIDProvider)
     }
 
+    /// The backlight belongs to the one keyboard, not to a screen, so its bar is a
+    /// control for no display and must keep appearing on all of them — its
+    /// actuator does not even take a display. This is why the target is a property
+    /// of the BACKEND and not a branch on the HUD kind: both channels share one
+    /// source type and one emit line (docs/DECISIONS.md: hud-target-is-a-role).
+    var target: SystemHUD.Target { .noDisplay }
+
     /// Available only when the class resolved and a built-in keyboard was found.
     var isAvailable: Bool { resolved != nil }
 

@@ -133,7 +133,7 @@ struct CoordinatorIntentTests {
     @Test func brightnessHUDSliderRoutesToTheRightActuatorAndDisplay() async {
         let h = CoordinatorHarness()
         let external = DisplayUUID(rawValue: "37D8832A-2D66-02CA-B9F7-8F30A301B230")
-        h.hudSource.emit(SystemHUD(kind: .screenBrightness, value: 0.5, display: external))
+        h.hudSource.emit(SystemHUD(kind: .screenBrightness, value: 0.5, target: .display(external)))
         #expect(await eventually { h.coordinator.state != .hidden })
 
         h.coordinator.hudSliderChanged(to: 0.8)

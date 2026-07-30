@@ -28,9 +28,4 @@ enum BrightnessConversion {
         guard !value.isNaN else { return 0 }
         return Float(min(max(value, 0), 1))
     }
-
-    /// Builds the domain event from a raw reading for the given brightness kind.
-    static func hud(kind: SystemHUD.Kind, raw: Float) -> SystemHUD {
-        SystemHUD(kind: kind, value: normalize(raw))
-    }
 }

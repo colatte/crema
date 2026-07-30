@@ -57,6 +57,14 @@ final class DisplayServicesBridge: BrightnessBackend, Sendable {
         setFn = resolver("DisplayServicesSetBrightness").map { unsafeBitCast($0, to: SetFn.self) }
     }
 
+    /// This border governs the built-in panel and nothing else — the framework
+    /// only ever drives Apple-controlled panels (see the header above) and
+    /// `displayProvider` has no path to another display — so every reading it
+    /// produces speaks for the internal screen. Saying so is what keeps that bar
+    /// off the other panels, where it would be a control for a screen the user is
+    /// not looking at (docs/DECISIONS.md: hud-target-is-a-role).
+    var target: SystemHUD.Target { .builtIn }
+
     /// Both symbols must resolve, or the whole feature degrades.
     var isAvailable: Bool { getFn != nil && setFn != nil }
 

@@ -34,31 +34,17 @@ enum BetterDisplayOSDTranslation {
     /// `systemIconID` 1 = brightness (3 = volume, 4 = mute, 0 = no icon).
     private static let brightnessIconID = 1
 
-    /// Where a reported level belongs. Resolved at the border from BetterDisplay's
-    /// raw CGDirectDisplayID, because the domain keys displays by UUID and the
-    /// numeric ID is reassigned across sessions and reconnections.
-    ///
-    /// It deliberately does NOT distinguish built-in from external. What matters is
-    /// whether the neighbour NAMED a display, and it names one every time — folding
-    /// "it named the built-in" into the domain's nil threw that away, and nil is
-    /// what the presentation layer reads as "nobody said which screen, so draw on
-    /// all of them" (docs/DECISIONS.md: hud-belongs-to-its-display). Field symptom:
-    /// with the pointer on the laptop the bar appeared on BOTH displays, while with
-    /// the pointer on the monitor it correctly appeared only there.
-    enum Target: Equatable {
-        /// The payload carried no display at all — genuinely unnamed.
-        case unnamed
-        /// The display the neighbour named, built-in included.
-        case display(DisplayUUID)
-
-        /// The domain's own spelling: nil means no display was named.
-        var display: DisplayUUID? {
-            switch self {
-            case .unnamed: nil
-            case .display(let uuid): uuid
-            }
-        }
-    }
+    // Where a reported level belongs is `SystemHUD.Target`, the domain's own word.
+    // This file used to keep a private copy of it and flatten it into a
+    // `DisplayUUID?` to cross the domain, and the FLATTENING was the bug: the
+    // built-in the neighbour had named became "nobody said which screen", which
+    // presentation reads as "draw on all of them". Field symptom: with the pointer
+    // on the laptop the bar appeared on BOTH displays, while with the pointer on
+    // the monitor it correctly appeared only there
+    // (docs/DECISIONS.md: hud-target-is-a-role). This border still resolves the
+    // neighbour's raw CGDirectDisplayID to a UUID — the numeric ID is reassigned
+    // across sessions and reconnections — and it names the built-in like any other
+    // display rather than collapsing it into a role.
 
     /// Decodes one payload. `target` resolves BetterDisplay's raw display ID —
     /// injected so this stays a pure function; the system call lives in the
@@ -70,15 +56,22 @@ enum BetterDisplayOSDTranslation {
     /// caused it, so a second source for the same event would draw two HUDs.
     /// Brightness has no such notification — that absence is the whole reason
     /// this source exists (docs/DECISIONS.md: media-key-chain-contention).
-    static func systemHUD(fromJSON json: String, target: (Int) -> Target?) -> SystemHUD? {
+    static func systemHUD(fromJSON json: String, target: (Int) -> SystemHUD.Target?) -> SystemHUD? {
         guard let data = json.data(using: .utf8),
               let payload = try? JSONDecoder().decode(Payload.self, from: data),
               let value = payload.value,
               payload.lock != true,
               isBrightness(payload),
-              // A payload naming no display is the built-in one — the same
-              // default the domain uses when the field is absent.
-              let resolved = payload.displayID.map(target) ?? .unnamed
+              // A payload that names no display is genuinely unnamed, and stays
+              // that way. The neighbour has named a display on every delivery ever
+              // observed, so this path is unmeasured — and calling it the built-in
+              // would be a guess that also routes a later drag to a panel it may
+              // not have meant, which is what "drop rather than guess" rules out
+              // (docs/DECISIONS.md: betterdisplay-osd-source). Dropping it outright
+              // is the other honest option, rejected only because nothing has ever
+              // seen this shape and dropping would also silence the stand-down the
+              // local source needs when the neighbour speaks.
+              let resolved = payload.displayID.map(target) ?? .noDisplay
         else { return nil }
 
         // The scale is BetterDisplay's own (observed: 0...64 on a built-in
@@ -93,7 +86,7 @@ enum BetterDisplayOSDTranslation {
         return SystemHUD(
             kind: .screenBrightness,
             value: normalized,
-            display: resolved.display,
+            target: resolved,
             authority: .betterDisplay
         )
     }

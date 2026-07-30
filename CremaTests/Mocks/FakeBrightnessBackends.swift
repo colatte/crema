@@ -18,10 +18,23 @@ final class FakeBrightnessBackend: BrightnessBackend, @unchecked Sendable {
     private var _mainThreadReads = 0
     private var _readGate: DispatchSemaphore?
 
-    init(available: Bool = true, value: Float? = 0.5, writeSucceeds: Bool? = nil) {
+    /// Which screen this channel's readings speak for. A constant of the technology
+    /// in production — the screen bridge governs the built-in panel and no other,
+    /// the keyboard backlight no screen at all — so the fake takes it at
+    /// construction instead of inventing one per read. The default is the neutral
+    /// role, so a test about something else says nothing about screens.
+    let target: SystemHUD.Target
+
+    init(
+        available: Bool = true,
+        value: Float? = 0.5,
+        writeSucceeds: Bool? = nil,
+        target: SystemHUD.Target = .noDisplay
+    ) {
         _available = available
         _value = value
         _writeSucceeds = writeSucceeds
+        self.target = target
     }
 
     var isAvailable: Bool { lock.withLock { _available } }

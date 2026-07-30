@@ -12,8 +12,32 @@ import Testing
 /// poll-detected change with no recent key: auto-brightness on the display,
 /// the auto-adjusting backlight (hardware-confirmed) on the keyboard — does
 /// not.
+///
+/// Each channel also declares WHICH SCREEN its readings speak for, and that
+/// travels on the HUD: the screen border reads and writes the built-in panel and
+/// no other, the keyboard backlight belongs to no screen. Every assertion below
+/// states it instead of inheriting a default, because the two channels share one
+/// source type and one emit line — a target decided there rather than by the
+/// backend would scope the keyboard bar too
+/// (docs/DECISIONS.md: hud-target-is-a-role).
 struct BrightnessSourceTests {
     private static let kinds: [SystemHUD.Kind] = [.screenBrightness, .keyboardBrightness]
+
+    /// The channel policy, mirroring the bridges the production graph wires.
+    private static func target(of kind: SystemHUD.Kind) -> SystemHUD.Target {
+        kind == .screenBrightness ? .builtIn : .noDisplay
+    }
+
+    private static func backend(
+        _ kind: SystemHUD.Kind, available: Bool = true, value: Float? = 0.5
+    ) -> FakeBrightnessBackend {
+        FakeBrightnessBackend(available: available, value: value, target: target(of: kind))
+    }
+
+    /// The whole HUD this channel owes at `value` — kind, level AND target.
+    private static func expected(_ kind: SystemHUD.Kind, _ value: Double) -> SystemHUD {
+        SystemHUD(kind: kind, value: value, target: target(of: kind))
+    }
 
     /// `sample()` plus the barrier saying the reading it queued has been taken.
     /// The source reads off the caller's thread on purpose (the real read is a
@@ -40,7 +64,7 @@ struct BrightnessSourceTests {
         // that re-enumerates the keyboard IDs). Inline, a stalled daemon froze
         // HUD, now playing and menu on the healthy path, with the key already
         // swallowed. Counted, not timed: no lucky schedule satisfies it.
-        let backend = FakeBrightnessBackend(available: true, value: 0.5)
+        let backend = Self.backend(kind)
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1)
         var iterator = source.updates.makeAsyncIterator()
         // The launch baseline is deliberately still read on this thread (see the
@@ -49,7 +73,7 @@ struct BrightnessSourceTests {
 
         backend.value = 0.8
         source.sample()
-        #expect(await iterator.next() == SystemHUD(kind: kind, value: BrightnessConversion.normalize(0.8)))
+        #expect(await iterator.next() == Self.expected(kind, BrightnessConversion.normalize(0.8)))
         #expect(backend.mainThreadReads == atLaunch)
     }
 
@@ -64,7 +88,7 @@ struct BrightnessSourceTests {
         // The gate is a DispatchSemaphore, like BlockingCallTests: the subject is a
         // read deliberately stuck, so a waiter that needed that read to finish
         // could not observe the state being asserted.
-        let backend = FakeBrightnessBackend(available: true, value: 0.5)
+        let backend = Self.backend(kind)
         let clock = TestSleepClock()
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1)
         await clock.waitForSleep()          // parked; the launch baseline is read
@@ -90,7 +114,7 @@ struct BrightnessSourceTests {
 
     @Test(arguments: kinds)
     func sourceIsUnavailableWhenBackendIsUnavailable(kind: SystemHUD.Kind) async {
-        let backend = FakeBrightnessBackend(available: false)
+        let backend = Self.backend(kind, available: false)
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock())
         #expect(await !source.isAvailable())
     }
@@ -100,7 +124,7 @@ struct BrightnessSourceTests {
         // The sensor moves the value with no key: the poll must absorb it
         // silently. Proven by a following key that lands on a distinct value —
         // it is the first thing the stream ever yields.
-        let backend = FakeBrightnessBackend(available: true, value: 0.5)
+        let backend = Self.backend(kind)
         let clock = TestSleepClock()
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1)
         var iterator = source.updates.makeAsyncIterator()
@@ -112,7 +136,7 @@ struct BrightnessSourceTests {
 
         backend.value = 0.3         // the user's key
         source.sample()
-        #expect(await iterator.next() == SystemHUD(kind: kind, value: BrightnessConversion.normalize(0.3)))
+        #expect(await iterator.next() == Self.expected(kind, BrightnessConversion.normalize(0.3)))
     }
 
     @Test(arguments: kinds)
@@ -120,7 +144,7 @@ struct BrightnessSourceTests {
         // Suppression-off flow: the key fires before the OS applies the value,
         // so `sample()` finds no change but arms the window; the poll a beat
         // later catches the applied value and emits.
-        let backend = FakeBrightnessBackend(available: true, value: 0.5)
+        let backend = Self.backend(kind)
         let clock = TestSleepClock()
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1)
         var iterator = source.updates.makeAsyncIterator()
@@ -133,7 +157,7 @@ struct BrightnessSourceTests {
         backend.value = 0.8         // OS applies
         clock.advance()
 
-        #expect(await iterator.next() == SystemHUD(kind: kind, value: BrightnessConversion.normalize(0.8)))
+        #expect(await iterator.next() == Self.expected(kind, BrightnessConversion.normalize(0.8)))
     }
 
     @Test(arguments: kinds)
@@ -141,18 +165,18 @@ struct BrightnessSourceTests {
         // Suppression-on flow: the consumer applied before the post-apply poke,
         // so the key `sample()` sees the change at once — and the HUD carries
         // this channel's kind.
-        let backend = FakeBrightnessBackend(available: true, value: 0.5)
+        let backend = Self.backend(kind)
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1)
         var iterator = source.updates.makeAsyncIterator()
 
         backend.value = 0.8
         source.sample()
-        #expect(await iterator.next() == SystemHUD(kind: kind, value: BrightnessConversion.normalize(0.8)))
+        #expect(await iterator.next() == Self.expected(kind, BrightnessConversion.normalize(0.8)))
     }
 
     @Test(arguments: kinds)
     func aChangeAfterTheKeyWindowExpiresIsTreatedAsSensor(kind: SystemHUD.Kind) async {
-        let backend = FakeBrightnessBackend(available: true, value: 0.5)
+        let backend = Self.backend(kind)
         let clock = TestSleepClock()
         let now = ManualNow()
         let source = PolledBrightnessSource(
@@ -171,14 +195,14 @@ struct BrightnessSourceTests {
 
         backend.value = 0.3         // a fresh key is the first emit
         source.sample()
-        #expect(await iterator.next() == SystemHUD(kind: kind, value: BrightnessConversion.normalize(0.3)))
+        #expect(await iterator.next() == Self.expected(kind, BrightnessConversion.normalize(0.3)))
     }
 
     @Test(arguments: kinds)
     func aSensorChangeInAKeysTailStaysSilent(kind: SystemHUD.Kind) async {
         // The key HUD consumes the window, so a sensor change right after it
         // does not add a second HUD.
-        let backend = FakeBrightnessBackend(available: true, value: 0.5)
+        let backend = Self.backend(kind)
         let clock = TestSleepClock()
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1)
         var iterator = source.updates.makeAsyncIterator()
@@ -192,8 +216,8 @@ struct BrightnessSourceTests {
 
         backend.value = 0.4         // next key
         source.sample()
-        #expect(await iterator.next() == SystemHUD(kind: kind, value: BrightnessConversion.normalize(0.8)))
-        #expect(await iterator.next() == SystemHUD(kind: kind, value: BrightnessConversion.normalize(0.4)))
+        #expect(await iterator.next() == Self.expected(kind, BrightnessConversion.normalize(0.8)))
+        #expect(await iterator.next() == Self.expected(kind, BrightnessConversion.normalize(0.4)))
     }
 
     @Test(arguments: kinds)
@@ -202,7 +226,7 @@ struct BrightnessSourceTests {
         // limit) still arms the window — indistinguishable from a key whose
         // value has not applied yet — so one following sensor change leaks,
         // then the emit consumes the window and the rest stay silent.
-        let backend = FakeBrightnessBackend(available: true, value: 0.5)
+        let backend = Self.backend(kind)
         let clock = TestSleepClock()
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1)
         var iterator = source.updates.makeAsyncIterator()
@@ -218,15 +242,15 @@ struct BrightnessSourceTests {
 
         backend.value = 0.2         // a fresh key
         source.sample()
-        #expect(await iterator.next() == SystemHUD(kind: kind, value: BrightnessConversion.normalize(0.4)))
-        #expect(await iterator.next() == SystemHUD(kind: kind, value: BrightnessConversion.normalize(0.2)))
+        #expect(await iterator.next() == Self.expected(kind, BrightnessConversion.normalize(0.4)))
+        #expect(await iterator.next() == Self.expected(kind, BrightnessConversion.normalize(0.2)))
     }
 
     @Test(arguments: kinds)
     func sourceDedupsUnchangedMidScaleKeyReadings(kind: SystemHUD.Kind) async {
         // A repeated key read at the same mid-scale value does not re-emit; only
         // a boundary no-op refreshes (proven separately).
-        let backend = FakeBrightnessBackend(available: true, value: 0.5)
+        let backend = Self.backend(kind)
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1)
         var iterator = source.updates.makeAsyncIterator()
 
@@ -240,19 +264,19 @@ struct BrightnessSourceTests {
         backend.value = 0.3
         await sampleAndRead(source, backend)
 
-        #expect(await iterator.next() == SystemHUD(kind: kind, value: BrightnessConversion.normalize(0.7)))
-        #expect(await iterator.next() == SystemHUD(kind: kind, value: BrightnessConversion.normalize(0.3)))
+        #expect(await iterator.next() == Self.expected(kind, BrightnessConversion.normalize(0.7)))
+        #expect(await iterator.next() == Self.expected(kind, BrightnessConversion.normalize(0.3)))
     }
 
     @Test(arguments: kinds)
     func sourceClampsKeyDrivenReadings(kind: SystemHUD.Kind) async {
-        let backend = FakeBrightnessBackend(available: true, value: 0.5)
+        let backend = Self.backend(kind)
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1)
         var iterator = source.updates.makeAsyncIterator()
 
         backend.value = 1.9         // out of range → clamped into 0...1
         source.sample()
-        #expect(await iterator.next() == SystemHUD(kind: kind, value: 1))
+        #expect(await iterator.next() == Self.expected(kind, 1))
     }
 
     @Test(arguments: kinds)
@@ -260,22 +284,22 @@ struct BrightnessSourceTests {
         // Suppression-on, level pinned at max: the consumed key clamps to
         // 1.0 == before (a no-op write), yet a key-driven sample still emits
         // the full-bar HUD — S3, matching native's flash at the limit.
-        let backend = FakeBrightnessBackend(available: true, value: 1.0)
+        let backend = Self.backend(kind, value: 1.0)
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1)
         var iterator = source.updates.makeAsyncIterator()
 
         source.sample()             // value unchanged at the boundary
-        #expect(await iterator.next() == SystemHUD(kind: kind, value: 1))
+        #expect(await iterator.next() == Self.expected(kind, 1))
     }
 
     @Test(arguments: kinds)
     func boundaryKeyPressAtMinStillEmitsTheClampedValue(kind: SystemHUD.Kind) async {
         // Same S3 parity at the bottom of the scale (the empty-bar flash).
-        let backend = FakeBrightnessBackend(available: true, value: 0.0)
+        let backend = Self.backend(kind, value: 0.0)
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1)
         var iterator = source.updates.makeAsyncIterator()
 
         source.sample()             // value unchanged at the boundary
-        #expect(await iterator.next() == SystemHUD(kind: kind, value: 0))
+        #expect(await iterator.next() == Self.expected(kind, 0))
     }
 }

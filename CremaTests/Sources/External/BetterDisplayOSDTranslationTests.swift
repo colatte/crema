@@ -8,8 +8,10 @@ struct BetterDisplayOSDTranslationTests {
 
     private let externalUUID = DisplayUUID(rawValue: "UUID-FOR-99")
     /// The built-in panel is named like any other display: the neighbour reports it
-    /// by ID and the border resolves it to a UUID, so nothing here is nil except a
-    /// payload that named no display at all.
+    /// by ID and the border resolves it to a UUID, so every payload here carries
+    /// `.display(_)` — except one that named no display at all, which stays
+    /// `.noDisplay` rather than being guessed into the built-in
+    /// (docs/DECISIONS.md: hud-target-is-a-role).
     private let builtInUUID = DisplayUUID(rawValue: "UUID-FOR-1")
 
     private func translate(_ json: String) -> SystemHUD? {
@@ -28,10 +30,12 @@ struct BetterDisplayOSDTranslationTests {
         )
         #expect(hud?.kind == .screenBrightness)
         #expect(hud?.value == 40.0 / 64.0)     // the scale is BetterDisplay's, not 0...1
-        // The built-in is NAMED here, not nil: the neighbour said which screen, and
-        // nil is reserved for a payload that named none. Folding the two together
-        // sent the bar to EVERY panel — measured in the field, pointer on the laptop.
-        #expect(hud?.display == builtInUUID)
+        // The built-in is NAMED here, not folded into a role and not into "no
+        // display": the neighbour said which screen, and the domain has a word for
+        // that. Folding the two together sent the bar to EVERY panel — measured in
+        // the field, pointer on the laptop (docs/DECISIONS.md: hud-target-is-a-role).
+        #expect(hud?.target == .display(builtInUUID))
+        #expect(hud?.commandDisplay == builtInUUID)
     }
 
     @Test func everyBrightnessFlavourIsTheSameBarToTheUser() {
@@ -46,7 +50,7 @@ struct BetterDisplayOSDTranslationTests {
         // It names the screen it belongs to, which is what puts the bar on that
         // panel and sends the drag back to that display.
         let hud = translate(#"{"controlTarget":"combinedBrightness","displayID":99,"maxValue":64,"value":48}"#)
-        #expect(hud?.display == externalUUID)
+        #expect(hud?.target == .display(externalUUID))
         #expect(hud?.value == 0.75)
         #expect(hud?.authority == .betterDisplay)
     }
@@ -84,9 +88,16 @@ struct BetterDisplayOSDTranslationTests {
         #expect(translate(#"{"maxValue":64,"value":16}"#) == nil)
     }
 
-    @Test func aPayloadNamingNoDisplayIsTakenAsTheBuiltInOne() {
-        // Same default the domain itself uses when the field is absent.
-        #expect(translate(#"{"controlTarget":"combinedBrightness","maxValue":64,"value":64}"#)?.value == 1)
+    @Test func aPayloadNamingNoDisplayStaysUnnamedRatherThanGuessed() {
+        // The neighbour has named a display on every delivery ever observed, so
+        // this path is unmeasured — and calling it the built-in would be a guess
+        // that also routes a later drag to a panel it may not have meant, which
+        // "drop rather than guess" rules out (docs/DECISIONS.md:
+        // betterdisplay-osd-source). Unnamed keeps today's behaviour: the bar shows
+        // on every display, the honest reading of "nobody said which screen".
+        let hud = translate(#"{"controlTarget":"combinedBrightness","maxValue":64,"value":64}"#)
+        #expect(hud?.value == 1)
+        #expect(hud?.target == .noDisplay)
     }
 
     @Test func aBrokenPayloadIsIgnoredRatherThanGuessed() {

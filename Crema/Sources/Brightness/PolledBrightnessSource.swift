@@ -160,7 +160,13 @@ final class PolledBrightnessSource: SystemHUDSource, ManuallySampledSource, @unc
         let emit = gate.register(value, keyDriven: attributed)
         lock.unlock()
         guard emit else { return }
-        continuation.yield(SystemHUD(kind: kind, value: value))
+        // The target comes from the backend, and it has to be stamped HERE rather
+        // than anywhere downstream: the drag's confirming echo closes the loop by
+        // re-sampling this source, not by re-publishing the applied value, so a
+        // stamp added in the key router or the Coordinator would be undone one
+        // frame later and the bar would jump from one screen to all of them inside
+        // the gesture (docs/DECISIONS.md: hud-target-is-a-role).
+        continuation.yield(SystemHUD(kind: kind, value: value, target: backend.target))
     }
 
     /// Consumes one outstanding key reading and answers whether it may still speak

@@ -27,8 +27,13 @@ struct CoordinatorBrightnessLoopTests {
         h.coordinator.onBrightnessApplied = { applied in
             switch applied.kind {
             case .screenBrightness:
-                if case let .setBrightness(value, display) = h.screen.commands.last {
-                    h.hudSource.emit(SystemHUD(kind: .screenBrightness, value: value, display: display))
+                // The APPLIED hud carries the target, and the echo reuses it: the
+                // real source re-stamps the target from its backend on every emit,
+                // so rebuilding one from the command would invent a role out of a
+                // nil that only means "my own panel"
+                // (docs/DECISIONS.md: hud-target-is-a-role).
+                if case let .setBrightness(value, _) = h.screen.commands.last {
+                    h.hudSource.emit(SystemHUD(kind: .screenBrightness, value: value, target: applied.target))
                 }
             case .keyboardBrightness:
                 if case let .setBrightness(value) = h.keyboard.commands.last {

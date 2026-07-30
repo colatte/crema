@@ -16,9 +16,10 @@ struct DomainTypesTests {
         #expect(live.duration == nil)
     }
 
-    @Test func systemHUDDefaultsToInternalDisplayAndUnmuted() {
+    @Test func systemHUDDefaultsToNoDisplayAndUnmuted() {
         let hud = SystemHUD(kind: .volume, value: 0.5)
-        #expect(hud.display == nil)
+        #expect(hud.target == .noDisplay)
+        #expect(hud.commandDisplay == nil)
         #expect(!hud.isMuted)
     }
 
@@ -28,9 +29,22 @@ struct DomainTypesTests {
 
     @Test func systemHUDCanBeAssociatedToADisplayByUUID() {
         let uuid = DisplayUUID(rawValue: "37D8832A-2D66-02CA-B9F7-8F30A301B230")
-        let external = SystemHUD(kind: .screenBrightness, value: 0.8, display: uuid)
-        #expect(external.display == uuid)
+        let external = SystemHUD(kind: .screenBrightness, value: 0.8, target: .display(uuid))
+        #expect(external.target == .display(uuid))
+        #expect(external.commandDisplay == uuid)
         #expect(external != SystemHUD(kind: .screenBrightness, value: 0.8))
+    }
+
+    @Test func theBuiltInPanelIsARoleDistinctFromNamingNoDisplay() {
+        // Two different facts the old `DisplayUUID?` folded into one nil: no screen
+        // owns this reading, versus the internal panel owns it. Only the second
+        // scopes the bar, so the values must NOT compare equal or presentation
+        // could not tell them apart. Actuation still sees nil for both, because
+        // every actuator already reads nil as "my own panel"
+        // (docs/DECISIONS.md: hud-target-is-a-role).
+        let builtIn = SystemHUD(kind: .screenBrightness, value: 0.4, target: .builtIn)
+        #expect(builtIn.commandDisplay == nil)
+        #expect(builtIn != SystemHUD(kind: .screenBrightness, value: 0.4))
     }
 
     @Test func presentationStateRepresentsAllDistinctStates() {

@@ -17,17 +17,53 @@ struct SystemHUD: Equatable, Sendable {
         case betterDisplay
     }
 
+    /// Which screen a reading speaks for — a ROLE, not an identity the producer
+    /// had to resolve. Whoever turned the knob knows which knob it was; only the
+    /// panel roster knows which PANEL that is, and this app's two inventories of
+    /// screens disagree by design (the roster drops a screen with no
+    /// NSScreenNumber or no resolvable UUID and AppKit collapses a mirror set to
+    /// one NSScreen, while the active-display list keeps them). A UUID resolved at
+    /// the border would be a key cut from the other lock, and a HUD naming a
+    /// display no panel carries shows on no screen at all.
+    enum Target: Equatable, Sendable {
+        /// No screen owns this reading: volume belongs to the output device, the
+        /// backlight to the one keyboard.
+        case noDisplay
+        /// The built-in panel — the only screen the local brightness border reads
+        /// or writes. Matched against the roster at presentation time.
+        case builtIn
+        /// The display the producer named, built-in included.
+        case display(DisplayUUID)
+    }
+
     var kind: Kind
     /// Normalized to 0...1; sources convert whatever scale the system uses.
     var value: Double
     var isMuted: Bool = false
-    /// Originating display; nil means the internal display (the default).
-    /// External-display sources populate it, keyed by display UUID.
-    var display: DisplayUUID?
+    /// Which screen this reading is about. Three distinct facts a single
+    /// `DisplayUUID?` used to fold into one, and folding "the built-in" into
+    /// "nobody said which screen" is what drew the built-in panel's bar on EVERY
+    /// panel — measured in the field, pointer on the laptop, with a drag on the
+    /// monitor's copy dimming the laptop in silence
+    /// (docs/DECISIONS.md: hud-target-is-a-role).
+    var target: Target = .noDisplay
     var authority: Authority = .system
 
+    /// The actuation spelling of `target`: nil wherever an actuator already reads
+    /// nil as "my own panel". Both brightness actuators do — the system one
+    /// accepts nil OR the built-in's own UUID, the neighbour's resolves nil to the
+    /// built-in ID — and the volume actuator rejects any non-nil display outright,
+    /// so `.builtIn` has to arrive as nil or a drag on the local bar would throw
+    /// where it used to write.
+    var commandDisplay: DisplayUUID? {
+        switch target {
+        case .noDisplay, .builtIn: nil
+        case .display(let uuid): uuid
+        }
+    }
+
     /// The same reading at a new level — what a drag on this HUD produced, kept
-    /// on its own scale, display and authority so the echo lands where the bar is.
+    /// on its own scale, target and authority so the echo lands where the bar is.
     func at(_ value: Double) -> Self {
         var copy = self
         copy.value = value

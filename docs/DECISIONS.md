@@ -600,13 +600,18 @@ The app has ONE state and one panel per screen, so every panel drew every HUD.
 Harmless while nothing named a display — and wrong the moment something did: a
 brightness bar for the external monitor, drawn on the laptop, is a control for a
 screen the user is not looking at, and its drag would dim the neighbour in
-silence. Rule: a HUD that NAMES a display (`display != nil`) is shown only on
-that display; every other panel treats the state as `.hidden`, which also disarms
-hover there, so an empty region never reacts to the pointer. A HUD naming NO
-display keeps appearing everywhere, deliberately: `nil` is overloaded — volume
-belongs to no display at all and the built-in brightness reads the same — so
-scoping it would move feedback nobody asked to move, and the asymmetry is the
-honest reading of an ambiguous field rather than an oversight. A HUD naming a
+silence. Rule: a HUD that NAMES a display is shown only on that display; every
+other panel treats the state as `.hidden`, which also disarms hover there, so an
+empty region never reacts to the pointer. A HUD that NO screen owns keeps
+appearing everywhere, deliberately: volume belongs to the output device and the
+keyboard backlight to the one keyboard, so scoping either would move feedback
+nobody asked to move. That exemption was originally written wider than this, and
+wrongly: it covered the built-in brightness too, because the field then said only
+`display: DisplayUUID?` and `nil` was overloaded between "nothing owns this" and
+"the built-in owns this". The ambiguity is gone — `hud-target-is-a-role` split the
+field into three and the local brightness bar now names the built-in panel as a
+role — so the exemption survives only for the two channels no display can own.
+A HUD naming a
 display that is no longer attached shows nowhere, which is what an unplug between
 the report and the frame pass should look like. The decision lives in
 `WindowManager.effectiveState`, already the per-display policy seam (the
@@ -1076,6 +1081,81 @@ panel anyway and shows its own indicator. Crema stops being the one that dims th
 wrong screen; it cannot stop the system from doing so. That is the same contract
 `per-domain-suspension` already accepts, and it is why the menu row promises an aim
 and never an outcome on the other display.
+
+### hud-target-is-a-role
+`SystemHUD.display` was one `DisplayUUID?` carrying two different facts, and the
+field found the seam: with a monitor attached and the pointer on the laptop, a
+brightness key moved the laptop's panel correctly and drew the bar on BOTH
+screens, while the neighbour's path — which names a display — correctly drew only
+on the monitor. The type itself documented `nil` as "the internal display" while
+the presentation layer read the same `nil` as "nobody said which screen, so draw
+everywhere". Both sentences were load-bearing and they contradicted each other.
+
+Why that stopped being untidy and became a defect: the extra bar is not spare
+feedback, it is a live CONTROL. Every panel is handed the `.hud` state and draws a
+slider, and a drag on the monitor's copy wrote the BUILT-IN panel — so the second
+bar was a control for a screen the user is not looking at that dims a different
+one in silence, word for word the harm `hud-belongs-to-its-display` was written to
+prevent, in the direction nobody had checked. The app had also already committed
+to the premise: since `brightness-key-follows-the-pointer` it BETS that the pointer
+marks attention when choosing which panel to dim. It cannot know where the user is
+looking for actuation and not know it for presentation, in the same gesture.
+
+Decision: the HUD names a ROLE — `.noDisplay`, `.builtIn`, `.display(uuid)` — and
+whoever owns the panel roster resolves it. The producer states only what it really
+knows: `BrightnessBackend.target` is a compile-time constant of the technology
+(DisplayServices governs Apple-controlled panels and that bridge resolves the
+built-in for every read and write; a keyboard backlight belongs to no screen), so
+the shared source stamps it with no system call on the emit path and, crucially,
+with no `kind` branch — one source type serves both channels over one emit line,
+and a target decided there rather than by the backend would scope the keyboard bar
+too.
+
+Why identity is resolved at presentation and not at the border. The app has TWO
+inventories of screens and they disagree by design: the panel roster drops a
+screen with no `NSScreenNumber` or no resolvable UUID and AppKit collapses a mirror
+set to one `NSScreen`, while `CGGetActiveDisplayList` keeps them. A UUID resolved
+at the border is a key cut from the other lock — every disagreement resolves to a
+HUD naming a display no panel carries, which shows on NO screen: worse than the
+reported bug, and with the key already swallowed. `WindowManager` instead asks the
+roster which of ITS panels is internal (`isInternal`, taken in the same snapshot
+that created the panel), so role and panel cannot drift apart. It also costs
+nothing on the hot path: resolving a UUID at emit time would put a display
+enumeration inside the serial queue that already serializes this channel's
+blocking reads.
+
+The built-in role falls OPEN, not shut. With no internal panel in the roster a
+`.builtIn` HUD shows on every display — today's behaviour — instead of none. That
+case is reachable with the key already swallowed (`BrightnessKeyTargeting` gives a
+mirror set's tie to the built-in on purpose), and a consumed key owes feedback, so
+too much of it beats silence. The fall-open is narrow and decided BEFORE there is
+an owner: a display that was NAMED and is gone still shows nowhere, which is what
+an unplug between the report and the frame pass should look like. Both shapes
+leave a log line, because a HUD nobody draws is the one scoping outcome with no
+visible trace.
+
+Two constraints any future shortcut will break. First, the target must be stamped
+by the SOURCE: the drag's confirming echo closes the loop by re-sampling the source
+rather than re-publishing the applied value, so a stamp added in the key router or
+the Coordinator is undone one frame later and the bar jumps from one screen to all
+of them inside the gesture. Second, actuation reads `commandDisplay`, where
+`.builtIn` and `.noDisplay` both spell nil: every actuator already treats nil as
+"my own panel" (the system brightness one accepts nil or the built-in's own UUID;
+the neighbour's resolves nil to the built-in ID) and the volume actuator rejects a
+named display outright, so the roles have to arrive as nil or a drag on the local
+bar would throw where it used to write.
+
+Known gaps, stated rather than sold as fixed. A mirror set is a coin flip: the one
+`NSScreen` AppKit reports may or may not be the internal one, and when it is not,
+the bar falls open to every display plus a log line. And a payload from the
+neighbour that names no display stays `.noDisplay` and still draws everywhere — it
+has never been observed, and calling it the built-in would be a guess that also
+routes a later drag to a panel it may not have meant, which
+`betterdisplay-osd-source` already rules against ("drop rather than guess"); it is
+also the payload shape the local source's stand-down depends on seeing. The trigger
+that reopens this decision: the day the app can read a SECOND Apple-controlled
+panel, `.builtIn` stops naming exactly one screen and the producer has to name the
+display it read.
 
 ### assumed-isolation-is-measured
 The rule first, because it outlives the case: an assumption that cannot be caught

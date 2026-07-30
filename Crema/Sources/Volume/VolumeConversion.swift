@@ -21,6 +21,11 @@ enum VolumeConversion {
 
     /// Builds the domain event from raw readings. Mute is a passthrough; the
     /// mapping lives here so the whole raw→domain step is testable in one place.
+    /// No display target, here and in the boundary refresh below: volume is the
+    /// default output device's, so no screen owns it and its bar belongs on every
+    /// panel — and the actuator refuses a named display outright, which makes this
+    /// a contract of actuation and not only of presentation
+    /// (docs/DECISIONS.md: hud-target-is-a-role).
     static func hud(rawVolume: Float, isMuted: Bool) -> SystemHUD {
         SystemHUD(kind: .volume, value: normalize(rawVolume), isMuted: isMuted)
     }
