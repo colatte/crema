@@ -483,13 +483,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS is blocking the playback controls — the player stays view-only."
+            "value": "The last playback command didn't get through — the player stays view-only."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O macOS está bloqueando os controles de reprodução — o player fica só de visualização."
+            "value": "O último comando de reprodução não passou — o player fica só de visualização."
           }
         }
       }
@@ -1214,13 +1214,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Requires Accessibility access — grant it in the Permissions tab."
+            "value": "Needs Accessibility access — until then the system's own indicators stay."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Requer acesso de Acessibilidade — conceda na aba Permissões."
+            "value": "Precisa do acesso de Acessibilidade — até lá os indicadores do próprio sistema continuam."
           }
         }
       }

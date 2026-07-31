@@ -16,6 +16,20 @@ struct SystemHUDSettingsView: View {
                 }
                 .disabled(!canSuppress)
                 .onChange(of: suppress) { _, new in core.setNativeOSDSuppression(new) }
+
+                if !core.permissionMonitor.isGranted {
+                    // The fix belongs under the line that explains the problem —
+                    // the house rule for the menu, applied here. Without it the
+                    // person for whom this whole tab is inert reads the longest
+                    // sentence in the window and is sent to another tab to find a
+                    // button that already exists. Same button, same key.
+                    Button(String(
+                        localized: "settings.permissions.grant",
+                        defaultValue: "Grant Accessibility Access…"
+                    )) {
+                        core.requestAccessibilityAccess()
+                    }
+                }
             } footer: {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(String(
@@ -47,7 +61,7 @@ struct SystemHUDSettingsView: View {
                     if !canSuppress {
                         Text(String(
                             localized: "settings.hud.suppress.needsPermission",
-                            defaultValue: "Requires Accessibility access — grant it in the Permissions tab."
+                            defaultValue: "Needs Accessibility access — until then the system's own indicators stay."
                         ))
                         .foregroundStyle(.orange)
                     }

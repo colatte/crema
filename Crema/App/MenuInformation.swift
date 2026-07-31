@@ -140,7 +140,7 @@ struct MenuInformation: View {
         case .mediaControlsBlocked:
             String(
                 localized: "menu.mediaControlsBlocked",
-                defaultValue: "macOS is blocking the playback controls — the player stays view-only."
+                defaultValue: "The last playback command didn't get through — the player stays view-only."
             )
         case .loginItemRevoked:
             String(
