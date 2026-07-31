@@ -120,7 +120,15 @@ struct CoordinatorScrubGraceTests {
         h.media.failingSeekSeconds = 120
         h.coordinator.scrub(to: 120)
         h.coordinator.scrub(to: 130)
-        #expect(await eventually { h.media.commands == [.seek(seconds: 120), .seek(seconds: 130)] })
+        // Both seeks reached the player; WHICH arrived first is not asserted,
+        // because nothing promises it — each command travels its own Task and
+        // hops off the actor, so the pair races (MockNowPlayingController.record).
+        // The subject here survives either order: the epoch is bumped
+        // synchronously by the second scrub, so the first one's failure is stale
+        // whenever it lands.
+        #expect(await eventually { h.media.commands.count == 2 })
+        #expect(h.media.commands.contains(.seek(seconds: 120)))
+        #expect(h.media.commands.contains(.seek(seconds: 130)))
 
         // The newer scrub's grace still holds: a stale echo carrying a real
         // state change lands the change but not the position.
