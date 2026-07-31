@@ -15,21 +15,14 @@ struct StylePreviewShapes: Equatable {
     ///
     /// Scenery rather than rule output, and the only invented number here. It is a
     /// size reference for the top edge — it makes the slit read as a bite taken out
-    /// of the bar, which is what a notch IS to the eye — and nothing more. It does
-    /// NOT show the card floating underneath, because the card does not float
-    /// underneath: on a slitless panel `safeTop` is 0, so the rule anchors the card
-    /// 8 pt down (CardStyle) and it covers two thirds of a 24 pt bar. The
-    /// difference between the two top-edge skins is carried by MATERIAL, below.
+    /// of the bar, which is what a notch IS to the eye. It does NOT show the card
+    /// floating underneath, because the card does not float underneath: on a
+    /// slitless panel `safeTop` is 0, so the rule anchors the card 8 pt down
+    /// (CardStyle) and it covers two thirds of a 24 pt bar. What tells the two
+    /// top-edge skins apart is the SHADOW, plus the Dock the picker draws opposite
+    /// this strip: a screen with only a top edge gives a surface nothing to be
+    /// measured against.
     let menuBar: CGFloat
-
-    /// Whether the surface takes no material and is drawn opaque. The one fact
-    /// about a skin's look that no frame rule can produce, and it is what separates
-    /// the two skins that both hug the top edge: the notch style is opaque black so
-    /// it camouflages with the hardware cutout, while the card and classic are a
-    /// translucent material behind a 0.5 pt white hairline (`vibrantSurface`).
-    /// Painting all three solid black made the card read as part of the bezel,
-    /// which is exactly what it is not.
-    let surfaceIsOpaque: Bool
 
     /// Whether the surface is welded to the top of the screen rather than floating
     /// under it. Read off the rule's own answer instead of declared per style, so a
@@ -98,8 +91,7 @@ enum StylePreview {
         return StylePreviewShapes(
             surface: unit(style.frame(for: previewState, on: geometry), in: screen),
             slit: style == .notch ? unit(slit(of: geometry), in: screen) : nil,
-            menuBar: bar / screen.height,
-            surfaceIsOpaque: style == .notch
+            menuBar: bar / screen.height
         )
     }
 

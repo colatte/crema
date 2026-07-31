@@ -84,6 +84,7 @@ private struct StyleThumbnail: View {
         ZStack(alignment: .topLeading) {
             Thumbnail.desktop
             menuBar
+            dock
             slit
             surface
         }
@@ -101,6 +102,35 @@ private struct StyleThumbnail: View {
         Rectangle()
             .fill(.white.opacity(0.85))
             .frame(width: Thumbnail.width, height: max(shapes.menuBar * Thumbnail.height, Thumbnail.minMenuBar))
+    }
+
+    /// The other landmark, and the one that was missing. Scenery, like the strip
+    /// above it, and the reason it earns its place is that a screen with only a top
+    /// edge gives a surface nothing to be measured against: with a bottom too, the
+    /// eye reads the notch as welded high, the card as floating just under the bar,
+    /// and the classic as sitting low — which is the whole question this picker
+    /// asks, and the one the pictures were failing to answer.
+    ///
+    /// Deliberately vague — a rounded strip with six dots — because it is a
+    /// landmark, not a subject. Anything more detailed competes with the black
+    /// shape it exists to locate.
+    private var dock: some View {
+        let height = Thumbnail.height * 0.075
+        let icon = height * 0.62
+        return RoundedRectangle(cornerRadius: height * 0.3, style: .continuous)
+            .fill(.white.opacity(0.32))
+            .frame(width: Thumbnail.width * 0.46, height: height)
+            .overlay {
+                HStack(spacing: icon * 0.22) {
+                    ForEach(0..<6, id: \.self) { _ in
+                        RoundedRectangle(cornerRadius: icon * 0.26, style: .continuous)
+                            .fill(.white.opacity(0.62))
+                            .frame(width: icon, height: icon)
+                    }
+                }
+            }
+            .frame(width: Thumbnail.width, height: Thumbnail.height, alignment: .bottom)
+            .padding(.bottom, Thumbnail.height * 0.022)
     }
 
     @ViewBuilder private var slit: some View {
@@ -126,28 +156,16 @@ private struct StyleThumbnail: View {
     /// surface really is flush with the bezel, continuous with the slit it covers.
     private var surface: some View {
         surfaceShape
-            .fill(shapes.surfaceIsOpaque ? Color.black : Color.black.opacity(Thumbnail.materialOpacity))
+            .fill(.black)
             // Depth only on the ones that float, and it is the cue that survives
             // the scale: the card's real gap from the top edge is under a point
             // here, so a shadow says "on top of the screen" where the gap cannot,
-            // and the skin welded to the bezel correctly casts none. Deeper than
-            // the surface is translucent, because SwiftUI masks a drop shadow with
-            // source alpha and a 0.6 fill would eat nearly half of it.
+            // and the skin welded to the bezel correctly casts none.
             .shadow(
-                color: .black.opacity(shapes.surfaceIsOpaque ? 0 : 0.8),
+                color: .black.opacity(shapes.surfaceHangsFromTopEdge ? 0 : 0.55),
                 radius: 2.5,
                 y: 1.5
             )
-            // The real surface's own hairline (vibrantSurface), and the second half
-            // of what tells the two top-edge skins apart: the notch is the bezel and
-            // has no edge of its own, while a floating panel is outlined against
-            // whatever is behind it.
-            .overlay {
-                if !shapes.surfaceIsOpaque {
-                    surfaceShape.strokeBorder(.white.opacity(0.12), lineWidth: 0.5)
-                }
-            }
-            .overlay { SurfaceContentSketch() }
             .frame(width: shapes.surface.width * Thumbnail.width, height: shapes.surface.height * Thumbnail.height)
             .offset(x: shapes.surface.minX * Thumbnail.width, y: shapes.surface.minY * Thumbnail.height)
     }
@@ -163,54 +181,6 @@ private struct StyleThumbnail: View {
             topTrailingRadius: shapes.surfaceHangsFromTopEdge ? 0 : 2,
             style: .continuous
         )
-    }
-}
-
-/// What the surface is showing, sketched: a square of artwork, the two lines of
-/// text beside it, and the scrubber underneath — the expanded now-playing state
-/// the preview freezes (StylePreview.previewState).
-///
-/// Invented, like the menu-bar strip, and for the same reason. These surfaces are
-/// 13 to 20 pt wide here, so an empty rectangle reads as a smudge rather than as
-/// this app's player, and three smudges read as each other — which is exactly the
-/// complaint the pictures came back with from the field. With something inside,
-/// the eye finally has proportions to compare, and the two skins that both hug the
-/// top edge separate on shape: narrow and tall against wide and flat.
-///
-/// A sketch and never a rendering. What it has to carry is "a small player, here",
-/// which is the whole question this picker asks; drawing the real view would tie
-/// the thumbnail to a layout that changes for reasons that have nothing to do with
-/// where a skin sits.
-private struct SurfaceContentSketch: View {
-    var body: some View {
-        GeometryReader { geometry in
-            let size = geometry.size
-            let pad = max(size.width * 0.13, 1.2)
-            let art = min(size.height * 0.42, size.width * 0.30)
-            let line = max(art * 0.2, 0.8)
-            VStack(alignment: .leading, spacing: pad * 0.5) {
-                HStack(alignment: .top, spacing: pad * 0.6) {
-                    RoundedRectangle(cornerRadius: art * 0.18, style: .continuous)
-                        .fill(.white.opacity(0.55))
-                        .frame(width: art, height: art)
-                    VStack(alignment: .leading, spacing: line * 0.8) {
-                        Capsule().fill(.white.opacity(0.85)).frame(height: line)
-                        // The artist line, shorter than the title above it.
-                        Capsule()
-                            .fill(.white.opacity(0.45))
-                            .frame(width: (size.width - art - pad * 3.6) * 0.62, height: line)
-                    }
-                }
-                Spacer(minLength: 0)
-                // The scrubber, filled part-way: a track alone reads as a rule.
-                ZStack(alignment: .leading) {
-                    Capsule().fill(.white.opacity(0.26))
-                    Capsule().fill(.white.opacity(0.9)).frame(width: (size.width - pad * 2) * 0.42)
-                }
-                .frame(height: max(size.height * 0.055, 0.8))
-            }
-            .padding(pad)
-        }
     }
 }
 
@@ -230,12 +200,6 @@ private enum Thumbnail {
     /// Floor for the menu-bar strip and the slit that cuts it. Scenery, like the
     /// strip itself: the derived height is 1.7 pt here, which reads as nothing.
     static let minMenuBar: CGFloat = 3.5
-    /// How dark a floating surface reads at this size. Hand-calibrated, the one
-    /// number here that is taste rather than measurement: the real material is
-    /// translucent over whatever is behind it, which a flat thumbnail cannot
-    /// reproduce, so this is the value at which the card stops reading as bezel and
-    /// still reads as the app's own dark surface.
-    static let materialOpacity: Double = 0.6
 
     /// A desktop to put the surface on. Deliberately flat and dim: the subject is
     /// the black shape, and a busy wallpaper would compete with the one thing
