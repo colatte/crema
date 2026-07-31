@@ -92,10 +92,15 @@ private struct StyleThumbnail: View {
         .accessibilityHidden(true)   // the tile's own label names it
     }
 
+    /// The strip that makes the picture read as a SCREEN, which is what gives the
+    /// surfaces a top edge to be near. Derived height with a floor, because the
+    /// true one is 1.7 pt here and at that size, at 50% white over the desktop, it
+    /// was invisible — the furniture that was supposed to turn the slit into a bite
+    /// taken out of the bar was doing no work at all.
     private var menuBar: some View {
         Rectangle()
-            .fill(.white.opacity(0.5))
-            .frame(width: Thumbnail.width, height: shapes.menuBar * Thumbnail.height)
+            .fill(.white.opacity(0.85))
+            .frame(width: Thumbnail.width, height: max(shapes.menuBar * Thumbnail.height, Thumbnail.minMenuBar))
     }
 
     @ViewBuilder private var slit: some View {
@@ -104,7 +109,12 @@ private struct StyleThumbnail: View {
             // corners are the screen's, already rounded by the clip above.
             UnevenRoundedRectangle(bottomLeadingRadius: 1.5, bottomTrailingRadius: 1.5, style: .continuous)
                 .fill(.black)
-                .frame(width: slit.width * Thumbnail.width, height: slit.height * Thumbnail.height)
+                // Floored with the bar it cuts through: a bite that stops short of
+                // the bar's own bottom edge is not a bite, it is a smudge.
+                .frame(
+                    width: slit.width * Thumbnail.width,
+                    height: max(slit.height * Thumbnail.height, Thumbnail.minMenuBar)
+                )
                 .offset(x: slit.minX * Thumbnail.width, y: slit.minY * Thumbnail.height)
         }
     }
@@ -137,6 +147,7 @@ private struct StyleThumbnail: View {
                     surfaceShape.strokeBorder(.white.opacity(0.12), lineWidth: 0.5)
                 }
             }
+            .overlay { SurfaceContentSketch() }
             .frame(width: shapes.surface.width * Thumbnail.width, height: shapes.surface.height * Thumbnail.height)
             .offset(x: shapes.surface.minX * Thumbnail.width, y: shapes.surface.minY * Thumbnail.height)
     }
@@ -155,6 +166,54 @@ private struct StyleThumbnail: View {
     }
 }
 
+/// What the surface is showing, sketched: a square of artwork, the two lines of
+/// text beside it, and the scrubber underneath — the expanded now-playing state
+/// the preview freezes (StylePreview.previewState).
+///
+/// Invented, like the menu-bar strip, and for the same reason. These surfaces are
+/// 13 to 20 pt wide here, so an empty rectangle reads as a smudge rather than as
+/// this app's player, and three smudges read as each other — which is exactly the
+/// complaint the pictures came back with from the field. With something inside,
+/// the eye finally has proportions to compare, and the two skins that both hug the
+/// top edge separate on shape: narrow and tall against wide and flat.
+///
+/// A sketch and never a rendering. What it has to carry is "a small player, here",
+/// which is the whole question this picker asks; drawing the real view would tie
+/// the thumbnail to a layout that changes for reasons that have nothing to do with
+/// where a skin sits.
+private struct SurfaceContentSketch: View {
+    var body: some View {
+        GeometryReader { geometry in
+            let size = geometry.size
+            let pad = max(size.width * 0.13, 1.2)
+            let art = min(size.height * 0.42, size.width * 0.30)
+            let line = max(art * 0.2, 0.8)
+            VStack(alignment: .leading, spacing: pad * 0.5) {
+                HStack(alignment: .top, spacing: pad * 0.6) {
+                    RoundedRectangle(cornerRadius: art * 0.18, style: .continuous)
+                        .fill(.white.opacity(0.55))
+                        .frame(width: art, height: art)
+                    VStack(alignment: .leading, spacing: line * 0.8) {
+                        Capsule().fill(.white.opacity(0.85)).frame(height: line)
+                        // The artist line, shorter than the title above it.
+                        Capsule()
+                            .fill(.white.opacity(0.45))
+                            .frame(width: (size.width - art - pad * 3.6) * 0.62, height: line)
+                    }
+                }
+                Spacer(minLength: 0)
+                // The scrubber, filled part-way: a track alone reads as a rule.
+                ZStack(alignment: .leading) {
+                    Capsule().fill(.white.opacity(0.26))
+                    Capsule().fill(.white.opacity(0.9)).frame(width: (size.width - pad * 2) * 0.42)
+                }
+                .frame(height: max(size.height * 0.055, 0.8))
+            }
+            .padding(pad)
+        }
+    }
+}
+
 /// Drawing constants shared by the tile and its picture, so the selection ring
 /// traces the same rounded rect the screen is clipped to.
 private enum Thumbnail {
@@ -168,6 +227,9 @@ private enum Thumbnail {
     static let cornerRadius: CGFloat = 6
     /// Room between the picture and the selection ring.
     static let ringInset: CGFloat = 3
+    /// Floor for the menu-bar strip and the slit that cuts it. Scenery, like the
+    /// strip itself: the derived height is 1.7 pt here, which reads as nothing.
+    static let minMenuBar: CGFloat = 3.5
     /// How dark a floating surface reads at this size. Hand-calibrated, the one
     /// number here that is taste rather than measurement: the real material is
     /// translucent over whatever is behind it, which a flat thumbnail cannot
