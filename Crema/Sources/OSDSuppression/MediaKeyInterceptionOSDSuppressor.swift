@@ -819,6 +819,22 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
             if decider.isSuspended(domain) {
                 // Still suspended: kick the read-only recovery probe ahead of its
                 // backoff, exactly as an active user's key press would.
+                //
+                // The same click also consents to re-testing the WRITE, so the
+                // write-health count goes with it. It has to, because the fifth flap
+                // of a read-alive/write-dead channel suspends and escalates in the
+                // SAME step: a click inside that window would otherwise reach only
+                // this branch, the probe would re-engage on the read, and `reengage`
+                // would find the count still standing and keep the menu warning up —
+                // the button doing visibly nothing, which is the whole complaint.
+                //
+                // Only the COUNT, never the menu set, and this is the line that makes
+                // the obvious fix wrong: turning the `else if` into a second `if`
+                // would let `clearWriteHealthLatch` drop the warning of a domain
+                // escalated by the PROBE axis, which is still suspended and still
+                // dead — and that probe's own `longSuspended` flag never raises it a
+                // second time, so the channel would go dark permanently. Measured.
+                unconfirmedApplyFailures[domain] = nil
                 kickProbe(domain)
             } else if longSuspendedDomains.contains(domain) {
                 // Long-suspended in the menu, yet no longer suspended: the

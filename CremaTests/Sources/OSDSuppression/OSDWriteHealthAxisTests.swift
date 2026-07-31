@@ -62,4 +62,77 @@ struct OSDWriteHealthAxisTests {
 
         #expect(h.suppressor.longSuspendedDomains.contains(.volume))
     }
+
+    @Test func retryInsideTheEscalatingSuspensionWindowActuallyClearsTheWarning() async {
+        // The window the menu button used to miss. A read-alive/write-dead channel
+        // suspends AND escalates in the same step on its fifth flap, so for as long
+        // as the suspension lasts the domain is in both states at once — and the
+        // retry reached only the kick branch, the probe re-engaged on the read, and
+        // `reengage` found the write-health count still standing and kept the warning
+        // up. The user clicked and the menu did not change.
+        let h = OSDSuppressorHarness()
+        h.screen.writeIsDead = true
+        h.suppressor.setEngaged(true)
+
+        // Flap until the escalation lands, leaving the domain suspended at that step.
+        for _ in 0..<(OSDTest.escalation * 4) {
+            h.keys.press(.screenBrightnessUp)
+            _ = await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) }
+            _ = await eventually {
+                h.clock.advance()
+                return !h.suppressor.suspendedDomains.contains(.screenBrightness)
+            }
+        }
+        #expect(h.suppressor.longSuspendedDomains.contains(.screenBrightness))
+
+        // Land IN the window, which is the whole subject: one more press and no
+        // clock advance, so the domain is suspended AND escalated when the click
+        // arrives. The loop above always ends re-engaged, which is the other branch
+        // — a retry there was never the broken one.
+        h.keys.press(.screenBrightnessUp)
+        #expect(await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) })
+
+        h.suppressor.retrySuspendedNow()
+
+        // Only the clock from here — NO key press. A successful apply clears the
+        // write-health axis on its own (`confirmWriteHealthy`, the passive cleaner),
+        // so a probe loop that pressed would drop the warning with or without the
+        // click and prove nothing about the button. What is asserted is the click's
+        // own effect: the count is gone, so the probe's re-engage finds nothing
+        // standing and the menu clears.
+        #expect(await eventually {
+            h.clock.advance()
+            return h.suppressor.longSuspendedDomains.isEmpty
+        }, "the retry left the warning up: the click did not consent to re-testing the write")
+    }
+
+    @Test func retryOnAStillDeadProbeEscalatedChannelKeepsTheWarning() async {
+        // The other half, and the one that makes the obvious fix wrong: turning the
+        // `else if` into a second `if` would let the retry drop the menu warning of a
+        // domain escalated by the PROBE axis — still suspended, still dead — and that
+        // probe's own `longSuspended` flag never raises it a second time, so the
+        // channel would go dark permanently. A click must not be able to silence a
+        // channel that is still broken.
+        let h = OSDSuppressorHarness()
+        h.screen.value = nil            // the read itself is dead: the probe axis
+        h.suppressor.setEngaged(true)
+
+        for _ in 0..<(OSDTest.escalation + 2) {
+            h.keys.press(.screenBrightnessUp)
+            _ = await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) }
+            _ = await eventually { h.clock.advance(); return true }
+        }
+        _ = await eventually {
+            h.clock.advance()
+            return h.suppressor.longSuspendedDomains.contains(.screenBrightness)
+        }
+        #expect(h.suppressor.longSuspendedDomains.contains(.screenBrightness))
+
+        h.suppressor.retrySuspendedNow()   // the channel is STILL dead
+
+        await settle()
+        for _ in 0..<5 { _ = await eventually { h.clock.advance(); return true } }
+        #expect(h.suppressor.longSuspendedDomains.contains(.screenBrightness),
+                "a click silenced a channel that is still broken")
+    }
 }
