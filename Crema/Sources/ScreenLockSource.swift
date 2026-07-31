@@ -3,7 +3,7 @@
 /// app's own HUD — the console session is active (on-console) and the screen is
 /// unlocked. Locked or fast-user-switched away is unsafe: third-party code
 /// cannot draw over the lock shield (proven on hardware — see
-/// docs/internal/LOCKSCREEN-INVESTIGATION.md), so suppression must step aside
+/// docs/LOCKSCREEN-INVESTIGATION.md), so suppression must step aside
 /// and let the native OSD — which does render on the lock screen — back through.
 ///
 /// Polarity is fixed and semantic: `true` = safe to suppress (unlocked AND

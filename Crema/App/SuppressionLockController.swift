@@ -2,7 +2,7 @@ import Foundation
 
 /// Owns the lock-aware engagement policy for the native-OSD suppressor.
 ///
-/// The bug (proven on hardware — docs/internal/LOCKSCREEN-INVESTIGATION.md): the
+/// The bug (proven on hardware — docs/LOCKSCREEN-INVESTIGATION.md): the
 /// session event tap keeps receiving media keys while the screen is locked, so
 /// with suppression on the app consumes the keys, suppresses the native OSD,
 /// applies the writes itself, and cannot draw its own HUD over the lock shield —

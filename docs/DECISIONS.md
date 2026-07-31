@@ -85,6 +85,26 @@ preventive-reinstall). Confirmed in-process cure is still inferred, not
 hardware-proven; the decision holds because the failure is otherwise
 undetectable.
 
+### J8-a-guard-that-cannot-read
+A guard that cannot read its evidence must fail, never pass. Three of them were
+written the other way and all three were measured: CI's ad-hoc/hardened-runtime
+check greps `codesign` output into FLAGS and, with a missing .app or an unsigned
+bundle, compares an EMPTY string against both patterns — "no flags found" reads
+as "no bad flags" and the step goes green; the test watchdog took xcodebuild's own
+exit code when no verdict line was printed, so a run that reported nothing passed
+through the one rule this repository states about test results; and release.sh's
+`set -e` aborts AT an assignment whose command substitution fails, so four checks
+that each carry a written explanation (generate_appcast missing, no
+sparkle:edSignature, sparkle:version absent, sign_update missing) died one line
+before the sentence that says what happened — the optional one becoming a mute
+hard abort.
+Decision: evidence that was never read is not clean evidence. Every guard names
+the three states apart — read and good, read and bad, not read — and the third
+joins the second. In shell that means the assignment is split from its test
+(`X="$(…)" || true`, then the check that owns the message), because errexit and
+pipefail turn "found nothing" into "exited before explaining". The lesson is not
+about bash: a check whose failure mode is silence is a check nobody is running.
+
 ## Named decisions
 
 ### per-domain-suspension
@@ -95,6 +115,16 @@ read-only backoff probe (1→16 s, then 30 s) silently re-engages on recovery.
 Rationale: a keyboard-brightness failure must never kill volume suppression —
 that was the J5 blast radius. Only a durable suspension with the channel present
 surfaces in the menu.
+The suspension is per domain; the apply CHAIN is not, and saying so is the honest
+part. Applies are serialized globally so an autorepeat burst cannot read the same
+base value twice, which means a hung write on one channel also delays the next
+consumed key of every OTHER domain, by up to the 2 s deadline. Accepted, and
+bounded twice — the deadline abandons the hung write, and the failure suspends
+only the channel that hung, so its keys go back to the system instead of entering
+the chain again. A per-domain chain would be the honest shape (the stated reason
+for the global order is per domain to begin with: volume and brightness never
+share a base value), and is not worth tripling the pending/generation state for a
+bounded 2 s worst case that already ends in a suspension the menu names.
 
 ### pref-sacred
 The only writer of the persisted `suppressesNativeOSD` preference is explicit
@@ -226,6 +256,21 @@ continuation-plus-`DispatchQueue` shape is not a workaround for a missing idiom,
 is the one available spelling. What bounds the residual GCD's growing pool costs is
 not a count of call sites but their shape: every one is single-flight (one apply per
 key, one read in flight per channel, one decode per panel).
+Mechanical backing was tried and measured out (2026-07-31): SwiftLint's
+`async_without_await` was enabled under the strict gate and produced 31 hits —
+every one a conformance whose protocol forces the `async` keyword (`isAvailable()`,
+actuator commands, and their mocks), zero real findings. The rule cannot tell a
+forced signature from a chosen one, and 31 scattered disables would teach readers
+to ignore the marker, so it was removed with this measurement recorded beside the
+opt-in list in .swiftlint.yml. Reviewing "is this async?" stays a reading of the
+body, and this entry is where the shape to look for is written.
+The AVAILABILITY guards of the brightness sources fall under the same rule, and one
+of them was breaking it: `PolledBrightnessSource.isAvailable()` was a straight-line
+border call behind an `async` signature — on the keyboard channel, an enumeration of
+the backlight IDs over the private client's connection, IPC that can hang. It hops
+through `blockingCall` now, and onto the GLOBAL pool rather than that channel's
+serial queue: availability records no value, so it needs no ordering against the
+readings and must not park behind a stalled read.
 
 ### child-process-deadline
 Every one-shot subprocess interaction is time-bounded: waiting on a
@@ -242,6 +287,23 @@ adapter recovered. Decision: while a lower-priority source is active, a periodic
 read-only probe (30 s) re-checks the higher-priority candidate and preempts it —
 promoting at the next quiet boundary (a silent source is forced to a boundary so
 the swap never strands a live snapshot).
+
+**Amendment: an answer that outlives its own forwarding arms nothing.** The
+promotion probe asks about availability through a call that can take its time — in
+production, spawning a child process under a deadline — and the answer can come back
+AFTER the forwarding that created it has ended. The `cancel()` on the forwarding's
+way out does not cover that: it reaches a task already past the point where
+cancellation is observed. Under the old guard (`activeSource != nil`) such an answer
+armed a promotion on whatever source had been selected next — and if that source was
+priority 0 (nothing above it to promote to) and still silent since selection, the
+"boundary c" path STOPPED it: a fresh source killed the beat it was chosen, ghost
+discard fired, one spawn/kill cycle wasted and the re-selection backoff on top.
+Every selection now bumps a `selectionGeneration`, each probe carries the generation
+of the forwarding that started it, and `armPromotion(generation:)` arms only while
+that generation is still current. The general rule, which is the jurisprudence: an
+answer returning from outside arrives in a world that may have changed — whoever acts
+on it checks the generation, never merely the presence of state (the same family as
+`runCapabilityRecheck` and `noteAbsent` in OSD suppression).
 
 ### ghost-discard
 End-of-stream means unavailability, with no unrepresentable ghost left behind.
@@ -360,6 +422,20 @@ earlier "each skin's private LayoutKind stays private" choice once recorded at
 SurfaceAnimation.geometryAnimation — whose boolean interface stays for its own
 reason: the motion gate reads exactly two provenance facts, never the enum.
 
+Amendment: the residue this entry licensed shrank again. The two provenance
+@States became one `SurfaceProvenance` value in SurfaceStyleCore, carrying the
+advance rule — `previous` follows every kind (an appearance is not a morph),
+`lastVisible` skips `.empty` so the fade-out sits on the rect it is leaving — and
+the motion gates that read it (`geometryAnimation`, `contentAnimation`) moved into
+`SurfaceStyleBody`, which now requires the provenance and the Reduce Motion
+environment read as members. Byte-identical copies were the whole exposure: the
+geometry gate existed three times and the content crossfade twice, so a provenance
+fix could still land on two skins and miss the third — the exact failure this entry
+was opened for. What stays per view is unchanged in kind: the visual body, the
+@State storage SwiftUI has to own, and the one-line statics that fix the Metrics
+parameter (`surfaceSize`, `effectiveLayoutKind`, the Card's radius, the Notch's
+shape), which the per-view tests still exercise.
+
 ### hover-follows-the-eye
 Hover and clicks derive from the same rendered truth, on every skin. The hover
 exit region used to be a state-blind union of the compact and expanded frames
@@ -392,6 +468,19 @@ tightened 0.45→0.35. Two
 hypotheses stay deliberately unimplemented pending a hardware probe: the
 multi-display pointer mirror and mouseMoved delivery to an inactive accessory.
 
+A last contract of the monitor itself, invisible until it had a suite of its own:
+disarming reports a PENDING exit. The Coordinator mirrors the pointer from these
+reports, so a display that stops being armed with the cursor on it must say so once
+— a silent reset leaves the mirror holding a pointer that is on no surface, and the
+timers keyed on it never fire again — while a display that never held the pointer
+must stay quiet, or the mirror learns a transition that never happened. Re-arming
+re-samples where the cursor is NOW (the event monitors exist only while armed),
+which is why the disarm clears the inside flag as it reports it. The monitor's
+cursor read is a constructor parameter defaulting to NSEvent.mouseLocation for
+exactly this: with the real pointer as the only input, a mutation deleting the
+pending exit passed the whole suite. The border is otherwise untouched — the NSEvent
+monitors stay real (SurfaceHoverMonitorTests).
+
 ### signed-without-hardened-runtime
 Self-signed distribution must NOT enable the hardened runtime. `--options
 runtime` turns on dyld library validation, which demands a real matching Team
@@ -407,7 +496,13 @@ path, compares authority + Team across the nested Mach-Os, and boots the
 installed app from the final dmg requiring it to survive 5 s. CI rejects the
 pairing statically: `adhoc` and `runtime` together in the code directory is
 enough to condemn a build, and unlike the load failure itself that pairing is
-plainly readable from `codesign -d`. And the project pins
+plainly readable from `codesign -d`. That CI check now fails closed as well: a
+missing .app, a `codesign` that refuses (what an unsigned bundle answers), or output
+carrying no `flags=` field each end the step with their own message instead of
+passing on an empty match — measured, both an absent path and an unsigned bundle
+left the flags string empty and the step went green, which is a guard reporting
+"nothing read" as "nothing wrong" (docs/DECISIONS.md: J8-a-guard-that-cannot-read).
+And the project pins
 `ENABLE_HARDENED_RUNTIME = NO` in both configurations — flipped from the YES
 that made Xcode's own Product → Archive produce the unlaunchable app while
 release.sh escaped by archiving unsigned. The key stays explicit: `= NO` is the
@@ -614,6 +709,18 @@ that the integration is on; only a delivered payload is, and that claim is
 dropped when the app terminates. The neighbour is matched by bundle ID, never by
 the localized name shown to the user.
 
+**Amendment: the claim is observable.** Evidence-not-presence has a corollary about
+WHEN the claim is read. The Settings line reporting it is a body SwiftUI has already
+built, and the person reading that line is usually the one about to switch the
+neighbour's integration on in the other app — so a claim that only refreshes on the
+next open answers "no" to someone who just made it true. `hasReported` is therefore
+observable and the line flips with the window open; the write is guarded in both
+directions, since BetterDisplay quitting with its integration off is the ordinary
+case and an unchanged write still rebuilds every view reading the claim. It stays a
+plain forwarding read on the way up (`AppCore.betterDisplayIsReporting` is a computed
+property over the source): caching it into a stored field anywhere on that path puts
+the staleness back.
+
 ### the-bar-never-outruns-the-screen
 The bar has no local value: it draws the last reading, and a drag publishes the
 new level BEFORE the write leaves so the fill follows the finger instead of
@@ -655,6 +762,25 @@ fallback genuinely writes; and a control that greys and un-greys as evidence
 comes and goes is jumpier than one that consistently springs back. The
 spring-back already says "not taken" in the language macOS uses for a rejected
 drag, and it says it on the first try.
+
+**Amendment: a queued level carries its screen.** The coalescing outlives the call
+that resolved the display — one drive drains the frames that arrived after it — so
+while the queue held a bare number, a frame queued for one screen went out under the
+DRIVING call's display id. The neighbour was told to dim a display nobody was
+dragging on, and in silence, because the bar that asked for the change is on another
+panel. Rule: a queued level travels with the display it was meant for, and a call
+echoes only what reached the wire FOR THE DISPLAY IT NAMED — the last frame out of a
+drain can belong to another bar, and echoing it would move this one to a level
+nothing ever wrote on its screen. The single latest-wins slot stays single on
+purpose: a per-display queue would preserve a frame the pointer has already left and
+put it on the wire after the gesture moved on, which is the out-of-order flood the
+coalescing exists to prevent (there is one pointer, so there is one gesture). Pinned
+in `BetterDisplayScreenBrightnessControllerTests`: a frame queued for the external
+screen while the built-in's write is in flight must reach the wire under the
+external's id, and the driving call must not echo it. The display-blind
+`lastWrittenValue` accessor went with the fix — nothing read it, and a "last written"
+with no screen attached is the same blindness under a friendlier name; the flick it
+documented lives on in the comment over the return value.
 
 ### hud-belongs-to-its-display
 The app has ONE state and one panel per screen, so every panel drew every HUD.
@@ -901,6 +1027,20 @@ always above a button that fixes it. And where a symbol does stay, the colour
 lives on the SYMBOL and never on the word: tinting a whole Label put the line
 people open the tab to read at roughly 2.2:1 on a light grouped row, which passed
 review only because it looks fine in the dark appearance.
+
+**Amendment: a guard checked before an await says nothing about the world after
+it.** "The read stands down while the dialog is up" was enforced at the entry of
+`refresh()`, and the blocking read hops off the actor: a pass already in flight when
+the user clicked is past that guard, and it resumes into a last-writer-wins merge
+carrying the answer it took before the decision existed — putting `undecided` back
+over the grant the user just gave. Re-checking `isAsking` on the way back does not
+close it either, because the ask clears the flag before recording its own answer, so
+the resumption sees a quiet monitor. The fix is a generation counter bumped when an
+ask BEGINS — every read already in flight was taken of a world where nobody had
+decided — and compared when the read returns; a read from before an ask is dropped,
+and the poll re-reads within its interval. Pinned by
+`aReadAlreadyInFlightWhenTheDialogIsAnsweredCannotUndoTheGrant`, which parks a read
+across an ask that starts and finishes.
 
 ### menu-status-before-warnings
 The menu bar was six conditional warning blocks stacked above three actions, each
@@ -1393,3 +1533,189 @@ at init, so an absence there is never re-checked into existence and clamshell is
 this case at all — clamshell is handled earlier by the pointer rule, and a nil read
 there is a failure, not an absence. The fourth case is kept for totality of the enum,
 not because it fixes a scenario anyone can reproduce twice.
+
+### external-brightness-is-write-only
+The neighbour's channel writes an external display's brightness and will not read
+it. Measured, not assumed: a `get` over the same request/response channel the app
+already writes on was sent for five brightness spellings (`brightness`,
+`combinedBrightness`, `hardwareBrightness`, `softwareBrightness`, `ddcBrightness`)
+and every one was refused — with six metadata spellings (UUID, name, serial,
+vendor, model, productName) in the same run as the SHAPE control, because a
+request that answers nothing at all proves the request is wrong rather than that
+brightness is ungettable. The metadata answered; brightness did not.
+The consequence is not cosmetic, and it is why one rule stops at the built-in
+panel. `brightness-key-follows-the-pointer` hands an external display's key back
+to whoever can move that screen, and the obvious next step — Crema applying the
+key there itself — needs the apply+verify cycle, which needs a `before`: stepping
+is read → step → write → verify, and the read is the half that does not exist.
+The one thing that would dissolve the impasse is a RELATIVE command, which needs
+no `before` at all, so ten relative shapes were tried with the absolute `set` as
+the control (increment/decrement, signed values, a `relative` parameter,
+up/down/increase/decrease). The control answered; none of the ten did.
+So: external brightness is **write-only from our border**, the drag on a bar the
+neighbour drew keeps working (it carries an absolute level, which is exactly what
+the channel accepts — `the-bar-never-outruns-the-screen`), and the key aimed at an
+external screen stays handed back. The instruments are kept rather than described:
+`scripts/probes/read-betterdisplay.swift` and
+`scripts/probes/relative-betterdisplay.swift`, each with the shape control that
+makes a negative result mean something. Reopening needs one of them to come back
+positive against a newer BetterDisplay — a released `get`, or a relative command
+the monitor is observed to actually honour, since a neighbour that accepts a
+command it does not perform would be the worst thing to build on.
+
+### adapter-stale-nowplaying-latch
+A confirmed, OPEN fragility, written down because the obvious fix is measurably
+wrong and the right one is gated on an experiment nobody has run.
+The life of the TOP now-playing source rests entirely on the subprocess's EOF: the
+promotion probe only ever examines the higher-priority CANDIDATE (`activeIndex > 0`),
+so nothing audits the source that is currently active. If the MediaRemote
+subscription dies quietly — a `mediaremoted` restart — while the Perl bridge stays
+alive, the stream never finishes. The old track freezes on screen, the local 1 Hz
+ticker keeps advancing over it (so the position lies rather than stalls, which is
+worse), and the menu goes on saying the source is active, until a real EOF or a
+relaunch. The trigger itself is unproven: the subscription loop lives inside the
+compiled framework, and an adversarial verifier could not establish that a dead
+subscription becomes EOF. Pure J7 — the truth lives on the other side of an IPC
+boundary and no local read reaches it.
+**The obvious fix is refuted, and that is the durable part.** A liveness watchdog
+(an idle timeout during playback) is INVALID: the stream emits only on MediaRemote
+CHANGES — which is why the 1 Hz ticker is local, and what the adapter's own
+documentation means by working "without polling `get` continuously"; the framework's
+strings are notification-driven with no periodic timer — so a long silence with
+`isPlaying` true is the normal state of a long track. There is no ceiling that
+separates alive from dead by cadence, and any number picked would fail a quiet album
+before it caught a dead subscription.
+The sound shape is an independent one-shot READ compared against the snapshot (a new
+reconciler plus periodic spawns during playback), and it is **spike-gated**, in this
+order: (1) reproduce the trigger on hardware — kill `mediaremoted` with the Perl
+alive; (2) **the critical gate** — does a one-shot `get` re-establish a live XPC path,
+or does it read the same dead cache? If it reads the same cache, probe-based detection
+is worthless and the whole design dies here; (3) characterize the divergence signal so
+the tolerance is not a guess. Verdict: registered, not implemented — a design that
+spawns a process periodically during playback is not worth writing before step 2
+answers.
+
+### update-telemetry-not-yet
+Anonymous update telemetry is not off for a privacy reason; it is off because
+nobody could read it. Sparkle already ships the right piece and it is safer than it
+looks: `SUEnableSystemProfiling` in the Info.plist does NOT turn sending on. It is
+read in exactly one place (the update-permission prompt) and only makes the "Include
+anonymous system profile" checkbox appear, with a disclosure of the exact contents;
+what governs sending is `SUSendProfileInfo`, a default only the user's tick ever
+writes. That satisfies this project's rule against pre-set consent defaults by
+construction. The profile itself is appVersion, osVersion, model, cputype, ncpu,
+cpuFreqMHz, ramMB, lang.
+**The blocker is the hosting.** The appcast is served by GitHub Pages, which exposes
+no access log, and the profile travels as a query string on the feed request. Turning
+it on today would mean asking for data, the user consenting, and nobody ever reading
+it — a cost in trust for a return of zero. It unblocks by moving the appcast to a host
+with logs (or putting a logged redirect in front of it), and the trap that comes with
+that move is written down here so it is not rediscovered: **the old URL has to keep
+answering**, or every installation carrying the current `SUFeedURL` never receives an
+update again. Until then the free metric is the release download count from GitHub's
+API — zero code in the app.
+**Explicitly discarded: a third-party analytics SDK.** The app uses private API and
+holds the Accessibility permission; it is the exact profile of an app whose user runs
+Little Snitch, and one unexpected connection costs more than the metric is worth.
+Reopening requires the logged host to exist first, and the answer to be Sparkle's own
+profile — never an SDK.
+
+### the-feed-signs-itself
+Two Sparkle plist keys were off, and both defaults are the wrong end of a trade this
+app is on the paying side of. `SUVerifyUpdateBeforeExtraction` was absent, and
+Crema ships a DMG: measured in Sparkle 2.9.4's own sources, `SUDiskImageUnarchiver`
+returns NO from `mustValidateBeforeExtraction`, so the downloaded image was handed to
+hdiutil BEFORE its EdDSA signature was checked — mounting bytes nobody had vouched
+for, on the one path where the app runs code it did not build. `SURequireSignedFeed`
+was absent too, which leaves the appcast itself unauthenticated: an attacker who
+controls the served feed still cannot forge a download (the enclosure signature holds)
+but can lie about which version is newest — freeze or downgrade.
+Decision: both are YES, and they travel together because Sparkle enforces it —
+`SPUUpdater` refuses to START the updater when the feed requirement is on without
+verify-before-extraction, so shipping one without the other takes the whole update
+cycle down rather than degrading.
+The cost is not a release step, which is the part worth writing down: `generate_appcast`
+reads `SURequireSignedFeed` out of the staged app's Info.plist and signs the feed on
+its own, with the same Keychain EdDSA key, appending a `<!-- sparkle-signatures: -->`
+block and prepending its own warning comment. `release.sh` regenerates into a FRESH
+file every release, so the feed's signedness follows the newest archive's plist and
+nothing else — which also means the day that key leaves Info.plist, the feed silently
+stops being signed while every client that already shipped it rejects the appcast.
+The consequence that outlives this entry: docs/appcast.xml is now self-authenticating.
+It was already "regenerated, never hand-edited"; from here a hand edit is not untidy,
+it is an outage — clients carrying the key fail every check for 20 days, Sparkle's
+default `SUSignedFeedFailureExpirationInterval`, before falling back to unsigned
+operation for key rotation. Clients already in the field (1.2.0, 1.4.0) carry neither
+key and are unaffected either way; the keys only bind the binaries that ship them.
+No Apple code-signing requirement is added by this: prevalidation falls back to Apple
+code signing only when EdDSA fails, and the post-extraction check Sparkle then runs is
+seal validity (`SecStaticCodeCheckValidity`, no anchor requirement), which a
+self-signed Crema passes.
+
+### the-update-alert-nobody-sees
+Sparkle schedules its own checks, and for a background (LSUIElement) app it shows the
+resulting alert BEHIND every other running app when Crema is not frontmost — Sparkle's
+own log says so, warning once that a background app schedules checks without gentle
+reminders. An app with no Dock tile then has nothing that can bring that window
+forward: the update was announced by a window the user never sees.
+Decision: Crema declares `supportsGentleScheduledUpdateReminders` and implements
+`standardUserDriverWillHandleShowingUpdate:` only — Sparkle keeps presenting its alert
+(so the path never depends on our UI being right), and the menu bar gains the signpost
+that leads to it: a plain disabled sentence with its button directly under it, the
+same shape `menu-status-before-warnings` gives every fact that has a repair. The
+button does not start a new check; `checkForUpdates()` on an already-presented update
+is Sparkle's documented way of bringing that alert back into focus.
+Three properties, each a case that had to be decided:
+- **User-initiated checks never light the line.** The alert is already in front of the
+  user, and a menu line pointing at what they are looking at is noise.
+- **The line is cleared from BOTH ends** — `didReceiveUserAttention` (they reached the
+  alert) and `willFinishUpdateSession` (dismissed, skipped, or failed) — so it cannot
+  outlive the update it announces.
+- **The mirror is a guarded write.** The model is a `@StateObject` of the App's scene,
+  so every published change rebuilds the whole menu, including the status block whose
+  rebuild costs a tap-chain read; writing only on a real change bounds a whole update
+  session to two rebuilds.
+One deviation stated rather than hidden: this is the only menu line that does not come
+from `MenuStatus`. The updater exists solely in Release and `AppCore` never holds it,
+so routing it through that pure type would add a case the Debug-hosted suite can never
+reach; its whole gate is one mirrored Bool, which is the shape MenuStatus exists to
+keep out of view bodies in the first place.
+The delegate callbacks hop to the main actor with a `Task` instead of
+`MainActor.assumeIsolated`, which the neighbouring system callbacks use. Sparkle's
+standard user driver is `NS_SWIFT_UI_ACTOR` and asserts the main thread, but its
+delegate protocol carries no annotation, and `assumed-isolation-is-measured` asks for
+a measurement someone can re-run before a trap is installed — this path exists only in
+Release, where the suite cannot reach it. A mirror that flips twice per session can
+afford the reordering the hop risks; the sites that assume are the ones that cannot.
+
+### teardown-seam-that-cannot-be-honoured
+Two long-lived consumers grew a `stop()` that nobody called: the Coordinator's
+(removed earlier) and `MediaKeyHUDRouter`'s. Both were worse than unused. The sources
+they consume build `updates` once at init and reserve `finish` for their own end of
+life, so a cancelled iteration is not resubscribable: whoever called `stop()` would
+get a permanently media-less app, or brightness keys that never reach the HUD again,
+with no error anywhere — and the Coordinator's variant additionally reported its own
+teardown to the rest of the machine as "the media source died", discarding the
+snapshot and hiding the surface, which `ghost-discard` reserves for a genuine source
+death. Decision: an object that lives for the process does not ship a teardown seam it
+cannot honour. The absence is documented on the type (with the reason, not just the
+fact), so the next reader adds a lock or a resubscribe path deliberately instead of
+adding back a `stop()` that compiles and lies. Reopening requires a source whose
+stream can be rebuilt after cancellation.
+
+### a-panel-leaves-the-roster-before-it-closes
+Closing a presentation panel is not a leaf operation. `close()` stops its hover
+monitor; the disarm reports the pending exit (deliberately — a silent reset would
+leave the Coordinator's pointer mirror stale, `hover-follows-the-eye`); the
+Coordinator collapses an expanded appearance; and that state write runs the
+WindowManager's frame pass SYNCHRONOUSLY (`onPresentationChange`). With the entry
+still in `entries` the pass applied to the panel just closed and re-armed its hover,
+reinstalling a pair of NSEvent monitors that nothing disarms again once the entry does
+leave — a dead panel sampling the cursor against regions on a screen that may be gone.
+The re-entrancy guard in `runFramePass` does not cover it: that guard defers a pass
+nested INSIDE a pass, and this one starts outside. Decision: `retirePanel(_:)` removes
+the entry FIRST and closes second, so a re-entrant pass cannot see the dead panel; the
+caller's trailing pass covers whatever takes its place. The general shape, third time
+in this codebase: a teardown that crosses into another subsystem comes back through
+the front door, so order the local bookkeeping before the crossing rather than
+trusting the crossing to be quiet.

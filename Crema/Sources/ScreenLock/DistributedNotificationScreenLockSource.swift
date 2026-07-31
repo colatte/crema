@@ -13,7 +13,7 @@ import os
 /// tests). This class is the thin border: it wires notifications and fetches the
 /// session dictionary, nothing else.
 ///
-/// The probe in docs/internal/LOCKSCREEN-INVESTIGATION.md validated exactly this
+/// The probe in docs/LOCKSCREEN-INVESTIGATION.md validated exactly this
 /// stack on hardware (edges fired, the poll flipped, onConsole stayed stable).
 ///
 /// Settle re-reads (docs/DECISIONS.md: settle-rereads / J6-latch-do-edge): the
