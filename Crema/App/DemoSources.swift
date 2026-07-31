@@ -144,8 +144,9 @@ final class DemoHUDEngine: SystemHUDSource, VolumeController, ScreenBrightnessCo
         )
     }
 
-    func setBrightness(_ value: Double, on display: DisplayUUID?) async throws {
+    func setBrightness(_ value: Double, on display: DisplayUUID?) async throws -> Double {
         emit(.screenBrightness, value: value, display: display)
+        return value   // the demo writes nothing and coalesces nothing
     }
 
     func setBrightness(_ value: Double) async throws {

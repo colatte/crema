@@ -78,6 +78,53 @@ struct CoordinatorNeighbourBrightnessTests {
         #expect(applied.last?.value == 0.6)
     }
 
+    @Test func theEchoCarriesWhatWasWrittenNotWhatWasAsked() async {
+        // Reported on hardware: a fast drag on the bar drawn on the external
+        // monitor flicked backwards for an instant before catching up. The
+        // neighbour's writer coalesces latest-wins, so the call that DRIVES stays
+        // in its drain loop putting newer values on the wire and comes back
+        // holding an argument several frames old. Echoing that argument re-draws
+        // the bar at a level the drag already left behind, and the next frame
+        // yanks it forward again — a bar disagreeing with the finger that moves
+        // it. What the actuator reports is the only number that was ever on the
+        // wire.
+        let h = CoordinatorHarness(withExternalBrightness: true)
+        let applied = Applied()
+        h.coordinator.onBrightnessApplied = { applied.record($0) }
+        h.external?.reportsWritten(0.9)
+        h.hudSource.emit(neighbourHUD())
+        #expect(await eventually { h.coordinator.state != .hidden })
+
+        h.coordinator.hudSliderChanged(to: 0.1)
+
+        #expect(await eventually { applied.last != nil })
+        #expect(applied.last?.value == 0.9)
+        #expect(applied.last?.authority == .betterDisplay)
+        // The command still carries the frame's own value: only the ECHO is
+        // rewritten, and an actuator asked for something else would be a
+        // different bug.
+        #expect(h.external?.commands == [.setBrightness(0.1, display: nil)])
+    }
+
+    @Test func theFallbackEchoAlsoCarriesWhatTheSystemWrote() async {
+        // Same rule one actuator down. The fallback path re-credits the echo to
+        // the system, and re-crediting is exactly the kind of rewrite that
+        // invites putting the argument back in place of the written value.
+        let h = CoordinatorHarness(withExternalBrightness: true)
+        let applied = Applied()
+        h.coordinator.onBrightnessApplied = { applied.record($0) }
+        h.external?.refuseEverything()
+        h.screen.reportsWritten(0.7)
+        h.hudSource.emit(neighbourHUD())
+        #expect(await eventually { h.coordinator.state != .hidden })
+
+        h.coordinator.hudSliderChanged(to: 0.2)
+
+        #expect(await eventually { applied.last != nil })
+        #expect(applied.last?.value == 0.7)
+        #expect(applied.last?.authority == .system)
+    }
+
     @Test func afterAFallbackTheEchoIsCreditedToTheSystem() async {
         // The fallback wrote through the system actuator, so what goes back into
         // the HUD stream has to say so: AppCore routes the echo by authority, and

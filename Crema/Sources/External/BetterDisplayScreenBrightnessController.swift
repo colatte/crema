@@ -25,6 +25,7 @@ final class BetterDisplayScreenBrightnessController: ScreenBrightnessController,
 
     private let lock = NSLock()
     private var inFlight = false
+    private var lastWritten: Double?
     private var queued: Double?
 
     init(channel: any BetterDisplayCommanding, displayID: @escaping @Sendable (DisplayUUID?) -> Int?) {
@@ -32,7 +33,7 @@ final class BetterDisplayScreenBrightnessController: ScreenBrightnessController,
         self.displayID = displayID
     }
 
-    func setBrightness(_ value: Double, on display: DisplayUUID?) async throws {
+    func setBrightness(_ value: Double, on display: DisplayUUID?) async throws -> Double {
         // A display that does not resolve has been unplugged between the HUD and
         // the drag; unavailable is exactly what that is.
         guard let id = displayID(display) else { throw BrightnessCommandError.unavailable }
@@ -45,7 +46,9 @@ final class BetterDisplayScreenBrightnessController: ScreenBrightnessController,
             inFlight = true
             return true
         }
-        guard drives else { return }
+        // Coalesced: nothing was written here, but the driver will write this very
+        // value, and returning it now keeps the echo level with the finger.
+        guard drives else { return value }
         defer { lock.withLock { inFlight = false } }
 
         while let next = lock.withLock({ () -> Double? in
@@ -53,8 +56,25 @@ final class BetterDisplayScreenBrightnessController: ScreenBrightnessController,
             return queued
         }) {
             try await channel.setBrightness(next, displayID: id)
+            lock.withLock { lastWritten = next }
         }
+        // The last value actually on the wire, never the argument: this call has been
+        // inside the drain loop writing everything that arrived after it.
+        return lock.withLock { lastWritten } ?? value
     }
+
+    /// The value this actuator most recently put on the wire, or nil if nothing has
+    /// been written yet.
+    ///
+    /// It exists because the coalescing makes `setBrightness` a liar about its own
+    /// argument, and the echo believed it. A caller that arrives while a write is in
+    /// flight queues its value and returns AT ONCE, having written nothing; the call
+    /// that drives stays inside the drain loop writing everything that arrived after
+    /// it, and returns last — still holding the value it was CALLED with, several
+    /// frames behind the finger by then. Echoing that argument is what makes a fast
+    /// drag flick backwards before the next frame pulls it forward again; observed on
+    /// hardware, on the bar drawn on the external monitor itself.
+    var lastWrittenValue: Double? { lock.withLock { lastWritten } }
 
     /// The production resolver, kept next to its only caller. Nil means the
     /// built-in screen — the domain's own spelling — and anything else is a

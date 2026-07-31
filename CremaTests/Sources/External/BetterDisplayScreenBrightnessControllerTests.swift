@@ -126,4 +126,69 @@ struct BetterDisplayScreenBrightnessControllerTests {
             try await controller.setBrightness(0.5, on: nil)
         }
     }
+
+    @Test func theDrivingCallReportsWhatItLastWroteNotWhatItWasAskedFor() async throws {
+        // The flick, found on hardware: dragging the bar drawn on the external
+        // monitor fast enough makes it jump backwards for an instant before the next
+        // frame pulls it forward.
+        //
+        // The cause is the coalescing telling the truth about the wire and lying
+        // about itself. A frame arriving while a write is in flight queues its value
+        // and returns AT ONCE, having written nothing. The frame that DRIVES stays
+        // inside the drain loop putting every newer value on the wire, and returns
+        // last — still holding the argument it was called with, by then several
+        // frames behind the finger. The Coordinator builds the confirming echo from
+        // that return value, so echoing the argument publishes a stale level over a
+        // fresh one.
+        //
+        // The newer frames arrive from inside the first write, which is when they
+        // arrive in life too — and makes the interleaving exact instead of raced.
+        let channel = ReentrantChannel()
+        let controller = BetterDisplayScreenBrightnessController(
+            channel: channel, displayID: { _ in 2 }
+        )
+        // Collected inside the write and asserted outside it: the expectation macro
+        // does not carry the closure's `throws` through its expansion.
+        let coalesced = CoalescedReturns()
+        channel.duringFirstWrite = { [weak controller] in
+            guard let controller else { return }
+            try await coalesced.append(controller.setBrightness(0.5, on: nil))
+            try await coalesced.append(controller.setBrightness(0.9, on: nil))
+        }
+
+        let reported = try await controller.setBrightness(0.1, on: nil)
+
+        // The two that coalesced wrote nothing and returned their own value at once,
+        // which is right — they are level with the finger.
+        #expect(coalesced.values == [0.5, 0.9])
+        // 0.9 went out last. Reporting 0.1 here is the flick.
+        #expect(reported == 0.9)
+        #expect(channel.written == [0.1, 0.9])
+    }
+
+    /// The values the coalesced calls returned, collected from inside a write.
+    private final class CoalescedReturns: @unchecked Sendable {
+        private let lock = NSLock()
+        private var stored: [Double] = []
+        var values: [Double] { lock.withLock { stored } }
+        func append(_ value: Double) { lock.withLock { stored.append(value) } }
+    }
+
+    /// A channel that lets the test run code INSIDE the first write, so newer drag
+    /// frames land while that write is in flight — the arrangement the coalescing
+    /// exists for, reproduced without a semaphore or a race.
+    private final class ReentrantChannel: BetterDisplayCommanding, @unchecked Sendable {
+        private let lock = NSLock()
+        private var calls: [Double] = []
+        var written: [Double] { lock.withLock { calls } }
+        var duringFirstWrite: (@Sendable () async throws -> Void)?
+
+        func setBrightness(_ value: Double, displayID: Int) async throws {
+            let isFirst = lock.withLock { () -> Bool in
+                calls.append(value)
+                return calls.count == 1
+            }
+            if isFirst { try await duringFirstWrite?() }
+        }
+    }
 }

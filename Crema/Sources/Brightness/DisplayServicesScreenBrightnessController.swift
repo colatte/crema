@@ -27,7 +27,7 @@ struct DisplayServicesScreenBrightnessController: ScreenBrightnessController {
     /// `externalDisplayUnsupported` for the built-in panel, silently swallowing a
     /// drag on its own bar. Anything else is genuinely an external display, which
     /// belongs to the optional integration and never to DisplayServices.
-    func setBrightness(_ value: Double, on display: DisplayUUID?) async throws {
+    func setBrightness(_ value: Double, on display: DisplayUUID?) async throws -> Double {
         if let display, display != builtInDisplay() {
             throw BrightnessCommandError.externalDisplayUnsupported
         }
@@ -36,5 +36,7 @@ struct DisplayServicesScreenBrightnessController: ScreenBrightnessController {
         try await blockingCall { [backend] in
             guard backend.write(level) else { throw BrightnessCommandError.writeFailed }
         }
+        // Nothing coalesces here: what was asked is what went out.
+        return value
     }
 }

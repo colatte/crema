@@ -578,7 +578,15 @@ so the level is published BEFORE the write leaves, or the fill freezes under a
 moving finger while a round-trip is in flight; the write's echo then confirms or
 corrects it. A drag fires per frame, so writes coalesce latest-wins with at most
 one in flight — nobody wants the levels a finger passed through, only the one it
-stopped at. And a refusal is not fatal: the neighbour's command channel is a
+stopped at. Those two together set a trap, sprung on hardware: the correcting
+echo has to carry what the actuator WROTE, never what the caller asked for. The
+call that drives the write stays inside the drain loop putting newer values on
+the wire while its own argument goes stale, so echoing the argument re-draws the
+bar at a level the finger already left — a fast drag flicked backwards for an
+instant before the next frame pulled it forward again. Coalescing is what makes
+the two numbers differ, so any actuator that coalesces owes its caller the
+written value as its return; the argument is only what was asked. And a refusal
+is not fatal: the neighbour's command channel is a
 SEPARATE setting from its OSD one, so "reports but refuses commands" is a real
 configuration — a failed command falls back to the system actuator in the same
 drag (a smaller lie than a dead control), stops being asked until the neighbour's

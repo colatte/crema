@@ -932,14 +932,21 @@ final class Coordinator {
 
         Task { @MainActor in
             do {
-                try await external.setBrightness(value, on: hud.commandDisplay)
-                onBrightnessApplied?(applied)
+                // The echo carries what the actuator actually WROTE, not what this
+                // frame asked for. The neighbour's writer coalesces latest-wins, so
+                // the call that drives stays inside its drain loop putting newer
+                // values on the wire and returns holding an argument several frames
+                // old; echoing that argument yanks the bar backwards mid-gesture
+                // before the next frame pulls it forward — the flick a fast drag
+                // shows on the bar drawn on the external monitor itself.
+                let written = try await external.setBrightness(value, on: hud.commandDisplay)
+                onBrightnessApplied?(hud.at(written))
             } catch {
                 logger.error("setBrightness(screen) via BetterDisplay failed: \(error, privacy: .public)")
                 externalBrightnessReachable = false
                 do {
-                    try await screenBrightnessController.setBrightness(value, on: hud.commandDisplay)
-                    onBrightnessApplied?(applied.by(.system))
+                    let written = try await screenBrightnessController.setBrightness(value, on: hud.commandDisplay)
+                    onBrightnessApplied?(hud.at(written).by(.system))
                 } catch {
                     logger.error("setBrightness(screen) fallback failed: \(error, privacy: .public)")
                 }
