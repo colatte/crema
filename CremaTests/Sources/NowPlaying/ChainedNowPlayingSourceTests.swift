@@ -16,7 +16,7 @@ struct ChainedNowPlayingSourceTests {
             candidates: [.init(isAvailable: { true }, makeSource: { adapter }, commandChannel: MockCommandChannel())],
             clock: TestSleepClock()
         )
-        var iterator = chain.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(chain.updates)
 
         adapter.emit(track("A"))
         #expect(await iterator.next() == track("A"))
@@ -28,7 +28,7 @@ struct ChainedNowPlayingSourceTests {
             candidates: [.init(isAvailable: { true }, makeSource: { adapter }, commandChannel: MockCommandChannel())],
             clock: TestSleepClock()
         )
-        var iterator = chain.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(chain.updates)
         adapter.emit(track("A"))
         _ = await iterator.next()   // selection settled: the adapter is active
 
@@ -45,7 +45,7 @@ struct ChainedNowPlayingSourceTests {
             ],
             clock: TestSleepClock()
         )
-        var iterator = chain.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(chain.updates)
 
         jxa.emit(track("J"))
         #expect(await iterator.next() == track("J"))
@@ -65,7 +65,7 @@ struct ChainedNowPlayingSourceTests {
             ],
             clock: clock
         )
-        var iterator = chain.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(chain.updates)
 
         adapter.emit(track("A"))
         #expect(await iterator.next() == track("A"))
@@ -191,7 +191,7 @@ struct ChainedNowPlayingSourceTests {
 
     @Test func promotesToARecoveredAdapterOnlyAtAPauseBoundary() async {
         let fixture = FallbackFixture()
-        var iterator = fixture.chain.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(fixture.chain.updates)
 
         fixture.jxa.emit(track("J"))
         #expect(await iterator.next() == track("J"))
@@ -221,7 +221,7 @@ struct ChainedNowPlayingSourceTests {
 
     @Test func promotesAtATrackChangeBoundary() async {
         let fixture = FallbackFixture()
-        var iterator = fixture.chain.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(fixture.chain.updates)
 
         fixture.jxa.emit(track("J1"))
         #expect(await iterator.next() == track("J1"))
@@ -244,7 +244,7 @@ struct ChainedNowPlayingSourceTests {
         // Boundary (c): a source that has emitted nothing since selection is
         // promoted at once — it would never reach the in-loop boundary check.
         let fixture = FallbackFixture()
-        var iterator = fixture.chain.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(fixture.chain.updates)
 
         // JXA is selected (adapter down) but stays silent — no track emitted.
         // The probe parking confirms JXA is the active source.
@@ -271,7 +271,7 @@ struct ChainedNowPlayingSourceTests {
         // — a following quiet boundary must NOT cut over. Guards against a probe
         // that promotes to a dead preferred source (the gate armed unconditionally).
         let fixture = FallbackFixture()
-        var iterator = fixture.chain.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(fixture.chain.updates)
 
         fixture.jxa.emit(track("J"))
         #expect(await iterator.next() == track("J"))
@@ -304,7 +304,7 @@ struct ChainedNowPlayingSourceTests {
             clock: TestSleepClock(),
             onActiveSourceEnded: { ended.value = true }
         )
-        var iterator = chain.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(chain.updates)
         adapter.emit(track("A"))
         #expect(await iterator.next() == track("A"))
 
@@ -383,7 +383,7 @@ struct ChainedNowPlayingSourceTests {
             ],
             clock: TestSleepClock()
         )
-        var iterator = chain.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(chain.updates)
 
         adapter.emit(track("A"))
         _ = await iterator.next()   // selection has happened

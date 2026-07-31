@@ -28,7 +28,7 @@ struct JXANowPlayingSourceTests {
     @Test func emitsTheFirstPolledTrack() async {
         let box = QueryBox(track("Breathe", playing: true))
         let source = JXANowPlayingSource(query: { box.json }, clock: TestSleepClock())
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         let first = await iterator.next()
         #expect(first?.title == "Breathe")
@@ -39,7 +39,7 @@ struct JXANowPlayingSourceTests {
         let box = QueryBox(track("Breathe", playing: true))
         let clock = TestSleepClock()
         let source = JXANowPlayingSource(query: { box.json }, clock: clock)
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         #expect(await iterator.next()?.title == "Breathe")   // first poll
 
@@ -59,7 +59,7 @@ struct JXANowPlayingSourceTests {
         let box = QueryBox(track("Breathe", playing: true))
         let clock = TestSleepClock()
         let source = JXANowPlayingSource(query: { box.json }, clock: clock)
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         #expect(await iterator.next()?.isPlaying == true)    // first poll
 

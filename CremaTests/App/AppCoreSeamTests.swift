@@ -21,7 +21,7 @@ struct AppCoreSeamTests {
         )
         // The exact wiring AppCore installs — the seam under test.
         AppCore.wireActiveSourceEnded(from: chain, to: h.coordinator)
-        var chainIterator = chain.updates.makeAsyncIterator()
+        let chainIterator = BoundedStreamIterator(chain.updates)
 
         // The Coordinator holds a ghost from its own source; the chain is live,
         // forwarding from its adapter.

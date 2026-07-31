@@ -86,6 +86,16 @@ jobs:
         # The suite is unit-only and deterministic (injected clocks, mocked
         # sources), so it needs no real audio device, display, or Accessibility
         # permission and runs cleanly on a headless runner.
+        # TEST_RUNNER_ vars cross into the app-hosted test process with the
+        # prefix stripped. The wait budget is widened here because the runner's
+        # 3-4 vCPUs fair-share one MainActor across the whole parallel suite:
+        # measured, the same healthy waits that take microseconds locally took
+        # ~6 s per test here once the suite grew past ~900 tests, and the local
+        # 5 s budget turned starvation into false reds. The bound still exists —
+        # a genuine wedge fails loud at 25 s instead of hanging to the job
+        # timeout with no name attached.
+        env:
+          TEST_RUNNER_CREMA_TEST_WAIT_SECONDS: "25"
         run: |
           xcodebuild test \
             -project Crema.xcodeproj \

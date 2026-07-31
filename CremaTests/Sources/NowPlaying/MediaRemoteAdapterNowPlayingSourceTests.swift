@@ -57,7 +57,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
     @Test func emitsTranslatedNowPlaying() async {
         let (lines, feed) = AsyncStream<String>.makeStream()
         let source = MediaRemoteAdapterNowPlayingSource(lines: lines, availability: { true }, clock: TestSleepClock())
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         feed.yield(line(position: 10, playing: true))
 
@@ -75,7 +75,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let source = MediaRemoteAdapterNowPlayingSource(
             lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         feed.yield(line(position: 10, playing: true))
         #expect(await iterator.next()?.position == 10)
@@ -99,7 +99,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let source = MediaRemoteAdapterNowPlayingSource(
             lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         feed.yield(line(position: 10, playing: true))
         #expect(await iterator.next()?.position == 10)
@@ -119,7 +119,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let source = MediaRemoteAdapterNowPlayingSource(
             lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         feed.yield(line(position: 10, playing: true))
         #expect(await iterator.next()?.position == 10)
@@ -140,7 +140,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let source = MediaRemoteAdapterNowPlayingSource(
             lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         feed.yield(line(position: 10, playing: true))
         #expect(await iterator.next()?.position == 10)
@@ -180,7 +180,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let source = MediaRemoteAdapterNowPlayingSource(
             lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         feed.yield(line(position: 100, playing: true))         // generation 1
         #expect(await iterator.next()?.position == 100)
@@ -205,7 +205,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let source = MediaRemoteAdapterNowPlayingSource(
             lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         feed.yield(line(position: 100, playing: true))         // generation 1
         #expect(await iterator.next()?.position == 100)
@@ -227,7 +227,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let source = MediaRemoteAdapterNowPlayingSource(
             lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         feed.yield(#"{"type":"data","diff":false,"payload":{"title":"Breathe","artist":"Pink Floyd","playing":true,"elapsedTime":100.0,"duration":169.0,"playbackRate":-1.0}}"#)
         #expect(await iterator.next()?.position == 100)
@@ -252,7 +252,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let source = MediaRemoteAdapterNowPlayingSource(
             lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         feed.yield(#"{"type":"data","diff":false,"payload":{"title":"Breathe","artist":"Pink Floyd","playing":true,"elapsedTime":10.0,"duration":169.0,"playbackRate":1.5}}"#)
         #expect(await iterator.next()?.position == 10)
@@ -268,7 +268,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let source = MediaRemoteAdapterNowPlayingSource(
             lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         feed.yield(line(position: 10, playing: true))          // generation 1
         #expect(await iterator.next()?.position == 10)
@@ -285,7 +285,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let source = MediaRemoteAdapterNowPlayingSource(
             lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1
         )
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         feed.yield(line(position: 10, playing: true))
         #expect(await iterator.next()?.position == 10)
@@ -300,7 +300,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let source = MediaRemoteAdapterNowPlayingSource(
             lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1
         )
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         feed.yield(line(position: 100, playing: true))
         #expect(await iterator.next()?.position == 100)
@@ -319,7 +319,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let source = MediaRemoteAdapterNowPlayingSource(
             lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         feed.yield(line(position: 10, playing: true))          // generation 1
         #expect(await iterator.next()?.position == 10)
@@ -337,7 +337,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let source = MediaRemoteAdapterNowPlayingSource(
             lines: lines, availability: { true }, clock: TestSleepClock(), tickInterval: 1
         )
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         feed.yield(line(position: 100, playing: true))
         #expect(await iterator.next()?.position == 100)
@@ -357,7 +357,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let (lines, feed) = AsyncStream<String>.makeStream()
         let clock = TestSleepClock()
         let source = MediaRemoteAdapterNowPlayingSource(lines: lines, availability: { true }, clock: clock)
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         feed.yield(line(position: 5, playing: false))
         #expect(await iterator.next()?.isPlaying == false)
@@ -369,7 +369,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
     @Test func emptyPayloadHidesByMarkingLastNotPlaying() async {
         let (lines, feed) = AsyncStream<String>.makeStream()
         let source = MediaRemoteAdapterNowPlayingSource(lines: lines, availability: { true }, clock: TestSleepClock())
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         feed.yield(line(position: 10, playing: true))
         #expect(await iterator.next()?.isPlaying == true)
@@ -387,7 +387,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let source = MediaRemoteAdapterNowPlayingSource(
             lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         feed.yield(line(position: 10, playing: true))
         #expect(await iterator.next()?.position == 10)
@@ -414,7 +414,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let source = MediaRemoteAdapterNowPlayingSource(
             lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         feed.yield(line(position: 10, playing: true))
         #expect(await iterator.next()?.position == 10)
@@ -439,7 +439,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let source = MediaRemoteAdapterNowPlayingSource(
             lines: lines, availability: { true }, clock: clock, tickInterval: 1, now: wall.now, uptime: wall.uptime
         )
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         feed.yield(line(position: 10, playing: true))
         #expect(await iterator.next()?.position == 10)
@@ -470,7 +470,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         let source = MediaRemoteAdapterNowPlayingSource(
             lines: lines, availability: { true }, clock: TestSleepClock(), now: wall.now, uptime: wall.uptime
         )
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         feed.yield(line(position: 10, playing: true))   // generation 1
         #expect(await iterator.next()?.position == 10)
@@ -501,7 +501,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
             clock: TestSleepClock(),
             now: { delivery }
         )
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         feed.yield(#"{"type":"data","diff":false,"payload":{"title":"Breathe","playing":true,"elapsedTimeMicros":10000000,"timestampEpochMicros":1000000000000}}"#)
 
@@ -511,7 +511,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
     @Test func finishesWhenLineStreamEnds() async {
         let (lines, feed) = AsyncStream<String>.makeStream()
         let source = MediaRemoteAdapterNowPlayingSource(lines: lines, availability: { true }, clock: TestSleepClock())
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         feed.yield(line(position: 1, playing: true))
         _ = await iterator.next()

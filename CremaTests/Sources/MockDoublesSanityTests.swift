@@ -16,7 +16,7 @@ struct MockDoublesSanityTests {
         let first = NowPlaying(title: "One", isPlaying: true, position: 0, duration: 60)
         let second = NowPlaying(title: "Two", isPlaying: false, position: 10, duration: 60)
 
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
         source.emit(first)
         source.emit(second)
 
@@ -26,7 +26,7 @@ struct MockDoublesSanityTests {
 
     @Test func mockNowPlayingSourceFinishEndsTheStream() async {
         let source = MockNowPlayingSource()
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
         source.finish()
         #expect(await iterator.next() == nil)
     }
@@ -35,7 +35,7 @@ struct MockDoublesSanityTests {
         let source = MockSystemHUDSource()
         let hud = SystemHUD(kind: .volume, value: 0.25)
 
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
         source.emit(hud)
 
         #expect(await iterator.next() == hud)

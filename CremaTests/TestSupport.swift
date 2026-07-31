@@ -13,8 +13,74 @@ import Foundation
 /// backoff inside the wait helper, not timer synchronization), and sleeping
 /// frees the actor/thread for exactly the starved tasks the condition waits
 /// on. Still bounded: a genuine wedge fails loud, never hangs the suite.
-let boundedWaitDeadline: Duration = .seconds(5)
+/// Env-scalable because the bound is a saturation guard, not a correctness
+/// bound: on a 3-vCPU CI runner sharing one MainActor across 900-odd parallel
+/// tests, fair-share alone pushed healthy multi-stage waits past 5 s (measured:
+/// the same suites at 1.4 s on one run and 6 s per TEST on the next, after the
+/// suite grew by ~250 tests). The CI workflow widens it via
+/// TEST_RUNNER_CREMA_TEST_WAIT_SECONDS; locally the 5 s discipline stands.
+let boundedWaitDeadline: Duration = {
+    if let raw = ProcessInfo.processInfo.environment["CREMA_TEST_WAIT_SECONDS"],
+       let seconds = Double(raw), seconds > 0 {
+        return .seconds(seconds)
+    }
+    return .seconds(5)
+}()
+
 let boundedWaitHotSpins = 2000
+
+/// A stream iterator whose `next()` is bounded by the wall clock, because the
+/// raw one is not: `await iterator.next()` on a stream that never emits parks
+/// forever, and a parked test does not fail — it holds the whole suite until
+/// an outer timeout kills the run with no name attached (measured on CI: two
+/// suites never reported and the job died mute at the 30-minute limit; the
+/// unbounded-continuation deadlock is the same class round1-a1-a3 already
+/// ruled on). Timeout and upstream-finish both return nil, so the assertion
+/// right after fails loud with the test's own name.
+///
+/// A pump task consumes the stream eagerly into a buffer; `next()` polls it
+/// with the same micro-sleep idiom as `eventually` — no continuation is ever
+/// parked without a deadline. Eager consumption means the SOURCE's buffering
+/// policy stops dropping under a slow consumer, which is equivalent here: a
+/// directly-parked `next()` also received every element the moment it yielded.
+/// Single-consumer, like the iterator it replaces.
+final class BoundedStreamIterator<Element: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var buffer: [Element] = []
+    private var finished = false
+    private var pump: Task<Void, Never>?
+
+    init(_ stream: AsyncStream<Element>) {
+        pump = Task { [weak self] in
+            for await element in stream {
+                guard let self else { return }
+                self.lock.withLock { self.buffer.append(element) }
+            }
+            self?.lock.withLock { self?.finished = true }
+        }
+    }
+
+    deinit { pump?.cancel() }
+
+    func next() async -> Element? {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: boundedWaitDeadline)
+        var spins = 0
+        while true {
+            let (element, done): (Element?, Bool) = lock.withLock {
+                (buffer.isEmpty ? nil : buffer.removeFirst(), finished)
+            }
+            if let element { return element }
+            if done || clock.now >= deadline { return nil }
+            spins += 1
+            if spins < boundedWaitHotSpins {
+                await Task.yield()
+            } else {
+                try? await Task.sleep(for: .milliseconds(1))
+            }
+        }
+    }
+}
 
 /// Spins the main actor until `condition` holds, bounded by wall clock (see
 /// boundedWaitDeadline). Returns the final evaluation so call sites can

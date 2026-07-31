@@ -66,7 +66,7 @@ struct BrightnessSourceTests {
         // swallowed. Counted, not timed: no lucky schedule satisfies it.
         let backend = Self.backend(kind)
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1)
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
         // The launch baseline is deliberately still read on this thread (see the
         // source's init), so the claim is about every reading after construction.
         let atLaunch = backend.mainThreadReads
@@ -127,7 +127,7 @@ struct BrightnessSourceTests {
         let backend = Self.backend(kind)
         let clock = TestSleepClock()
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1)
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         await clock.waitForSleep()
         backend.value = 0.8         // the sensor
@@ -147,7 +147,7 @@ struct BrightnessSourceTests {
         let backend = Self.backend(kind)
         let clock = TestSleepClock()
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1)
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         // Barriered: without it the key's reading can land after the line below
         // and see 0.8 itself, which emits the right value by the wrong path and
@@ -167,7 +167,7 @@ struct BrightnessSourceTests {
         // this channel's kind.
         let backend = Self.backend(kind)
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1)
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         backend.value = 0.8
         source.sample()
@@ -183,7 +183,7 @@ struct BrightnessSourceTests {
             kind: kind, backend: backend, clock: clock, pollInterval: 1,
             keyActivityWindow: 1.5, now: { now.now }
         )
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         source.sample()             // arms until now + 1.5
         now.advance(by: 2)          // window has passed
@@ -205,7 +205,7 @@ struct BrightnessSourceTests {
         let backend = Self.backend(kind)
         let clock = TestSleepClock()
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1)
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         backend.value = 0.8
         source.sample()             // key HUD, window consumed
@@ -229,7 +229,7 @@ struct BrightnessSourceTests {
         let backend = Self.backend(kind)
         let clock = TestSleepClock()
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1)
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         source.sample()             // no-op key: value unchanged, arms only
         await clock.waitForSleep()
@@ -252,7 +252,7 @@ struct BrightnessSourceTests {
         // a boundary no-op refreshes (proven separately).
         let backend = Self.backend(kind)
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1)
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         // Every mutation here follows a sample, so every one needs the barrier:
         // otherwise the new value races the reading the previous sample queued and
@@ -272,7 +272,7 @@ struct BrightnessSourceTests {
     func sourceClampsKeyDrivenReadings(kind: SystemHUD.Kind) async {
         let backend = Self.backend(kind)
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1)
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         backend.value = 1.9         // out of range → clamped into 0...1
         source.sample()
@@ -286,7 +286,7 @@ struct BrightnessSourceTests {
         // the full-bar HUD — S3, matching native's flash at the limit.
         let backend = Self.backend(kind, value: 1.0)
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1)
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         source.sample()             // value unchanged at the boundary
         #expect(await iterator.next() == Self.expected(kind, 1))
@@ -297,7 +297,7 @@ struct BrightnessSourceTests {
         // Same S3 parity at the bottom of the scale (the empty-bar flash).
         let backend = Self.backend(kind, value: 0.0)
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1)
-        var iterator = source.updates.makeAsyncIterator()
+        let iterator = BoundedStreamIterator(source.updates)
 
         source.sample()             // value unchanged at the boundary
         #expect(await iterator.next() == Self.expected(kind, 0))
