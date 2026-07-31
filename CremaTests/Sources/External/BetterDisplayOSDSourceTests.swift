@@ -3,8 +3,11 @@ import Testing
 @testable import Crema
 
 /// The border that carries BetterDisplay's OSD notification into the domain
-/// stream. The real DistributedNotificationCenter never enters a test — the
-/// source takes a resolver, and a payload is fed the way one would arrive.
+/// stream. Translation and routing run over an injected resolver, fed a payload
+/// the way one would arrive. One test — and only one — posts on the REAL
+/// DistributedNotificationCenter: which name the observer actually subscribed to is
+/// not observable from inside the process, so nothing short of a real delivery can
+/// witness it.
 ///
 /// Which means the PRODUCTION resolver (`resolveTarget`) is not exercised here, and
 /// a mutation re-adding a branch to it survives this suite. That is deliberate
@@ -178,20 +181,30 @@ struct BetterDisplayOSDSourceTests {
         let collector = Collector(source.updates)
         defer { collector.stop() }
 
+        // The channel belongs to the whole system, not to this process: on the
+        // author's own machine BetterDisplay is installed and posting here too. So
+        // the payload carries a scale the neighbour cannot produce — it reports k/64
+        // with k an integer, and 333/1024 is exact in binary but unreachable that
+        // way — and the assertion asks whether OUR reading arrived, never whether it
+        // was the only one. A `count == 1` would fail on the author's desk and pass
+        // on CI, which is the worst shape a test can have.
+        //
         // No displayID, so the payload names no screen and the reading stays
-        // `.noDisplay` — which is precisely why this holds on any machine: it
-        // asserts the DELIVERY, never which panel ends up drawing it
+        // `.noDisplay` — which is why this holds on any machine: it asserts the
+        // DELIVERY, never which panel ends up drawing it
         // (docs/DECISIONS.md: hud-target-is-a-role).
         DistributedNotificationCenter.default().postNotificationName(
             Notification.Name(BetterDisplayOSDSource.notificationName),
-            object: #"{"controlTarget":"combinedBrightness","maxValue":64,"value":16}"#,
+            object: #"{"controlTarget":"combinedBrightness","maxValue":1024,"value":333}"#,
             userInfo: nil,
             deliverImmediately: true
         )
 
-        #expect(await eventually { collector.values.count == 1 })
-        #expect(collector.values.first?.value == 0.25)
-        #expect(collector.values.first?.authority == .betterDisplay)
+        // With the wrong observer name nothing arrives and this never turns true,
+        // which is the whole proof the test exists for.
+        #expect(await eventually {
+            collector.values.contains { $0.value == 333.0 / 1024 && $0.authority == .betterDisplay }
+        })
     }
 
     @Test func theNameSubscribedToIsTheCurrentOneOnly() {

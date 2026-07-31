@@ -1,4 +1,5 @@
 import Foundation
+import Testing
 @testable import Crema
 
 /// Test clock: never really sleeps. Each `sleep(for:)` parks until the test
@@ -83,7 +84,7 @@ final class TestSleepClock: SleepClock, @unchecked Sendable {
     /// Suspends until a sleep requested with `delay` is parked (nil = any).
     /// Bounded polling, not a parked continuation: a handshake that drifts
     /// out of alignment (waiting for a park that can never come) must surface
-    /// as a loud downstream assertion failure, never wedge the suite forever —
+    /// as a loud failure ON THIS LINE, never wedge the suite forever —
     /// the deviceAbsent probe test deadlocked exactly that way. The bound is
     /// WALL CLOCK, not a yield count (a slot budget starves on a saturated
     /// machine — see TestSupport.boundedWaitDeadline for the shared rule).
@@ -107,5 +108,14 @@ final class TestSleepClock: SleepClock, @unchecked Sendable {
                 try? await Task.sleep(for: .milliseconds(1))
             }
         }
+        // The promise above is only kept if the expiry says so. Returning quietly is
+        // what wedges the suite: the `advance()` that follows becomes a no-op, and
+        // the `next()` after THAT waits for a value nobody will ever yield. Recorded
+        // rather than returned as a Bool, because a Bool is discardable — this file
+        // already has call sites that write `_ = eventually { … }` — and a discarded
+        // Bool reproduces the silent expiry at the first distracted call site.
+        // `Issue.record` cannot be ignored and fails on the right line, before the
+        // no-op advance rather than three awaits later.
+        Issue.record("waitForSleep expired: no sleep parked within \(boundedWaitDeadline)")
     }
 }
