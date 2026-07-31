@@ -94,24 +94,6 @@ final class SuppressionDecider: @unchecked Sendable {
         lock.withLock { _ = suspended.remove(domain) }
     }
 
-    /// Records that a channel answered "no such control" during an apply, and
-    /// releases any held key of that capability in the same lock take.
-    ///
-    /// The release is not optional, and pairing it here rather than at the call site
-    /// is the whole reason this state lives in this type. `decide` commits a verdict
-    /// at the first down and keeps it for the rest of the press, so a key HELD while
-    /// the apply discovers the absence would stay swallowed until the user lets go:
-    /// press, nothing, for the length of the hold. That is the identical dead
-    /// gesture `suspend` releases the latch to avoid, and holding volume-down to
-    /// zero on an output with no volume control is how a person meets it. Marking
-    /// without releasing would deliver that bug through a second door.
-    ///
-    /// Filtered by CAPABILITY, never by domain: mute rides with volume for recovery,
-    /// so a domain-wide release would free a held VOLUME key the moment the mute
-    /// plane turned out to be missing. Inherits the same asymmetry `suspend` argues
-    /// for — the pending up passes too, leaving the system an up with no down, which
-    /// is the direction to err in, since an orphan up only ends a press nobody was
-    /// tracking while an orphan down has no closing event at all.
     /// Records that a channel answered "no such control" during an apply.
     ///
     /// Per CAPABILITY, never per domain: mute rides with volume for recovery, so a
