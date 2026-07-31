@@ -80,7 +80,11 @@ struct BetterDisplayOSDSourceTests {
         let backend = FakeBrightnessBackend(value: 0.5)
         let clock = TestSleepClock()
         let polled = PolledBrightnessSource(
-            kind: .screenBrightness, backend: backend, clock: clock, pollInterval: 0.5
+            kind: .screenBrightness, backend: backend, clock: clock, pollInterval: 0.5,
+            // Frozen for the same reason BrightnessSourceTests freezes it: the
+            // real Date() default turns a starved runner into a reclassified
+            // reading and a missing emission.
+            now: { Date(timeIntervalSince1970: 1_000) }
         )
         let collector = Collector(polled.updates)
         defer { collector.stop() }
@@ -115,7 +119,11 @@ struct BetterDisplayOSDSourceTests {
         let backend = FakeBrightnessBackend(value: 0.5)
         let clock = TestSleepClock()
         let polled = PolledBrightnessSource(
-            kind: .screenBrightness, backend: backend, clock: clock, pollInterval: 0.5
+            kind: .screenBrightness, backend: backend, clock: clock, pollInterval: 0.5,
+            // Frozen for the same reason BrightnessSourceTests freezes it: the
+            // real Date() default turns a starved runner into a reclassified
+            // reading and a missing emission.
+            now: { Date(timeIntervalSince1970: 1_000) }
         )
         let collector = Collector(polled.updates)
         defer { collector.stop() }

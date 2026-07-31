@@ -54,7 +54,17 @@ struct BrightnessSourceTests {
         #expect(await backend.awaitRead(after: mark), "the sample's reading never landed")
     }
 
+    /// A frozen wall clock for the key-activity window. Time-expiry is the one
+    /// test that injects and ADVANCES its own ManualNow; every other test here
+    /// asserts consumption semantics — and the real Date() default made each of
+    /// them a latent CI red: on a starved runner, more than 1.5 s of real time
+    /// between the key and its reading reclassifies the reading as
+    /// sensor-originated and the expected emission never comes (measured: the
+    /// no-op-leak test held the whole run mute until the job timeout).
+    private nonisolated static let frozenNow: @Sendable () -> Date = { Date(timeIntervalSince1970: 1_000) }
+
     @MainActor
+
     @Test(arguments: kinds)
     func aKeyDrivenSampleReadsOffTheCallersThread(kind: SystemHUD.Kind) async {
         // The freeze this seam exists to prevent. `sample()` is called ON THE
@@ -65,7 +75,7 @@ struct BrightnessSourceTests {
         // HUD, now playing and menu on the healthy path, with the key already
         // swallowed. Counted, not timed: no lucky schedule satisfies it.
         let backend = Self.backend(kind)
-        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1)
+        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1, now: Self.frozenNow)
         let iterator = BoundedStreamIterator(source.updates)
         // The launch baseline is deliberately still read on this thread (see the
         // source's init), so the claim is about every reading after construction.
@@ -90,7 +100,7 @@ struct BrightnessSourceTests {
         // could not observe the state being asserted.
         let backend = Self.backend(kind)
         let clock = TestSleepClock()
-        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1)
+        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1, now: Self.frozenNow)
         await clock.waitForSleep()          // parked; the launch baseline is read
 
         let held = DispatchSemaphore(value: 0)
@@ -115,7 +125,7 @@ struct BrightnessSourceTests {
     @Test(arguments: kinds)
     func sourceIsUnavailableWhenBackendIsUnavailable(kind: SystemHUD.Kind) async {
         let backend = Self.backend(kind, available: false)
-        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock())
+        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), now: Self.frozenNow)
         #expect(await !source.isAvailable())
     }
 
@@ -126,7 +136,7 @@ struct BrightnessSourceTests {
         // it is the first thing the stream ever yields.
         let backend = Self.backend(kind)
         let clock = TestSleepClock()
-        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1)
+        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1, now: Self.frozenNow)
         let iterator = BoundedStreamIterator(source.updates)
 
         await clock.waitForSleep()
@@ -146,7 +156,7 @@ struct BrightnessSourceTests {
         // later catches the applied value and emits.
         let backend = Self.backend(kind)
         let clock = TestSleepClock()
-        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1)
+        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1, now: Self.frozenNow)
         let iterator = BoundedStreamIterator(source.updates)
 
         // Barriered: without it the key's reading can land after the line below
@@ -166,7 +176,7 @@ struct BrightnessSourceTests {
         // so the key `sample()` sees the change at once — and the HUD carries
         // this channel's kind.
         let backend = Self.backend(kind)
-        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1)
+        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1, now: Self.frozenNow)
         let iterator = BoundedStreamIterator(source.updates)
 
         backend.value = 0.8
@@ -204,7 +214,7 @@ struct BrightnessSourceTests {
         // does not add a second HUD.
         let backend = Self.backend(kind)
         let clock = TestSleepClock()
-        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1)
+        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1, now: Self.frozenNow)
         let iterator = BoundedStreamIterator(source.updates)
 
         backend.value = 0.8
@@ -228,7 +238,7 @@ struct BrightnessSourceTests {
         // then the emit consumes the window and the rest stay silent.
         let backend = Self.backend(kind)
         let clock = TestSleepClock()
-        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1)
+        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1, now: Self.frozenNow)
         let iterator = BoundedStreamIterator(source.updates)
 
         source.sample()             // no-op key: value unchanged, arms only
@@ -251,7 +261,7 @@ struct BrightnessSourceTests {
         // A repeated key read at the same mid-scale value does not re-emit; only
         // a boundary no-op refreshes (proven separately).
         let backend = Self.backend(kind)
-        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1)
+        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1, now: Self.frozenNow)
         let iterator = BoundedStreamIterator(source.updates)
 
         // Every mutation here follows a sample, so every one needs the barrier:
@@ -271,7 +281,7 @@ struct BrightnessSourceTests {
     @Test(arguments: kinds)
     func sourceClampsKeyDrivenReadings(kind: SystemHUD.Kind) async {
         let backend = Self.backend(kind)
-        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1)
+        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1, now: Self.frozenNow)
         let iterator = BoundedStreamIterator(source.updates)
 
         backend.value = 1.9         // out of range → clamped into 0...1
@@ -285,7 +295,7 @@ struct BrightnessSourceTests {
         // 1.0 == before (a no-op write), yet a key-driven sample still emits
         // the full-bar HUD — S3, matching native's flash at the limit.
         let backend = Self.backend(kind, value: 1.0)
-        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1)
+        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1, now: Self.frozenNow)
         let iterator = BoundedStreamIterator(source.updates)
 
         source.sample()             // value unchanged at the boundary
@@ -296,7 +306,7 @@ struct BrightnessSourceTests {
     func boundaryKeyPressAtMinStillEmitsTheClampedValue(kind: SystemHUD.Kind) async {
         // Same S3 parity at the bottom of the scale (the empty-bar flash).
         let backend = Self.backend(kind, value: 0.0)
-        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1)
+        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: TestSleepClock(), pollInterval: 1, now: Self.frozenNow)
         let iterator = BoundedStreamIterator(source.updates)
 
         source.sample()             // value unchanged at the boundary
@@ -319,7 +329,7 @@ struct BrightnessSourceTests {
         // and what the last assertion here still protects.
         let backend = Self.backend(kind, available: false)
         let clock = TestSleepClock()
-        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1)
+        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1, now: Self.frozenNow)
 
         #expect(clock.pendingSleeps == 0, "launch armed a cadence for a channel that answered nothing")
 
@@ -342,7 +352,7 @@ struct BrightnessSourceTests {
         // arms nothing either — the read it queues is the only work it does.
         let backend = Self.backend(kind, available: false)
         let clock = TestSleepClock()
-        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1)
+        let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1, now: Self.frozenNow)
 
         await sampleAndRead(source, backend)
 
