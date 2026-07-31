@@ -420,7 +420,31 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     /// mark is set the key stops being swallowed, so no apply runs to log again, and
     /// the recurring case worth seeing — a route that loses a control, gets it back
     /// and loses it again — leaves one line per episode instead of one forever.
-    private func noteAbsent(_ capability: OSDSuppressionCapability) {
+    private func noteAbsent(_ capability: OSDSuppressionCapability, generation: Int) {
+        // The only write in this file that lands AFTER an await without re-checking
+        // the generation, until now — and its clearing sibling (`runCapabilityRecheck`)
+        // already re-checks, which is the asymmetry that gave it away. An engage flip
+        // in the window between the guard and here means `reset()` already cleared
+        // this axis to honour "born healthy", and a stale apply would write the
+        // absence straight back into the NEW engagement.
+        //
+        // The price is real and worth stating: when the capability is still gone, the
+        // key that would have shown a native HUD is swallowed and mute instead, while
+        // the fresh apply re-learns. It is bought for the case that matters — a flip
+        // is usually a lock/unlock, which is exactly when hardware comes back, and a
+        // stale mark there hands away a key the app could now apply.
+        //
+        // DECLARED GAP: this guard is not pinned, and a test that pretended to pin it
+        // was written and removed rather than kept. The window needs a stale apply to
+        // resume AFTER an engage flip, and nothing observable marks that moment — the
+        // absent set has no test-visible snapshot, and a `.noOp` fires no callback, so
+        // every probe either presses too early (both behaviours agree) or retries
+        // until the re-check has healed the difference away. Closing it honestly means
+        // giving the decider a snapshot the way it already exposes `suspendedDomains`;
+        // until someone wants that API for a second reason, the mutation that removes
+        // this line survives the suite, and saying so here is worth more than a green
+        // test that proves nothing.
+        guard generation == self.generation, isEngaged else { return }
         guard decider.noteAbsentCapability(capability) else { return }
         logger.notice("no \(String(describing: capability), privacy: .public) control on this route — that key goes to the system until one answers")
     }
@@ -444,7 +468,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         // key belongs to the pre-suspension world; the probe loop owns recovery.
         guard !decider.isSuspended(domain) else { return }
         do {
-            let outcome = try await apply(key, fine: fine)
+            let outcome = try await apply(key, fine: fine, generation: generation)
             // Re-check: the apply awaited, and a disengage may have landed. A
             // verified apply is the only proof the write path is alive: it clears
             // the write-flap axis and any menu warning a dead write had raised —
@@ -459,19 +483,19 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         }
     }
 
-    private func apply(_ key: MediaKey, fine: Bool) async throws -> ApplyOutcome {
+    private func apply(_ key: MediaKey, fine: Bool, generation: Int) async throws -> ApplyOutcome {
         switch key {
         case .mute:
-            return try await applyMute()
+            return try await applyMute(generation: generation)
         case .volumeUp, .volumeDown:
-            return try await applyVolumeStep(key, fine: fine)
+            return try await applyVolumeStep(key, fine: fine, generation: generation)
         case .screenBrightnessUp, .screenBrightnessDown:
             // Inline on purpose: DisplayServices answers availability from two dlsym
             // results resolved once at init, so it cannot block — and, being fixed
             // for the process, an absence here is one the re-check can never undo.
             // Its keyboard sibling below is a different animal and gets different
             // treatment; that divergence is the reason both are commented.
-            guard screen.isAvailable() else { noteAbsent(.screenBrightness); return .noOp }
+            guard screen.isAvailable() else { noteAbsent(.screenBrightness, generation: generation); return .noOp }
             try await step(screen, key: key, fine: fine)
             return .verified
         case .keyboardBrightnessUp, .keyboardBrightnessDown:
@@ -481,19 +505,19 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
             // cold boot can answer "no keyboard" before the service is up. Inline,
             // this blocked the MainActor once per backlight key.
             guard try await readWithDeadline({ [keyboard] in keyboard.isAvailable() }) else {
-                noteAbsent(.keyboardBrightness); return .noOp
+                noteAbsent(.keyboardBrightness, generation: generation); return .noOp
             }
             try await step(keyboard, key: key, fine: fine)
             return .verified
         }
     }
 
-    private func applyMute() async throws -> ApplyOutcome {
+    private func applyMute(generation: Int) async throws -> ApplyOutcome {
         // No mute control on this output (plenty of USB/HDMI devices): nothing to
         // write, never a failure. Reads are deadline-raced — supportsMute and
         // readMuted are Core Audio IPC that can stall.
         guard try await readWithDeadline({ [volume] in volume.supportsMute() }) else {
-            noteAbsent(.mute); return .noOp
+            noteAbsent(.mute, generation: generation); return .noOp
         }
         guard let muted = try await readWithDeadline({ [volume] in volume.readMuted() }) else {
             throw ApplyFailure.currentValueUnreadable
@@ -508,11 +532,11 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         return .verified
     }
 
-    private func applyVolumeStep(_ key: MediaKey, fine: Bool) async throws -> ApplyOutcome {
+    private func applyVolumeStep(_ key: MediaKey, fine: Bool, generation: Int) async throws -> ApplyOutcome {
         // The availability/mute guards are Core Audio IPC (defaultOutputDeviceID)
         // that can stall, so they race the deadline like the reads.
         guard try await readWithDeadline({ [volume] in volume.isAvailable() }) else {
-            noteAbsent(.volumeLevel); return .noOp
+            noteAbsent(.volumeLevel, generation: generation); return .noOp
         }
         // Volume-up unmutes first, like the native handler — otherwise the key
         // "does nothing" audible while the device stays muted. Verified like any
@@ -539,7 +563,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
                     guard !stillMuted else { throw ApplyFailure.verificationFailed }
                 }
             } else {
-                noteAbsent(.mute)
+                noteAbsent(.mute, generation: generation)
             }
         }
         try await step(volume, key: key, fine: fine)
