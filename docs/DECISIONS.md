@@ -1549,9 +1549,9 @@ to whoever can move that screen, and the obvious next step — Crema applying th
 key there itself — needs the apply+verify cycle, which needs a `before`: stepping
 is read → step → write → verify, and the read is the half that does not exist.
 The one thing that would dissolve the impasse is a RELATIVE command, which needs
-no `before` at all, so ten relative shapes were tried with the absolute `set` as
+no `before` at all, so nine relative shapes were tried with the absolute `set` as
 the control (increment/decrement, signed values, a `relative` parameter,
-up/down/increase/decrease). The control answered; none of the ten did.
+up/down/increase/decrease). The control answered; none of the nine did.
 So: external brightness is **write-only from our border**, the drag on a bar the
 neighbour drew keeps working (it carries an absolute level, which is exactly what
 the channel accepts — `the-bar-never-outruns-the-screen`), and the key aimed at an
@@ -1641,11 +1641,11 @@ block and prepending its own warning comment. `release.sh` regenerates into a FR
 file every release, so the feed's signedness follows the newest archive's plist and
 nothing else — which also means the day that key leaves Info.plist, the feed silently
 stops being signed while every client that already shipped it rejects the appcast.
-The consequence that outlives this entry: docs/appcast.xml is now self-authenticating.
+The consequence that outlives this entry: docs/appcast.xml authenticates itself from the first feed generated with the key in the packaged app onward — the committed feed of 1.4.0 predates the keys and carries no signature block, so today the promise is armed, not yet in force.
 It was already "regenerated, never hand-edited"; from here a hand edit is not untidy,
 it is an outage — clients carrying the key fail every check for 20 days, Sparkle's
 default `SUSignedFeedFailureExpirationInterval`, before falling back to unsigned
-operation for key rotation. Clients already in the field (1.2.0, 1.4.0) carry neither
+operation for key rotation. Clients in the field that ever saw a feed (1.2.0, 1.4.0 — anything older predates SUFeedURL entirely) carry neither
 key and are unaffected either way; the keys only bind the binaries that ship them.
 No Apple code-signing requirement is added by this: prevalidation falls back to Apple
 code signing only when EdDSA fails, and the post-extraction check Sparkle then runs is

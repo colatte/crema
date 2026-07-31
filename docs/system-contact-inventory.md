@@ -3,7 +3,7 @@
 > Every place Crema touches a resource that can die underneath it, enumerated in
 > five classes: live physical-world resources, parity that holds only by
 > coincidence, restoration scopes, timeouts, and the blast radius of each
-> protection. About 105 items. The audit that produced it labelled this section a
+> protection. About 90 enumerated items — the section headers below carry the source audit's own claimed counts (summing to ~105), which overcount their own tables; the headers are kept as provenance, the tables are the truth. The audit that produced it labelled this section a
 > **checklist for future review** — that is still what it is, and it is published
 > because it is the map you want in hand before changing anything on the fragile
 > border.

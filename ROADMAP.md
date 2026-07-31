@@ -40,8 +40,8 @@ but it will not *read* it: a `get` was sent for five brightness spellings and
 refused every time, with six metadata spellings answering in the same run to prove
 the request itself was well formed. Stepping a key is read → step → write → verify,
 so without a `before` there is nothing to step from. A relative command would need
-no `before` at all, so ten relative shapes were tried against a working absolute
-`set` as the control; the control answered and none of the ten did. Until one of
+no `before` at all, so nine relative shapes were tried against a working absolute
+`set` as the control; the control answered and none of the nine did. Until one of
 those comes back positive against a newer BetterDisplay, an external display is
 write-only from Crema's side and the key stays handed over (docs/DECISIONS.md:
 external-brightness-is-write-only; the probes are kept in `scripts/probes/`).

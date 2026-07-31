@@ -135,8 +135,9 @@ The script signs with that certificate (including the **nested Sparkle**, see
 **regenerates the appcast**. Out comes a `Crema.dmg` signed with a stable
 identity, a `Crema-1.1.1.dmg` (the enclosure) and a fresh `docs/appcast.xml`.
 
-> **Self-signed NEVER carries the hardened runtime** (release-guard round, the
-> fix for the 1.1.9 crash): the runtime turns on dyld's _library validation_,
+> **Self-signed NEVER carries the hardened runtime** (release-guard round; a
+> throwaway local build paid to find this crash): the runtime turns on dyld's
+> _library validation_,
 > which demands a **real and matching Team ID** between the process and every
 > non-platform library — a self-signed certificate **has no Team**, so the app
 > **crashes at launch** loading `Sparkle.framework` ("mapping process and mapped
@@ -229,9 +230,10 @@ The script then: builds Release (stamping the version) → signs inside out
 (nested Sparkle → the adapter's two vendored Mach-Os → the app) with **hardened
 runtime + `Crema.entitlements` + timestamp** and your Developer ID → packages
 `Crema.dmg` → **notarizes** the dmg (`notarytool submit --wait`) → **staples** it
-→ regenerates the appcast **over the already-stapled dmg** (the EdDSA signature
-has to cover the final bytes). Out comes a notarized `Crema.dmg` that opens
-**without** the Gatekeeper prompt.
+→ runs the **launch smoke** (installs from the dmg into a temp dir and launches,
+as in every mode) → regenerates the appcast **over the already-stapled dmg** (the
+EdDSA signature has to cover the final bytes). Out comes a notarized `Crema.dmg`
+that opens **without** the Gatekeeper prompt.
 
 A quick check of what came out:
 
@@ -272,8 +274,9 @@ Context for the ritual in §5, and for diagnosing problems.
    `CFBundleVersion` as an earlier release and blind Sparkle to the update; the
    script therefore **aborts** in that case (widen the multipliers in
    `release.sh` if it is ever needed). The script also checks that the built app
-   reports that `CFBundleVersion` (an **advisory** — the script calls it that
-   itself; you read it in the output, §5.1) **and** re-reads `sparkle:version`
+   reports that `CFBundleVersion` (an **advisory** — a code comment in the
+   script calls it that; the output on a mismatch prints
+   `Warning: built app reports build X, expected Y`, §5.1) **and** re-reads `sparkle:version`
    from the generated feed — that one does **abort** on a mismatch.
    > **Corollary:** re-releasing the **same** marketing version reuses the
    > **same** build number → Sparkle sees **no** update. A re-release requires a
@@ -291,15 +294,20 @@ Context for the ritual in §5, and for diagnosing problems.
    updated, re-derive them from the built framework.
 
 3. **Appcast.** After packaging (and notarizing, on Developer ID), the script
-   copies `Crema.dmg` into a staging folder containing **only it**, named
-   `Crema-<version>.dmg`, and runs `generate_appcast` with
+   copies `Crema.dmg` into a staging folder as `Crema-<version>.dmg` (the release
+   notes are staged beside it as `Crema-<version>.html` — that file becomes the
+   Sparkle update panel's description) and runs `generate_appcast` with
    `--download-url-prefix https://github.com/colatte/crema/releases/download/v<version>/`,
-   writing `docs/appcast.xml`. Because the staging folder holds a **single** dmg,
-   the feed comes out with a **single** item — the appcast is **regenerated
-   whole** on every release. History lives in GitHub **Releases**, not in the
-   feed; this is what keeps a single URL prefix from serving URLs that are
-   actually per-tag. The script does **not** commit — publishing the appcast is a
-   `git push` to `main` (Pages serves `/docs`), which it prints as the next step.
+   writing a **fresh staged** `appcast.xml` which is then copied byte-for-byte
+   over `docs/appcast.xml`. Never straight into `docs/`: `generate_appcast` reads
+   its own output file as a **merge base**, so aiming it at the published feed
+   would accumulate every past release's item after the first. Because the
+   staging folder holds a **single** dmg and the base is always fresh, the feed
+   comes out with a **single** item — the appcast is **regenerated whole** on
+   every release. History lives in GitHub **Releases**, not in the feed; this is
+   what keeps a single URL prefix from serving URLs that are actually per-tag.
+   The script does **not** commit — publishing the appcast is a `git push` to
+   `main` (Pages serves `/docs`), which it prints as the next step.
    > Since the app ships `SURequireSignedFeed`, `generate_appcast` also **signs
    > the feed itself**, with the same keychain EdDSA key, appending a
    > `<!-- sparkle-signatures: … -->` block. No extra release step — but it does
@@ -320,6 +328,15 @@ create-dmg uses the Finder to position the icons. Example with `1.1.1`.
 export CREMA_SIGN_IDENTITY="Crema Code Signing"   # self-signed (§2); or Developer ID (§3)
 ./scripts/release.sh 1.1.1
 ```
+
+The run opens with the **release gate**, before anything is built: the tree must
+be a git repo and **clean**, the tag `v1.1.1` must not already exist, and then
+`swiftlint --strict`, `swiftformat --lint`, the catalog self-test plus checker,
+and the **full test suite** run in that order — the suite's verdict is the
+`Test run with N tests … passed` line, and the gate takes several minutes. Any
+gate tripping aborts with its own message before a single artifact exists.
+`CREMA_SKIP_TESTS=1` skips only the suite (the script's own escape hatch for
+scratch builds like §6's — never for a real release).
 
 At the end the script prints a summary and the next steps. Check the output for:
 
@@ -350,7 +367,11 @@ grep -c '<!-- sparkle-signatures:' docs/appcast.xml   # must print 1
 
 An unsigned feed here means the app no longer carries `SURequireSignedFeed`, or
 the signing key is not reachable — either way, every already-updated client would
-reject this appcast.
+reject this appcast. (The script already hard-fails on exactly this before its
+summary prints, so a green run cannot leave the count at 0 — the manual grep is
+belt and suspenders. And run it against a **freshly generated** feed only: the
+committed `docs/appcast.xml` predates the signing keys until the first release
+generated after them, so grepping the checked-in file proves nothing.)
 
 What is left in the repo root (both gitignored by `*.dmg`):
 
@@ -369,12 +390,13 @@ You are the first to validate exactly the flow the user will go through.
 2. **First open → the warning is expected.** The app is signed (self-signed) but
    Gatekeeper does not recognize the certificate, so it warns about an
    "unidentified developer".
-3. **"Open anyway"**, as the README instructs — the Terminal path (the most
-   reliable one):
+3. **"Open anyway"**, as the README instructs — System Settings → Privacy &
+   Security → **"Open Anyway"** is the built-in way the README leads with; the
+   Terminal path is its fallback for when the button does not appear (some
+   managed or non-admin accounts):
    ```bash
    xattr -dr com.apple.quarantine /Applications/Crema.app
    ```
-   (Or via System Settings → Privacy & Security → "Open Anyway".)
 4. **Confirm it works.** Icon in the **menu bar** (not the Dock); play something
    → **now playing** near the notch; a **volume** key → the **volume HUD** (works
    without Accessibility — Core Audio); grant **Accessibility** and confirm the
@@ -450,11 +472,13 @@ git push
 #    republish; ceiling ~5 min — a wrong URL must fail loudly, never wait forever)
 for i in $(seq 1 20); do
   curl -fsS https://colatte.github.io/crema/appcast.xml | grep -q 'Crema-1.1.1\.dmg' && break
-  [ "$i" = 20 ] && { echo "appcast did NOT go up in ~5 min — check the URL/Pages"; exit 1; }
+  [ "$i" = 20 ] && { echo "appcast did NOT go up in ~5 min — check the URL/Pages"; break; }
   echo "appcast has not republished yet (Pages rebuild); waiting…"; sleep 15
 done
 curl -fsS https://colatte.github.io/crema/appcast.xml | grep -E 'sparkle:version|Crema-1.1.1\.dmg'
-#    expect to see  sparkle:version="10101"  and the enclosure url .../v1.1.1/Crema-1.1.1.dmg
+#    expect to see  <sparkle:version>10101</sparkle:version>  (Sparkle 2.x emits it
+#    as a child element, not an enclosure attribute) and the enclosure url
+#    .../v1.1.1/Crema-1.1.1.dmg
 
 # 2. Does the enclosure actually download (following GitHub's redirect)?
 curl -fsSIL https://github.com/colatte/crema/releases/download/v1.1.1/Crema-1.1.1.dmg | head -1
@@ -487,21 +511,25 @@ the published appcast.
 
 ### 6.1 Build the "old" build and install it
 
-Two options:
+Build a **scratch** old version from the current code, so the old app already
+has Sparkle (the "Check for Updates…" menu item). Pick a pair whose tags do not
+exist (`git tag -l` — the gate ABORTS on an existing tag, so re-building a real
+released version like `1.1.0` is refused), and skip the test suite: these builds
+are scaffolding, and the gate's full-suite run is minutes you pay twice.
 
-- **(recommended) Build an earlier patch** from the current code, so that the old
-  app **already has Sparkle** (the "Check for Updates…" menu item):
-  ```bash
-  export CREMA_SIGN_IDENTITY="Crema Code Signing"
-  ./scripts/release.sh 1.1.0            # CFBundleVersion 10100
-  open Crema.dmg                        # install into /Applications, "open anyway"
-  ```
-- The real installed `v1.1.0` **does not work**: that build did not embed Sparkle
-  (the integration landed after the tag) and has no `SUFeedURL` — the only path
-  for the E2E is building the "old" one with `release.sh`, as above. The
-  corollary that matters for re-addressing: **no already-shipped binary carries
-  `SUFeedURL`** — v1.2.0 is the first build in history to bake a feed URL in, so
-  there is no orphaned installed base pointing at the old Pages site.
+```bash
+export CREMA_SIGN_IDENTITY="Crema Code Signing"
+CREMA_SKIP_TESTS=1 ./scripts/release.sh 1.90.0   # CFBundleVersion 19000
+open Crema.dmg                        # install into /Applications, "open anyway"
+git checkout -- docs/appcast.xml      # the run rewrote the tracked feed; the
+                                      # next run's clean-tree gate refuses a
+                                      # dirty tree, so restore it NOW
+```
+
+(An old **really shipped** binary would not work as the "old" side: **no binary
+before v1.2.0 carries `SUFeedURL`** — v1.2.0 is the first build in history to
+bake a feed URL in, so there is no orphaned installed base pointing at the old
+Pages site, and nothing older can check any feed.)
 
 What matters: the **old** one has a **lower** `CFBundleVersion` than the new one,
 and **both** are signed with the **same** `CREMA_SIGN_IDENTITY` (Sparkle refuses
@@ -511,10 +539,13 @@ to swap for a different signer).
 
 ```bash
 export CREMA_SIGN_IDENTITY="Crema Code Signing"
-./scripts/release.sh 1.1.1            # CFBundleVersion 10101 > 10100
+CREMA_SKIP_TESTS=1 ./scripts/release.sh 1.90.1   # CFBundleVersion 19001 > 19000
+git checkout -- docs/appcast.xml      # same restore as §6.1 — this feed was
+                                      # generated for a version that will never
+                                      # ship; committing it would be an outage
 ```
 
-That left `Crema-1.1.1.dmg` in the repo root. Now a **test** appcast pointing at
+That left `Crema-1.90.1.dmg` in the repo root. Now a **test** appcast pointing at
 the local server (do NOT use the production `docs/appcast.xml` here):
 
 ```bash
@@ -523,7 +554,7 @@ SPARKLE_BIN="$(find ~/Library/Developer/Xcode/DerivedData \
 
 E2E=/tmp/crema-e2e
 rm -rf "$E2E"; mkdir -p "$E2E"
-cp Crema-1.1.1.dmg "$E2E/"
+cp Crema-1.90.1.dmg "$E2E/"
 "$SPARKLE_BIN/generate_appcast" \
   --download-url-prefix "http://localhost:8000/" \
   -o "$E2E/appcast.xml" \
@@ -550,19 +581,19 @@ defaults write com.colatte.crema SUFeedURL "http://localhost:8000/appcast.xml"
 open /Applications/Crema.app        # the OLD build
 ```
 
-In Crema's menu bar → **Check for Updates…**. Sparkle should: find `1.1.1`, offer
-the update, download `Crema-1.1.1.dmg` from `localhost:8000`, **validate the
+In Crema's menu bar → **Check for Updates…**. Sparkle should: find `1.90.1`, offer
+the update, download `Crema-1.90.1.dmg` from `localhost:8000`, **validate the
 EdDSA**, install and **relaunch** the app.
 
 ### 6.5 Success criteria (observable)
 
-- Sparkle's prompt appears announcing **1.1.1** (not "you're up to date").
+- Sparkle's prompt appears announcing **1.90.1** (not "you're up to date").
 - The download completes and there is **no** "update is improperly signed" /
   invalid-signature alert.
 - After installing and relaunching, the app reports the new version:
   ```bash
-  defaults read /Applications/Crema.app/Contents/Info CFBundleShortVersionString   # 1.1.1
-  defaults read /Applications/Crema.app/Contents/Info CFBundleVersion              # 10101
+  defaults read /Applications/Crema.app/Contents/Info CFBundleShortVersionString   # 1.90.1
+  defaults read /Applications/Crema.app/Contents/Info CFBundleVersion              # 19001
   ```
 - **The staging feed carries its signature block** and the update still installs
   from it:
@@ -584,7 +615,7 @@ EdDSA**, install and **relaunch** the app.
 ### 6.6 Failure points and diagnosis
 
 - **"You're up to date" (nothing offered).** The old build's `CFBundleVersion` is
-  **not** lower than the new one's. Confirm `10100 < 10101` (or `1 < 10101`).
+  **not** lower than the new one's. Confirm `19000 < 19001` (or `1 < 19001`).
   Review the stamp (§4.1).
 - **"The update is improperly signed" / invalid EdDSA.** The key that signed the
   enclosure does not match the app's `SUPublicEDKey`. Confirm
@@ -598,7 +629,7 @@ EdDSA**, install and **relaunch** the app.
   ad-hoc signature makes the installer fail.
 - **404 on download.** The staging `--download-url-prefix` does not match what
   `python3 -m http.server` serves. The dmg's name in the folder has to be exactly
-  the enclosure's (`Crema-1.1.1.dmg`), and the prefix `http://localhost:8000/`.
+  the enclosure's (`Crema-1.90.1.dmg`), and the prefix `http://localhost:8000/`.
 - **`.dmg` enclosure refused by Sparkle.** See the caveat below (Plan B: zip).
 
 ### 6.7 Cleanup (always, when finished)
@@ -607,11 +638,16 @@ EdDSA**, install and **relaunch** the app.
 defaults delete com.colatte.crema SUFeedURL      # back to the Info.plist SUFeedURL
 # Ctrl-C in the python3 -m http.server terminal
 rm -rf /tmp/crema-e2e
+git checkout -- docs/appcast.xml                 # no-op if §6.1/§6.2 already restored it;
+                                                 # a scratch feed must never reach a commit
 ```
 
 > Do not forget the `defaults delete`: while the override exists, the installed
 > app keeps checking `localhost` (which will be down) instead of the production
-> feed.
+> feed. And `/Applications/Crema.app` is now the **scratch** build the E2E
+> installed — replace it with the real latest release (or leave it; the next
+> real update will, since its version is far above any shipped one, never be
+> offered — reinstalling by hand is the honest reset).
 
 ---
 
@@ -626,7 +662,7 @@ only:
 
 ```bash
 # build the zip of the signed app (Plan B — NOT in release.sh)
-ditto -c -k --keepParent /path/to/Crema.app Crema-1.1.1.zip
+ditto -c -k --keepParent /path/to/Crema.app Crema-<version>.zip
 # then: generate_appcast over a staging folder containing the .zip, same --download-url-prefix
 ```
 
@@ -694,7 +730,7 @@ git push                                                                        
 # Pages takes ~1–3 min to republish; ceiling ~5 min (a wrong URL fails loudly, §5.5)
 for i in $(seq 1 20); do
   curl -fsS https://colatte.github.io/crema/appcast.xml | grep -q sparkle:version && break
-  [ "$i" = 20 ] && { echo "appcast did NOT go up in ~5 min — check the URL/Pages"; exit 1; }
+  [ "$i" = 20 ] && { echo "appcast did NOT go up in ~5 min — check the URL/Pages"; break; }
   sleep 15
 done
 ```
