@@ -874,6 +874,23 @@ what this check asks about. Probed from the other side — a child process askin
 question gets its parent's grant back. If that attribution ever changed, the row
 would report a state unrelated to the fallback's real luck.
 
+**The badge column belongs to the permission the app requires.** The tone rule
+above — a fact in the neutral style, never the warning orange — was being applied
+to the words while a symbol beside them said something else, and said it wrong in
+both directions: a REFUSAL of the optional permission drew a harsher mark (a
+cross) than the REQUIRED permission's warning triangle, and the resting state of
+a Mac with no music app open drew a question mark against a machine where nothing
+is wrong. So the optional row states its fact in words and carries no glyph at
+all, the way the other optional integration already reports "Receiving" one tab
+over. With the glyph gone, nothing ranked the two sections, so the ranking moved
+into a word — the section headers say Required and Optional — which survives a
+screenshot, greyscale, and colour blindness, none of which an orange-versus-grey
+ranking does. The one badge left in the window sits on the required permission,
+always above a button that fixes it. And where a symbol does stay, the colour
+lives on the SYMBOL and never on the word: tinting a whole Label put the line
+people open the tab to read at roughly 2.2:1 on a light grouped row, which passed
+review only because it looks fine in the dark appearance.
+
 ### menu-status-before-warnings
 The menu bar was six conditional warning blocks stacked above three actions, each
 followed by its own separator, and the only positive line in it — the one saying
