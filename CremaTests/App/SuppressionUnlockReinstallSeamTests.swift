@@ -189,4 +189,35 @@ struct SuppressionUnlockReinstallSeamTests {
         center.removeObserver(token)
         withExtendedLifetime(source) {}
     }
+
+    /// The same seam with NO center argument, so the production default is what is
+    /// under test — the sibling of `theWakeSeamListensOnTheCenterTheSystemPostsOn`,
+    /// and it exists for the failure that test measured: injecting a center pins
+    /// the join and says nothing about WHICH center is joined. Screen parameters
+    /// are posted by NSApplication on `.default`, and the plausible edit is
+    /// "harmonize this with its wake siblings", which live on NSWorkspace's own
+    /// centre. Made there, a hotplug would neither reinstall the tap — leaving the
+    /// media keys ENABLED-but-deaf, a state invisible from inside the process — nor
+    /// give the new display a panel, with the whole suite green.
+    @Test func theScreenParameterSeamListensOnTheCenterNSApplicationPostsOn() async {
+        let ops = FakeEventTapOperating()
+        let clock = TestSleepClock()
+        let source = CGEventTapMediaKeySource(
+            permission: MockAccessibilityPermission(granted: true),
+            clock: clock,
+            tapOps: ops
+        )
+        await clock.waitForSleep()
+        #expect(ops.installCount == 1)
+
+        let refreshed = Flag()
+        let token = AppCore.wireScreenParameterReinstall(reinstalling: source) { refreshed.value = true }
+        defer { NotificationCenter.default.removeObserver(token) }
+
+        NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: nil)
+
+        #expect(await eventually { ops.installCount == 2 })
+        #expect(await eventually { refreshed.value })
+        withExtendedLifetime(source) {}
+    }
 }

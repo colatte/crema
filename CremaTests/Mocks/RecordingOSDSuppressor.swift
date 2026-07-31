@@ -26,4 +26,13 @@ final class RecordingOSDSuppressor: NativeOSDSuppressor {
     }
 
     func retrySuspendedNow() { retryCount += 1 }
+
+    /// Drives the escalation signal the menu mirror hangs off. The real suppressor
+    /// only reaches this state through a failing channel and a probe that keeps
+    /// failing; a double just needs to be able to say it, in BOTH directions —
+    /// filling the set and emptying it are separate wiring failures.
+    func setLongSuspended(_ domains: Set<OSDSuppressionDomain>) {
+        longSuspendedDomains = domains
+        onSuspensionStateChange?()
+    }
 }

@@ -223,10 +223,7 @@ final class AppCore {
         windowManager.updateScreens(screens)
 
         let windowManager = self.windowManager
-        screenObservation = Self.wireScreenParameterReinstall(
-            center: .default,
-            reinstalling: tapSource
-        ) {
+        screenObservation = Self.wireScreenParameterReinstall(reinstalling: tapSource) {
             windowManager.updateScreens(ScreenTranslation.describeAll())
         }
 
@@ -274,10 +271,7 @@ final class AppCore {
             // Surface long-suspended domains in the menu. The suppressor fires
             // this on escalation and on recovery; the monitor is pull-read by
             // CremaApp, so a transient suspension that heals never shows.
-            let monitor = osdSuppressionMonitor
-            suppressor.onSuspensionStateChange = { [weak suppressor] in
-                monitor.update(suppressor?.longSuspendedDomains ?? [])
-            }
+            Self.wireSuspensionMirror(from: suppressor, to: osdSuppressionMonitor)
             // Suppression is only ever engaged through the lock controller, so a
             // locked/off-console context suspends it (native OSD restored) and
             // the lock path never touches the persisted opt-in.
@@ -321,21 +315,11 @@ final class AppCore {
         if let screenSampler = graph.screenBrightnessSampler,
            let keyboardSampler = graph.keyboardBrightnessSampler,
            let volumeSampler = graph.volumeSampler {
-            osdSuppressor?.onApplied = { key in
-                switch key {
-                case .screenBrightnessUp, .screenBrightnessDown:
-                    screenSampler.sample()
-                case .keyboardBrightnessUp, .keyboardBrightnessDown:
-                    keyboardSampler.sample()
-                case .volumeUp, .volumeDown:
-                    // A consumed key at the scale boundary is a no-op write that
-                    // fires no Core Audio echo; the sampler re-reads and emits
-                    // there so the HUD still shows (mid-scale the echo covers it,
-                    // and the sampler no-ops off the boundary — no double-fire).
-                    volumeSampler.sample()
-                case .mute:
-                    break   // a real toggle: Core Audio always echoes it
-                }
+            if let suppressor = osdSuppressor {
+                Self.wireApplyPoke(
+                    from: suppressor,
+                    screen: screenSampler, keyboard: keyboardSampler, volume: volumeSampler
+                )
             }
             // The mirror of the poke above, for the press this app does NOT take:
             // the key goes to the system, which applies it and draws its own
@@ -354,7 +338,15 @@ final class AppCore {
                 Self.wireHandbackStandDown(from: suppressor, screen: screenSampler, keyboard: keyboardSampler)
             }
         }
-        Self.wireBrightnessEcho(to: coordinator, graph: graph)
+        if let screenSampler = graph.screenBrightnessSampler,
+           let keyboardSampler = graph.keyboardBrightnessSampler {
+            Self.wireBrightnessEcho(
+                to: coordinator,
+                screen: screenSampler,
+                keyboard: keyboardSampler,
+                neighbour: graph.betterDisplaySource
+            )
+        }
         // The preference persists across launches: suppression is a real
         // opt-in feature, and its reversibility never depends on state — the
         // tap dies with the process. start() engages to the correct initial
@@ -458,8 +450,16 @@ final class AppCore {
     /// no wake or lock edge would reach. Standalone and static so a seam test pins
     /// the reinstall trigger (post the notification → reinstall) without booting
     /// the whole graph. Returns the observer token AppCore retains.
+    /// The center carries the production default, so a test that omits it is
+    /// posting where the app really listens. Its wake siblings take no center at
+    /// all for the same reason, and the measured lesson behind that is recorded on
+    /// them: a seam that lets the caller name the center pins the JOIN and says
+    /// nothing about WHICH center is joined — screen parameters are posted by
+    /// NSApplication on `.default`, and pointing this at NSWorkspace's center would
+    /// leave a hotplug with neither a tap reinstall nor a panel for the new screen,
+    /// with the suite green.
     static func wireScreenParameterReinstall(
-        center: NotificationCenter,
+        center: NotificationCenter = .default,
         reinstalling source: CGEventTapMediaKeySource,
         onScreenChange: @escaping @MainActor () -> Void
     ) -> NSObjectProtocol {
@@ -617,7 +617,7 @@ final class AppCore {
         // media-key-chain-contention). `standDown` covers the one press where both
         // could speak — suppression off, so Crema's tap observes the key and arms
         // its poll while the neighbour is the one that applies and reports.
-        let betterDisplaySource = BetterDisplayOSDSource(onReport: { screenSource.standDown() })
+        let betterDisplaySource = Self.makeNeighbourSource(standingDown: screenSource)
         // The way back: BetterDisplay applies what a drag on ITS bar asks for, on
         // the same scale it reported. Wired unconditionally like the source — with
         // the app absent the command simply goes unanswered and the drag reports a
@@ -1002,16 +1002,97 @@ extension AppCore {
 
 @MainActor
 extension AppCore {
+    /// The neighbour's source, joined to the local screen source it must silence.
+    ///
+    /// A factory rather than a bare call because `onReport` carries a default of
+    /// `{}` (BetterDisplayOSDSource.swift:64), so dropping the argument — or
+    /// handing it the KEYBOARD source, the other one in scope — compiles in
+    /// silence. What breaks is a whole press: with suppression off, Crema's tap
+    /// merely OBSERVES the brightness key and arms its own poll while the
+    /// neighbour is the one applying and reporting, so two bars draw for one press
+    /// and the wrong value — our built-in-panel reading, on a different scale —
+    /// lands last (docs/DECISIONS.md: betterdisplay-osd-source).
+    ///
+    /// The default belongs on the initialiser, not here: a source built with no
+    /// local sibling to silence is a real construction, and the tests do it.
+    static func makeNeighbourSource(
+        target: ((Int) -> SystemHUD.Target?)? = nil,
+        standingDown local: any ManuallySampledSource
+    ) -> BetterDisplayOSDSource {
+        BetterDisplayOSDSource(target: target, onReport: { local.standDown() })
+    }
+
+    /// The post-apply poke: with the key consumed, the app's own write lands AFTER
+    /// the router's key-time sample, so the HUD would sit on the pre-apply value
+    /// without this second sample. The mirror of `wireHandbackStandDown`, which
+    /// covers the press this app does NOT take.
+    ///
+    /// Extracted for the reason its mirror was: deleting one arm of that switch
+    /// left the whole suite green, measured. Volume is the arm that matters most
+    /// and reads most deletable — its comment argues Core Audio echoes anyway,
+    /// which is true everywhere EXCEPT the scale boundary, where a consumed key
+    /// writes nothing and fires no echo. Folding it into `.mute` would make the
+    /// app swallow a key and draw nothing, which "Nunca fazer" forbids outright.
+    static func wireApplyPoke(
+        from suppressor: any NativeOSDSuppressor,
+        screen screenSampler: any ManuallySampledSource,
+        keyboard keyboardSampler: any ManuallySampledSource,
+        volume volumeSampler: any ManuallySampledSource
+    ) {
+        suppressor.onApplied = { key in
+            switch key {
+            case .screenBrightnessUp, .screenBrightnessDown:
+                screenSampler.sample()
+            case .keyboardBrightnessUp, .keyboardBrightnessDown:
+                keyboardSampler.sample()
+            case .volumeUp, .volumeDown:
+                // A consumed key at the scale boundary is a no-op write that fires
+                // no Core Audio echo; the sampler re-reads and emits there so the
+                // HUD still shows (mid-scale the echo covers it, and the sampler
+                // no-ops off the boundary — no double-fire).
+                volumeSampler.sample()
+            case .mute:
+                break   // a real toggle: Core Audio always echoes it
+            }
+        }
+    }
+
+    /// The only path from the suppressor's escalation to the user: the menu's
+    /// warning and its "try to reactivate now" button both hang off what the
+    /// monitor holds. Fires on escalation AND on recovery, and both directions are
+    /// load-bearing — a mirror that never fills leaves the user's keys quietly back
+    /// with the system while the menu reports health, and one that never clears
+    /// leaves a permanent false warning.
+    ///
+    /// The suppressor is captured weakly and RE-READ at fire time, never sampled
+    /// into the closure: capturing `longSuspendedDomains` by value here would
+    /// freeze the empty set at wiring time and the menu would never speak again —
+    /// the exact edit a "simplify this weak capture" pass would make.
+    static func wireSuspensionMirror(
+        from suppressor: any NativeOSDSuppressor,
+        to monitor: OSDSuppressionMonitor
+    ) {
+        suppressor.onSuspensionStateChange = { [weak suppressor] in
+            monitor.update(suppressor?.longSuspendedDomains ?? [])
+        }
+    }
+
     /// Slider-driven brightness writes do not echo the way Core Audio volume does,
     /// so the Coordinator hands back what it applied and the loop is closed here —
     /// indicator follows, revert timer refreshes — exactly like the media-key
     /// router and the suppressor's post-apply poke. Absent on demo sources, where
     /// the demo HUD is already event-driven end to end.
-    private static func wireBrightnessEcho(to coordinator: Coordinator, graph: SystemGraph) {
-        guard let screenSampler = graph.screenBrightnessSampler,
-              let keyboardSampler = graph.keyboardBrightnessSampler
-        else { return }
-        let betterDisplay = graph.betterDisplaySource
+    ///
+    /// Takes the parts rather than the graph, and is not private, for one reason:
+    /// `SystemGraph` is private, so a parameter of that type put this switch out of
+    /// reach of `@testable` — the only wire* static that could not be called from a
+    /// test. The nil-guard stays at the call site, where the optionality lives.
+    static func wireBrightnessEcho(
+        to coordinator: Coordinator,
+        screen screenSampler: any ManuallySampledSource,
+        keyboard keyboardSampler: any ManuallySampledSource,
+        neighbour betterDisplay: BetterDisplayOSDSource?
+    ) {
         coordinator.onBrightnessApplied = { applied in
             switch (applied.kind, applied.authority) {
             // A neighbour's bar is on its own scale, and it does not report back
