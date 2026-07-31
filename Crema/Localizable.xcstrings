@@ -86,6 +86,23 @@
         }
       }
     },
+    "about.signature.accessibility": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "made with coffee by Colatte"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "feito com café por Colatte"
+          }
+        }
+      }
+    },
     "about.version": {
       "extractionState": "manual",
       "localizations": {
@@ -1095,13 +1112,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Indicator style"
+            "value": "Card indicator"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Estilo do indicador"
+            "value": "Indicador do Cartão"
           }
         }
       }
@@ -1119,23 +1136,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Preenchido"
-          }
-        }
-      }
-    },
-    "settings.hud.indicator.footer": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Applies to the Card style."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aplica-se ao estilo Cartão."
           }
         }
       }
@@ -1299,13 +1299,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Show on media events"
+            "value": "Show the player automatically"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mostrar em eventos de mídia"
+            "value": "Mostrar o player automaticamente"
           }
         }
       }

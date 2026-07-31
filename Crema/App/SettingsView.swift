@@ -112,11 +112,12 @@ private struct GeneralSettingsView: View {
 
     var body: some View {
         Form {
-            // Style and Indicator sit in adjacent Sections so each footer stays
-            // welded to the control it explains (one shared footer read as
-            // ambiguous — which sentence scoped which picker). Adjacency still
-            // carries the proximity-scope: the indicator is a facet of the Card
-            // style, right below it.
+            // Style and Indicator are ONE topic — what the surface looks like — and
+            // they share a Section again. They were split because a shared footer
+            // read as ambiguous, which sentence scoping which picker; the label
+            // below now scopes itself ("Card indicator"), so the second footer had
+            // nothing left to say and the ambiguity has nowhere to come from. One
+            // sentence, about the declaration, governing both rows.
             Section {
                 // Pictures rather than a menu of three nouns: the names describe a
                 // shape in a place, which a person has not seen yet at the moment
@@ -137,6 +138,30 @@ private struct GeneralSettingsView: View {
                     rendersCard = core.rendersAnywhere(.card)
                     rendersNotch = core.rendersAnywhere(.notch)
                 }
+
+                // Named for what it governs, which is also why it can be greyed out
+                // without a sentence excusing it: a disabled row called "Card
+                // indicator" explains itself to someone who just picked Notch, where
+                // a disabled row called "Indicator style" only looked broken.
+                //
+                // Kept visible but disabled when nothing on screen renders Card (the
+                // macOS dependent-setting pattern). The gate is the RENDERED style,
+                // not the declared one: on hardware without a notch the default
+                // declaration is Notch while every display draws Card, so gating on
+                // the declaration greyed out the only control over that HUD's
+                // appearance in the state the app ships in
+                // (docs/DECISIONS.md: rendered-style-gates-settings).
+                Picker(selection: $indicatorStyle) {
+                    ForEach(HUDIndicatorStyle.allCases, id: \.rawValue) { style in
+                        Text(style.displayName).tag(style.rawValue)
+                    }
+                } label: {
+                    Text(String(localized: "settings.hud.indicator", defaultValue: "Card indicator"))
+                }
+                .disabled(!rendersCard)
+                .onChange(of: indicatorStyle) { _, new in
+                    core.setHUDIndicatorStyle(HUDIndicatorStyle(rawValue: new) ?? .slider)
+                }
             } footer: {
                 // Say what is happening HERE, not only what could happen. With Notch
                 // selected on hardware that has none, the generic sentence left the
@@ -155,33 +180,6 @@ private struct GeneralSettingsView: View {
                         defaultValue: "Applies to every display. On a display without a notch, the Notch style falls back to Card."
                     ))
                     .settingsFootnote()
-            }
-
-            // Kept visible but disabled when nothing on screen renders Card (the
-            // macOS dependent-setting pattern). The gate is the RENDERED style, not
-            // the declared one: on hardware without a notch the default declaration
-            // is Notch while every display draws Card, so gating on the declaration
-            // grayed out the only control over that HUD's appearance in the state
-            // the app ships in (docs/DECISIONS.md: rendered-style-gates-settings).
-            // The footer still names the scope.
-            Section {
-                Picker(selection: $indicatorStyle) {
-                    ForEach(HUDIndicatorStyle.allCases, id: \.rawValue) { style in
-                        Text(style.displayName).tag(style.rawValue)
-                    }
-                } label: {
-                    Text(String(localized: "settings.hud.indicator", defaultValue: "Indicator style"))
-                }
-                .disabled(!rendersCard)
-                .onChange(of: indicatorStyle) { _, new in
-                    core.setHUDIndicatorStyle(HUDIndicatorStyle(rawValue: new) ?? .slider)
-                }
-            } footer: {
-                Text(String(
-                    localized: "settings.hud.indicator.footer",
-                    defaultValue: "Applies to the Card style."
-                ))
-                .settingsFootnote()
             }
 
             Section {
@@ -225,7 +223,7 @@ private struct NowPlayingSettingsView: View {
         Form {
             Section {
                 Toggle(isOn: $reactive) {
-                    Text(String(localized: "settings.nowPlaying.reactive", defaultValue: "Show on media events"))
+                    Text(String(localized: "settings.nowPlaying.reactive", defaultValue: "Show the player automatically"))
                 }
                 .onChange(of: reactive) { _, new in core.setReactiveNowPlaying(new) }
             } footer: {
@@ -295,9 +293,19 @@ private struct AboutSettingsView: View {
             Text(String(localized: "about.version", defaultValue: "Version \(shortVersion) (\(buildNumber))"))
                 .font(.callout)
                 .foregroundStyle(.secondary)
+                // The one string in the window someone else asks for. Selectable so
+                // it can be pasted into a report instead of transcribed.
+                .textSelection(.enabled)
             Text(String(localized: "about.signature", defaultValue: "made with ☕ by Colatte"))
                 .font(.callout)
                 .foregroundStyle(.secondary)
+                // The app's one deliberate glyph is branding, not state — but
+                // VoiceOver reads it as "hot beverage" mid-sentence, so it is spoken
+                // as the word it stands for.
+                .accessibilityLabel(String(
+                    localized: "about.signature.accessibility",
+                    defaultValue: "made with coffee by Colatte"
+                ))
                 .padding(.top, 8)
             HStack(spacing: 18) {
                 link(String(localized: "about.link.github", defaultValue: "GitHub"), Self.githubURL)
@@ -352,8 +360,12 @@ private struct AboutSettingsView: View {
 // this.
 extension View {
     /// The muted, small footnote style shared by every Settings section footer.
+    ///
+    /// A step below `.callout`, which sat one point under the 13 pt control labels —
+    /// one point of separation for text three to four times longer, so every pane
+    /// read as paragraphs with a control in them rather than controls with notes.
     func settingsFootnote() -> some View {
-        font(.callout)
+        font(.subheadline)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
     }
