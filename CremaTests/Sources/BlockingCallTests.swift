@@ -40,7 +40,7 @@ struct BlockingCallTests {
         defer { for _ in 0..<cores { gate.signal() } }
 
         #expect(
-            allStarted.wait(timeout: .now() + 5) == .success,
+            allStarted.wait(timeout: .now() + boundedWaitSeconds) == .success,
             "\(cores) blocking calls should all be able to start at once; the cooperative pool is only \(cores) threads wide"
         )
 
@@ -51,7 +51,7 @@ struct BlockingCallTests {
         let probe = DispatchSemaphore(value: 0)
         Task.detached { probe.signal() }
         #expect(
-            probe.wait(timeout: .now() + 5) == .success,
+            probe.wait(timeout: .now() + boundedWaitSeconds) == .success,
             "a task should still be scheduled while \(cores) blocking calls are parked"
         )
     }

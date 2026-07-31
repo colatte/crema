@@ -14,8 +14,8 @@ final class ControllableHangOSDChannel: OSDChannel, @unchecked Sendable {
     private var _value: Double? = 0.5
     private var _applied: [Double] = []
     private var _writeStartCount = 0
+    private var _writeStartsSeen = 0
     private var parked: [CheckedContinuation<Void, Never>] = []
-    private var startWaiters: [CheckedContinuation<Void, Never>] = []
 
     var available = true
     var value: Double? {
@@ -36,14 +36,10 @@ final class ControllableHangOSDChannel: OSDChannel, @unchecked Sendable {
         // Park with no cancellation handler and no timeout: a blocked C call
         // cannot see Task cancellation, so this never returns until release().
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            let waiters: [CheckedContinuation<Void, Never>]
             lock.lock()
             _writeStartCount += 1
             parked.append(continuation)
-            waiters = startWaiters
-            startWaiters = []
             lock.unlock()
-            waiters.forEach { $0.resume() }
         }
         // Reached only after release(): the actuator finally returns, landing
         // the write late — the honest residual the deadline accepts.
@@ -63,16 +59,33 @@ final class ControllableHangOSDChannel: OSDChannel, @unchecked Sendable {
         continuation?.resume()
     }
 
-    /// Suspends until a write is parked in apply().
+    /// Suspends until a write ARRIVES in apply() that no earlier wait has
+    /// consumed, bounded by the wall clock. The continuation version was the
+    /// last unbounded test-side await in the suite: on a starved runner the
+    /// write it waited for had not been scheduled yet, and the whole run sat
+    /// mute to the job timeout — the class round1-a1-a3 already deadlocked on.
+    /// Consuming a COUNT rather than polling the parked list keeps the second
+    /// call honest, because an abandoned first write stays parked forever by
+    /// design and a wait that saw it would return before its own write began.
+    /// On timeout it just returns; the assertion that follows fails loud.
     func waitForWriteStart() async {
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            lock.lock()
-            if parked.isEmpty {
-                startWaiters.append(continuation)
-                lock.unlock()
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: boundedWaitDeadline)
+        var spins = 0
+        while clock.now < deadline {
+            let arrived = lock.withLock {
+                if _writeStartCount > _writeStartsSeen {
+                    _writeStartsSeen = _writeStartCount
+                    return true
+                }
+                return false
+            }
+            if arrived { return }
+            spins += 1
+            if spins < boundedWaitHotSpins {
+                await Task.yield()
             } else {
-                lock.unlock()
-                continuation.resume()
+                try? await Task.sleep(for: .milliseconds(1))
             }
         }
     }

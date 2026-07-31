@@ -19,13 +19,15 @@ import Foundation
 /// the same suites at 1.4 s on one run and 6 s per TEST on the next, after the
 /// suite grew by ~250 tests). The CI workflow widens it via
 /// TEST_RUNNER_CREMA_TEST_WAIT_SECONDS; locally the 5 s discipline stands.
-let boundedWaitDeadline: Duration = {
+let boundedWaitSeconds: Double = {
     if let raw = ProcessInfo.processInfo.environment["CREMA_TEST_WAIT_SECONDS"],
        let seconds = Double(raw), seconds > 0 {
-        return .seconds(seconds)
+        return seconds
     }
-    return .seconds(5)
+    return 5
 }()
+
+let boundedWaitDeadline: Duration = .seconds(boundedWaitSeconds)
 
 let boundedWaitHotSpins = 2000
 
