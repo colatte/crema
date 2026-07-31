@@ -84,7 +84,6 @@ private struct StyleThumbnail: View {
         ZStack(alignment: .topLeading) {
             Thumbnail.desktop
             menuBar
-            dock
             slit
             surface
         }
@@ -102,35 +101,6 @@ private struct StyleThumbnail: View {
         Rectangle()
             .fill(.white.opacity(0.85))
             .frame(width: Thumbnail.width, height: max(shapes.menuBar * Thumbnail.height, Thumbnail.minMenuBar))
-    }
-
-    /// The other landmark, and the one that was missing. Scenery, like the strip
-    /// above it, and the reason it earns its place is that a screen with only a top
-    /// edge gives a surface nothing to be measured against: with a bottom too, the
-    /// eye reads the notch as welded high, the card as floating just under the bar,
-    /// and the classic as sitting low — which is the whole question this picker
-    /// asks, and the one the pictures were failing to answer.
-    ///
-    /// Deliberately vague — a rounded strip with six dots — because it is a
-    /// landmark, not a subject. Anything more detailed competes with the black
-    /// shape it exists to locate.
-    private var dock: some View {
-        let height = Thumbnail.height * 0.075
-        let icon = height * 0.62
-        return RoundedRectangle(cornerRadius: height * 0.3, style: .continuous)
-            .fill(.white.opacity(0.32))
-            .frame(width: Thumbnail.width * 0.46, height: height)
-            .overlay {
-                HStack(spacing: icon * 0.22) {
-                    ForEach(0..<6, id: \.self) { _ in
-                        RoundedRectangle(cornerRadius: icon * 0.26, style: .continuous)
-                            .fill(.white.opacity(0.62))
-                            .frame(width: icon, height: icon)
-                    }
-                }
-            }
-            .frame(width: Thumbnail.width, height: Thumbnail.height, alignment: .bottom)
-            .padding(.bottom, Thumbnail.height * 0.022)
     }
 
     @ViewBuilder private var slit: some View {

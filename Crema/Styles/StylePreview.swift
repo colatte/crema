@@ -18,10 +18,9 @@ struct StylePreviewShapes: Equatable {
     /// of the bar, which is what a notch IS to the eye. It does NOT show the card
     /// floating underneath, because the card does not float underneath: on a
     /// slitless panel `safeTop` is 0, so the rule anchors the card 8 pt down
-    /// (CardStyle) and it covers two thirds of a 24 pt bar. What tells the two
-    /// top-edge skins apart is the SHADOW, plus the Dock the picker draws opposite
-    /// this strip: a screen with only a top edge gives a surface nothing to be
-    /// measured against.
+    /// (CardStyle) and it covers two thirds of a 24 pt bar — which is why all three
+    /// are illustrated on the notched panel now. What tells the two top-edge skins
+    /// apart is the clearance (`surfaceClearsTheMenuBar`) and the shadow.
     let menuBar: CGFloat
 
     /// Whether the surface takes no material and is drawn opaque. The one fact
