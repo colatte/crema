@@ -16,7 +16,7 @@
 #
 # Dependencies: full Xcode; create-dmg optional (hdiutil fallback); the Developer ID
 # path needs the cert + notary profile; the appcast needs the Sparkle EdDSA private key in
-# the Keychain (generate_appcast reads it on its own). See docs/internal/RELEASE-GUIDE.md.
+# the Keychain (generate_appcast reads it on its own). See docs/RELEASE-GUIDE.md.
 
 set -euo pipefail
 
@@ -457,8 +457,19 @@ SMOKE_MOUNT="$SMOKE_DIR/mnt"
 mkdir -p "$SMOKE_MOUNT"
 hdiutil attach "$DMG_OUT" -nobrowse -readonly -noautoopen -mountpoint "$SMOKE_MOUNT" >/dev/null \
     || fail "launch smoke: could not mount $DMG_NAME"
+# The window between attach and detach is the one stretch of this script that
+# leaves state on the release machine: anything that exits in here (a cp the
+# errexit kills, a later guard's fail) would strand a mounted image under a temp
+# dir the failure path deliberately keeps, and the next run's attach then meets
+# the stale mountpoint. The trap unmounts on any exit; the normal path unmounts
+# and disarms it, so a later failure does not retry a point already gone.
+smoke_detach() {
+    hdiutil detach "$SMOKE_MOUNT" >/dev/null 2>&1 || hdiutil detach "$SMOKE_MOUNT" -force >/dev/null 2>&1 || true
+}
+trap smoke_detach EXIT
 cp -R "$SMOKE_MOUNT/$APP_NAME" "$SMOKE_DIR/$APP_NAME"
-hdiutil detach "$SMOKE_MOUNT" >/dev/null 2>&1 || hdiutil detach "$SMOKE_MOUNT" -force >/dev/null 2>&1 || true
+smoke_detach
+trap - EXIT
 # The raw executable, not `open`: same dyld load path, and the pid is ours to
 # watch and kill without LaunchServices in the middle.
 # Side effects on the release machine for these ~5 s: a second live Crema
@@ -507,7 +518,12 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
             -path "*/SourcePackages/artifacts/sparkle/Sparkle/bin/$tool" -type f 2>/dev/null)
         [[ -n "$newest" ]] && printf '%s' "$newest"
     }
-    GENERATE_APPCAST="$(find_sparkle_tool generate_appcast)"
+    # The assignment is split from its test on purpose, here and at the three
+    # sites below: `set -e` aborts AT an assignment whose command substitution
+    # fails, so the tool-not-found case would kill the script mute — throwing away
+    # the message that says what to do about it. `|| true` keeps the empty value
+    # and hands the verdict to the check.
+    GENERATE_APPCAST="$(find_sparkle_tool generate_appcast)" || true
     [[ -n "$GENERATE_APPCAST" ]] || fail "generate_appcast not found under any DerivedData/…/SourcePackages/artifacts/sparkle/Sparkle/bin.
     Build Crema once (Xcode or 'xcodebuild build') so SPM resolves Sparkle, then re-run."
 
@@ -577,8 +593,19 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     # unsigned update at runtime. generate_appcast omits the signature — printing only a "SUPublicEDKey
     # … does not match" warning while still exiting 0 — when the signing key's public half differs from
     # the one baked into the app. Fail before publishing so that mismatch can't ship as a green build.
-    ENCLOSURE_SIG="$(grep -o 'sparkle:edSignature="[^"]*"' "$STAGED_APPCAST" | head -1 | sed 's/^[^"]*"//; s/"$//')"
+    # `|| true` because a no-match must reach the fail below (pipefail makes the
+    # empty case an error), not abort the run without ever naming the cause.
+    ENCLOSURE_SIG="$(grep -o 'sparkle:edSignature="[^"]*"' "$STAGED_APPCAST" | head -1 | sed 's/^[^"]*"//; s/"$//')" || true
     [[ -n "$ENCLOSURE_SIG" ]] || fail "generate_appcast produced a feed with no sparkle:edSignature — the Sparkle signing key does not match the app's SUPublicEDKey (see the warning above). The feed would be rejected at runtime; fix the signing key (generate_keys) and re-run."
+
+    # The app ships SURequireSignedFeed, so a feed without a signature block is a feed
+    # every updated client rejects — and Sparkle only falls back to unsigned operation
+    # after 20 days of failures (SUSignedFeedFailureExpirationInterval). generate_appcast
+    # signs the feed on its own when the staged app carries the key; this catches the day
+    # it stops (key dropped from Info.plist, or a signing key that no longer matches).
+    # The cp to $APPCAST below is byte-for-byte, so a signature that passes here survives.
+    grep -q '<!-- sparkle-signatures:' "$STAGED_APPCAST" \
+        || fail "generate_appcast produced an UNSIGNED feed, but the app ships SURequireSignedFeed — every client carrying that key would reject this appcast. Check that Crema/Info.plist still has SURequireSignedFeed and that the Sparkle EdDSA private key is in the Keychain."
 
     # The notes were staged, but only the feed proves they were picked up: the file
     # has to be named for the archive or generate_appcast ignores it in silence, and
@@ -596,7 +623,10 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     # older layouts as an enclosure attribute (sparkle:version="10101"); match either and take the
     # numeric build. (sparkle:shortVersion, sparkle:shortVersionString hold the marketing string, not
     # this number.) CFBundleVersion is purely numeric, so the digit extraction is unambiguous.
-    FEED_VERSION="$(grep -oE '<sparkle:version>[^<]*</sparkle:version>|sparkle:version="[^"]*"' "$STAGED_APPCAST" | head -1 | grep -oE '[0-9]+' | head -1)"
+    # Split like the two above: a feed with no version at all is exactly what the
+    # fail below exists to report, and pipefail would otherwise end the run there
+    # in silence.
+    FEED_VERSION="$(grep -oE '<sparkle:version>[^<]*</sparkle:version>|sparkle:version="[^"]*"' "$STAGED_APPCAST" | head -1 | grep -oE '[0-9]+' | head -1)" || true
     [[ "$FEED_VERSION" == "$BUILD_NUMBER" ]] \
         || fail "generate_appcast wrote sparkle:version=\"$FEED_VERSION\", but this build is $BUILD_NUMBER — the CFBundleVersion stamp did not reach the feed. A feed carrying the wrong (or stale 1) version means no client sees the update; fix the stamp and re-run."
 
@@ -607,8 +637,11 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     # Optional sanity check: verify the enclosure against the signature the appcast just embedded.
     # This proves the signature is internally consistent with the local signing key; it does NOT
     # prove that key's public half matches the SUPublicEDKey baked into the app — the definitive
-    # match is the runtime EdDSA check exercised by the E2E in RELEASE-GUIDE.md.
-    SIGN_UPDATE="$(find_sparkle_tool sign_update)"
+    # match is the runtime EdDSA check exercised by the E2E in docs/RELEASE-GUIDE.md.
+    # Optional has to mean optional: without the split, a missing sign_update is a
+    # hard abort right here — the strictest possible reading of a check the comment
+    # above calls a sanity check, and the summary at the end never prints.
+    SIGN_UPDATE="$(find_sparkle_tool sign_update)" || true
     if [[ -n "$SIGN_UPDATE" ]]; then
         if "$SIGN_UPDATE" --verify "$DMG_VERSIONED" "$ENCLOSURE_SIG" >/dev/null 2>&1; then
             info "EdDSA enclosure signature verifies against the local signing key."
@@ -630,7 +663,7 @@ info "Version: $VERSION (build $BUILD_NUMBER)   ·   Tag to publish: $TAG"
 
 if [[ -n "$SIGN_IDENTITY" ]]; then
     info "Enclosure: $DMG_VERSIONED   ·   Appcast: docs/appcast.xml (regenerated, uncommitted)"
-    printf '\n%sNext%s — test it, then publish (see docs/internal/RELEASE-GUIDE.md):\n' "$BOLD" "$RESET"
+    printf '\n%sNext%s — test it, then publish (see docs/RELEASE-GUIDE.md):\n' "$BOLD" "$RESET"
     info "1. open \"$DMG_OUT\"   → drag Crema into Applications, confirm it launches."
     info "2. Create the release with BOTH dmgs (same bytes, two names):"
     info "   gh release create $TAG \"$DMG_OUT\" \"$DMG_VERSIONED\" --target main --title \"Crema $VERSION\" --notes \"…\" --latest"

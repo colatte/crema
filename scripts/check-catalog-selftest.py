@@ -58,6 +58,24 @@ CASES = [
          "en": {"stringUnit": {"state": "translated", "value": "Hi"}}}}}},
      'String(localized: "a.b", defaultValue: "Hi")'),
 
+    # The `en` unit is the side rule 2 compares against and the side rule 6 reads
+    # its specifiers from. With it gone both fall silent — correctly, since there
+    # is nothing to compare — so this report is the only thing left standing
+    # between a source-less entry and a clean run.
+    ("no en unit, the side every other rule is measured against", "NO-EN",
+     {"strings": {"a.b": {"extractionState": "manual", "localizations": {
+         "pt-BR": {"stringUnit": {"state": "translated", "value": "Oi"}}}}}},
+     'String(localized: "a.b", defaultValue: "Hi")'),
+
+    # A pt-BR unit with a value but a state of its own ("needs_review" is what
+    # Xcode writes on a machine translation) has text for rules 4 and 6 to accept,
+    # so it passes everything else and ships unreviewed Portuguese.
+    ("a pt-BR unit whose state is not translated", "PT-STATE",
+     {"strings": {"a.b": {"extractionState": "manual", "localizations": {
+         "en": {"stringUnit": {"state": "translated", "value": "Hi"}},
+         "pt-BR": {"stringUnit": {"state": "needs_review", "value": "Oi"}}}}}},
+     'String(localized: "a.b", defaultValue: "Hi")'),
+
     ("a key translated but used nowhere", "ORPHAN",
      {"strings": {"a.b": entry("Hi", "Oi"), "dead.key": entry("X", "X")}},
      'String(localized: "a.b", defaultValue: "Hi")'),
@@ -91,6 +109,14 @@ CASES = [
     ("a defaultValue written as a multiline literal", "UNPARSED",
      {"strings": {"a.b": entry("Hi", "Oi")}},
      'String(localized: "a.b", defaultValue: """\n    Hi\n    """)'),
+
+    # The same failure as above by a different door, and the expensive one: a key
+    # the patterns cannot read is a key rule 1 never looks for. Measured on the
+    # version before this report existed — an empty catalog and a live call site
+    # returned "clean: every rule holds", exit 0.
+    ("a localized call whose key is not a literal", "CALL-SHAPE",
+     {"strings": {}},
+     'let k = "a.b"\nString(localized: k, defaultValue: "Hi")'),
 ]
 
 

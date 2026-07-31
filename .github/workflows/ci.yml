@@ -20,14 +20,17 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Select Xcode
         # Swift Testing (@Test / #expect) requires Xcode 16+. The app's
         # deployment target (macOS 14) is unaffected by the toolchain version.
+        # Pinned like the linters below: latest-stable floats with the runner
+        # image, so a toolchain bump lands as a red build on an unrelated PR with
+        # nothing in the diff to explain it. Raise this deliberately.
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: "26.3"
 
       - name: Toolchain versions
         run: |
@@ -55,7 +58,7 @@ jobs:
       - name: Install SwiftFormat
         # Pinned for reproducibility, like SwiftLint.
         env:
-          SWIFTFORMAT_VERSION: "0.62.0"
+          SWIFTFORMAT_VERSION: "0.62.1"
         run: |
           curl -sSL "https://github.com/nicklockwood/SwiftFormat/releases/download/${SWIFTFORMAT_VERSION}/swiftformat.zip" -o /tmp/swiftformat.zip
           unzip -oq /tmp/swiftformat.zip -d /tmp/swiftformat
@@ -87,8 +90,8 @@ jobs:
         # sources), so it needs no real audio device, display, or Accessibility
         # permission and runs cleanly on a headless runner.
         # TEST_RUNNER_ vars cross into the app-hosted test process with the
-        # prefix stripped. The wait budget is widened here because the runner's
-        # 3-4 vCPUs fair-share one MainActor across the whole parallel suite:
+        # prefix stripped. The wait budget is widened here because the runner
+        # (3 vCPU / 7 GB) fair-shares one MainActor across every test in flight:
         # measured, the same healthy waits that take microseconds locally took
         # ~6 s per test here once the suite grew past ~900 tests, and the local
         # 5 s budget turned starvation into false reds. The bound still exists —
@@ -96,12 +99,12 @@ jobs:
         # timeout with no name attached.
         env:
           TEST_RUNNER_CREMA_TEST_WAIT_SECONDS: "25"
-        # Tests run SERIALLY here, parallel everywhere else. The runner's 3-4
-        # vCPUs cannot carry 115 parallel suites: the GCD global pool has a
-        # per-QoS thread ceiling, the hang-modelling tests park real threads on
-        # it by design, and every raced border read wants a slot — measured, a
-        # press's pre-read queued behind the parked orphans for 75 s and the
-        # write it feeds never started (writeStartCount == 0). Each parallel
+        # Tests run SERIALLY here, parallel everywhere else. The runner
+        # (3 vCPU / 7 GB) cannot carry 115 parallel suites: the GCD global pool
+        # has a per-QoS thread ceiling, the hang-modelling tests park real
+        # threads on it by design, and every raced border read wants a slot —
+        # measured, a press's pre-read queued behind the parked orphans for 75 s
+        # and the write it feeds never started (writeStartCount == 0). Each parallel
         # run tripped a different timing landmine; serial removes the class.
         # The verdict is the "Test run with N tests" line, never xcodebuild's
         # exit: the app-hosted test host boots the real AppCore, whose pollers
@@ -112,8 +115,12 @@ jobs:
         # log for the verdict, takes it, and only then kills the hung host.
         # A parked test never prints the verdict, so a genuine wedge still
         # fails — at the ceiling below, with the log's tail attached, instead
-        # of at the job timeout with nothing.
+        # of at the job timeout with nothing. NO VERDICT IS ALWAYS A FAILURE,
+        # including when xcodebuild itself exits 0: a run that never reported is
+        # a run whose result nobody has, and deferring to that exit code is the
+        # exact inversion of the rule above (measured: the step went green).
         run: |
+          VERDICT_RE="Test run with [0-9]+ tests in [0-9]+ suites (passed|failed)"
           xcodebuild test \
             -project Crema.xcodeproj \
             -scheme Crema \
@@ -130,7 +137,7 @@ jobs:
           }
           trap finish EXIT
           for _ in $(seq 1 1200); do
-            verdict=$(grep -m1 -E "Test run with [0-9]+ tests in [0-9]+ suites (passed|failed)" xcodebuild-test.log || true)
+            verdict=$(grep -m1 -E "$VERDICT_RE" xcodebuild-test.log || true)
             if [ -n "$verdict" ]; then
               # Give xcodebuild a moment to exit on its own before ruling it hung.
               for _ in $(seq 1 20); do kill -0 "$XCB" 2>/dev/null || break; sleep 1; done
@@ -145,10 +152,17 @@ jobs:
               esac
             fi
             if ! kill -0 "$XCB" 2>/dev/null; then
-              wait "$XCB"; status=$?
+              # The step's shell is `bash -e`, so `wait "$XCB"; status=$?` aborts AT
+              # the wait whenever xcodebuild failed — killing the diagnosis below,
+              # which is the whole reason this branch exists.
+              status=0
+              wait "$XCB" || status=$?
+              # The exit can land between the grep above and this check; if the
+              # verdict is in the log after all, the loop takes it on the next pass.
+              if grep -qE "$VERDICT_RE" xcodebuild-test.log; then continue; fi
               echo "xcodebuild exited ($status) before any verdict line."
               tail -80 xcodebuild-test.log
-              exit "$status"
+              exit 1
             fi
             sleep 1
           done
@@ -181,9 +195,28 @@ jobs:
         # in the code directory. Cheap and deterministic, so it belongs here —
         # release.sh still launches the real artifact from the dmg, which is the
         # only way to catch load failures this check cannot name in advance.
+        # It fails CLOSED at every step: a missing .app, a codesign that refuses,
+        # or output with no flags= field all mean the pairing was never inspected,
+        # and a guard that reports "no flags found" as "no bad flags" is a green
+        # light nobody earned (measured: both an absent path and an unsigned
+        # bundle left FLAGS empty and passed the step).
         run: |
           APP=build-release/Build/Products/Release/Crema.app
-          FLAGS=$(codesign -d --verbose=2 "$APP" 2>&1 | grep -oE 'flags=0x[0-9a-f]+\([^)]*\)' || true)
+          if [ ! -d "$APP" ]; then
+            echo "::error::Release build produced no $APP, so the ad-hoc/hardened-runtime pairing was never inspected. Fix the build path before reading this step as clean."
+            exit 1
+          fi
+          if ! SIGINFO=$(codesign -d --verbose=2 "$APP" 2>&1); then
+            printf '%s\n' "$SIGINFO"
+            echo "::error::codesign could not read the signature of $APP (an unsigned bundle answers exactly this way). A pairing that cannot be read cannot be cleared."
+            exit 1
+          fi
+          FLAGS=$(grep -oE 'flags=0x[0-9a-f]+\([^)]*\)' <<<"$SIGINFO" || true)
+          if [ -z "$FLAGS" ]; then
+            printf '%s\n' "$SIGINFO"
+            echo "::error::codesign named no flags= field for $APP — its output shape changed and this guard is now matching nothing. Fix the parse; do not trust the green."
+            exit 1
+          fi
           echo "signature $FLAGS"
           if grep -q runtime <<<"$FLAGS" && grep -qE 'adhoc' <<<"$FLAGS"; then
             echo "::error file=Crema.xcodeproj/project.pbxproj::ENABLE_HARDENED_RUNTIME with an ad-hoc/self-signed identity: dyld will abort this app at launch on Sparkle.framework. Set ENABLE_HARDENED_RUNTIME = NO; release.sh adds --options runtime only on the Developer ID path, where a real Team ID satisfies library validation."

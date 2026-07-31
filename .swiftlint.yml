@@ -34,6 +34,11 @@ disabled_rules:
 # is formatting and also not enabled.
 opt_in_rules:
   - array_init
+  # async_without_await was tried and removed (2026-07-31): 31 hits, every one a
+  # conformance whose protocol forces `async` (isAvailable(), actuator commands,
+  # their mocks) — zero real findings, and the rule cannot tell a forced signature
+  # from a chosen one. The bug class it aimed at stays covered by review
+  # (docs/DECISIONS.md: async-signature-is-not-a-suspension-point).
   - closure_end_indentation
   - closure_spacing
   - collection_alignment

@@ -1,0 +1,18 @@
+version: 2
+
+# Every version this repository depends on is pinned on purpose — the actions
+# below, and by hand the SwiftLint/SwiftFormat/Xcode versions in ci.yml — because
+# a floating toolchain turns an unrelated PR red with nothing in its diff to
+# explain it. The cost of pinning is that a pin nobody watches rots quietly: v4
+# of an action keeps working right up to the day its Node runtime is dropped from
+# the runner image, and then CI fails for a reason that has nothing to do with the
+# change under test. This is the watcher — it opens a PR when a pin falls behind,
+# so raising one stays a decision instead of an incident.
+#
+# Scope: `github-actions` covers `uses:` references only. The linter and Xcode
+# pins are plain env values, invisible to Dependabot, and stay a manual review.
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

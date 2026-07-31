@@ -27,6 +27,10 @@ sentinel. It never tries to infer what a hole's TYPE would be — a regex cannot
 a Swift expression, and an early version that guessed reported nine problems that
 were all its own fault.
 
+Two reports sit outside those six, and both say the same thing: this call site was
+NOT checked. A rule that quietly applies to nothing reads exactly like a rule that
+passes, so a shape these patterns cannot read is named instead of skipped.
+
 Run: python3 scripts/check-catalog.py [repo-root]
 Exit: 0 clean, 1 problems found, 2 could not run.
 """
@@ -70,6 +74,13 @@ MULTILINE_DEFAULT = re.compile(
     + r',' + SKIP_BETWEEN + r'defaultValue:' + SKIP_BETWEEN + r'"""'
 )
 TEXT_WITH_COMMENT = re.compile(r'Text\(\s*"([a-z][a-zA-Z0-9.]*\.[a-zA-Z0-9.]+)"\s*,\s*comment:')
+# Every localized call, whatever its arguments look like. The two patterns above
+# read one shape each; a call matching neither — a key held in a variable, an
+# argument order these regexes miss — used to vanish, taking its key out of rule 1
+# with it: a string missing from the catalog would then ship the English default
+# and this checker would call the run clean. Matched by start offset against the
+# patterns above, so anything unread gets named at its call site.
+LOCALIZED_CALL = re.compile(r"String\(" + SKIP_BETWEEN + r"localized:")
 
 SKIP_DIRS = {".git", "build", "DerivedData", ".build"}
 
@@ -118,23 +129,37 @@ def main():
 
     used = {}
     unparsed = []
+    unread = []
     for path in sorted(root.rglob("*.swift")):
         if any(part in SKIP_DIRS for part in path.parts):
             continue
         text = path.read_text(errors="replace")
+        site = path.relative_to(root)
         for key, default in LOCALIZED.findall(text):
-            used.setdefault(key, []).append((path.relative_to(root), default))
+            used.setdefault(key, []).append((site, default))
         for key in TEXT_WITH_COMMENT.findall(text):
             # No defaultValue to compare: None means "key exists, value unverifiable".
-            used.setdefault(key, []).append((path.relative_to(root), None))
+            used.setdefault(key, []).append((site, None))
         for key in MULTILINE_DEFAULT.findall(text):
-            unparsed.append((key, path.relative_to(root)))
+            unparsed.append((key, site))
+        read = {m.start() for m in LOCALIZED.finditer(text)} | {m.start() for m in MULTILINE_DEFAULT.finditer(text)}
+        for call in LOCALIZED_CALL.finditer(text):
+            if call.start() not in read:
+                excerpt = " ".join(text[call.start():call.start() + 60].split())
+                unread.append((site, text.count("\n", 0, call.start()) + 1, excerpt))
 
     problems = []
     for key, site in sorted(unparsed):
         problems.append(
             f"UNPARSED   {key}  ({site}) uses a multiline string literal for defaultValue; "
             f"this checker only reads a single-line one, so its value cannot be compared"
+        )
+
+    for site, line, excerpt in sorted(unread):
+        problems.append(
+            f"CALL-SHAPE {site}:{line}  {excerpt}…  is a localized call this checker "
+            f"cannot read, so NO rule was applied to it — give it a literal key and "
+            f"defaultValue, or teach the patterns this shape"
         )
 
     for key, sites in sorted(used.items()):
