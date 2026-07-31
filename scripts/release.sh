@@ -154,6 +154,23 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     else
         info "SwiftFormat not installed — skipped here (CI still gates it)."
     fi
+    # The third CI gate, and the one this script had been missing. A release is the
+    # only path out of this repository that does not pass through CI, so a catalog
+    # broken here — an orphan key, a defaultValue that drifted from the code, a %@
+    # lost in the pt-BR translation — became a signed, published DMG. Unlike the two
+    # above it needs no external toolchain (python3 ships with the Command Line
+    # Tools), so the skip branch is close to unreachable. Selftest first, exactly as
+    # CI orders it: a checker that stopped checking prints the same "clean" a working
+    # one does.
+    if command -v python3 >/dev/null 2>&1; then
+        python3 "$REPO_ROOT/scripts/check-catalog-selftest.py" >/dev/null \
+            || fail "check-catalog selftest failed — the catalog checker is not checking. Run 'python3 scripts/check-catalog-selftest.py'."
+        python3 "$REPO_ROOT/scripts/check-catalog.py" "$REPO_ROOT" >/dev/null \
+            || fail "String catalog check failed. Run 'python3 scripts/check-catalog.py .' to see it."
+        info "String catalog: clean"
+    else
+        info "python3 not found — catalog check skipped here (CI still gates it)."
+    fi
 
     if [[ "${CREMA_SKIP_TESTS:-0}" == "1" ]]; then
         info "CREMA_SKIP_TESTS=1 — TEST SUITE SKIPPED. This dmg is not gated by tests."
@@ -512,13 +529,18 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     # the notes are staged beside the dmg under the matching name.
     #
     # Source, in order: an explicit file (CREMA_RELEASE_NOTES, else
-    # docs/release-notes/<version>.md), otherwise the commit subjects since the
-    # previous tag. The fallback is not a placeholder: this repo writes subjects as
-    # sentences, so it reads as prose rather than as a changelog dump — and it can
-    # never be forgotten, which is the property a hand-written file lacks. An .html
-    # source is copied verbatim; anything else is treated as one bullet per line.
+    # docs/internal/release-notes-<version>.md), otherwise the commit subjects since
+    # the previous tag. The file lives under docs/internal/ because docs/ is the
+    # published Pages root — a notes file dropped there ships as a public page nobody
+    # linked, and the default used to point at docs/release-notes/, a directory that
+    # has never existed in this repository's history, so following the comment
+    # produced a file the script then ignored in silence. The fallback is not a
+    # placeholder: this repo writes subjects as sentences, so it reads as prose
+    # rather than as a changelog dump — and it can never be forgotten, which is the
+    # property a hand-written file lacks. An .html source is copied verbatim;
+    # anything else is treated as one bullet per line.
     NOTES_HTML="$STAGING_DIR/Crema-$VERSION.html"
-    NOTES_SRC="${CREMA_RELEASE_NOTES:-$REPO_ROOT/docs/release-notes/$VERSION.md}"
+    NOTES_SRC="${CREMA_RELEASE_NOTES:-$REPO_ROOT/docs/internal/release-notes-$VERSION.md}"
     escape_html() { sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
     if [[ -f "$NOTES_SRC" && "$NOTES_SRC" == *.html ]]; then
         cp "$NOTES_SRC" "$NOTES_HTML"

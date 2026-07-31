@@ -36,10 +36,13 @@ struct AbsentCapabilityHandbackTests {
         // From here the key goes to the system, which applies it and draws its own
         // indicator. Both phases, or the system is left half a press.
         let handedBack = h.keys.press(.screenBrightnessUp)
-        await settle()
         #expect(!handedBack.down)
         #expect(!handedBack.up)
 
+        // The settle IS needed here and only here: the two lines above read a value
+        // the press already returned, while this one asserts that nothing arrives
+        // afterwards — which is the negative wait settle() is documented for.
+        await settle()
         #expect(h.screen.applied.isEmpty)
         #expect(h.suppressor.isEngaged)
         #expect(h.suppressor.suspendedDomains.isEmpty)

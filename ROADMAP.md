@@ -7,8 +7,10 @@ these matters to you, contributions are welcome; see
 
 ## External displays
 
-Crema already draws its HUDs on any display (the now-playing player defaults
-to the built-in one — see Per-display styles below) — what it *controls*
+Crema already draws its HUDs where they belong: a reading that names a display
+appears on that display and nowhere else, while volume and the keyboard backlight —
+which no screen owns — appear on all of them (the now-playing player defaults
+to the built-in one — see Per-display styles below). What it *controls*
 today is the built-in display's brightness and the system volume. Brightness and volume
 on external monitors rely on DDC, which is fiddly and fragile to drive directly.
 Rather than reinvent that, the idea is to integrate with tools that already handle
