@@ -195,7 +195,14 @@ struct BrightnessSourceTests {
         )
         let iterator = BoundedStreamIterator(source.updates)
 
+        let mark = backend.readCount
         source.sample()             // arms until now + 1.5
+        // The key's reading returns on the source's own queue AFTER this call —
+        // `value` moves only once it has landed (readCount's doc carries the
+        // rule; `waitForSleep` barriers the poll, never this read). CI paid:
+        // on a starved runner the reading slid past the next line and read the
+        // sensor step's 0.8 as the key's own, emitting the change (2026-07-31).
+        #expect(await eventuallyOffActor { backend.readCount == mark + 1 })
         now.advance(by: 2)          // window has passed
 
         await clock.waitForSleep()
@@ -218,7 +225,11 @@ struct BrightnessSourceTests {
         let iterator = BoundedStreamIterator(source.updates)
 
         backend.value = 0.8
+        let mark = backend.readCount
         source.sample()             // key HUD, window consumed
+        // Same barrier as the expiry test: the key's reading must land before
+        // `value` moves to the sensor step, or it reads 0.6 as the key's own.
+        #expect(await eventuallyOffActor { backend.readCount == mark + 1 })
         await clock.waitForSleep()
         backend.value = 0.6         // sensor, in the tail
         clock.advance()
@@ -241,7 +252,12 @@ struct BrightnessSourceTests {
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1, now: Self.frozenNow)
         let iterator = BoundedStreamIterator(source.updates)
 
+        let mark = backend.readCount
         source.sample()             // no-op key: value unchanged, arms only
+        // Same barrier as the expiry test — here the race hides by coincidence
+        // (a late key reading of 0.4 emits the value the leak assertion expects,
+        // for the wrong reason), which is worse than failing.
+        #expect(await eventuallyOffActor { backend.readCount == mark + 1 })
         await clock.waitForSleep()
         backend.value = 0.4         // sensor 1 — the one bounded leak
         clock.advance()
