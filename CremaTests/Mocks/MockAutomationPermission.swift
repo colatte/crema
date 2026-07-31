@@ -57,10 +57,15 @@ final class MockAutomationPermission: AutomationPermission, @unchecked Sendable 
 
     func request(forBundleID bundleID: String) -> AutomationPermissionState {
         lock.withLock { _prompts.append(bundleID) }
-        // Wall-clock bounded, like every wait in this suite: a test that forgets to
-        // release must fail loud downstream instead of hanging (TestSupport's
-        // boundedWaitDeadline carries the rule).
-        let deadline = Date().addingTimeInterval(5)
+        // Bounded by the SUITE's wait budget, never a private constant: the budget
+        // scales with the environment (CI widens it for a starved runner), and a
+        // hard 5 s here would free a parked prompt in the middle of a wait that is
+        // still healthy — the test would then fail for a reason that has nothing to
+        // do with the contract it asserts. A test that forgets to release still
+        // fails loud downstream instead of hanging. The condition and Date (rather
+        // than the ContinuousClock helpers) because this parks a real thread, which
+        // is what the call it doubles does.
+        let deadline = Date().addingTimeInterval(boundedWaitSeconds)
         gate.lock()
         while holdingPrompts, Date() < deadline {
             _ = gate.wait(until: deadline)

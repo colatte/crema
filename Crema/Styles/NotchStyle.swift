@@ -141,6 +141,11 @@ enum NotchMetrics {
     static let compactArtworkRadius: CGFloat = 6
     /// The HUD row's gap (glyph | slider).
     static let hudGap: CGFloat = 10
+    /// Fixed column for that leading glyph, for the same reason as the card's:
+    /// the volume family steps through four symbols of different widths as the
+    /// level moves (HUDPresentation), and without a column of its own each swap
+    /// would shift the bar beside it.
+    static let hudIconColumnWidth: CGFloat = 22
     /// Expanded: the cutout stretching down (Dynamic Island). The width never
     /// changes (see the frame rule); the drop is derived from the reference
     /// layout's stacked sections (header, thin scrubber, transport) — like the

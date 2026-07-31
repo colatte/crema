@@ -3,8 +3,9 @@ import Testing
 
 /// The write-health axis (docs/DECISIONS.md: write-health-axis) exists to catch
 /// one thing the read-only probe cannot: a channel that reads fine and writes
-/// dead. Its whole value depends on counting *only* that. Two ways it drifted:
-/// a failed READ billed to the write, and a no-op crediting it.
+/// dead. Its whole value depends on counting *only* that, and on tripping at
+/// exactly the count it claims. Two ways it drifted: a failed READ billed to the
+/// write, and a no-op crediting it.
 @MainActor
 struct OSDWriteHealthAxisTests {
     private static let threshold = MediaKeyInterceptionOSDSuppressor.writeHealthEscalationThreshold
@@ -18,6 +19,33 @@ struct OSDWriteHealthAxisTests {
         await h.clock.waitForSleep()
         h.clock.advance()
         #expect(await eventually { !h.suppressor.suspendedDomains.contains(domain) })
+    }
+
+    /// The boundary the axis claims, owned by the axis's own file: episodes below
+    /// the threshold stay silent, and the threshold-th is what surfaces. Not a
+    /// hole being closed — a mutant that escalates one episode early already dies
+    /// in OSDSuppressionUnlockRegressionTests, but only as a side effect of its
+    /// no-churn count: escalating below the count `reengage` latches on lets the
+    /// probe's optimistic re-engage drop the warning again, so the change counter
+    /// runs past one. A boundary asserted by accident somewhere else moves the day
+    /// somebody rewrites that assertion for its own reasons.
+    @Test func oneEpisodeShortOfTheThresholdStaysSilentAndTheNextSurfaces() async {
+        let h = OSDSuppressorHarness()
+        h.screen.writeIsDead = true   // accepted by the actuator, never moves
+        h.suppressor.setEngaged(true)
+
+        for _ in 0..<(Self.threshold - 1) {
+            await failThenRecover(h, key: .screenBrightnessUp, domain: .screenBrightness)
+        }
+        await settle()
+        #expect(h.suppressor.longSuspendedDomains.isEmpty)
+        #expect(h.suspensionChanges == 0)   // the menu was never told
+
+        await failThenRecover(h, key: .screenBrightnessUp, domain: .screenBrightness)
+        #expect(await eventually { h.suppressor.longSuspendedDomains.contains(.screenBrightness) })
+        // Told once, and the probe's re-engage across the last episode did not
+        // take it back: at the threshold the warning outlives a read-only recovery.
+        #expect(h.suspensionChanges == 1)
     }
 
     /// A nil read-back is a READ failure. It used to reach the axis through

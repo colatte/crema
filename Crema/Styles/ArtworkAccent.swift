@@ -180,9 +180,8 @@ extension View {
     /// shared components (WaveformGlyph, ScrubberRow) below. Applied above
     /// the crossfading branches (one instance per skin view), so the state
     /// survives compact↔expanded and extraction truly runs once per cover —
-    /// keyed on the bytes, which position ticks never change — off the main
-    /// actor (a cover decode is not tick work, but not render-loop work
-    /// either).
+    /// keyed on the bytes, which position ticks never change — and off the
+    /// concurrency pools entirely (`blockingCall`, same as ArtworkView).
     func artworkAccent(from data: [UInt8]?) -> some View {
         modifier(ArtworkAccentModifier(data: data))
     }
@@ -196,12 +195,16 @@ private struct ArtworkAccentModifier: ViewModifier {
         content
             .environment(\.artworkAccent, accent)
             .task(id: data) { [data] in
-                let tone = await Task.detached {
+                // Extraction opens with the same blocking ImageIO thumbnail call
+                // ArtworkView makes, so it takes the same exit: off the
+                // concurrency pools rather than into a detached task, which would
+                // hold one of the pool's fixed threads (see `blockingCall`).
+                let tone = await blockingCall {
                     ArtworkAccent.extract(from: data)
-                }.value
-                // A cancelled task means the bytes changed mid-extraction —
-                // the detached work isn't cancelled with it, and a slow old
-                // cover would land its tone over the successor's.
+                }
+                // A cancelled task means the bytes changed mid-extraction — the
+                // hopped-off work isn't cancelled with it (ImageIO never checks),
+                // and a slow old cover would land its tone over the successor's.
                 guard !Task.isCancelled else { return }
                 withAnimation(.easeInOut(duration: ArtworkAccent.toneFadeDuration)) {
                     accent = tone

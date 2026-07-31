@@ -40,6 +40,9 @@ final class AutomationPermissionMonitor {
     /// has no verdict for.
     @ObservationIgnored private var answers: [String: AutomationPermissionState] = [:]
     @ObservationIgnored private var isAsking = false
+    /// Bumped when an ask begins, so a read that started before it can tell that
+    /// the world it read is no longer the current one (see `refresh()`).
+    @ObservationIgnored private var askGeneration = 0
 
     init(
         permission: any AutomationPermission = AppleEventsAutomationPermission(),
@@ -84,8 +87,17 @@ final class AutomationPermissionMonitor {
     /// dialog is up: the only answer a read can give then is the pre-decision one,
     /// and it would land after the decision and undo it — plus each pass is a
     /// blocking round trip that would queue behind a modal nobody has answered.
+    ///
+    /// The entry guard alone does not close that window, because a read is not
+    /// atomic: the pass that was already off the actor when the user clicked is
+    /// past the guard, and it resumes to `record` — merging last-writer-wins —
+    /// with an answer taken before the decision existed, undoing the grant on
+    /// screen. So the generation the read started under is checked on the way
+    /// back, and a read from before an ask is dropped: the poll re-reads within
+    /// the interval, while the ask's own answer is the one the user just gave.
     func refresh() async {
         guard !isAsking else { return }
+        let generation = askGeneration
         let permission = permission
         let targets = targets
         let read = await blockingCall {
@@ -93,6 +105,7 @@ final class AutomationPermissionMonitor {
             for target in targets { answers[target] = permission.state(forBundleID: target) }
             return answers
         }
+        guard generation == askGeneration else { return }
         record(read)
     }
 
@@ -107,6 +120,9 @@ final class AutomationPermissionMonitor {
         let askable = targets.filter { answers[$0] == .undecided }
         guard !askable.isEmpty else { return }
         isAsking = true
+        // Marked before the dialog, not after it: every read already in flight was
+        // taken of a world where nobody had decided yet.
+        askGeneration &+= 1
         // No deadline: the call returns when the user answers, and abandoning a
         // dialog someone is still reading would report a refusal they never made.
         // The residual is one parked GCD thread, bounded to one by the guard above.

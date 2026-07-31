@@ -265,8 +265,6 @@ private struct NowPlayingSettingsView: View {
     }
 }
 
-// MARK: - Permissions
-
 // MARK: - About
 
 /// A plaque, not a form: the identity, the live version, the signature line

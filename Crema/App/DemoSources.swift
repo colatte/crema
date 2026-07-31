@@ -10,8 +10,9 @@ final class DemoEngine {
     let hud = DemoHUDEngine()
 }
 
-/// Fake player: implements the same protocols the real now-playing sources
-/// will. Lock-protected; ticks position once per second while playing.
+/// Fake player: conforms to the same protocols the real now-playing sources do,
+/// so the Coordinator cannot tell it apart from the adapter or the JXA fallback.
+/// Lock-protected; ticks position once per second while playing.
 final class DemoMediaSource: NowPlayingSource, NowPlayingController, @unchecked Sendable {
     let updates: AsyncStream<NowPlaying>
 
@@ -106,8 +107,9 @@ final class DemoMediaSource: NowPlayingSource, NowPlayingController, @unchecked 
     }
 }
 
-/// Fake system levels: emits HUD events and loops actuator commands back as
-/// new events, like the real system will.
+/// Fake system levels: emits HUD events and loops actuator commands back as new
+/// events, standing in for the echo the real borders get from Core Audio and the
+/// brightness poll.
 final class DemoHUDEngine: SystemHUDSource, VolumeController, ScreenBrightnessController, KeyboardBrightnessController, @unchecked Sendable {
     let updates: AsyncStream<SystemHUD>
 

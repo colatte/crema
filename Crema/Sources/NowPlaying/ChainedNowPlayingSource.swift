@@ -39,6 +39,15 @@ final class ChainedNowPlayingSource: NowPlayingSource, StoppableSource, @uncheck
     /// Set by the probe when the preferred candidate is available again; the
     /// forwarding loop cuts over at the next quiet boundary.
     private var armedPromotion = false
+    /// Bumped on every selection, and carried by each promotion probe from the
+    /// forwarding that started it. The probe's availability answer can outlive that
+    /// forwarding — in production it is a child-process spawn under a deadline, so
+    /// the cancel at the exit reaches a task already past the point where
+    /// cancellation is observed — and an answer arming on a stale generation fires at
+    /// a source this probe never watched: at priority 0 there is nothing above it to
+    /// promote to, and a source still silent since selection is stopped outright,
+    /// killed in the same beat it was chosen.
+    private var selectionGeneration = 0
     /// Whether the active source has yielded anything since selection — a source
     /// that has stayed silent is promoted immediately (boundary c), since it
     /// would never reach the in-loop boundary check.
@@ -94,6 +103,14 @@ final class ChainedNowPlayingSource: NowPlayingSource, StoppableSource, @uncheck
         return activeChannel
     }
 
+    /// Whether a promotion is armed and waiting for a quiet boundary. Arming leaves
+    /// no other trace: the forwarding loop reads the flag once per snapshot and a
+    /// non-boundary snapshot is forwarded either way, so an observer that needs to
+    /// know the arm LANDED before handing the chain a boundary has nothing else to
+    /// watch — a boundary that arrives first is simply forwarded, and the cutover it
+    /// was meant to ride never comes.
+    var promotionIsArmed: Bool { lock.withLock { armedPromotion } }
+
     /// Forwarded to the active source — without these overrides the protocol's
     /// no-op defaults would swallow the hints before they reached the
     /// adapter's ticker re-anchor.
@@ -148,6 +165,7 @@ final class ChainedNowPlayingSource: NowPlayingSource, StoppableSource, @uncheck
                 activeChannel = selection.candidate.commandChannel
                 hasEmittedSinceSelect = false
                 armedPromotion = false
+                selectionGeneration += 1
             }
             onActiveChange?(true)
             let name = selection.candidate.label.isEmpty
@@ -185,7 +203,9 @@ final class ChainedNowPlayingSource: NowPlayingSource, StoppableSource, @uncheck
     /// promotion (not the source's own death) ended the forwarding, so the
     /// caller can log the two exits distinctly.
     private func forwardUpdates(from source: any NowPlayingSource, activeIndex: Int) async -> Bool {
-        let probe = activeIndex > 0 ? startPromotionProbe(activeIndex: activeIndex) : nil
+        let generation = lock.withLock { selectionGeneration }
+        let probe = activeIndex > 0
+            ? startPromotionProbe(activeIndex: activeIndex, generation: generation) : nil
         lock.withLock { promotionProbeTask = probe }
 
         var previous: NowPlaying?
@@ -218,15 +238,15 @@ final class ChainedNowPlayingSource: NowPlayingSource, StoppableSource, @uncheck
     }
 
     /// Probes the preferred candidate on an interval; when it recovers, arms a
-    /// promotion and returns (the forwarding loop, or a forced stop for a silent
-    /// source, does the cutover).
-    private func startPromotionProbe(activeIndex: Int) -> Task<Void, Never> {
+    /// promotion for the selection it was started under and returns (the forwarding
+    /// loop, or a forced stop for a silent source, does the cutover).
+    private func startPromotionProbe(activeIndex: Int, generation: Int) -> Task<Void, Never> {
         Task { [weak self] in
             guard let self else { return }
             while !Task.isCancelled {
                 do { try await self.clock.sleep(for: self.promotionProbeInterval) } catch { return }
                 guard await self.preferredCandidateAvailable(above: activeIndex) else { continue }
-                self.armPromotion()
+                self.armPromotion(generation: generation)
                 return
             }
         }
@@ -240,13 +260,20 @@ final class ChainedNowPlayingSource: NowPlayingSource, StoppableSource, @uncheck
         return false
     }
 
-    /// Arms a promotion. A source mid-playback keeps the flag and cuts over on
-    /// its next quiet boundary; one that has emitted nothing since selection
-    /// (boundary c) would never reach the in-loop check, so force its cutover
-    /// now by stopping it.
-    private func armPromotion() {
+    /// Arms a promotion for the selection the probe was started under. A source
+    /// mid-playback keeps the flag and cuts over on its next quiet boundary; one
+    /// that has emitted nothing since selection (boundary c) would never reach the
+    /// in-loop check, so force its cutover now by stopping it.
+    ///
+    /// An answer that outlived its own forwarding arms nothing: the generation has
+    /// moved on and whatever is active now was selected by someone else, so stopping
+    /// it would kill a source this probe never watched — one that may sit at
+    /// priority 0, with nothing above it to promote to. The cancel at the forwarding's
+    /// exit cannot carry this alone, because a blocking availability answer is
+    /// already past the suspension point where cancellation would be seen.
+    private func armPromotion(generation: Int) {
         lock.lock()
-        guard activeSource != nil else { lock.unlock(); return }
+        guard activeSource != nil, generation == selectionGeneration else { lock.unlock(); return }
         armedPromotion = true
         let silent = !hasEmittedSinceSelect
         let source = activeSource

@@ -86,6 +86,62 @@ struct WindowManagerTests {
         #expect(h.recorder.created.count == 2)
     }
 
+    /// A panel double whose close() re-enters the manager, the way the real
+    /// panel's close can: closing disarms hover, and the pending-exit report
+    /// reaches the Coordinator, whose state write runs a frame pass.
+    @MainActor
+    final class ReenteringPanel: PresentationPanel {
+        var onClose: (() -> Void)?
+        private(set) var isClosed = false
+        private(set) var appliesAfterClose = 0
+
+        // swiftlint:disable:next function_parameter_count
+        func apply(
+            frame _: CGRect,
+            hoverArmed _: Bool,
+            showsNowPlaying _: Bool,
+            showsHUD _: Bool,
+            showsControls _: Bool,
+            hudIndicatorStyle _: HUDIndicatorStyle,
+            invokeZone _: CGRect?
+        ) {
+            if isClosed { appliesAfterClose += 1 }
+        }
+
+        func close() {
+            isClosed = true
+            onClose?()
+        }
+    }
+
+    /// Retirement ORDER: a panel leaves the roster BEFORE it is closed, so a
+    /// frame pass re-entered by the close itself cannot apply to the closed
+    /// panel — all three retirement paths (disconnect, geometry/style rebuild,
+    /// refreshStyles) route through the same seam, so pinning the order once
+    /// covers them (docs/DECISIONS.md: a-panel-leaves-the-roster-before-it-closes).
+    @Test func aRetiredPanelReceivesNothingFromThePassItsCloseReenters() {
+        let base = CoordinatorHarness()
+        let store = EphemeralDefaults()
+        let preferences = Preferences(defaults: store.defaults)
+        let reentering = ReenteringPanel()
+        let manager = WindowManager(
+            coordinator: base.coordinator,
+            preferences: preferences
+        ) { screen, _, _ in
+            screen.id.rawValue == "B" ? reentering as any PresentationPanel : RecordingPanel()
+        }
+        manager.start()
+        let a = Self.screen("A")
+        let b = Self.screen("B", isInternal: false)
+        manager.updateScreens([a, b])
+        reentering.onClose = { manager.refreshPresentation() }
+
+        manager.updateScreens([a])
+
+        #expect(reentering.isClosed)
+        #expect(reentering.appliesAfterClose == 0)
+    }
+
     @Test func unchangedScreensKeepTheirPanel() {
         let h = Harness()
         let a = Self.screen("A")
@@ -516,6 +572,38 @@ struct WindowManagerTests {
 
         #expect(h.base.coordinator.mediaActive)
         #expect(h.recorder.panel(for: a.id)?.invokeZones.last == CGRect?.none)
+    }
+
+    @Test func aMutedDisplayGetsNoInvokeZoneOnTheOneSkinThatHasOne() async {
+        // The "show now playing here" term of the invoke-zone condition, and it
+        // needs a NOTCHED display to be visible at all: every other case that
+        // reaches the condition runs on a slitless panel, where the resolved card
+        // has no zone whatever the preference says — so dropping the term left
+        // the suite green. The claim: a display the user muted must not capture
+        // the click, because invoking would surface an appearance that this
+        // panel then suppresses — a click swallowed for nothing.
+        let h = Harness()
+        let n = Self.notchedScreen("N")
+        h.preferences.setShowsNowPlaying(false, on: n.id)
+        h.manager.updateScreens([n])
+
+        h.base.nowPlayingSource.emit(CoordinatorHarness.playingTrack())
+        _ = await eventually { h.base.coordinator.state != .hidden }
+        await h.base.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
+        h.base.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
+        _ = await eventually { h.base.coordinator.state == .hidden }
+
+        // Media playing and nothing on screen: the two conditions the honored
+        // case shares with this one, so only the preference is under test.
+        #expect(h.base.coordinator.mediaActive)
+        #expect(h.recorder.panel(for: n.id)?.invokeZones.last == CGRect?.none)
+
+        // Flipped on, live (the same seam a future per-display toggle takes):
+        // the slit arms and the click can surface the appearance again.
+        h.preferences.setShowsNowPlaying(true, on: n.id)
+        h.manager.refreshPresentation()
+
+        #expect(h.recorder.panel(for: n.id)?.invokeZones.last == NotchStyle().invokeZone(on: n.geometry))
     }
 
     @Test func aPausedAppearanceKeepsHoverArmedUntilItTucks() async {

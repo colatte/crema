@@ -21,21 +21,15 @@ struct CardView: View, SurfaceStyleBody {
 
     /// Gates every surface morph to a dry landing (MG5) — see
     /// `SurfaceAnimation.geometryAnimation`; the opacity fade stays regardless.
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Not private: the shared motion gates (SurfaceStyleBody) read it.
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
-    /// The layout the surface is coming FROM, for provenance-aware geometry
-    /// (see `geometryAnimation`). Ephemeral, purely visual: it never feeds the
-    /// domain. Advanced in `onChange` AFTER the render that reads it — see the
-    /// body comment for the evaluation-order subtlety.
-    @State private var previousLayoutKind: LayoutKind = .empty
-
-    /// The last VISIBLE layout — advanced only on non-empty kinds, so it survives
-    /// the whole hidden period. It is what the hidden surface freezes its geometry
-    /// to (`effectiveLayoutKind`), so a fade-out happens at the last-visible rect
-    /// rather than snapping to a compact silhouette behind the fading HUD. Kept
-    /// apart from `previousLayoutKind` (which advances to `.empty` too, and would
-    /// otherwise flip the frozen rect to compact one render into the fade).
-    @State private var lastVisibleLayoutKind: LayoutKind = .compact
+    /// Where the surface is coming from — the FROM of the current transition and
+    /// the last VISIBLE layout the hidden surface freezes to (SurfaceProvenance
+    /// carries the rule and the reasons). Ephemeral, purely visual: it never
+    /// feeds the domain. Advanced in `onChange` AFTER the render that reads it —
+    /// see the body comment for the evaluation-order subtlety.
+    @State var provenance = SurfaceProvenance()
 
     var body: some View {
         Group {
@@ -58,12 +52,9 @@ struct CardView: View, SurfaceStyleBody {
         // appearance from or disappearance to `.empty` snaps it, so a HUD/card
         // born from hidden lands at its final rect instead of gliding in from the
         // invisible compact geometry (the surface radius snaps too, and the fade
-        // lives on the opacity — both animated in `surface`). geometryAnimation
-        // reads `previousLayoutKind`, which still holds the OLD kind during the
-        // body pass that first sees the NEW layoutKind — `.animation(_:value:)`
-        // samples its animation argument at that pass, so the transition's true
-        // provenance is used; the onChange below then advances previousLayoutKind
-        // for next time (it runs after this body, so it can't disturb this read).
+        // lives on the opacity — both animated in `surface`). Here the gate
+        // scopes the frame; the onChange below advances the provenance it reads
+        // (it runs after this body, so it can't disturb this pass's read).
         .animation(geometryAnimation, value: layoutKind)
         // Width morphs when the track changes (the key derives from the state
         // payload, which ticks never rewrite) — never a bare jump; dry under
@@ -72,36 +63,8 @@ struct CardView: View, SurfaceStyleBody {
         // Toggling view-only resizes the card while it is open — animate it too.
         .animation(SurfaceAnimation.morph(reduceMotion: reduceMotion), value: showsControls)
         .onChange(of: layoutKind) { _, newValue in
-            previousLayoutKind = newValue
-            // Skip `.empty`: the frozen-geometry contract needs the last VISIBLE
-            // layout to persist across the whole hidden period.
-            if newValue != .empty { lastVisibleLayoutKind = newValue }
+            provenance.advance(to: newValue)
         }
-    }
-
-    /// Snap on an appearance/disappearance (either side `.empty`), morph between
-    /// visible layouts. Provenance comes from `previousLayoutKind` (the FROM) and
-    /// `layoutKind` (the TO); scoped to the frame and the surface radius only, so
-    /// the opacity fade is untouched.
-    private var geometryAnimation: Animation? {
-        SurfaceAnimation.geometryAnimation(
-            fromEmpty: previousLayoutKind == .empty,
-            toEmpty: layoutKind == .empty,
-            expanding: isExpanded,
-            reduceMotion: reduceMotion
-        )
-    }
-
-    /// Content-crossfade provenance (see `SurfaceAnimation.contentAnimation`):
-    /// nil on an appearance so the clamp — and the material/clip/stroke sized off
-    /// it — snaps to the destination instead of springing past the snapped outer
-    /// frame; the directional spring otherwise, so the outgoing content fades.
-    private var contentAnimation: Animation? {
-        SurfaceAnimation.contentAnimation(
-            fromEmpty: previousLayoutKind == .empty,
-            expanding: isExpanded,
-            reduceMotion: reduceMotion
-        )
     }
 
     var surface: some View {
@@ -266,7 +229,7 @@ struct CardView: View, SurfaceStyleBody {
     /// Binds the shared freeze rule to this view's provenance @State
     /// (see SurfaceLayout.effectiveLayoutKind for the contract).
     private var effectiveLayoutKind: LayoutKind {
-        Self.effectiveLayoutKind(layout: layoutKind, lastVisible: lastVisibleLayoutKind)
+        Self.effectiveLayoutKind(layout: layoutKind, lastVisible: provenance.lastVisible)
     }
 
     // MARK: - Rendering
@@ -376,7 +339,7 @@ struct CardView: View, SurfaceStyleBody {
             // Icon beside the capsule row (the Notch's layout too); Classic keeps its bezel's segmented bar.
             HStack(spacing: CardMetrics.contentGap) {
                 Image(systemName: presentation.iconSystemName)
-                    .frame(width: 22)
+                    .frame(width: CardMetrics.hudIconColumnWidth)
                     .symbolReplace(on: presentation.iconSystemName)
                 HUDLevelSlider(
                     kind: hud.kind,

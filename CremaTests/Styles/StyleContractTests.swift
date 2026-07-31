@@ -3,7 +3,8 @@ import SwiftUI
 import Testing
 @testable import Crema
 
-/// Style contract + ScreenGeometry: pure values, pure frame rule.
+/// Style contract, ScreenGeometry and the skin skeleton's provenance: pure
+/// values and a pure frame rule, no view and no environment.
 @MainActor
 struct StyleContractTests {
 
@@ -82,5 +83,35 @@ struct StyleContractTests {
         h.hudSource.emit(hud)
         #expect(await eventually { card.contentKind == .hud(hud) })
         #expect(notch.contentKind == .hud(hud))
+    }
+
+    // MARK: - Surface provenance (one advance rule for all three skins)
+
+    @Test func provenanceStartsAtTheEmptyBoundaryAndFreezesOnCompact() {
+        // Nothing shown yet reads as an appearance (previous == .empty, so the
+        // first visible layout is gated as the boundary crossing it is), and the
+        // freeze falls back to the compact silhouette.
+        let provenance = SurfaceProvenance()
+        #expect(provenance.previous == .empty)
+        #expect(provenance.lastVisible == .compact)
+    }
+
+    @Test func advancingToHiddenKeepsTheLastVisibleLayout() {
+        // The two fields answer different questions, which is why they are two:
+        // `previous` follows every kind (a disappearance must not be gated as a
+        // morph), while `lastVisible` skips `.empty` so the fade-out sits on the
+        // rect it is leaving instead of snapping to compact behind the fade.
+        var provenance = SurfaceProvenance()
+        provenance.advance(to: .hud)
+        #expect(provenance == SurfaceProvenance(previous: .hud, lastVisible: .hud))
+        provenance.advance(to: .empty)
+        #expect(provenance == SurfaceProvenance(previous: .empty, lastVisible: .hud))
+    }
+
+    @Test func advancingBetweenVisibleLayoutsMovesBoth() {
+        var provenance = SurfaceProvenance()
+        provenance.advance(to: .compact)
+        provenance.advance(to: .expanded)
+        #expect(provenance == SurfaceProvenance(previous: .expanded, lastVisible: .expanded))
     }
 }

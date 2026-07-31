@@ -1,11 +1,14 @@
 /// The post-seek authority window over the shown position: from the
 /// scrubber's release until the stream itself flows at ≈ the target (the
 /// player's echo, the adapter's re-anchored ticker, or the first post-seek
-/// poll), a stale stream position must not clobber what the user just set —
-/// the J4 stale-echo class, the scrubber's cousin of the brightness drag.
-/// Pure decision + target storage; the Coordinator owns the timeout timer
-/// that calls `end()` (the honest fallback — the override is never stuck;
-/// docs/DECISIONS.md: scrub-grace).
+/// poll), a stale stream position must not clobber what the user just set.
+/// Reconciliation alone cannot tell the two apart: a deliberate sub-tolerance
+/// seek reads exactly like the anchor jitter the same tolerance was written to
+/// absorb — presumed parity between two paths that only look alike
+/// (docs/DECISIONS.md: J4-paridade-presumida), and the scrubber's cousin of the
+/// brightness drag. Pure decision + target storage; the Coordinator owns the
+/// timeout timer that calls `end()` (the honest fallback — the override is
+/// never stuck; docs/DECISIONS.md: scrub-grace).
 struct ScrubGrace: Sendable {
     /// Sized to outlive the JXA poll (2 s) and the one-shot command
     /// latencies; on expiry the stream takes back over unconditionally. On

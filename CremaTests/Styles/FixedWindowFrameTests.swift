@@ -17,6 +17,18 @@ struct FixedWindowFrameTests {
     )
     private let plain = ScreenGeometry(frame: CGRect(x: 0, y: 0, width: 1000, height: 600))
 
+    /// The concrete rule each enum case must dispatch to. A second table on
+    /// purpose: the production switch is only worth asserting against something
+    /// written independently of it, and an exhaustive switch here means a fourth
+    /// skin cannot arrive without deciding what it answers.
+    private func rule(for style: Style) -> any PresentationStyle {
+        switch style {
+        case .notch: NotchStyle()
+        case .card: CardStyle()
+        case .classic: ClassicStyle()
+        }
+    }
+
     @Test func containsEveryStateFrame() {
         for (style, geometry): (any PresentationStyle, ScreenGeometry) in [(NotchStyle(), notched), (CardStyle(), plain), (ClassicStyle(), plain)] {
             let window = style.windowFrame(on: geometry)
@@ -44,12 +56,17 @@ struct FixedWindowFrameTests {
         #expect(window.maxY == expanded.maxY)
     }
 
-    @Test func everyStyleHasAFixedWindow() {
+    @Test func everyStyleDispatchesItsFixedWindowToItsOwnRule() {
+        // Asking whether the enum's `windowFrame` is non-nil asserted nothing:
+        // every skin's requirement returns a non-optional CGRect, so no case —
+        // present or future — could ever answer nil, and a case wired to the
+        // WRONG skin stayed green. The rect is what a mis-wired switch fails,
+        // and it is checked for all three cases (classic was never covered).
         for style in Style.allCases {
-            #expect(style.windowFrame(on: style == .notch ? notched : plain) != nil, "\(style)")
+            let geometry = style == .notch ? notched : plain
+            #expect(style.windowFrame(on: geometry) == rule(for: style).windowFrame(on: geometry), "\(style)")
+            #expect(style.windowFrame(on: geometry)?.isEmpty == false, "\(style)")
         }
-        #expect(Style.notch.windowFrame(on: notched) == NotchStyle().windowFrame(on: notched))
-        #expect(Style.card.windowFrame(on: plain) == CardStyle().windowFrame(on: plain))
     }
 
     @Test func classicWindowPinsTheBottomAnchor() {
@@ -63,13 +80,24 @@ struct FixedWindowFrameTests {
         #expect(window.contains(ClassicStyle().frame(for: .hud(SystemHUD(kind: .volume, value: 0.5)), on: plain)))
     }
 
-    @Test func fixedWindowAndStateSizesArePartitionedTogether() {
-        // A skin that sizes its own surface needs both (the view sizes inside
-        // the fixed window); a window-filling view needs neither. Half-
-        // adopting silently reintroduces the resize race.
+    @Test func stateSizesAndTheFixedWindowComeFromTheSameRule() throws {
+        // This pair used to be asserted as a nil-partition — "both present or
+        // both absent" — which no case can fail in either direction: each enum
+        // accessor wraps a rule that always returns a value, so the comparison
+        // read false == false forever. The concern behind it is real, and this is
+        // it: a skin sizes its surface inside its fixed window, so the two
+        // answers must come from the SAME skin and every state must fit — a
+        // surface larger than its window is the clip at the window edge that the
+        // fixed-window model exists to remove.
         for style in Style.allCases {
             for geometry in [plain, notched] {
-                #expect((style.stateSizes(on: geometry) == nil) == (style.windowFrame(on: geometry) == nil))
+                let window = try #require(style.windowFrame(on: geometry), "\(style)")
+                let sizes = try #require(style.stateSizes(on: geometry), "\(style)")
+                #expect(sizes == rule(for: style).stateSizes(on: geometry), "\(style)")
+                for size in [sizes.compact, sizes.expanded, sizes.hud] {
+                    #expect(size.width <= window.width, "\(style)")
+                    #expect(size.height <= window.height, "\(style)")
+                }
             }
         }
     }

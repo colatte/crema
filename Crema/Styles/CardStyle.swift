@@ -71,14 +71,20 @@ enum CardMetrics {
     /// shows, so reusing it (the old 260×64) left the volume/brightness bar
     /// oversized for glance-level info. Issue #3's reference indicators are thin
     /// bars, roughly 4.5–5.5:1 width:height; 210×42 (5:1) sits mid-range. Both
-    /// Card HUD variants lay out in it: the .slider row is a 22 pt icon beside
-    /// the capsule's 16 pt hit row (HUDLevelSlider.trackHitHeight) centered in
-    /// the 42 pt height with headroom to spare, and the full-bleed .filled bar
-    /// adapts by construction while its leading glyph stays legible at the
-    /// shorter height. Width and height are separate calibration knobs.
+    /// Card HUD variants lay out in it: the .slider row is the icon column
+    /// (hudIconColumnWidth) beside the capsule's 16 pt hit row
+    /// (HUDLevelSlider.trackHitHeight) centered in the 42 pt height with headroom
+    /// to spare, and the full-bleed .filled bar adapts by construction while its
+    /// leading glyph stays legible at the shorter height. Width and height are
+    /// separate calibration knobs.
     static let hudSystemWidth: CGFloat = 210
     static let hudSystemHeight: CGFloat = 42
     static let hudSystemSize = CGSize(width: hudSystemWidth, height: hudSystemHeight)
+    /// Fixed column for the .slider row's leading glyph: the volume family steps
+    /// through four symbols of different widths as the level moves
+    /// (HUDPresentation), and without a column of its own each swap would shift
+    /// the bar beside it — motion the level animation would then carry.
+    static let hudIconColumnWidth: CGFloat = 22
     /// Now-playing surface radius: generous, near half the compact height so the
     /// player reads as a soft block (never a capsule at its taller states).
     static let cornerRadius: CGFloat = 20

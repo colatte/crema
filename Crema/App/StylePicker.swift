@@ -94,9 +94,11 @@ private struct StyleThumbnail: View {
 
     /// The strip that makes the picture read as a SCREEN, which is what gives the
     /// surfaces a top edge to be near. Derived height with a floor, because the
-    /// true one is 1.7 pt here and at that size, at 50% white over the desktop, it
-    /// was invisible — the furniture that was supposed to turn the slit into a bite
-    /// taken out of the bar was doing no work at all.
+    /// derivation alone is invisible: the tile is the reference panel scaled by
+    /// `Thumbnail.width / 1512`, so the 32 pt safe area standing in for the bar
+    /// arrives as roughly 2.3 pt, and the furniture meant to turn the slit into a
+    /// bite taken out of the bar does no work at all. The ratio is what to re-check
+    /// when the tile is resized; the point value follows from it.
     private var menuBar: some View {
         Rectangle()
             .fill(.white.opacity(0.85))
@@ -191,7 +193,10 @@ private enum Thumbnail {
     /// Room between the picture and the selection ring.
     static let ringInset: CGFloat = 3
     /// Floor for the menu-bar strip and the slit that cuts it. Scenery, like the
-    /// strip itself: the derived height is 1.7 pt here, which reads as nothing.
+    /// strip itself: the tile scales the reference panel by `width / 1512`, so its
+    /// 32 pt safe area derives to roughly 2.3 pt here, which reads as nothing. A
+    /// point value rather than a ratio because what it defends is legibility on
+    /// screen — resize the tile and the derived height moves, this floor does not.
     static let minMenuBar: CGFloat = 3.5
     /// How far below the drawn menu bar a floating surface sits. Enough to be a gap
     /// and not a seam; the true one is a fifth of a point at this size.

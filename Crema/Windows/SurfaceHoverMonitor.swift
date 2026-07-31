@@ -7,8 +7,8 @@ import AppKit
 /// enter/exit events as the edge swept under a still cursor.
 ///
 /// Thin by design: the decision is the pure, unit-tested model; this only samples
-/// `NSEvent.mouseLocation` and forwards transitions. Real NSEvent monitors are a
-/// border — smoke-tested on hardware.
+/// the cursor (`NSEvent.mouseLocation` in production) and forwards transitions.
+/// Real NSEvent monitors are a border — smoke-tested on hardware.
 ///
 /// UNVERIFIED hypothesis (hover round, kept deliberately unimplemented): while
 /// the panel is interactive (ignoresMouseEvents == false) and the app is an
@@ -30,14 +30,27 @@ final class SurfaceHoverMonitor {
         .mouseMoved, .leftMouseUp, .rightMouseUp, .otherMouseUp,
     ]
     private var model: SurfaceHoverModel
+    private let cursorLocation: @MainActor () -> CGPoint
     private let report: (Bool) -> Void
     private var localMonitor: Any?
     private var globalMonitor: Any?
     private var isInside = false
     private var isActive = false
 
-    init(regions: SurfaceHoverRegions, report: @escaping (Bool) -> Void) {
+    /// `cursorLocation` is a parameter, not a hard-wired read, for exactly one
+    /// reason: the arm/disarm contract below is this class's own — it is not in
+    /// the region math, which is pinned elsewhere — and with the real pointer as
+    /// the only input a mutation deleting the disarm's pending exit passed the
+    /// whole suite. The default is the authoritative cursor; nothing else about
+    /// the border moves (the NSEvent monitors stay the real ones), so a fake
+    /// point only decides what the model is asked about.
+    init(
+        regions: SurfaceHoverRegions,
+        cursorLocation: @escaping @MainActor () -> CGPoint = { NSEvent.mouseLocation },
+        report: @escaping (Bool) -> Void
+    ) {
         model = SurfaceHoverModel(regions: regions)
+        self.cursorLocation = cursorLocation
         self.report = report
     }
 
@@ -47,6 +60,8 @@ final class SurfaceHoverMonitor {
     /// out from under it. Disarming reports a pending exit: the Coordinator
     /// mirrors the pointer from these reports, and a silent reset would leave
     /// that mirror stale (its guards then act on a pointer that isn't there).
+    /// Both halves are pinned by `SurfaceHoverMonitorTests` — the exit is
+    /// reported once and only when this display actually held the pointer.
     func setActive(_ active: Bool) {
         guard active != isActive else { return }
         isActive = active
@@ -158,11 +173,12 @@ final class SurfaceHoverMonitor {
         globalMonitor = nil
     }
 
-    /// `NSEvent.mouseLocation` is the authoritative cursor point in global screen
-    /// coordinates (bottom-left origin) — the same space as the regions, so no
-    /// conversion. Only transitions are forwarded, to keep the Coordinator quiet.
+    /// The cursor point arrives in global screen coordinates (bottom-left
+    /// origin) — the same space as the regions, so no conversion; production
+    /// reads `NSEvent.mouseLocation`, the authoritative one. Only transitions are
+    /// forwarded, to keep the Coordinator quiet.
     private func sample() {
-        let inside = model.isInside(NSEvent.mouseLocation, wasInside: isInside)
+        let inside = model.isInside(cursorLocation(), wasInside: isInside)
         guard inside != isInside else { return }
         isInside = inside
         report(inside)

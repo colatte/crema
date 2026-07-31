@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import Crema
 
@@ -131,5 +132,79 @@ struct AutomationPermissionMonitorTests {
         permission.releasePrompts()
         await firstClick.value
         #expect(monitor.state == .granted)
+    }
+
+    /// The other half of that stand-down, and the one the entry guard cannot cover:
+    /// a read that was ALREADY off the actor when the click landed is past the
+    /// guard, and its answer is the pre-decision one by construction. Merged
+    /// last-writer-wins on the way back, it takes the user's grant off the screen.
+    @Test func aReadAlreadyInFlightWhenTheDialogIsAnsweredCannotUndoTheGrant() async {
+        let permission = ParkedReadPermission(reads: .undecided, answersTheDialog: .granted)
+        let monitor = AutomationPermissionMonitor(permission: permission, targets: [music], clock: TestSleepClock())
+        // The first read is what makes the target askable at all: the prompt goes
+        // only to targets recorded as undecided.
+        await monitor.refresh()
+        #expect(monitor.state == .undecided)
+
+        permission.holdReads()
+        let inFlight = Task { await monitor.refresh() }
+        #expect(await eventually { permission.readCount == 2 })
+
+        await monitor.askForConsent()
+        #expect(monitor.state == .granted)
+
+        permission.releaseReads()
+        await inFlight.value
+        #expect(monitor.state == .granted)
+    }
+
+    /// Parks the NON-prompting read, which the shared mock cannot do — it parks
+    /// prompts, and the window above needs a read held open ACROSS an ask that
+    /// starts and finishes. Local to this suite for that reason.
+    private final class ParkedReadPermission: AutomationPermission, @unchecked Sendable {
+        private let lock = NSLock()
+        /// Separate from `lock`, like the shared mock's: a parked read must not hold
+        /// the lock the counter accessor needs, or the test could not observe the
+        /// read it is waiting on.
+        private let gate = NSCondition()
+        private let readAnswer: AutomationPermissionState
+        private let dialogAnswer: AutomationPermissionState
+        private var _readCount = 0
+        private var holdingReads = false
+
+        init(reads readAnswer: AutomationPermissionState, answersTheDialog dialogAnswer: AutomationPermissionState) {
+            self.readAnswer = readAnswer
+            self.dialogAnswer = dialogAnswer
+        }
+
+        var readCount: Int { lock.withLock { _readCount } }
+
+        func holdReads() {
+            gate.lock()
+            holdingReads = true
+            gate.unlock()
+        }
+
+        func releaseReads() {
+            gate.lock()
+            holdingReads = false
+            gate.broadcast()
+            gate.unlock()
+        }
+
+        func state(forBundleID bundleID: String) -> AutomationPermissionState {
+            lock.withLock { _readCount += 1 }
+            // Wall-clock bounded, like every wait in this suite: a test that forgets
+            // to release fails loud downstream instead of hanging.
+            let deadline = Date().addingTimeInterval(boundedWaitSeconds)
+            gate.lock()
+            while holdingReads, Date() < deadline {
+                _ = gate.wait(until: deadline)
+            }
+            gate.unlock()
+            return readAnswer
+        }
+
+        func request(forBundleID bundleID: String) -> AutomationPermissionState { dialogAnswer }
     }
 }

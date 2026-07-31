@@ -7,13 +7,17 @@ enum VolumeConversion {
     static let minValue: Double = 0
     static let maxValue: Double = 1
 
-    /// Raw system value → domain value. Non-finite input degrades to 0.
+    /// Raw system value → domain value. NaN needs the explicit guard because it
+    /// compares false against everything and would pass through the clamp intact;
+    /// the infinities do not — they saturate to the near end like any
+    /// out-of-range reading, so +∞ lands on 1 and -∞ on 0.
     static func normalize(_ raw: Float) -> Double {
         guard !raw.isNaN else { return 0 }
         return Double(min(max(raw, 0), 1))
     }
 
-    /// Domain/slider value → value for the system, same defensive clamp.
+    /// Domain/slider value → value for the system, same defensive clamp and the
+    /// same non-finite handling (NaN to 0, the infinities to the near end).
     static func denormalize(_ value: Double) -> Float {
         guard !value.isNaN else { return 0 }
         return Float(min(max(value, 0), 1))

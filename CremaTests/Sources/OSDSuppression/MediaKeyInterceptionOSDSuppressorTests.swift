@@ -190,6 +190,15 @@ struct MediaKeyInterceptionOSDSuppressorTests {
 
     // MARK: - Uncancellable hang: deadline suspends, orphan lands cleanly
 
+    // These three build the suppressor by hand (the hung channel is not the
+    // harness's) and so must inject BOTH clocks. Left at its production default,
+    // `readClock` is a real one and the pre-read races a wall-clock deadline: a
+    // starved runner that loses 2 s there suspends the domain on a READ timeout
+    // before the write ever starts — the write-side timeout each of these tests
+    // is about, never reached, with one of them still green for the wrong reason.
+    // Never advanced: the hung channel's reads return at once, so only its write
+    // ever needs the clock.
+
     @Test func aGenuinelyUncancellableHungWriteSuspendsWithinTheDeadline() async {
         // A write that never returns AND never observes cancellation (a blocked
         // C actuator call). The deadline must return and suspend regardless.
@@ -199,7 +208,8 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         let suppressor = MediaKeyInterceptionOSDSuppressor(
             keys: keys, volume: MockOSDVolumeChannel(),
             screen: hang, keyboard: MockOSDChannel(),
-            screenBrightnessTarget: { .builtIn }, clock: clock
+            screenBrightnessTarget: { .builtIn },
+            clock: clock, readClock: TestSleepClock()
         )
         suppressor.setEngaged(true)
 
@@ -229,7 +239,8 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         let suppressor = MediaKeyInterceptionOSDSuppressor(
             keys: keys, volume: MockOSDVolumeChannel(),
             screen: hang, keyboard: MockOSDChannel(),
-            screenBrightnessTarget: { .builtIn }, clock: clock
+            screenBrightnessTarget: { .builtIn },
+            clock: clock, readClock: TestSleepClock()
         )
         suppressor.onApplied = { [applied] _ in applied.count += 1 }
         suppressor.setEngaged(true)
@@ -262,7 +273,8 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         let suppressor = MediaKeyInterceptionOSDSuppressor(
             keys: keys, volume: MockOSDVolumeChannel(),
             screen: hang, keyboard: MockOSDChannel(),
-            screenBrightnessTarget: { .builtIn }, clock: clock
+            screenBrightnessTarget: { .builtIn },
+            clock: clock, readClock: TestSleepClock()
         )
         suppressor.setEngaged(true)
 

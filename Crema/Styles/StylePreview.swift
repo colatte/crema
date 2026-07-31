@@ -19,7 +19,7 @@ struct StylePreviewShapes: Equatable {
     /// floating underneath, because the card does not float underneath: on a
     /// slitless panel `safeTop` is 0, so the rule anchors the card 8 pt down
     /// (CardStyle) and it covers two thirds of a 24 pt bar — which is why all three
-    /// are illustrated on the notched panel now. What tells the two top-edge skins
+    /// are illustrated on the notched panel. What tells the two top-edge skins
     /// apart is the clearance (`surfaceClearsTheMenuBar`) and the shadow.
     let menuBar: CGFloat
 
@@ -96,14 +96,14 @@ enum StylePreview {
         // happen. The slit still belongs to the notch tile alone (see `slit`).
         let geometry = notchedReference
         let screen = geometry.frame
-        // On a notched panel the safe area stands in for the bar. They are not the
-        // same height — the bar is measured at 37 pt against the slit's 32
-        // (docs/design-reference.md), and that gap is the classic gotcha of this
-        // hardware — but the safe area is the number the rules already agree on,
-        // and the 0.35 pt the difference is worth here does not buy a second
-        // invented constant in the file whose whole argument is derive, don't
-        // declare. On a plain panel it is the platform's own 24 pt.
-        let bar = geometry.safeTop > 0 ? geometry.safeTop : 24
+        // The safe area stands in for the bar — every tile is drawn on the notched
+        // reference, so there is no slitless case to fall back for. They are not
+        // the same height (the bar measures 37 pt against the slit's 32 —
+        // docs/design-reference.md — the classic gotcha of this hardware), but the
+        // safe area is the number the rules already agree on, and the 0.35 pt the
+        // difference is worth here does not buy a second invented constant in the
+        // file whose whole argument is derive, don't declare.
+        let bar = geometry.safeTop
         return StylePreviewShapes(
             surface: unit(style.frame(for: previewState, on: geometry), in: screen),
             slit: style == .notch ? unit(slit(of: geometry), in: screen) : nil,

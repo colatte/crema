@@ -1,3 +1,6 @@
+// Every case shares the one chain harness; the file crossed the ceiling when the
+// cancelled-probe negative landed, and splitting the suite would splinter it.
+// swiftlint:disable file_length
 import Foundation
 import Testing
 @testable import Crema
@@ -122,8 +125,11 @@ struct ChainedNowPlayingSourceTests {
         // activeSource=nil, re-selection found nothing, and the chain parked on
         // the retry backoff. That backoff sleep is the fence point.
         await clock.waitForSleep()
-        // Give the outer stream every chance to (wrongly) emit a stop snapshot.
-        for _ in 0..<200 { await Task.yield() }
+        // Give the outer stream every chance to (wrongly) emit a stop snapshot, and
+        // return the moment one appears. Wall clock rather than a yield count: the
+        // emission would come from the chain's own task, and yields here buy no time
+        // on the thread running it.
+        _ = await footprintAppears { collector.all.count > 1 }
 
         let all = collector.all
         // The ghost: the only outer emission is the still-playing track A; no
@@ -151,21 +157,13 @@ struct ChainedNowPlayingSourceTests {
         let adapterChannel = MockCommandChannel()
         let jxaChannel = MockCommandChannel()
         let adapterUp = Flag()   // adapter starts down → JXA is selected
-        /// Set when the promotion probe consults the adapter and finds it up —
-        /// arming runs synchronously right after that check, so this is the
-        /// deterministic barrier a test waits on before emitting a boundary.
-        let adapterProbedUp = Flag()
         let clock = TestSleepClock()
 
         init() {
             chain = ChainedNowPlayingSource(
                 candidates: [
                     .init(
-                        isAvailable: { [adapterUp, adapterProbedUp] in
-                            let up = adapterUp.value
-                            if up { adapterProbedUp.value = true }
-                            return up
-                        },
+                        isAvailable: { [adapterUp] in adapterUp.value },
                         makeSource: { [adapter] in adapter },
                         commandChannel: adapterChannel
                     ),
@@ -177,16 +175,19 @@ struct ChainedNowPlayingSourceTests {
         }
     }
 
-    /// Fires the 30 s promotion probe and waits until it has observed the
-    /// recovered adapter and armed — so a following boundary emit deterministically
-    /// promotes instead of racing the arm (arming has no suspension point after
-    /// the availability check, so the yields let that task turn complete).
+    /// Fires the 30 s promotion probe and waits until it has ARMED, so a following
+    /// boundary emit cuts over instead of racing the arm. The wait is on the arm
+    /// itself and never on the availability check that precedes it: that check
+    /// answers on the probe's own thread a few instructions earlier, so a test
+    /// fenced on it can still emit its boundary first — the snapshot is then
+    /// forwarded, no boundary is left, and the cutover being asserted never comes.
+    /// Bounded by wall clock like every wait here; expiry fails on this line.
     private func armProbe(_ fixture: FallbackFixture) async {
         await fixture.clock.waitForSleep(delay: 30)
         fixture.adapterUp.value = true
         fixture.clock.advance(delay: 30)
-        _ = await eventuallyOffActor { fixture.adapterProbedUp.value }
-        for _ in 0..<50 { await Task.yield() }
+        #expect(await eventuallyOffActor { fixture.chain.promotionIsArmed },
+                "the promotion probe never armed")
     }
 
     @Test func promotesToARecoveredAdapterOnlyAtAPauseBoundary() async {
@@ -290,6 +291,97 @@ struct ChainedNowPlayingSourceTests {
         #expect((fixture.chain.activeCommandChannel() as? MockCommandChannel) === fixture.jxaChannel)
 
         fixture.chain.stop()
+    }
+
+    /// A short wall-clock window for a NEGATIVE. It returns the moment `footprint`
+    /// appears, so a regression fails fast; otherwise it costs the window. Kept off
+    /// the suite's 5 s budget on purpose — that budget exists so a POSITIVE wait
+    /// never expires early, while here an early expiry can only pass wrongly, never
+    /// fail wrongly, and the window it has to outlast is one lock acquisition on a
+    /// thread that is already running. Wall clock, not a yield count: yields buy
+    /// nothing against work on another thread.
+    private func footprintAppears(within window: Duration = .milliseconds(200), _ footprint: () -> Bool) async -> Bool {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: window)
+        while clock.now < deadline {
+            if footprint() { return true }
+            try? await Task.sleep(for: .milliseconds(1))
+        }
+        return footprint()
+    }
+
+    @Test func aProbeAnsweringAfterItsForwardingEndedArmsNothing() async {
+        // The probe's availability answer can outlive the forwarding that started it
+        // — in production it is a child-process spawn under a deadline, so the cancel
+        // at the exit reaches a task already past the point where cancellation is
+        // seen. Arming then fires at whatever was selected next: here the recovered
+        // adapter at priority 0, which has nothing above it to promote to and, silent
+        // since selection, is stopped outright — a fresh source killed by a probe
+        // that never watched it.
+        let adapter = MockNowPlayingSource()
+        let jxa = MockNowPlayingSource()
+        let adapterChannel = MockCommandChannel()
+        let adapterUp = Flag()
+        let probeAsking = Flag()
+        let probeAnswered = Flag()
+        let releaseProbe = Flag()
+        let ended = Flag()
+        let clock = TestSleepClock()
+
+        let chain = ChainedNowPlayingSource(
+            candidates: [
+                .init(
+                    isAvailable: {
+                        guard adapterUp.value else { return false }
+                        // Only the first ask stalls — the probe's, held until the next
+                        // selection is in place, which is how a real one outlives the
+                        // source it was watching. Every later ask (the re-selection's)
+                        // answers at once, or the chain could never get past it.
+                        guard !probeAsking.value else { return true }
+                        probeAsking.value = true
+                        _ = await eventuallyOffActor { releaseProbe.value }
+                        probeAnswered.value = true
+                        return true
+                    },
+                    makeSource: { adapter },
+                    commandChannel: adapterChannel
+                ),
+                .init(isAvailable: { true }, makeSource: { jxa }, commandChannel: MockCommandChannel()),
+            ],
+            clock: clock,
+            promotionProbeInterval: 30,
+            onActiveSourceEnded: { ended.value = true }
+        )
+        let iterator = BoundedStreamIterator(chain.updates)
+
+        jxa.emit(track("J"))
+        #expect(await iterator.next() == track("J"))
+
+        // The 30 s probe fires with the adapter recovered, and stalls inside the ask.
+        await clock.waitForSleep(delay: 30)
+        adapterUp.value = true
+        clock.advance(delay: 30)
+        #expect(await eventuallyOffActor { probeAsking.value })
+
+        // JXA dies while that ask is still out: the forwarding ends, the probe is
+        // cancelled, and after the backoff the chain selects the recovered adapter.
+        jxa.finish()
+        await clock.waitForSleep(delay: 2)
+        clock.advance(delay: 2)
+        let selectedTheAdapter = await eventuallyOffActor {
+            (chain.activeCommandChannel() as? MockCommandChannel) === adapterChannel
+        }
+        #expect(selectedTheAdapter, "the chain never selected the recovered adapter")
+        // The seam fired for JXA's death; from here on, a fire IS the defect.
+        ended.value = false
+
+        releaseProbe.value = true
+        #expect(await eventuallyOffActor { probeAnswered.value })
+        let killedTheFreshSelection = await footprintAppears { ended.value || chain.promotionIsArmed }
+        #expect(!killedTheFreshSelection,
+                "an answer that outlived its forwarding armed a promotion at the source selected after it")
+
+        chain.stop()
     }
 
     // MARK: - S6: the active source ending fires the ghost-discard seam

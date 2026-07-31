@@ -38,6 +38,10 @@ final class BetterDisplayCommandChannel: BetterDisplayCommanding {
     /// wrapped Bool is BetterDisplay's own yes or no — collapsing the two would
     /// report a refusal as a timeout and hide which side failed.
     private var pending: [String: SingleResumeRace<Bool?>] = [:]
+    // nonisolated(unsafe): written only while `init` runs (installObserver) and
+    // read only in `deinit`, after every other access has ended — the lifecycle
+    // brackets rule out the concurrent access the attribute waives; a nonisolated
+    // deinit can't see that bracket, and removeObserver itself is thread-safe.
     private nonisolated(unsafe) var observers: [NSObjectProtocol] = []
 
     private let logger = Logger.crema("External")

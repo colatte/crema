@@ -39,6 +39,12 @@ struct WaveformGlyph: View {
     /// playback) — the bars would freeze at their peaks. This internal phase
     /// flips right after insertion (onAppear), a real change, so the pulse
     /// provably starts. Purely visual ephemeral state.
+    ///
+    /// It tracks `shouldDance`, not `animating`: Reduce Motion can be switched on
+    /// with the glyph already mounted and pulsing, and a phase latched from the
+    /// preference only at mount would keep the bars dancing under it. The sibling
+    /// gates follow a live flip for free — they read the preference inside a
+    /// body, which re-runs; a phase in @State has to be told.
     @State private var dancing = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.artworkAccent) private var accent
@@ -77,9 +83,16 @@ struct WaveformGlyph: View {
         // skins tint identically), clamped into the single dark-surface band.
         // No usable tone ⇒ the neutral secondary.
         .foregroundStyle(accent.map { AnyShapeStyle($0.color) } ?? AnyShapeStyle(.secondary))
-        .onAppear { dancing = animating && !reduceMotion }
-        .onChange(of: animating) { _, playing in
-            dancing = playing && !reduceMotion
+        .onAppear { dancing = shouldDance }
+        .onChange(of: shouldDance) { _, dance in
+            dancing = dance
         }
+    }
+
+    /// Both inputs of the pulse in one value, so the `onChange` above fires on a
+    /// preference flip as well as on play/pause: motion is the accessibility
+    /// preference's to veto at any moment, not only at the next transport event.
+    private var shouldDance: Bool {
+        animating && !reduceMotion
     }
 }

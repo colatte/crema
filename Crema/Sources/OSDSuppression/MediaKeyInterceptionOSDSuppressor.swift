@@ -46,6 +46,15 @@ import os
 ///   step with no HUD (the consumed press's own intent), a read writes nothing —
 ///   because the domain is suspended and the queued keys fall through the
 ///   suspension guard rather than starting new work.
+///   The chain is ONE chain: applies are serialized globally so an autorepeat burst
+///   cannot re-read the same base value twice, which means a hung write on one
+///   channel also delays the next consumed key of every OTHER domain. Accepted, and
+///   bounded twice — the deadline abandons the hung write, and the failure suspends
+///   only the channel that hung, so its keys go back to the system instead of
+///   entering the chain again. A per-domain chain would be the honest shape (volume
+///   and brightness never share a base value), and is not worth the pending/generation
+///   state it would triple for a bounded 2 s worst case
+///   (docs/DECISIONS.md: per-domain-suspension).
 /// - An absent capability is not a failure: outputs without a volume/mute
 ///   control and Macs without a keyboard backlight have nothing malfunctioning and
 ///   nothing for a probe to recover, so they never suspend a domain and never reach

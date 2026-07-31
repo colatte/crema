@@ -174,6 +174,45 @@ struct BetterDisplayOSDSourceTests {
         #expect(!source.hasReported)                     // the claim never outlives its source
     }
 
+    @Test func theWorkingIntegrationClaimIsObservable() {
+        // Settings reads this claim from a body SwiftUI has already built, so
+        // without observation the sentence is only true at the instant the pane
+        // opened: someone who switches BetterDisplay's OSD integration on with the
+        // window in front of them is told Crema is not receiving until they close
+        // it and open it again — and the one thing this line exists to report is
+        // evidence that has just arrived.
+        let source = makeSource()
+        let changed = Flag()
+        withObservationTracking {
+            _ = source.hasReported
+        } onChange: {
+            changed.value = true
+        }
+
+        source.handle(json: #"{"controlTarget":"combinedBrightness","displayID":1,"maxValue":64,"value":32}"#)
+
+        #expect(changed.value)
+        #expect(source.hasReported)
+    }
+
+    @Test func aTerminationWithNothingToRetractInvalidatesNothing() async {
+        // The guarded half: BetterDisplay quitting with its OSD integration off is
+        // the ordinary case, and an unchanged write still rebuilds every view
+        // reading the claim.
+        let source = makeSource()
+        let changed = Flag()
+        withObservationTracking {
+            _ = source.hasReported
+        } onChange: {
+            changed.value = true
+        }
+
+        source.noteBetterDisplayTerminated()
+
+        await settle()
+        #expect(!changed.value)
+    }
+
     /// The observer wired the way production wires it, driven by a real
     /// distributed notification.
     ///

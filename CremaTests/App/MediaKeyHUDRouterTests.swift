@@ -45,11 +45,18 @@ struct MediaKeyHUDRouterTests {
         keys.emit(.volumeUp)
         keys.emit(.volumeDown)
         keys.emit(.mute)
+        // One sentinel per channel BEHIND the volume keys, because a negative
+        // claim needs a barrier: the router consumes one ordered stream, so when
+        // the last sentinel has been sampled every volume key is already routed
+        // and both counts are final — exactly one each, or the volume keys added
+        // to a channel. Waiting a fixed number of yields instead was a
+        // scheduler-slot budget, which a starved machine exhausts before the
+        // consumer has run at all — the idiom the bounded helpers replace.
+        keys.emit(.screenBrightnessUp)
+        keys.emit(.keyboardBrightnessUp)
 
-        // Give the consumer time to (not) act.
-        for _ in 0..<200 { await Task.yield() }
-        #expect(screen.sampleCount == 0)
-        #expect(keyboard.sampleCount == 0)
+        #expect(await eventuallyOffActor { keyboard.sampleCount == 1 })
+        #expect(screen.sampleCount == 1)
         withExtendedLifetime(router) {}
     }
 }

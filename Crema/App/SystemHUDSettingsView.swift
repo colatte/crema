@@ -75,7 +75,10 @@ struct SystemHUDSettingsView: View {
             // sentence appears only once a payload has actually arrived, because a
             // neighbour being installed, or even running, proves nothing about
             // whether its OSD integration is switched on
-            // (docs/DECISIONS.md: betterdisplay-osd-source).
+            // (docs/DECISIONS.md: betterdisplay-osd-source). The claim is
+            // observable, so it flips with this window open: the person reading
+            // this line is usually the one switching that setting on in the other
+            // app, and an answer that only arrives on the next open reads as no.
             Section {
                 LabeledContent {
                     Text(core.betterDisplayIsReporting

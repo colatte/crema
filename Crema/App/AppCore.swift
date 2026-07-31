@@ -112,15 +112,15 @@ final class AppCore {
     private let nowPlayingChain: ChainedNowPlayingSource?
     private var screenObservation: NSObjectProtocol?
     private var terminationObservation: NSObjectProtocol?
+    /// Where a warning that offers its own fix wants the Settings window to land.
+    /// Its own observable because AppCore is not one, the same shape the permission
+    /// and suppression mirrors already use.
+    let settingsNavigation = SettingsNavigation()
     /// Display/system wake observers that reinstall the media-key tap: a
     /// display-sleep/wake can leave the tap enabled with a valid port yet
     /// silently not delivering, and it fires no unlock edge for the lock-edge
     /// reinstall to see — these close that gap. Retained for the app lifetime
     /// alongside the tap. (docs/DECISIONS.md: J7-estado-do-outro-lado)
-    /// Where a warning that offers its own fix wants the Settings window to land.
-    /// Its own observable because AppCore is not one, the same shape the permission
-    /// and suppression mirrors already use.
-    let settingsNavigation = SettingsNavigation()
     private var wakeObservations: [NSObjectProtocol] = []
     private var onboardingWindow: NSWindow?
 
@@ -313,37 +313,37 @@ final class AppCore {
         // of that verdict is a view body (rationale on reconcileLoginItemIntent).
         reconcileLoginItemIntent()
 
-        // Post-apply poke: the router's key-time sample shows the HUD with
-        // the pre-apply value (with the key consumed, the app's write lands
-        // after it) — this second sample refreshes it to the applied value.
-        if let screenSampler = graph.screenBrightnessSampler,
-           let keyboardSampler = graph.keyboardBrightnessSampler,
-           let volumeSampler = graph.volumeSampler {
-            if let suppressor = osdSuppressor {
-                Self.wireApplyPoke(
-                    from: suppressor,
-                    screen: screenSampler, keyboard: keyboardSampler, volume: volumeSampler
-                )
-            }
-            // The mirror of the poke above, for the press this app does NOT take:
-            // the key goes to the system, which applies it and draws its own
-            // indicator — so the local source spends its key window instead of
-            // adding a second bar over it. Two reasons arrive here and both want the
-            // same thing. The pointer is off the built-in panel, which only screen
-            // brightness can be (docs/DECISIONS.md:
-            // brightness-key-follows-the-pointer); or the channel reports no such
-            // control, which any domain can hit (absent-capability-hands-the-key-back).
-            // That second reason is why the BACKLIGHT stands down too: a Mac whose
-            // keyboard enumerates late hands its key back until it answers, and the
-            // poll that key arms would read the value macOS just moved and draw over
-            // the native HUD. Volume needs nothing here — Core Audio is event-driven
-            // and the router arms no poll for it.
-            if let suppressor = osdSuppressor {
-                Self.wireHandbackStandDown(from: suppressor, screen: screenSampler, keyboard: keyboardSampler)
-            }
-        }
+        // Each seam below is gated on exactly the samplers it takes. Widening one
+        // gate to cover the group is how a graph that has brightness but no volume
+        // sampler loses the hand-back stand-down and the echo as well — two seams
+        // that never touch volume — with nothing failing to show it.
         if let screenSampler = graph.screenBrightnessSampler,
            let keyboardSampler = graph.keyboardBrightnessSampler {
+            if let suppressor = osdSuppressor {
+                // Post-apply poke: the router's key-time sample shows the HUD with
+                // the pre-apply value (with the key consumed, the app's write lands
+                // after it) — this second sample refreshes it to the applied value.
+                if let volumeSampler = graph.volumeSampler {
+                    Self.wireApplyPoke(
+                        from: suppressor,
+                        screen: screenSampler, keyboard: keyboardSampler, volume: volumeSampler
+                    )
+                }
+                // The mirror of the poke above, for the press this app does NOT take:
+                // the key goes to the system, which applies it and draws its own
+                // indicator — so the local source spends its key window instead of
+                // adding a second bar over it. Two reasons arrive here and both want the
+                // same thing. The pointer is off the built-in panel, which only screen
+                // brightness can be (docs/DECISIONS.md:
+                // brightness-key-follows-the-pointer); or the channel reports no such
+                // control, which any domain can hit (absent-capability-hands-the-key-back).
+                // That second reason is why the BACKLIGHT stands down too: a Mac whose
+                // keyboard enumerates late hands its key back until it answers, and the
+                // poll that key arms would read the value macOS just moved and draw over
+                // the native HUD. Volume needs nothing here — Core Audio is event-driven
+                // and the router arms no poll for it.
+                Self.wireHandbackStandDown(from: suppressor, screen: screenSampler, keyboard: keyboardSampler)
+            }
             Self.wireBrightnessEcho(
                 to: coordinator,
                 screen: screenSampler,
@@ -363,11 +363,6 @@ final class AppCore {
         #endif
     }
 
-    /// Wires the chain's ghost-discard seam: when its active source dies without
-    /// the outer stream finishing, the Coordinator drops the stale snapshot
-    /// rather than resurrect dead media. Standalone and static so the exact
-    /// production wiring is pinned by a test — the isolated halves never exercise
-    /// it. (docs/DECISIONS.md: ghost-discard)
     /// The mirror of the post-apply poke, for the press this app does NOT take.
     ///
     /// Standalone and static for the reason the other wiring statics are: reaching it
@@ -392,11 +387,26 @@ final class AppCore {
         }
     }
 
+    /// Wires the chain's ghost-discard seam: when its active source dies without
+    /// the outer stream finishing, the Coordinator drops the stale snapshot
+    /// rather than resurrect dead media. Standalone and static so the exact
+    /// production wiring is pinned by a test — the isolated halves never exercise
+    /// it. (docs/DECISIONS.md: ghost-discard)
     static func wireActiveSourceEnded(from chain: ChainedNowPlayingSource, to coordinator: Coordinator) {
         chain.setActiveSourceEndedHandler { [weak coordinator] in
             Task { @MainActor in coordinator?.activeNowPlayingSourceEnded() }
         }
     }
+
+    /// The two wake edges, named once. They are workspace notifications: they are
+    /// posted on NSWorkspace's own center and never appear on
+    /// `NotificationCenter.default`, so wiring them to the wrong center arms
+    /// nothing — and arms it silently, since a tap that stopped delivering looks
+    /// identical to an idle one from inside this process.
+    static let wakeReinstallNames = [
+        NSWorkspace.screensDidWakeNotification,
+        NSWorkspace.didWakeNotification,
+    ]
 
     /// Wires the wake pair (the 1st and 2nd reinstall triggers of the family —
     /// docs/DECISIONS.md: preventive-reinstall): display and system wake can
@@ -408,16 +418,6 @@ final class AppCore {
     /// the main queue so the reinstall runs on the tap's own thread —
     /// teardown/create never races a delivered event. Returns the observer
     /// tokens AppCore retains.
-    /// The two wake edges, named once. They are workspace notifications: they are
-    /// posted on NSWorkspace's own center and never appear on
-    /// `NotificationCenter.default`, so wiring them to the wrong center arms
-    /// nothing — and arms it silently, since a tap that stopped delivering looks
-    /// identical to an idle one from inside this process.
-    static let wakeReinstallNames = [
-        NSWorkspace.screensDidWakeNotification,
-        NSWorkspace.didWakeNotification,
-    ]
-
     static func wireWakeReinstall(
         center: NotificationCenter = NSWorkspace.shared.notificationCenter,
         reinstalling source: CGEventTapMediaKeySource
@@ -927,6 +927,21 @@ extension AppCore {
 
 @MainActor
 extension AppCore {
+    /// Whether the neighbour has actually delivered a reading in this session.
+    ///
+    /// Read STRAIGHT off the source, never through `mediaKeyChainNotice()`, which
+    /// carries the same flag but pays a `CGGetEventTapList` to answer — a call that
+    /// resets the min/max latency counters of every tap on the machine, this app's
+    /// neighbours included. Settings reads this from a Form body that SwiftUI
+    /// rebuilds whenever it likes, so routing it through that cache would make a
+    /// settings pane a periodic system-wide probe.
+    ///
+    /// Evidence and not presence, which is the whole reason this is a delivered
+    /// payload rather than "is BetterDisplay running": the neighbour being open
+    /// proves nothing about whether its OSD integration is switched on, and the
+    /// claim dies with the app that made it (docs/DECISIONS.md: betterdisplay-osd-source).
+    var betterDisplayIsReporting: Bool { betterDisplaySource?.hasReported ?? false }
+
     /// The app that is fed the media keys before Crema, when there is one. Nil
     /// means nothing is positioned to take them from us — or that we have no tap
     /// to speak of, in which case the Accessibility warning already says so.
@@ -947,21 +962,6 @@ extension AppCore {
     /// silently stealing keys from every other app that wants them — so the app
     /// names who won and leaves the choice to the user, which is the only place
     /// it can be made (docs/DECISIONS.md: media-key-chain-contention).
-    /// Whether the neighbour has actually delivered a reading in this session.
-    ///
-    /// Read STRAIGHT off the source, never through `mediaKeyChainNotice()`, which
-    /// carries the same flag but pays a `CGGetEventTapList` to answer — a call that
-    /// resets the min/max latency counters of every tap on the machine, this app's
-    /// neighbours included. Settings reads this from a Form body that SwiftUI
-    /// rebuilds whenever it likes, so routing it through that cache would make a
-    /// settings pane a periodic system-wide probe.
-    ///
-    /// Evidence and not presence, which is the whole reason this is a delivered
-    /// payload rather than "is BetterDisplay running": the neighbour being open
-    /// proves nothing about whether its OSD integration is switched on, and the
-    /// claim dies with the app that made it (docs/DECISIONS.md: betterdisplay-osd-source).
-    var betterDisplayIsReporting: Bool { betterDisplaySource?.hasReported ?? false }
-
     func mediaKeyChainNotice() -> MediaKeyChainNotice {
         chainNoticeCache.notice(betterDisplayIsFeedingUs: betterDisplaySource?.hasReported ?? false) { feeding in
             Self.mediaKeyChainNotice(

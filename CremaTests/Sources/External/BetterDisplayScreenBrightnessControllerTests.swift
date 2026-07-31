@@ -166,6 +166,34 @@ struct BetterDisplayScreenBrightnessControllerTests {
         #expect(channel.written == [0.1, 0.9])
     }
 
+    @Test func aFrameQueuedForAnotherScreenIsWrittenToThatScreen() async throws {
+        // Two bars share one actuator, and the coalescing outlives the call that
+        // resolved the display: a frame arriving while another screen's write is in
+        // flight is put on the wire by THAT write. With the display resolved once
+        // per DRIVE instead of travelling with the level, the neighbour is told to
+        // dim the screen the finger is not on — in silence, since the bar that asked
+        // for it is on the other panel.
+        let channel = ReentrantChannel()
+        let controller = BetterDisplayScreenBrightnessController(
+            channel: channel,
+            displayID: { [external] display in display == external ? 7 : 1 }
+        )
+        let coalesced = CoalescedReturns()
+        channel.duringFirstWrite = { [weak controller, external] in
+            guard let controller else { return }
+            try await coalesced.append(controller.setBrightness(0.9, on: external))
+        }
+
+        let reported = try await controller.setBrightness(0.1, on: nil)
+
+        #expect(channel.addressed == [1, 7])
+        #expect(channel.written == [0.1, 0.9])
+        // 0.9 went out last, but it belongs to the other screen: echoing it here
+        // would move this bar to a level nothing ever wrote on this display.
+        #expect(reported == 0.1)
+        #expect(coalesced.values == [0.9])
+    }
+
     /// The values the coalesced calls returned, collected from inside a write.
     private final class CoalescedReturns: @unchecked Sendable {
         private let lock = NSLock()
@@ -179,13 +207,16 @@ struct BetterDisplayScreenBrightnessControllerTests {
     /// exists for, reproduced without a semaphore or a race.
     private final class ReentrantChannel: BetterDisplayCommanding, @unchecked Sendable {
         private let lock = NSLock()
-        private var calls: [Double] = []
-        var written: [Double] { lock.withLock { calls } }
+        private var calls: [(value: Double, displayID: Int)] = []
+        var written: [Double] { lock.withLock { calls }.map(\.value) }
+        /// The screens the levels landed on, in order. Levels alone cannot show a
+        /// frame written to the driving call's display instead of its own.
+        var addressed: [Int] { lock.withLock { calls }.map(\.displayID) }
         var duringFirstWrite: (@Sendable () async throws -> Void)?
 
         func setBrightness(_ value: Double, displayID: Int) async throws {
             let isFirst = lock.withLock { () -> Bool in
-                calls.append(value)
+                calls.append((value, displayID))
                 return calls.count == 1
             }
             if isFirst { try await duringFirstWrite?() }

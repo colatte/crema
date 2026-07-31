@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import Foundation
+import Observation
 import os
 
 /// Screen-brightness HUD events published by BetterDisplay.
@@ -22,8 +23,9 @@ import os
 /// this needs no preference — there is no state to turn off, only an app that is
 /// or is not publishing.
 @MainActor
+@Observable
 final class BetterDisplayOSDSource: SystemHUDSource {
-    let updates: AsyncStream<SystemHUD>
+    @ObservationIgnored let updates: AsyncStream<SystemHUD>
 
     /// Only the current prefix is observed. BetterDisplay 4.2.2+ publishes each
     /// OSD event under BOTH this name and the legacy `com.betterdisplay…` one
@@ -38,21 +40,30 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     /// switches on, and it can be off with the app running — so only a delivered
     /// payload is evidence the channel is live. Reset when the app goes away, so
     /// the claim never outlives what it was based on.
+    ///
+    /// Observable because the Settings line that shows it is read from a body
+    /// SwiftUI has already built: a user who switches the neighbour's integration
+    /// on with that window in front of them must see the line change there, not on
+    /// the next open. Written only when it actually flips, since an unchanged write
+    /// still rebuilds every view reading it.
     private(set) var hasReported = false
 
-    private let continuation: AsyncStream<SystemHUD>.Continuation
-    private let target: (Int) -> SystemHUD.Target?
+    @ObservationIgnored private let continuation: AsyncStream<SystemHUD>.Continuation
+    @ObservationIgnored private let target: (Int) -> SystemHUD.Target?
     /// Called after each reported level, so the polled brightness source can spend
     /// the window a merely-observed key opened (see `ManuallySampledSource`).
-    private let onReport: @MainActor () -> Void
+    @ObservationIgnored private let onReport: @MainActor () -> Void
     /// Written only in `init` and read only in `deinit`, after every other access
     /// has ended — the lifecycle brackets rule out the concurrent access the
     /// attribute waives; a nonisolated deinit cannot see that bracket, and
-    /// removeObserver is itself thread-safe.
-    private nonisolated(unsafe) var observers: [NSObjectProtocol] = []
-    private nonisolated(unsafe) var workspaceObservers: [NSObjectProtocol] = []
+    /// removeObserver is itself thread-safe. Out of observation like every field
+    /// but `hasReported`, and here that is load-bearing: a generated accessor pair
+    /// drops `nonisolated(unsafe)` and puts the registrar in the path of that
+    /// nonisolated deinit.
+    @ObservationIgnored private nonisolated(unsafe) var observers: [NSObjectProtocol] = []
+    @ObservationIgnored private nonisolated(unsafe) var workspaceObservers: [NSObjectProtocol] = []
 
-    private let logger = Logger.crema("External")
+    @ObservationIgnored private let logger = Logger.crema("External")
 
     /// A custom `target` means a test drives the source through `handle(json:)` —
     /// the real DistributedNotificationCenter observer would only add
@@ -107,8 +118,12 @@ final class BetterDisplayOSDSource: SystemHUDSource {
 
     /// BetterDisplay went away: whatever it told us stops being true, and the app
     /// must not keep claiming an integration that has no one on the other end.
+    ///
+    /// A neighbour that quits having never reported — its OSD integration switched
+    /// off — is the common case, so the write is guarded: an unchanged one still
+    /// invalidates every view reading the claim.
     func noteBetterDisplayTerminated() {
-        hasReported = false
+        if hasReported { hasReported = false }
     }
 
     /// Echoes a level Crema itself asked BetterDisplay to apply. Measured: the app
@@ -154,15 +169,11 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     /// BetterDisplay reports the raw CGDirectDisplayID; the domain keys displays by
     /// UUID, so identity is resolved here at the border — through the same
     /// translation the panel roster uses, or the two would disagree about which
-    /// screen is which and the bar would land on the wrong panel. A display with no
-    /// resolvable UUID is dropped: one Crema cannot name is one it can neither
+    /// screen is which and the bar would land on the wrong panel. Every display
+    /// goes through it, the built-in included, and one whose UUID does not resolve
+    /// is dropped: a bar for a screen the app cannot name is one it can neither
     /// place nor send a drag back to.
     private static func resolveTarget(_ displayID: Int) -> SystemHUD.Target? {
-        let id = CGDirectDisplayID(displayID)
-        // Every display resolves the same way, the built-in included: naming it is
-        // the whole point, and a display whose UUID we cannot read is dropped —
-        // a bar for a screen the app cannot place is one it can neither draw nor
-        // send a drag back to.
-        return ScreenTranslation.displayUUID(for: id).map { .display($0) }
+        ScreenTranslation.displayUUID(for: CGDirectDisplayID(displayID)).map { .display($0) }
     }
 }

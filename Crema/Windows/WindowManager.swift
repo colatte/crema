@@ -72,9 +72,8 @@ final class WindowManager {
             return first
         }
 
-        for (id, entry) in entries where incoming[id] == nil {
-            entry.panel.close()
-            entries[id] = nil
+        for id in entries.keys where incoming[id] == nil {
+            retirePanel(id)
         }
 
         for (id, screen) in incoming {
@@ -89,7 +88,7 @@ final class WindowManager {
                 // panel is rebuilt. Only per-state frames flow fresh through
                 // apply(frame:).
                 if entry.style != style || entry.screen.geometry != screen.geometry {
-                    entry.panel.close()
+                    retirePanel(id)
                     entries[id] = Entry(screen: screen, style: style, panel: makePanel(screen, style, coordinator))
                 } else {
                     var updated = entry
@@ -112,11 +111,26 @@ final class WindowManager {
         for (id, entry) in entries {
             let style = resolvedStyle(for: entry.screen)
             if style != entry.style {
-                entry.panel.close()
+                retirePanel(id)
                 entries[id] = Entry(screen: entry.screen, style: style, panel: makePanel(entry.screen, style, coordinator))
             }
         }
         runFramePass()
+    }
+
+    /// Closes a panel, and the roster drops it FIRST — the order is the whole
+    /// point. Closing stops the panel's hover monitor, which reports its pending
+    /// exit through the Coordinator, whose state write runs a frame pass
+    /// synchronously (`onPresentationChange`). With the entry still in `entries`
+    /// that pass would apply to the panel just closed and re-arm its hover,
+    /// reinstalling a pair of NSEvent monitors that nothing disarms again once the
+    /// entry does leave — a dead panel sampling the cursor against regions on a
+    /// screen that may no longer exist. Out of the roster first, the re-entrant
+    /// pass simply cannot see it, and the caller's trailing pass covers whatever
+    /// takes its place.
+    private func retirePanel(_ id: DisplayUUID) {
+        guard let entry = entries.removeValue(forKey: id) else { return }
+        entry.panel.close()
     }
 
     /// Re-applies the current per-frame preferences (show now playing, show

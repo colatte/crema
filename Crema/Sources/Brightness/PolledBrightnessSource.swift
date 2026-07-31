@@ -131,7 +131,17 @@ final class PolledBrightnessSource: SystemHUDSource, ManuallySampledSource, @unc
         continuation.finish()
     }
 
-    func isAvailable() async -> Bool { backend.isAvailable }
+    /// Answers off the caller's thread, because `async` is no proof of a suspension
+    /// point: asked inline, this border question runs on whichever thread picked the
+    /// call up — a cooperative-pool one today, the caller's actor under
+    /// NonisolatedNonsendingByDefault — and on the keyboard channel it enumerates the
+    /// backlight IDs over the private client's connection, IPC that can hang. That is
+    /// the same call `sample()` refuses to make on the tap's thread
+    /// (docs/DECISIONS.md: async-signature-is-not-a-suspension-point). The global
+    /// pool rather than this channel's serial `queue`: availability registers no
+    /// value, so it needs no ordering against the readings and must not park behind a
+    /// stalled one.
+    func isAvailable() async -> Bool { await blockingCall { [backend] in backend.isAvailable } }
 
     /// A brightness key for this channel drove this (the media-key router, the
     /// suppressor's post-apply poke, or the slider echo): arm the gate here, read

@@ -31,19 +31,16 @@ struct NotchView: View, SurfaceStyleBody {
 
     /// Gates every surface morph to a dry landing (MG5) — see
     /// `SurfaceAnimation.geometryAnimation`; the opacity fade stays regardless.
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Not private: the shared motion gates (SurfaceStyleBody) read it.
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
-    /// The layout the surface is coming FROM, for provenance-aware geometry
-    /// (see `geometryAnimation`). Ephemeral, purely visual. Advanced in
-    /// `onChange` AFTER the render that reads it (evaluation-order subtlety in
-    /// the body comment) — the same mechanism as Card/Classic.
-    @State private var previousLayoutKind: LayoutKind = .empty
-
-    /// The last VISIBLE layout — advanced only on non-empty kinds, so it survives
-    /// the whole hidden period. The hidden surface freezes its geometry AND its
-    /// shape flare to this (`effectiveLayoutKind`), so a fade-out sits on the drop
-    /// (and radii) it is leaving instead of telescoping to compact behind the fade.
-    @State private var lastVisibleLayoutKind: LayoutKind = .compact
+    /// Where the surface is coming from — the FROM of the current transition and
+    /// the last VISIBLE layout the hidden surface freezes its drop AND its shape
+    /// flare to (SurfaceProvenance carries the rule and the reasons). Ephemeral,
+    /// purely visual. Advanced in `onChange` AFTER the render that reads it
+    /// (evaluation-order subtlety in the body comment) — the same mechanism as
+    /// Card/Classic.
+    @State var provenance = SurfaceProvenance()
 
     var body: some View {
         Group {
@@ -63,34 +60,17 @@ struct NotchView: View, SurfaceStyleBody {
         // from or disappearance to `.empty` snaps it (geometryAnimation → nil), so
         // the black surface lands at its final drop instead of telescoping the
         // expanded↔compact height across the fade (the fade lives on the opacity,
-        // the flare on its own snap — both in `surface`). geometryAnimation reads
-        // `previousLayoutKind`, which still holds the OLD kind during the body pass
-        // that first sees the NEW layoutKind; the onChange advances it afterward,
-        // so this pass gets true provenance. Keyed on layoutKind, not the whole
-        // state, so HUD/scrubber value ticks aren't animated.
+        // the flare on its own snap — both in `surface`). The onChange advances
+        // the provenance the gate reads, afterward, so this pass gets the true
+        // FROM. Keyed on layoutKind, not the whole state, so HUD/scrubber value
+        // ticks aren't animated.
         .animation(geometryAnimation, value: layoutKind)
         // Toggling view-only resizes the band while it is open — a visible morph,
         // so it honors Reduce Motion (nil) like the geometry spring.
         .animation(SurfaceAnimation.morph(reduceMotion: reduceMotion), value: showsControls)
         .onChange(of: layoutKind) { _, newValue in
-            previousLayoutKind = newValue
-            // Skip `.empty`: the frozen-geometry contract needs the last VISIBLE
-            // layout to persist across the whole hidden period.
-            if newValue != .empty { lastVisibleLayoutKind = newValue }
+            provenance.advance(to: newValue)
         }
-    }
-
-    /// Snap on an appearance/disappearance (either side `.empty`), morph between
-    /// visible layouts; nil under Reduce Motion. Provenance comes from
-    /// `previousLayoutKind` (the FROM) and `layoutKind` (the TO); scoped to the
-    /// frame and the shape flare only, so the opacity fade is untouched.
-    private var geometryAnimation: Animation? {
-        SurfaceAnimation.geometryAnimation(
-            fromEmpty: previousLayoutKind == .empty,
-            toEmpty: layoutKind == .empty,
-            expanding: isExpanded,
-            reduceMotion: reduceMotion
-        )
     }
 
     private var surface: some View {
@@ -210,7 +190,7 @@ struct NotchView: View, SurfaceStyleBody {
     /// freezes the drop AND the shape flare (see SurfaceLayout.effectiveLayoutKind
     /// for the contract).
     private var effectiveLayoutKind: LayoutKind {
-        Self.effectiveLayoutKind(layout: layoutKind, lastVisible: lastVisibleLayoutKind)
+        Self.effectiveLayoutKind(layout: layoutKind, lastVisible: provenance.lastVisible)
     }
 
     // MARK: - Rendering
@@ -285,7 +265,7 @@ struct NotchView: View, SurfaceStyleBody {
         let presentation = HUDPresentation(hud: hud)
         return HStack(spacing: NotchMetrics.hudGap) {
             Image(systemName: presentation.iconSystemName)
-                .frame(width: 22)
+                .frame(width: NotchMetrics.hudIconColumnWidth)
                 .symbolReplace(on: presentation.iconSystemName)
             HUDLevelSlider(kind: hud.kind, value: presentation.value, onChange: { hudSliderMoved(to: $0) }, onRelease: { hudSliderReleased() },
                            isHovered: displayPolicy.pointerInside)

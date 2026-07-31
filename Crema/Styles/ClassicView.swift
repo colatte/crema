@@ -20,19 +20,15 @@ struct ClassicView: View, SurfaceStyleBody {
 
     /// Gates every surface morph to a dry landing (MG5) — see
     /// `SurfaceAnimation.geometryAnimation`; the opacity fade stays regardless.
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Not private: the shared motion gates (SurfaceStyleBody) read it.
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
-    /// The layout the surface is coming FROM, for provenance-aware geometry
-    /// (see `geometryAnimation`). Ephemeral, purely visual. Advanced in
+    /// Where the surface is coming from — the FROM of the current transition and
+    /// the last VISIBLE layout the hidden block freezes to (SurfaceProvenance
+    /// carries the rule and the reasons). Ephemeral, purely visual. Advanced in
     /// `onChange` AFTER the render that reads it (evaluation-order subtlety in
     /// the body comment).
-    @State private var previousLayoutKind: LayoutKind = .empty
-
-    /// The last VISIBLE layout — advanced only on non-empty kinds, so it survives
-    /// the whole hidden period. The hidden surface freezes its geometry to this
-    /// (`effectiveLayoutKind`), so a fade-out sits on the rect it is leaving
-    /// instead of snapping to the compact block behind a fading HUD.
-    @State private var lastVisibleLayoutKind: LayoutKind = .compact
+    @State var provenance = SurfaceProvenance()
 
     var body: some View {
         Group {
@@ -51,44 +47,17 @@ struct ClassicView: View, SurfaceStyleBody {
         // The block morphs only between visible layouts; an appearance from or
         // disappearance to `.empty` snaps its frame so the HUD (200²) born from
         // hidden lands there instead of growing up from the compact 170² rect
-        // (the fade lives on the opacity, animated separately in `surface`).
-        // geometryAnimation reads `previousLayoutKind`, which still holds the OLD
-        // kind during the body pass that first sees the NEW layoutKind — the
-        // onChange below advances it afterward, so this pass gets true provenance.
+        // (the fade lives on the opacity, animated separately in `surface`). The
+        // block's corner radius is constant, so the frame is all the geometry
+        // this gate carries here; the onChange below advances the provenance it
+        // reads, afterward, so this pass gets the true FROM.
         .animation(geometryAnimation, value: layoutKind)
         // Toggling view-only resizes the block while it is open — animate it too,
         // dry under Reduce Motion like the geometry spring.
         .animation(SurfaceAnimation.morph(reduceMotion: reduceMotion), value: showsControls)
         .onChange(of: layoutKind) { _, newValue in
-            previousLayoutKind = newValue
-            // Skip `.empty`: the frozen-geometry contract needs the last VISIBLE
-            // layout to persist across the whole hidden period.
-            if newValue != .empty { lastVisibleLayoutKind = newValue }
+            provenance.advance(to: newValue)
         }
-    }
-
-    /// Snap on an appearance/disappearance (either side `.empty`), morph between
-    /// visible layouts. The block's corner radius is constant, so only the frame
-    /// carries geometry here.
-    private var geometryAnimation: Animation? {
-        SurfaceAnimation.geometryAnimation(
-            fromEmpty: previousLayoutKind == .empty,
-            toEmpty: layoutKind == .empty,
-            expanding: isExpanded,
-            reduceMotion: reduceMotion
-        )
-    }
-
-    /// Content-crossfade provenance (see `SurfaceAnimation.contentAnimation`):
-    /// nil on an appearance so the content — and the material sized off it —
-    /// snaps to the destination rather than springing past the snapped outer
-    /// frame; the directional spring otherwise, so the outgoing content fades.
-    private var contentAnimation: Animation? {
-        SurfaceAnimation.contentAnimation(
-            fromEmpty: previousLayoutKind == .empty,
-            expanding: isExpanded,
-            reduceMotion: reduceMotion
-        )
     }
 
     private var surface: some View {
@@ -160,7 +129,7 @@ struct ClassicView: View, SurfaceStyleBody {
     /// Binds the shared freeze rule to this view's provenance @State
     /// (see SurfaceLayout.effectiveLayoutKind for the contract).
     private var effectiveLayoutKind: LayoutKind {
-        Self.effectiveLayoutKind(layout: layoutKind, lastVisible: lastVisibleLayoutKind)
+        Self.effectiveLayoutKind(layout: layoutKind, lastVisible: provenance.lastVisible)
     }
 
     // MARK: - Rendering
