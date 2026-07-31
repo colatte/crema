@@ -68,7 +68,7 @@ card, and the classic's segmented bezel:
 - **Speaks your language.** English and Brazilian Portuguese, following the
   system.
 - **Configurable.** A standard Settings window covers the style, now-playing
-  behavior, the System HUD toggle, permissions, launch at login — and an About
+  behavior, the Indicators toggle, permissions, launch at login — and an About
   tab with the version and links.
 
 ## What Crema is
@@ -104,6 +104,11 @@ Curious what might come next? See the [roadmap](ROADMAP.md).
   but the brightness HUDs need the keys to know a change was yours (they stay
   quiet for the ambient-light sensor), and the system's own HUDs can't be
   replaced.
+- The **Automation** permission (Apple Events), only for the backup now-playing
+  reader, which asks Music or Spotify directly. The main reader never needs it,
+  so Crema never prompts on its own — Settings → Permissions shows the state and
+  asks only when you click. Without it, that one fallback is off and nothing
+  else changes.
 
 ## Installation
 
@@ -142,8 +147,9 @@ xattr -dr com.apple.quarantine /Applications/Crema.app
   play/pause, previous, next, and the scrubber.
 - **Press a volume or brightness key** and Crema's HUD appears in the style you
   picked.
-- To have Crema **replace the system's HUDs**, turn that on in
-  **Settings → System HUD**. Crema then intercepts the volume and brightness
+- To have Crema **replace the system's HUDs**, flip the switch the menu-bar
+  menu leads with — the same switch lives in **Settings → Indicators**. Crema
+  then intercepts the volume and brightness
   keys — the system never sees them, so it never draws its HUD; Crema shows its
   own and applies the change itself. It hands a key back in two cases. A
   **brightness** key follows your pointer: Crema takes it while the cursor is on
@@ -175,14 +181,22 @@ xattr -dr com.apple.quarantine /Applications/Crema.app
   keeps the keys and its own brightness curve, Crema keeps the HUD. Turn off
   BetterDisplay's own OSD in that same pane so only one bar appears. Nothing to
   enable on Crema's side; it listens whenever BetterDisplay is there and stays
-  quiet when it isn't. Dragging that bar sends the new level back to
-  BetterDisplay, so it lands exactly where the bar says — including the extra
-  dimming range its combined brightness adds. This covers external monitors too:
+  quiet when it isn't. Dragging that bar sends the new level back through
+  BetterDisplay's command channel — a separate BetterDisplay setting from the
+  OSD notification — so it lands exactly where the bar says, including the
+  extra dimming range its combined brightness adds. With the notification on
+  but that channel off, the bar still draws: on the built-in display a drag
+  falls back to the system's own brightness scale, and on an external monitor
+  it moves nothing — the bar settles back to the last level BetterDisplay
+  reported. This covers external monitors too:
   their brightness HUD appears **on that monitor**, and only there. Crema's menu
   tells you which is happening: it confirms when the brightness HUD is coming from
   BetterDisplay, and says so when BetterDisplay has the keys but hasn't been told
   to share.
-- The **menu bar icon** opens Settings (`⌘,`), checks for updates, or quits.
+- The **menu bar icon** leads with the switch that replaces the system
+  indicators, then tells you what Crema is doing — every warning carries its fix
+  right below — then controls whatever is playing, and closes with Settings
+  (`⌘,`), Check for Updates…, and Quit.
 
 ## Privacy
 

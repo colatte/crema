@@ -407,9 +407,11 @@ path, compares authority + Team across the nested Mach-Os, and boots the
 installed app from the final dmg requiring it to survive 5 s. CI rejects the
 pairing statically: `adhoc` and `runtime` together in the code directory is
 enough to condemn a build, and unlike the load failure itself that pairing is
-plainly readable from `codesign -d`. And the project no longer sets
-`ENABLE_HARDENED_RUNTIME`, which is what made Xcode's own Product → Archive
-produce the unlaunchable app while release.sh escaped by archiving unsigned.
+plainly readable from `codesign -d`. And the project pins
+`ENABLE_HARDENED_RUNTIME = NO` in both configurations — flipped from the YES
+that made Xcode's own Product → Archive produce the unlaunchable app while
+release.sh escaped by archiving unsigned. The key stays explicit: `= NO` is the
+exact remedy the CI gate's error names.
 Shipped broken exactly once — the v1.2 E2E caught the crash before publish, which
 is why the smoke exists; reproduced again on 2026-07-29 straight from the project
 settings (`flags=0x10002(adhoc,runtime)`, `TeamIdentifier=not set`, dyld:
@@ -519,8 +521,12 @@ contending — shipped alongside it, see `betterdisplay-osd-source`.
 The way out of the key contention above is not to win the key but to stop needing
 it: BetterDisplay publishes an OSD notification for third-party HUDs (the same
 door MediaMate and DynamicLake Pro use), so the neighbour keeps the key and its
-own brightness curve while Crema draws the bar. What ships is the inbound half,
-for the built-in display. The contract below was measured on the wire against
+own brightness curve while Crema draws the bar. Both halves ship — the
+notification in, for every display the neighbour names, and the drag back out
+over the same channel's request/response direction (**The way back**, below),
+round-trip measured on hardware. What stays roadmap is Crema applying a key on
+an external panel itself, which needs the apply+verify cycle. The contract below
+was measured on the wire against
 BetterDisplay 4.3.5, not read off a wiki:
 `pro.betterdisplay.BetterDisplay.osd`, with the payload as a **JSON string in the
 notification's `object`** (not `userInfo`); brightness arrives as
@@ -535,11 +541,16 @@ silent by construction, which cost two probes to discover. **Volume and mute are
 left alone** even though BetterDisplay reports them: Core Audio already emits for
 every volume change whoever caused it, so a second source would draw two HUDs;
 brightness has no such notification, and that absence is the whole reason this
-source exists. **Other displays are dropped**: `display == nil` is the domain's
-word for the built-in screen and the brightness actuator refuses every other
-target, so an external-display HUD would arrive with a slider that throws on the
-first drag — Crema draws a bar only where it can also move it, and the rest waits
-for the outbound half (ROADMAP.md). No preference gates any of this: with
+source exists. **Every reported display is named, the built-in included**:
+`displayID` resolves at the border to `SystemHUD.Target.display(uuid)` through
+the same translation the panel roster uses, and the only drop is a UUID that
+will not resolve — a screen the app cannot name is one it can neither place a
+bar on nor send a drag back to. (This bullet once read "other displays are
+dropped", over a `display == nil` that meant the built-in: `hud-target-is-a-role`
+split that flattened `DisplayUUID?` into three roles, `hud-belongs-to-its-display`
+confined a named bar to its own screen, and the way back below gave the drag
+somewhere to go — together, what retired the drop.) No preference gates any of
+this: with
 BetterDisplay absent nothing ever arrives, so there is no state to turn off.
 
 Two payload rules follow from one fact: once the neighbour's own OSD is off, the
@@ -903,9 +914,11 @@ order and the gating are pinned by tests rather than resting on the shape of a v
 body.
 Five rules that type enforces:
 - **A status row is a fact, never a wish.** Every row is gated on the feature being
-  in effect: the suppression row needs the preference AND a suppressor in the graph
-  AND the permission, and a domain suspended by a failed apply takes the claim away
-  entirely (the warning is the news then).
+  in effect: the brightness-target row speaks only while Crema is the one applying
+  the key — preference AND suppressor AND permission AND no suspended domain, the
+  `cremaApplies` gate — and where Crema does not apply, the row says nothing rather
+  than aiming a sentence at someone else's work. The claim about replacing the
+  system indicators was this rule's first example; see the amendment.
 - **The style row reports what the displays DRAW, not only what the picker
   declared.** On any Mac without a slit the shipped default declares Notch while
   every panel draws Card, so "Style: Notch" alone is false there — the same
@@ -952,6 +965,17 @@ Two things the window deliberately does not buy: freshness within the window, an
 any claim about `loginItem.status`, which still crosses into Background Task
 Management once per rebuild — one reading, not two, which is why the instance-level
 `loginItemOutcome()` was removed in favour of `menuStatus`.
+
+**Amendment (2026-07-31): the menu now leads with the switch — the rule finished,
+not breached.** "✓" is banned inside a sentence because a checkmark in an NSMenu
+means a CHECKED ITEM; a real `Toggle` is that meaning used on purpose, and the
+menus this entry cites lead with theirs. A status row is a fact, so it could only
+speak once the feature was already in effect — and the feature is opt-in and ships
+OFF, so a fresh install's menu never named the headline feature at all. The
+suppression row went with the switch: over a checked item its only extra claim was
+"no domain suspended", and a suspension already speaks as the warning below. Cost
+unchanged — the switch reads the same two values the Settings toggle gates on and
+this body already receives, and the write stays behind a click.
 
 ### brightness-key-target-in-the-menu
 Correct behavior nobody can see reads as a bug: with an external monitor as the

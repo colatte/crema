@@ -16,7 +16,8 @@ import Foundation
 /// `register(keyDriven: true)` records a reading a key asked for; it does not
 /// open the window. Whether such a reading may still SPEAK for its key is the
 /// owning source's call, not this gate's — a neighbour reporting the same press
-/// spends the window here and marks the in-flight readings there.
+/// spends the window here and marks the in-flight readings there
+/// (docs/DECISIONS.md: key-origin-brightness-gate).
 ///
 /// Known limit (rare, self-healing): a poll reading already in flight when the
 /// key arrives registers before the window is armed, so it absorbs the key's

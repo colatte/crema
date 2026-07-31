@@ -54,17 +54,23 @@ Keep it lowercase, hyphenated, and descriptive — for example
 5. Open the pull request against **`dev`** with a clear description of what
    changed and why.
 
-Continuous integration builds the app, checks formatting with SwiftFormat, runs
-SwiftLint, and runs the test suite on every pull request; the check needs to pass
-before a change can be merged.
+Continuous integration gates every pull request, in order: SwiftLint in strict
+mode, SwiftFormat as a lint, the String Catalog checker (`python3
+scripts/check-catalog.py .` — the one gate ⌘U does not run, so run it yourself
+after touching any UI string), the test suite, and a Release build with its
+signature flags verified (Release is the only configuration that compiles the
+updater). All of it must pass before a change can be merged.
 
 ### Translations
 
 UI strings live in the String Catalog (`Crema/Localizable.xcstrings`): English
 is the source language and pt-BR ships as the first translation. To improve a
 translation or add a language, edit the catalog (Xcode renders it as a table);
-every key must keep a non-empty unit per language — the suite pins catalog
-parity mechanically.
+every key must keep a non-empty unit per language. The mechanical nets cover
+only the shipped pair — the test suite pins en↔pt-BR parity and CI's catalog
+checker (`scripts/check-catalog.py`) reads pt-BR alone — so improving a
+translation is caught, but a new language arrives outside the net: extend both
+checks in the same change, or its missing units ship silently.
 
 By contributing, you agree that your contributions are licensed under the
 project's [GPL-3.0 license](LICENSE).
