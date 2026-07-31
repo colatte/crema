@@ -48,7 +48,7 @@ struct PermissionsSettingsView: View {
                 Text(String(
                     localized: "settings.permissions.footer",
                     // swiftlint:disable:next line_length
-                    defaultValue: "Crema needs Accessibility access to capture the media keys — for its volume and brightness HUDs and to replace the system indicators. Without it the app still runs; it just can't react to those keys. Granting is picked up automatically, no relaunch needed."
+                    defaultValue: "Crema needs Accessibility access to capture the media keys — for its volume and brightness indicators and to replace the system's. Without it the app still runs; it just can't react to those keys. Granting is picked up automatically, no relaunch needed."
                 ))
                 .settingsFootnote()
             }

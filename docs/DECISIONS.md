@@ -1252,11 +1252,15 @@ it for the rest of the press, so a key HELD while the apply discovers the absenc
 would stay swallowed until the user let go — press, nothing, for the length of the
 hold. That is verbatim the dead gesture per-domain suspension already releases the
 latch to avoid, and holding volume-down to zero on an output with no volume control
-is how a person meets it. Marking an absence therefore releases that capability's
-swallow latch in the same lock take, filtered by capability so freeing the mute key
-never frees a held volume key, and it inherits the same asymmetry: the pending up
-leaks, which is the direction to err, since an orphan up only ends a press nobody
-tracked while an orphan down has no closing event at all.
+is how a person meets it. Releasing the latch AT THE MARK was the first answer and
+was refused: it leaks the pending up, and where suspension's own rationale accepts
+that leak because its window is rare — a failure has to land inside one press — an
+absence is discovered BY the press that judges it, so the leak would be the modal
+outcome of every first tap. The latch is MIGRATED instead, at the next down, inside
+the one lock take `decide` already holds: a held key is freed on its next autorepeat,
+and a tap that never repeats stays swallowed in both phases, so the system sees a
+whole press or none. Filtered by capability either way, so freeing the mute key never
+frees a held volume key.
 **The price, said plainly: the first press of an episode is mute.** Only that press
 can discover the absence, because the apply is what asks. A held key costs the down
 plus the few autorepeats until the apply answers. This is not "by construction" for

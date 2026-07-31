@@ -965,7 +965,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aplica-se a todas as telas. Numa tela sem notch, o estilo Notch volta para o Cartão."
+            "value": "Aplica-se a todas as telas. Numa tela sem fenda, o estilo Notch volta para o Cartão."
           }
         }
       }
@@ -982,7 +982,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vale para todas as telas. Nenhuma tela conectada tem fenda, então todas estão desenhando o Cartão."
+            "value": "Aplica-se a todas as telas. Nenhuma tela conectada tem fenda, então todas estão desenhando o Cartão."
           }
         }
       }
@@ -1180,13 +1180,30 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hides the built-in volume and brightness HUDs and shows Crema's instead."
+            "value": "Hides the system volume and brightness indicators and shows Crema's instead."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Oculta os HUDs nativos de volume e brilho e mostra os do Crema."
+            "value": "Oculta os indicadores de volume e brilho do sistema e mostra os do Crema."
+          }
+        }
+      }
+    },
+    "settings.hud.suppress.footer.brightnessScope": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen brightness is replaced only on the built-in display, while the pointer is on it — a key aimed at any other display is left to the system."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O brilho da tela é substituído só na tela integrada, enquanto o ponteiro está nela — uma tecla mirada em qualquer outra tela fica com o sistema."
           }
         }
       }
@@ -1503,13 +1520,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Crema needs Accessibility access to capture the media keys — for its volume and brightness HUDs and to replace the system indicators. Without it the app still runs; it just can't react to those keys. Granting is picked up automatically, no relaunch needed."
+            "value": "Crema needs Accessibility access to capture the media keys — for its volume and brightness indicators and to replace the system's. Without it the app still runs; it just can't react to those keys. Granting is picked up automatically, no relaunch needed."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Crema precisa do acesso de Acessibilidade para capturar as teclas de mídia — para os HUDs de volume e brilho e para substituir os indicadores do sistema. Sem ele o app continua funcionando; só não reage a essas teclas. A concessão é detectada automaticamente, sem precisar reiniciar."
+            "value": "O Crema precisa do acesso de Acessibilidade para capturar as teclas de mídia — para os indicadores de volume e brilho e para substituir os do sistema. Sem ele o app continua funcionando; só não reage a essas teclas. A concessão é detectada automaticamente, sem precisar reiniciar."
           }
         }
       }

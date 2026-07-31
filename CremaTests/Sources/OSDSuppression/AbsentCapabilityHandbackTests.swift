@@ -80,13 +80,16 @@ struct AbsentCapabilityHandbackTests {
         #expect(h.suppressor.longSuspendedDomains.isEmpty)
     }
 
-    @Test func aHeldKeyStopsBeingSwallowedTheMomentTheAbsenceIsLearned() async {
+    @Test func aHeldKeyIsReleasedOnTheAutorepeatAfterTheAbsenceIsLearned() async {
         // The decider commits a verdict at the first down and keeps it for the whole
-        // press, so without a latch release paired to the mark, a key HELD while the
-        // apply discovers the absence stays swallowed until the user lets go: press,
-        // nothing, for the length of the hold. That is the exact dead gesture
-        // `suspend` releases the latch to avoid, and holding volume-down to zero on
-        // an output with no volume control is how a person meets it.
+        // press, so a key HELD while the apply discovers the absence would stay
+        // swallowed until the user lets go: press, nothing, for the length of the
+        // hold. `suspend` avoids that by dropping the latch outright; an absence
+        // cannot, because dropping leaks the pending up and an absence is discovered
+        // BY the press that judges it — the leak would be every first tap. So the
+        // latch is MIGRATED at the next down, which is why this is the autorepeat
+        // after the answer and not "the moment" it lands. Holding volume-down to zero
+        // on an output with no volume control is how a person meets the dead gesture.
         let h = OSDSuppressorHarness()
         h.volume.available = false
         h.suppressor.setEngaged(true)

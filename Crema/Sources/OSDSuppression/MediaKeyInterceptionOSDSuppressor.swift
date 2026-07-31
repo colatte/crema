@@ -54,8 +54,10 @@ import os
 ///   owes feedback and this app has none to give for a control that does not exist.
 ///   The absence is learned on the apply, the only place that asks the channel, and
 ///   read at the next press, so the first press of an episode is the mute one that
-///   buys the answer; a key held across that press has its swallow latch released
-///   with the mark, or the whole hold would go dead
+///   buys the answer; a key held across that press is released at its next
+///   autorepeat, when `decide` reads the mark and migrates the latch, or the whole
+///   hold would go dead — and a tap that never repeats stays swallowed in both
+///   phases rather than leaking a bare up
 ///   (docs/DECISIONS.md: absent-capability-hands-the-key-back).
 @MainActor
 final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
@@ -403,8 +405,9 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     /// feedback. Recording the absence is what closes it: the next press reads the
     /// mark before the tap decides, the key goes to the system, and the system
     /// applies it and draws its own indicator. THIS press is the one that pays for
-    /// the answer, and a key held through it has its swallow latch released with the
-    /// mark, or the rest of the hold would be as silent as the press that bought it.
+    /// the answer, and a key held through it is released at its next autorepeat,
+    /// when `decide` reads the mark and migrates the latch — not here, at the mark,
+    /// which would leak the pending up on every first tap.
     ///
     /// Per CAPABILITY, never per domain: mute rides with volume for recovery, so
     /// marking the domain would hand back the volume keys of a device whose level

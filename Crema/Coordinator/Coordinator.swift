@@ -6,7 +6,11 @@ import os
 // display/linger/hover timers — cohesive, but large.
 // swiftlint:disable file_length
 
-/// The app's single @Observable. Decides what is on screen (`state`), owns HUD
+/// The app's single @Observable for PRESENTATION STATE — the qualifier is load-
+/// bearing, because there are five others (the permission, suppression and
+/// now-playing monitors, and the per-panel `SurfaceDisplayPolicy`). Those are
+/// read-mirrors for views and hold no domain; this one decides what is on screen.
+/// Decides what is on screen (`state`), owns HUD
 /// priority and display timers, and routes view intents to actuators. Sources
 /// and actuators are injected by protocol — never a concrete implementation.
 @MainActor

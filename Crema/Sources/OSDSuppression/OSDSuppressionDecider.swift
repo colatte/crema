@@ -45,9 +45,9 @@ final class SuppressionDecider: @unchecked Sendable {
     /// the same verdict, alongside the suspended set and the caller's `canApply`,
     /// and it lives here for two reasons that are not style. It is asked from the
     /// TAP thread synchronously, so it needs exactly the lock this type already
-    /// owns — a second lock beside it would be a second take per press. And marking
-    /// an absence must release that key's swallow latch in the SAME lock take (see
-    /// `noteAbsentCapability`), which is only atomic if both live here.
+    /// owns — a second lock beside it would be a second take per press. And `decide`
+    /// READS this set and mutates both latch sets in that one take, on that one
+    /// thread: the migration below is atomic only because the three live together.
     ///
     /// Not a suspension and never confused with one: nothing is broken, so there is
     /// no probe, no escalation and no menu (docs/DECISIONS.md:
@@ -112,6 +112,12 @@ final class SuppressionDecider: @unchecked Sendable {
     /// for — the pending up passes too, leaving the system an up with no down, which
     /// is the direction to err in, since an orphan up only ends a press nobody was
     /// tracking while an orphan down has no closing event at all.
+    /// Records that a channel answered "no such control" during an apply.
+    ///
+    /// Per CAPABILITY, never per domain: mute rides with volume for recovery, so a
+    /// domain-grained mark would hand back a working volume level the moment the
+    /// mute plane turned out to be missing.
+    ///
     /// Returns whether this was NEW information, because one caller asks about a
     /// capability its own key is not gated on: volume-up re-reads the mute plane on
     /// every press it takes, so on a device whose LEVEL is fine that guard keeps
@@ -171,9 +177,11 @@ final class SuppressionDecider: @unchecked Sendable {
     /// different lifetimes — `canApply` is a live border reading taken at this very
     /// press, suspension is a failure awaiting a probe, absence is a control the
     /// hardware does not have — and they meet here because they produce one and the
-    /// same verdict. A HELD key passes for the last two mid-hold as well, because
-    /// `suspend` and `noteAbsentCapability` both drop its swallow latch, which is
-    /// what keeps either of them from muting the rest of a hold.
+    /// same verdict. A HELD key passes for the last two mid-hold as well, by two
+    /// different mechanisms: `suspend` DROPS its swallow latch, while an absence is
+    /// MIGRATED here, at the next down. The difference is not cosmetic — dropping
+    /// leaks the pending up, which suspension's own rationale accepts because its
+    /// window is rare, and an absence's window is every first tap.
     func decide(key: MediaKey, isDown: Bool, canApply: Bool) -> Bool {
         let domain = OSDSuppressionDomain(key)
         let capability = OSDSuppressionCapability(key)
