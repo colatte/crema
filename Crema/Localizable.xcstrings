@@ -766,6 +766,40 @@
         }
       }
     },
+    "menu.update.available": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An update to Crema is available."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Há uma atualização do Crema disponível."
+          }
+        }
+      }
+    },
+    "menu.update.show": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show the Update…"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar a Atualização…"
+          }
+        }
+      }
+    },
     "onboarding.body": {
       "extractionState": "manual",
       "localizations": {

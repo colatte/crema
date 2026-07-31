@@ -8,5 +8,25 @@
 	<string>https://colatte.github.io/crema/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>AWufPX9SoMRSSmTVmoLNaoXyHJuRHOKx+BxrSfazfmQ=</string>
+	<!-- The feed itself must be signed, not only the enclosure: without this an
+	     attacker who controls the served appcast still cannot forge a download, but
+	     can lie about which version is newest. generate_appcast signs the feed on
+	     its own once a staged archive carries this key (it reads it out of the app's
+	     Info.plist), so the release ritual gains no step — but a docs/appcast.xml
+	     edited by hand after generation stops validating for every client shipping
+	     this key, which is the standing reason that file is only ever regenerated.
+	     Sparkle refuses to start the updater at all if this is on without
+	     SUVerifyUpdateBeforeExtraction below. -->
+	<key>SURequireSignedFeed</key>
+	<true/>
+	<!-- Crema ships a DMG, and Sparkle's disk-image unarchiver does not force
+	     prevalidation: without this key the update is MOUNTED before its EdDSA
+	     signature is checked, handing hdiutil bytes nobody has vouched for. Safe to
+	     require here because every enclosure is EdDSA-signed and release.sh already
+	     fails the release when the generated feed carries no enclosure signature;
+	     delta archives, the one shape this would constrain, are prevalidated by
+	     Sparkle regardless and none are published anyway. -->
+	<key>SUVerifyUpdateBeforeExtraction</key>
+	<true/>
 </dict>
 </plist>

@@ -54,14 +54,15 @@ struct MenuInformation: View {
     }
 
     var body: some View {
-        // The app's headline feature is opt-in and ships OFF, and until now the
-        // menu never mentioned it on a fresh install: the status block speaks about
-        // the replacement only once it is already in effect. A real Toggle is also
-        // the one place a checkmark belongs in an NSMenu — the rule above bans the
-        // glyph INSIDE a sentence precisely because a checked item is what it means
-        // here, and every AppKit status menu that rule cites (Wi-Fi, Bluetooth,
-        // Sound) leads with its switch. The write stays behind a click, so the
-        // read-only contract on this body holds.
+        // The app's headline feature is opt-in and ships OFF, and a status row is a
+        // fact — the block below can only speak about the replacement once it is
+        // already in effect, so without this switch a fresh install's menu would
+        // never name the feature at all. A real Toggle is also the one place a
+        // checkmark belongs in an NSMenu — the rule above bans the glyph INSIDE a
+        // sentence precisely because a checked item is what it means here, and every
+        // AppKit status menu that rule cites (Wi-Fi, Bluetooth, Sound) leads with
+        // its switch. The write stays behind a click, so the read-only contract on
+        // this body holds.
         Toggle(isOn: Binding(get: { suppresses }, set: { core.setNativeOSDSuppression($0) })) {
             Text(String(localized: "settings.hud.suppress", defaultValue: "Replace the system indicators"))
         }

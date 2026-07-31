@@ -25,6 +25,24 @@ struct SparkleUpdaterTests {
         #expect(key == "AWufPX9SoMRSSmTVmoLNaoXyHJuRHOKx+BxrSfazfmQ=")
     }
 
+    /// Crema ships a DMG, and Sparkle's disk-image unarchiver does not force
+    /// prevalidation on its own: dropped, this key sends the downloaded image to
+    /// hdiutil BEFORE its EdDSA signature is checked. Nothing in the build fails when
+    /// it goes missing — the update still installs — so the plist is where it gets
+    /// caught.
+    @Test func infoPlistVerifiesUpdatesBeforeExtraction() {
+        #expect(Bundle.main.object(forInfoDictionaryKey: "SUVerifyUpdateBeforeExtraction") as? Bool == true)
+    }
+
+    /// The feed itself is signed, not only the enclosure, so a served appcast cannot
+    /// lie about which version is newest. Two halves, and the second is not decoration:
+    /// Sparkle refuses to START the updater when this key is on without
+    /// SUVerifyUpdateBeforeExtraction, which would take the whole update cycle down.
+    @Test func infoPlistRequiresASignedFeed() {
+        #expect(Bundle.main.object(forInfoDictionaryKey: "SURequireSignedFeed") as? Bool == true)
+        #expect(Bundle.main.object(forInfoDictionaryKey: "SUVerifyUpdateBeforeExtraction") as? Bool == true)
+    }
+
     /// The consent defaults stay untouched: Sparkle owns the automatic-check
     /// prompt (asked on the second launch) and install requires a user click, so
     /// we ship neither key in the partial plist.
@@ -49,23 +67,38 @@ struct SparkleUpdaterTests {
 
     /// The pure seam: dev builds ship no updater. `isSupported` is the compile-time
     /// source of truth the menu mirrors, and a Debug-built model holds no
-    /// controller, so it can never check.
+    /// controller, so it can never check — and, with no Sparkle session behind it,
+    /// never claims an update is waiting either.
     @MainActor
     @Test func updaterIsAbsentInDebugBuilds() {
         #expect(UpdaterModel.isSupported == false)
         let model = UpdaterModel()
         #expect(model.canCheckForUpdates == false)
+        #expect(model.hasPendingUpdate == false)
     }
 
-    // MARK: - Menu string
+    // MARK: - Menu strings
 
     @Test func checkForUpdatesStringResolvesPerLanguage() throws {
-        func value(_ key: String, in language: String) throws -> String {
-            let path = try #require(Bundle.main.path(forResource: language, ofType: "lproj"))
-            let bundle = try #require(Bundle(path: path))
-            return bundle.localizedString(forKey: key, value: "«missing»", table: nil)
-        }
         #expect(try value("menu.checkForUpdates", in: "en") == "Check for Updates…")
         #expect(try value("menu.checkForUpdates", in: "pt-BR") == "Verificar Atualizações…")
+    }
+
+    /// The pending-update line and its button. Release-only on screen, but the
+    /// strings ship in every build — and this reads the BUILT bundle, where the
+    /// catalog gate cannot: that script checks the source catalog, so a unit that
+    /// never made it into the .lproj still reads clean there and serves English to
+    /// the pt-BR user.
+    @Test func pendingUpdateStringsResolvePerLanguage() throws {
+        #expect(try value("menu.update.available", in: "en") == "An update to Crema is available.")
+        #expect(try value("menu.update.available", in: "pt-BR") == "Há uma atualização do Crema disponível.")
+        #expect(try value("menu.update.show", in: "en") == "Show the Update…")
+        #expect(try value("menu.update.show", in: "pt-BR") == "Mostrar a Atualização…")
+    }
+
+    private func value(_ key: String, in language: String) throws -> String {
+        let path = try #require(Bundle.main.path(forResource: language, ofType: "lproj"))
+        let bundle = try #require(Bundle(path: path))
+        return bundle.localizedString(forKey: key, value: "«missing»", table: nil)
     }
 }

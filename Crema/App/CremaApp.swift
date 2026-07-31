@@ -27,6 +27,16 @@ struct CremaApp: App {
             // the separator that divides it from the actions below.
             // (docs/DECISIONS.md: menu-status-before-warnings)
             MenuInformation(core: core)
+            #if !DEBUG
+            // Closes the informational block: a fact with its repair under it, so it
+            // belongs above the actions and not among them. The one line here that
+            // does NOT come from MenuStatus, deliberately — the updater exists only
+            // in Release and AppCore never holds it, so routing it through that pure
+            // type would put a case in it the Debug-hosted suite can never reach.
+            // Its whole gate is one mirrored Bool, which is the shape MenuStatus
+            // exists to keep out of view bodies in the first place.
+            PendingUpdateMenuSection(updater: updater)
+            #endif
             // Gated on the chain being alive: with no media source at all the
             // warning inside the block above already tells that story, and four grey
             // rows that can never work are noise, not a disabled control the user
@@ -85,6 +95,31 @@ private struct SettingsMenuButton: View {
 }
 
 #if !DEBUG
+/// Says a scheduled update is waiting and gives the one click that reaches it.
+/// Nothing at all when none is pending — the menu keeps the shape it has today.
+///
+/// The shape is the house rule for a fact with a repair: a plain disabled sentence,
+/// no glyph, and the button directly under it, fenced by the separator that closes
+/// the block (docs/DECISIONS.md: menu-status-before-warnings). Sparkle already
+/// showed its alert for this update — for an accessory app, behind every other
+/// running app — so the button does not start a new check; `checkForUpdates()` on an
+/// already-presented update is how Sparkle brings that alert back into focus, and
+/// the activation is the same one SettingsMenuButton needs for the same reason.
+private struct PendingUpdateMenuSection: View {
+    @ObservedObject var updater: UpdaterModel
+
+    var body: some View {
+        if updater.hasPendingUpdate {
+            Text(String(localized: "menu.update.available", defaultValue: "An update to Crema is available."))
+            Button(String(localized: "menu.update.show", defaultValue: "Show the Update…")) {
+                NSApp.activate()
+                updater.checkForUpdates()
+            }
+            Divider()
+        }
+    }
+}
+
 /// Triggers Sparkle's update check. Like SettingsMenuButton it activates the app
 /// first — an accessory (LSUIElement) app has no key window, so Sparkle's panel
 /// would otherwise open behind whatever is frontmost. Disabled while a check is
