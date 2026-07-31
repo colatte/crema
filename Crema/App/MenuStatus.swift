@@ -19,7 +19,6 @@ struct MenuStatus {
         /// declaration alone, beside a Card-shaped HUD, reads as a lie
         /// (docs/DECISIONS.md: rendered-style-gates-settings).
         case styleFallsBackToCard
-        case replacingSystemIndicators
         case brightnessFromBetterDisplay
         /// The rule the user cannot see: a brightness key acts on the display under
         /// the pointer, Crema applies it only on the built-in panel, and every other
@@ -117,11 +116,6 @@ struct MenuStatus {
         // the first item never moves under the pointer as conditions come and go.
         var rows: [Row] = [.style(style)]
         if fallsBackToCard { rows.append(.styleFallsBackToCard) }
-        // The claim is about the keys right now, so a suspended domain takes it
-        // away entirely: with the native indicator back for one channel the flat
-        // sentence is false for that channel, and the warning below is the news.
-        let cremaApplies = suppressionEnabled && suppressionAvailable && suspended.isEmpty
-        if cremaApplies { rows.append(.replacingSystemIndicators) }
         // The neighbour reporting is the arrangement working, so it belongs here and
         // not in the warning stack, where it sat behind a checkmark and read as
         // noise (docs/DECISIONS.md: betterdisplay-osd-source). Mutually exclusive
@@ -137,9 +131,9 @@ struct MenuStatus {
         // with a neighbour ahead in the tap chain the keys follow the display under
         // the POINTER, which is where Crema's own rule came from — and where Crema
         // does not apply, the row above is the one that speaks. It also qualifies
-        // the flat "replacing the system indicators" line above it, which for
-        // brightness is now true only while the pointer is on the built-in panel;
-        // that is why this row sits after it rather than before.
+        // the menu's own Toggle, which is a flat wish: for brightness the
+        // replacement holds only while the pointer is on the built-in panel.
+        let cremaApplies = suppressionEnabled && suppressionAvailable && suspended.isEmpty
         if cremaApplies, let row = Self.brightnessRow(for: brightnessTarget) {
             rows.append(row)
         }

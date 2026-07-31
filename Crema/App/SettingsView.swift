@@ -7,16 +7,12 @@ import SwiftUI
 /// a relaunch.
 @MainActor
 struct SettingsView: View {
-    enum Tab: String {
-        case general, nowPlaying, systemHUD, permissions, about
-    }
-
     let core: AppCore
-    @State private var selectedTab: Tab
+    @State private var selectedTab: SettingsTab
 
     init(core: AppCore) {
         self.core = core
-        var initial = Tab.general
+        var initial = SettingsTab.general
         #if DEBUG
         // Screenshot/dev harness: `-CremaSettingsInitialTab about` decides the
         // tab this window LANDS on when it opens (by ⌘, or the menu — nothing
@@ -24,7 +20,7 @@ struct SettingsView: View {
         // supported selector for that). DEBUG-only read; the selection state
         // itself is ordinary TabView plumbing.
         if let raw = UserDefaults.standard.string(forKey: "CremaSettingsInitialTab"),
-           let tab = Tab(rawValue: raw) {
+           let tab = SettingsTab(rawValue: raw) {
             initial = tab
         }
         #endif
@@ -35,21 +31,40 @@ struct SettingsView: View {
         TabView(selection: $selectedTab) {
             GeneralSettingsView(core: core)
                 .tabItem { Label(String(localized: "settings.tab.general", defaultValue: "General"), systemImage: "gearshape") }
-                .tag(Tab.general)
+                .tag(SettingsTab.general)
             NowPlayingSettingsView(core: core)
                 .tabItem { Label(String(localized: "settings.tab.nowPlaying", defaultValue: "Now Playing"), systemImage: "music.note") }
-                .tag(Tab.nowPlaying)
+                .tag(SettingsTab.nowPlaying)
             SystemHUDSettingsView(core: core)
-                .tabItem { Label(String(localized: "settings.tab.systemHUD", defaultValue: "System HUD"), systemImage: "slider.horizontal.3") }
-                .tag(Tab.systemHUD)
+                .tabItem {
+                    Label(
+                        String(localized: "settings.tab.indicators", defaultValue: "Indicators"),
+                        systemImage: "slider.horizontal.3"
+                    )
+                }
+                .tag(SettingsTab.indicators)
             PermissionsSettingsView(core: core)
                 .tabItem { Label(String(localized: "settings.tab.permissions", defaultValue: "Permissions"), systemImage: "lock.shield") }
-                .tag(Tab.permissions)
+                .tag(SettingsTab.permissions)
             AboutSettingsView()
                 .tabItem { Label(String(localized: "settings.tab.about", defaultValue: "About"), systemImage: "info.circle") }
-                .tag(Tab.about)
+                .tag(SettingsTab.about)
         }
         .frame(width: 500)
+        // A warning that offers its own fix lands ON the fix, rather than naming
+        // the tab and leaving the walk to the reader. Consumed immediately, so it
+        // steers the window once and never drags it back afterwards.
+        .onChange(of: core.settingsNavigation.requestedTab) { _, requested in
+            guard let requested else { return }
+            selectedTab = requested
+            core.settingsNavigation.consume()
+        }
+        .onAppear {
+            if let requested = core.settingsNavigation.requestedTab {
+                selectedTab = requested
+                core.settingsNavigation.consume()
+            }
+        }
     }
 }
 

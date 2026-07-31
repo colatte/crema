@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// The menu's information block: what Crema is doing, then what needs attention,
@@ -32,6 +33,7 @@ import SwiftUI
 @MainActor
 struct MenuInformation: View {
     let core: AppCore
+    @Environment(\.openSettings) private var openSettings
 
     /// Observed rather than read through Preferences: the row below asserts the
     /// feature is in effect, and an unobserved read would keep asserting it after
@@ -42,7 +44,30 @@ struct MenuInformation: View {
     /// degradation of a rawValue a future version retires are stated once, there.
     @AppStorage(Preferences.declaredStyleKey) private var declaredStyle = Preferences.defaultDeclaredStyle.rawValue
 
+    /// Whether the app can replace anything at all: without the Accessibility
+    /// grant there is no tap, and without a suppressor there is nothing to engage.
+    /// The same two values the Settings toggle gates on, and the same two the
+    /// status block already receives — no new observation enters this expensive
+    /// body for the switch.
+    private var canSuppress: Bool {
+        core.permissionMonitor.isGranted && core.osdSuppressor != nil
+    }
+
     var body: some View {
+        // The app's headline feature is opt-in and ships OFF, and until now the
+        // menu never mentioned it on a fresh install: the status block speaks about
+        // the replacement only once it is already in effect. A real Toggle is also
+        // the one place a checkmark belongs in an NSMenu — the rule above bans the
+        // glyph INSIDE a sentence precisely because a checked item is what it means
+        // here, and every AppKit status menu that rule cites (Wi-Fi, Bluetooth,
+        // Sound) leads with its switch. The write stays behind a click, so the
+        // read-only contract on this body holds.
+        Toggle(isOn: Binding(get: { suppresses }, set: { core.setNativeOSDSuppression($0) })) {
+            Text(String(localized: "settings.hud.suppress", defaultValue: "Replace the system indicators"))
+        }
+        .disabled(!canSuppress)
+        Divider()
+
         let status = core.menuStatus(
             style: Preferences.declaredStyle(fromRawValue: declaredStyle),
             suppressionEnabled: suppresses
@@ -56,6 +81,18 @@ struct MenuInformation: View {
             ForEach(Array(status.warnings.enumerated()), id: \.offset) { index, warning in
                 if status.separatesWarning(at: index) { Divider() }
                 Text(text(for: warning))
+                if warning == .accessibilityMissing {
+                    // The only warning whose fix lives inside this app. It opens the
+                    // window ON the tab that fixes it rather than naming the tab —
+                    // the same move the Indicators tab makes by putting the grant
+                    // button under the sentence that explains the problem. Behind a
+                    // click, so this body stays read-only.
+                    Button(String(localized: "menu.openPermissions", defaultValue: "Open Permissions…")) {
+                        core.settingsNavigation.request(.permissions)
+                        NSApp.activate()
+                        openSettings()
+                    }
+                }
                 if let advice = warning.advice {
                     Text(text(for: advice))
                 }
@@ -77,11 +114,6 @@ struct MenuInformation: View {
             String(
                 localized: "menu.status.styleFallsBack",
                 defaultValue: "No connected display has a notch, so every one is drawing Card."
-            )
-        case .replacingSystemIndicators:
-            String(
-                localized: "menu.status.replacingIndicators",
-                defaultValue: "Replacing the system volume and brightness indicators."
             )
         case .brightnessFromBetterDisplay:
             String(

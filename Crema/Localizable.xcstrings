@@ -579,6 +579,23 @@
         }
       }
     },
+    "menu.openPermissions": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Permissions…"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir Permissões…"
+          }
+        }
+      }
+    },
     "menu.osdSuspended.retry": {
       "extractionState": "manual",
       "localizations": {
@@ -698,23 +715,6 @@
         }
       }
     },
-    "menu.status.replacingIndicators": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Replacing the system volume and brightness indicators."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Substituindo os indicadores de volume e brilho do sistema."
-          }
-        }
-      }
-    },
     "menu.status.style": {
       "extractionState": "manual",
       "localizations": {
@@ -755,13 +755,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Crema uses the Accessibility permission to capture the volume and brightness keys so it can show its own HUD. Without it the app keeps working — it just can't react to those keys."
+            "value": "Crema uses the Accessibility permission to capture the volume and brightness keys so it can show its own indicators. Without it the app keeps working — it just can't react to those keys."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Crema usa a permissão de Acessibilidade para capturar as teclas de volume e brilho e mostrar o próprio HUD. Sem ela o app continua funcionando — só não reage a essas teclas."
+            "value": "O Crema usa a permissão de Acessibilidade para capturar as teclas de volume e brilho e mostrar os próprios indicadores. Sem ela o app continua funcionando — só não reage a essas teclas."
           }
         }
       }
@@ -1684,6 +1684,23 @@
         }
       }
     },
+    "settings.tab.indicators": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Indicators"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Indicadores"
+          }
+        }
+      }
+    },
     "settings.tab.nowPlaying": {
       "extractionState": "manual",
       "localizations": {
@@ -1714,23 +1731,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Permissões"
-          }
-        }
-      }
-    },
-    "settings.tab.systemHUD": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "System HUD"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "HUD do Sistema"
           }
         }
       }

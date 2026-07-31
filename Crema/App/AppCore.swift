@@ -117,6 +117,10 @@ final class AppCore {
     /// silently not delivering, and it fires no unlock edge for the lock-edge
     /// reinstall to see — these close that gap. Retained for the app lifetime
     /// alongside the tap. (docs/DECISIONS.md: J7-estado-do-outro-lado)
+    /// Where a warning that offers its own fix wants the Settings window to land.
+    /// Its own observable because AppCore is not one, the same shape the permission
+    /// and suppression mirrors already use.
+    let settingsNavigation = SettingsNavigation()
     private var wakeObservations: [NSObjectProtocol] = []
     private var onboardingWindow: NSWindow?
 

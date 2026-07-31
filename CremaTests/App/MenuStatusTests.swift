@@ -44,7 +44,10 @@ struct MenuStatusTests {
     }
 
     @Test func aHealthyAppSaysWhatItIsDoingAndWarnsAboutNothing() {
-        #expect(status().rows == [.style(.notch), .replacingSystemIndicators, .opensAtLogin])
+        // No row claims the replacement any more: the menu's own Toggle states it,
+        // checked, and a suspension states the exception as a warning right below.
+        // A sentence repeating a switch two lines under it was noise.
+        #expect(status().rows == [.style(.notch), .opensAtLogin])
         #expect(status().warnings.isEmpty)
     }
 
@@ -81,20 +84,13 @@ struct MenuStatusTests {
         #expect(drawing.warnings.isEmpty)
     }
 
-    @Test func aWishWithoutTheMeansIsNotStatus() {
-        // The preference persists with no permission or no suppressor in the graph
-        // (demo sources) and nothing engages — the row must not claim it does.
-        #expect(!status(suppressionAvailable: false).rows.contains(.replacingSystemIndicators))
-        #expect(!status(suppressionEnabled: false).rows.contains(.replacingSystemIndicators))
-    }
-
     @Test func aSuspendedDomainReplacesTheClaimWithTheNews() {
         // Suppression is engaged and one channel's native indicator is back: the
         // flat claim is false for that channel, and the warning is what the user
         // needs. Domains in declared order, so the same set never reads two ways.
         let suspended = status(suspendedDomains: [.keyboardBrightness, .volume])
-        #expect(!suspended.rows.contains(.replacingSystemIndicators))
         #expect(suspended.warnings == [.suppressionSuspended([.volume, .keyboardBrightness])])
+        #expect(suspended.rows == [.style(.notch), .opensAtLogin])   // and no claim beside it
     }
 
     @Test func theBrightnessTargetIsStatusAndNeverCollidesWithTheNeighboursRow() {
