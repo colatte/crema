@@ -156,18 +156,41 @@ private struct StyleThumbnail: View {
     /// surface really is flush with the bezel, continuous with the slit it covers.
     private var surface: some View {
         surfaceShape
-            .fill(.black)
+            .fill(shapes.surfaceIsOpaque ? Color.black : Color.black.opacity(0.62))
             // Depth only on the ones that float, and it is the cue that survives
             // the scale: the card's real gap from the top edge is under a point
             // here, so a shadow says "on top of the screen" where the gap cannot,
             // and the skin welded to the bezel correctly casts none.
             .shadow(
-                color: .black.opacity(shapes.surfaceHangsFromTopEdge ? 0 : 0.55),
+                color: .black.opacity(shapes.surfaceHangsFromTopEdge ? 0 : 0.75),
                 radius: 2.5,
                 y: 1.5
             )
+            // The floating skins' own hairline (vibrantSurface). Only the notch is
+            // solid black — it camouflages with the cutout it covers — and that is
+            // the difference a user names first when the three are side by side.
+            .overlay {
+                if !shapes.surfaceIsOpaque {
+                    surfaceShape.strokeBorder(.white.opacity(0.14), lineWidth: 0.5)
+                }
+            }
             .frame(width: shapes.surface.width * Thumbnail.width, height: shapes.surface.height * Thumbnail.height)
-            .offset(x: shapes.surface.minX * Thumbnail.width, y: shapes.surface.minY * Thumbnail.height)
+            .offset(x: shapes.surface.minX * Thumbnail.width, y: surfaceTop)
+    }
+
+    /// The surface's top, with the one exaggeration in the picture.
+    ///
+    /// A skin that really clears the menu bar is DRAWN clearing it, by a visible
+    /// margin. The card's true clearance is 3 pt on a 982 pt screen — a fifth of a
+    /// point once scaled here — so drawn faithfully its edge lands on the same pixel
+    /// as the bar's and it reads as welded to the bezel, which is the opposite of
+    /// what that skin does and the complaint these pictures came back with twice.
+    /// Only the size of a real gap is exaggerated: a surface that touches the top
+    /// edge is still drawn touching it.
+    private var surfaceTop: CGFloat {
+        let derived = shapes.surface.minY * Thumbnail.height
+        guard shapes.surfaceClearsTheMenuBar else { return derived }
+        return max(derived, Thumbnail.minMenuBar + Thumbnail.floatingClearance)
     }
 
     /// One shape for the fill and the hairline, so the outline traces the surface
@@ -200,6 +223,9 @@ private enum Thumbnail {
     /// Floor for the menu-bar strip and the slit that cuts it. Scenery, like the
     /// strip itself: the derived height is 1.7 pt here, which reads as nothing.
     static let minMenuBar: CGFloat = 3.5
+    /// How far below the drawn menu bar a floating surface sits. Enough to be a gap
+    /// and not a seam; the true one is a fifth of a point at this size.
+    static let floatingClearance: CGFloat = 2.5
 
     /// A desktop to put the surface on. Deliberately flat and dim: the subject is
     /// the black shape, and a busy wallpaper would compete with the one thing

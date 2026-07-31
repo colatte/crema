@@ -56,12 +56,33 @@ struct StylePreviewTests {
         #expect(card.minY > notch.minY, "the card floats below the edge the notch hangs from")
     }
 
-    @Test func theFloatingStylesAreDrawnOnAPanelWithNoSlit() {
-        // A preview that showed a notch under Card would promise hardware the
-        // style ignores — and hardware the viewer may not own.
-        #expect(StylePreview.plainReference.safeTop == 0)
-        #expect(StylePreview.plainReference.auxLeft == 0)
-        #expect(StylePreview.plainReference.auxRight == 0)
+    @Test func onlyTheNotchTileDrawsASlitAndOnlyItsSurfaceIsOpaque() {
+        // All three are illustrated on the SAME panel now, because the card's rule
+        // reads the safe area and a slitless reference reports zero for it — drawn
+        // there the card lands 8 pt down, under the menu bar, and the picture said
+        // it was welded to the bezel. What still belongs to the notch alone is the
+        // slit (drawing one under Card would promise hardware that style ignores)
+        // and the opaque fill: only the notch is black, because it camouflages with
+        // the cutout it covers.
+        #expect(StylePreview.shapes(for: .notch).slit != nil)
+        #expect(StylePreview.shapes(for: .card).slit == nil)
+        #expect(StylePreview.shapes(for: .classic).slit == nil)
+        #expect(StylePreview.shapes(for: .notch).surfaceIsOpaque)
+        #expect(!StylePreview.shapes(for: .card).surfaceIsOpaque)
+        #expect(!StylePreview.shapes(for: .classic).surfaceIsOpaque)
+    }
+
+    @Test func onlyTheSkinsThatReallyClearTheBarAreDrawnClearingIt() {
+        // The one exaggeration in the picture, and it is licensed by an ordering
+        // that is true: on the hardware this app was built for the card anchors
+        // 40 pt down against a 37 pt menu bar, so it really does clear it — by 3 pt
+        // on a 982 pt screen, which is a fifth of a point once scaled into the tile.
+        // Drawn faithfully its edge lands on the bar's and it reads as welded, which
+        // is what the field reported twice. The notch hangs FROM that edge and must
+        // never be pushed off it.
+        #expect(StylePreview.shapes(for: .card).surfaceClearsTheMenuBar)
+        #expect(StylePreview.shapes(for: .classic).surfaceClearsTheMenuBar)
+        #expect(!StylePreview.shapes(for: .notch).surfaceClearsTheMenuBar)
     }
 
     @Test func theUnitConversionFlipsTheAxisRatherThanCopyingIt() {
@@ -71,9 +92,9 @@ struct StylePreviewTests {
         let classic = StylePreview.shapes(for: .classic).surface
         let raw = Style.classic.frame(
             for: .nowPlaying(NowPlaying(title: "", isPlaying: true, position: 0), expanded: true),
-            on: StylePreview.plainReference
+            on: StylePreview.notchedReference
         )
-        let screen = StylePreview.plainReference.frame
+        let screen = StylePreview.notchedReference.frame
         #expect(abs(classic.minY - (screen.maxY - raw.maxY) / screen.height) < 0.0001)
         #expect(classic.minY > 0.5, "the classic surface is near the BOTTOM once flipped")
     }

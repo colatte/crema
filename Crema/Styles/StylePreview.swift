@@ -24,10 +24,29 @@ struct StylePreviewShapes: Equatable {
     /// measured against.
     let menuBar: CGFloat
 
+    /// Whether the surface takes no material and is drawn opaque. The one fact
+    /// about a skin's look that no frame rule produces, and it is the difference a
+    /// user names first: only the notch style is black, because it camouflages with
+    /// the hardware cutout it covers; the card and classic are a translucent
+    /// material behind a half-point white hairline (`vibrantSurface`).
+    let surfaceIsOpaque: Bool
+
     /// Whether the surface is welded to the top of the screen rather than floating
     /// under it. Read off the rule's own answer instead of declared per style, so a
     /// skin that stops hanging from the edge stops being drawn as if it did.
     var surfaceHangsFromTopEdge: Bool { surface.minY < 0.0001 }
+
+    /// Whether the surface clears the menu bar entirely, which is what a floating
+    /// skin does and a welded one does not.
+    ///
+    /// Read by the drawing to keep that ORDER visible. The magnitude cannot be: the
+    /// card's real clearance is 3 pt on a 982 pt screen, which is a fifth of a point
+    /// once scaled into a 70 pt picture, so a faithful rendering puts the two edges
+    /// on the same pixel and the card reads as welded — the exact complaint these
+    /// pictures came back with, twice. What is exaggerated is only the size of a gap
+    /// that is really there; where a surface really does touch the top edge, it is
+    /// still drawn touching it.
+    var surfaceClearsTheMenuBar: Bool { surface.minY >= menuBar }
 }
 
 /// A picture of where each skin puts its surface, derived from the skin's OWN
@@ -52,10 +71,6 @@ enum StylePreview {
         auxRight: 664
     )
 
-    /// The same panel with no slit — what a frame rule sees on every external
-    /// monitor and every Mac that never had a notch.
-    static let plainReference = ScreenGeometry(frame: CGRect(x: 0, y: 0, width: 1512, height: 982))
-
     /// The state the preview freezes: a track playing, surface open.
     ///
     /// The open surface rather than the resting one, decided by measuring both. At
@@ -71,14 +86,16 @@ enum StylePreview {
     )
 
     static func shapes(for style: Style) -> StylePreviewShapes {
-        // Notch is illustrated on the only hardware it exists on; the floating
-        // skins on a plain panel. Not `resolved(on:)` against one shared screen:
-        // that would draw Notch and Card identically on a slitless reference and
-        // leave the picker with two options that look the same, when the thing to
-        // teach is what each style IS. The Settings footer already carries the
-        // other half — that a notch declaration falls back to card where there is
-        // no slit.
-        let geometry = style == .notch ? notchedReference : plainReference
+        // ONE panel for all three, and it is the notched one — because the card's
+        // own rule reads the safe area, and a slitless panel reports zero for it.
+        // Drawn there the card anchors 8 pt from the top edge, UNDER a 24 pt menu
+        // bar, and the picture said the card is welded to the bezel. On the
+        // hardware this app was built for it is not: 32 pt of safe area plus its
+        // 8 pt margin puts it 40 pt down, clear of a 37 pt bar — measured, and
+        // reported from the field as the thing the picture was getting wrong.
+        // Comparing three styles on three different screens is what let that
+        // happen. The slit still belongs to the notch tile alone (see `slit`).
+        let geometry = notchedReference
         let screen = geometry.frame
         // On a notched panel the safe area stands in for the bar. They are not the
         // same height — the bar is measured at 37 pt against the slit's 32
@@ -91,7 +108,8 @@ enum StylePreview {
         return StylePreviewShapes(
             surface: unit(style.frame(for: previewState, on: geometry), in: screen),
             slit: style == .notch ? unit(slit(of: geometry), in: screen) : nil,
-            menuBar: bar / screen.height
+            menuBar: bar / screen.height,
+            surfaceIsOpaque: style == .notch
         )
     }
 
