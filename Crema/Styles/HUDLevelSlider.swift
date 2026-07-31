@@ -42,6 +42,11 @@ struct HUDLevelSlider: View {
     let kind: SystemHUD.Kind
     let value: Double
     let onChange: (Double) -> Void
+    /// The gesture ended. Reported separately from the last value because "the
+    /// hand let go" is not derivable from the values: a drag that stops on 0.4 and
+    /// a drag still held at 0.4 send the same number, and only one of them may be
+    /// corrected under the finger.
+    var onRelease: () -> Void = {}
     var appearance: Appearance = .capsule
     /// The panel-local pointer signal (SurfaceDisplayPolicy.pointerInside)
     /// that reveals the capsule knob — per display, so only the hovered
@@ -105,8 +110,13 @@ struct HUDLevelSlider: View {
                 // The identity flip does NOT reset `isEditing` — the @State lives
                 // on this view, above the `.id` — so a kind flip mid-drag (its
                 // gesture torn down, onEnded never firing) would strand the
-                // spring suspended without this explicit clear.
-                .onChange(of: kind) { _, _ in isEditing = false }
+                // spring suspended without this explicit clear. The gesture really
+                // did end, so it is reported as ended: a drag left hanging would
+                // hold back a correction the next release would have to deliver.
+                .onChange(of: kind) { _, _ in
+                    isEditing = false
+                    onRelease()
+                }
                 // One accessibility element, shared by the three bodies: a Slider
                 // representation keeps the slider role and its adjustability, which
                 // the hand-drawn bodies do not carry. VoiceOver behavior is part of
@@ -234,7 +244,10 @@ struct HUDLevelSlider: View {
                 isEditing = true
                 onChange(fraction)
             }
-            .onEnded { _ in isEditing = false }
+            .onEnded { _ in
+                isEditing = false
+                onRelease()
+            }
     }
 
     // The mechanics extracted pure (HUDLevelSliderTests); the bodies stay thin.

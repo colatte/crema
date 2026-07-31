@@ -603,6 +603,48 @@ that the integration is on; only a delivered payload is, and that claim is
 dropped when the app terminates. The neighbour is matched by bundle ID, never by
 the localized name shown to the user.
 
+### the-bar-never-outruns-the-screen
+The bar has no local value: it draws the last reading, and a drag publishes the
+new level BEFORE the write leaves so the fill follows the finger instead of
+freezing on a round-trip (`betterdisplay-osd-source`). That trade buys
+responsiveness with a promise — every level put on screen will be honoured — and
+one arrangement breaks the promise outright. A bar naming an external display,
+drawn from the neighbour's report, with the neighbour's COMMAND channel off: its
+own actuator refuses, and the fallback refuses too, because DisplayServices is
+the built-in panel's and this app writes no DDC of its own. Nothing reaches any
+wire, and the fill sits wherever the hand left it — a control that did nothing,
+looking exactly like one that worked.
+
+Rule: a drag no actuator honoured returns to the last level with EVIDENCE behind
+it — a reading that arrived on its own, or a level a write confirmed. Three
+things this is not:
+
+- **Not immediate.** The refusal lands while the hand is usually still down, and
+  a fill that snaps backwards under the pointer is dragged forward again on the
+  next frame, sixty times a second. The correction waits for the gesture to end,
+  which is why the view reports the END of a drag and not merely its values: "the
+  hand let go" is not derivable from the numbers, since a drag that stops on 0.4
+  and a drag still held at 0.4 send the same one. A quiet-period guess would fire
+  on a finger that merely paused.
+- **Not release-only.** A tap lets go in a frame or two, before either actuator
+  answers, so its refusal arrives with nothing holding the bar. The refusal
+  corrects the bar itself when no gesture is in progress — otherwise the quickest
+  gesture is the one that leaves the lie on screen, and a tap is what a person
+  tries first on a control that seems stuck.
+- **Not outliving its bar.** The HUD dismisses on its own timer, button down or
+  not. A correction still owed when the bar goes has nothing left to correct, and
+  carrying it forward pulls the NEXT drag — a good one, mid-write — back to a
+  reading two events old.
+
+We deliberately do NOT disable the control instead. Greying it out needs a
+failure to learn from, so it can never help the first gesture, which is the one
+that matters; the reachability it would key on is a single flag that a refusal on
+an external monitor would use to disable a bar on the built-in panel, where the
+fallback genuinely writes; and a control that greys and un-greys as evidence
+comes and goes is jumpier than one that consistently springs back. The
+spring-back already says "not taken" in the language macOS uses for a rejected
+drag, and it says it on the first try.
+
 ### hud-belongs-to-its-display
 The app has ONE state and one panel per screen, so every panel drew every HUD.
 Harmless while nothing named a display — and wrong the moment something did: a

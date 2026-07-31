@@ -382,6 +382,7 @@ struct CardView: View, SurfaceStyleBody {
                     kind: hud.kind,
                     value: presentation.value,
                     onChange: { hudSliderMoved(to: $0) },
+                    onRelease: { hudSliderReleased() },
                     appearance: HUDLevelSlider.appearance(for: displayPolicy.hudIndicatorStyle),
                     isHovered: displayPolicy.pointerInside
                 )
@@ -396,6 +397,7 @@ struct CardView: View, SurfaceStyleBody {
                 kind: hud.kind,
                 value: presentation.value,
                 onChange: { hudSliderMoved(to: $0) },
+                onRelease: { hudSliderReleased() },
                 appearance: .filled
             )
             .overlay(alignment: .leading) {

@@ -151,4 +151,8 @@ extension SurfaceStyleBody {
     func hudSliderMoved(to value: Double) {
         coordinator.hudSliderChanged(to: value)
     }
+
+    func hudSliderReleased() {
+        coordinator.hudSliderReleased()
+    }
 }

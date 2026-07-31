@@ -172,6 +172,19 @@ final class Coordinator {
     /// both directions, so a neighbour that quits mid-gesture stops costing every
     /// following frame a deadline, and one that comes back is used again.
     @ObservationIgnored private var externalBrightnessReachable = true
+    /// The last screen-brightness level with evidence behind it: a reading that
+    /// arrived from a source, or one an actuator confirmed writing. A drag frame
+    /// never updates it — the fill under a moving finger is a proposal, and this
+    /// is what the proposal falls back to when nothing honours it.
+    @ObservationIgnored private var confirmedScreenBrightness: Double?
+    /// A drag reached no actuator at all, so the bar is showing a level no display
+    /// went to. Held rather than corrected on the spot because the finger is
+    /// usually still down, and a fill that jumps backwards under the pointer only
+    /// to be dragged forward on the next frame fights the hand sixty times a
+    /// second. Any write that does land clears it.
+    @ObservationIgnored private var screenBarUnconfirmed = false
+    /// True from a drag's first frame until the gesture ends.
+    @ObservationIgnored private var hudSliderHeld = false
     @ObservationIgnored private let keyboardBrightnessController: any KeyboardBrightnessController
     @ObservationIgnored private let clock: any SleepClock
     @ObservationIgnored private let hudRevertDelay: Double
@@ -489,6 +502,11 @@ final class Coordinator {
         enteredViaHoverIntent = false
         currentLinger = nowPlayingLinger
         lingerIsInvoked = false
+        // The bar that was under the finger is gone, so no correction is owed and
+        // no gesture is in progress — the HUD can dismiss on its revert timer while
+        // the button is still down, and that view's release never arrives.
+        screenBarUnconfirmed = false
+        hudSliderHeld = false
     }
 
     func togglePlayPause() {
@@ -564,6 +582,7 @@ final class Coordinator {
 
     func hudSliderChanged(to value: Double) {
         guard case .hud(let hud) = state else { return }
+        hudSliderHeld = true
         switch hud.kind {
         case .volume:
             // A drag to any audible target unmutes first, mirroring the
@@ -585,6 +604,48 @@ final class Coordinator {
                 try await keyboardBrightnessController.setBrightness(value)
             }
         }
+    }
+
+    /// The gesture ended, however it ended — released, or torn out from under the
+    /// finger when the bar changed kind. The bar keeps whatever the finger left it
+    /// at, unless nothing honoured the drag; then it eases back to the last level
+    /// with evidence behind it.
+    ///
+    /// The view reports the end rather than the Coordinator inferring it from a
+    /// quiet period. A debounce would be the same correction one guess later, and
+    /// would fire on a finger that merely paused mid-drag — springing the fill back
+    /// while the hand is still holding it, which is the one thing this correction
+    /// exists to avoid.
+    func hudSliderReleased() {
+        hudSliderHeld = false
+        settleScreenBarIfUnconfirmed()
+    }
+
+    /// The drag reached no actuator, so the bar is showing a level no display went
+    /// to. Correct it now if the hand has already let go; otherwise the release
+    /// will.
+    private func noteScreenBarUnconfirmed() {
+        screenBarUnconfirmed = true
+        settleScreenBarIfUnconfirmed()
+    }
+
+    /// Puts the bar back on the last level with evidence behind it — the rejected
+    /// drag animating home, the way a drop the system will not take does.
+    ///
+    /// It publishes rather than assigns, so the correction refreshes the revert
+    /// timer too: the user gets the honest level for a full linger instead of a
+    /// glimpse of it before the HUD dismisses. Everything about the ease itself
+    /// belongs to the slider, which already springs to whatever value it is handed
+    /// and already suspends that spring under Reduce Motion.
+    private func settleScreenBarIfUnconfirmed() {
+        guard screenBarUnconfirmed, !hudSliderHeld else { return }
+        screenBarUnconfirmed = false
+        // Anything else on screen means the bar being corrected is gone — the HUD
+        // dismissed, or flipped to volume under the finger. Correcting then would
+        // put a stale brightness reading over whatever replaced it.
+        guard case .hud(let hud) = state, hud.kind == .screenBrightness,
+              let confirmed = confirmedScreenBrightness, confirmed != hud.value else { return }
+        publishHUD(hud.at(confirmed))
     }
 
     // MARK: - Event handling
@@ -795,6 +856,13 @@ final class Coordinator {
         if hud.authority == .betterDisplay {
             externalBrightnessReachable = true
         }
+        // A reading that arrived on its own is evidence, so it becomes what an
+        // unbacked drag falls back to. It does NOT also retire a pending
+        // correction: this reading is already on the bar, so the correction it
+        // would trigger finds the bar at the level it was going to publish and
+        // returns without touching it. Clearing here would be a second spelling of
+        // that guard, and a second spelling is what goes stale.
+        if hud.kind == .screenBrightness { confirmedScreenBrightness = hud.value }
         publishHUD(hud)
     }
 
@@ -894,14 +962,9 @@ final class Coordinator {
         }
     }
 
-    /// A slider-driven brightness write closes its own HUD loop: on success, poke
-    /// the matching sampler through `onBrightnessApplied` (see its doc) so the
-    /// applied value echoes back — otherwise the indicator sticks and the revert
-    /// timer never refreshes. Separate from `run` only because volume echoes
-    /// itself (Core Audio) and needs no poke. `@MainActor` because the hook is.
     /// A drag on the screen-brightness bar, sent to whoever drew it.
     ///
-    /// Three things this owes the user, none of which the plain write gives:
+    /// Four things this owes the user, none of which the plain write gives:
     ///
     /// 1. The bar moves NOW. It has no local value — it draws whatever the last
     ///    SystemHUD said — so it only follows the finger because something echoes
@@ -918,42 +981,65 @@ final class Coordinator {
     /// 3. Once it has failed, later drags go straight to the system: re-asking a
     ///    neighbour that just refused would stall every frame of the gesture on a
     ///    deadline.
+    /// 4. When even the fallback writes nothing — the bar names an external
+    ///    display, which DisplayServices refuses by design — the bar comes back to
+    ///    the last level with evidence behind it, once the gesture ends. Leaving it
+    ///    under the finger would make a control that did nothing look like one that
+    ///    worked (docs/DECISIONS.md: the-bar-never-outruns-the-screen).
     private func applyScreenBrightness(_ value: Double, on hud: SystemHUD) {
-        let applied = hud.at(value)
-        publishHUD(applied)
+        publishHUD(hud.at(value))
 
         let viaNeighbour = hud.authority == .betterDisplay && externalBrightnessReachable
         guard let external = externalScreenBrightnessController, viaNeighbour else {
-            applyBrightness("setBrightness(screen)", applied: applied.by(.system)) { [screenBrightnessController] in
-                try await screenBrightnessController.setBrightness(value, on: hud.commandDisplay)
+            Task { @MainActor in
+                if await write(value, on: hud, through: screenBrightnessController, as: .system, "system") { return }
+                noteScreenBarUnconfirmed()
             }
             return
         }
 
         Task { @MainActor in
-            do {
-                // The echo carries what the actuator actually WROTE, not what this
-                // frame asked for. The neighbour's writer coalesces latest-wins, so
-                // the call that drives stays inside its drain loop putting newer
-                // values on the wire and returns holding an argument several frames
-                // old; echoing that argument yanks the bar backwards mid-gesture
-                // before the next frame pulls it forward — the flick a fast drag
-                // shows on the bar drawn on the external monitor itself.
-                let written = try await external.setBrightness(value, on: hud.commandDisplay)
-                onBrightnessApplied?(hud.at(written))
-            } catch {
-                logger.error("setBrightness(screen) via BetterDisplay failed: \(error, privacy: .public)")
-                externalBrightnessReachable = false
-                do {
-                    let written = try await screenBrightnessController.setBrightness(value, on: hud.commandDisplay)
-                    onBrightnessApplied?(hud.at(written).by(.system))
-                } catch {
-                    logger.error("setBrightness(screen) fallback failed: \(error, privacy: .public)")
-                }
-            }
+            if await write(value, on: hud, through: external, as: hud.authority, "BetterDisplay") { return }
+            externalBrightnessReachable = false
+            if await write(value, on: hud, through: screenBrightnessController, as: .system, "fallback") { return }
+            noteScreenBarUnconfirmed()
         }
     }
 
+    /// One screen-brightness write attempt. Reports whether anything reached the
+    /// wire, which is what the caller needs to decide between falling back and
+    /// admitting the bar is unbacked.
+    ///
+    /// The echo carries what the actuator actually WROTE, not what this frame
+    /// asked for. The neighbour's writer coalesces latest-wins, so the call that
+    /// drives stays inside its drain loop putting newer values on the wire and
+    /// returns holding an argument several frames old; echoing that argument yanks
+    /// the bar backwards mid-gesture before the next frame pulls it forward — the
+    /// flick a fast drag showed on the bar drawn on the external monitor itself.
+    private func write(
+        _ value: Double,
+        on hud: SystemHUD,
+        through controller: any ScreenBrightnessController,
+        as authority: SystemHUD.Authority,
+        _ name: StaticString
+    ) async -> Bool {
+        do {
+            let written = try await controller.setBrightness(value, on: hud.commandDisplay)
+            confirmedScreenBrightness = written
+            screenBarUnconfirmed = false
+            onBrightnessApplied?(hud.at(written).by(authority))
+            return true
+        } catch {
+            logger.error("setBrightness(screen) via \(name, privacy: .public) failed: \(error, privacy: .public)")
+            return false
+        }
+    }
+
+    /// A slider-driven brightness write closes its own HUD loop: on success, poke
+    /// the matching sampler through `onBrightnessApplied` (see its doc) so the
+    /// applied value echoes back — otherwise the indicator sticks and the revert
+    /// timer never refreshes. Separate from `run` only because volume echoes
+    /// itself (Core Audio) and needs no poke. `@MainActor` because the hook is.
     private func applyBrightness(
         _ name: StaticString,
         applied: SystemHUD,

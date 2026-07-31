@@ -12,6 +12,15 @@ struct CoordinatorNeighbourBrightnessTests {
         SystemHUD(kind: .screenBrightness, value: value, authority: .betterDisplay)
     }
 
+    /// A bar the neighbour drew for a monitor that is not the built-in panel —
+    /// the only target no system actuator will take.
+    private func onExternalDisplay(_ value: Double) -> SystemHUD {
+        SystemHUD(
+            kind: .screenBrightness, value: value,
+            target: .display(DisplayUUID(rawValue: "MONITOR-1")), authority: .betterDisplay
+        )
+    }
+
     @Test func aDragOnTheNeighboursBarGoesBackToTheNeighbour() async {
         let h = CoordinatorHarness(withExternalBrightness: true)
         h.hudSource.emit(neighbourHUD())
@@ -165,6 +174,109 @@ struct CoordinatorNeighbourBrightnessTests {
 
         #expect(await eventually { h.screen.commands.isEmpty == false })
         #expect(h.screen.commands == [.setBrightness(0.8, display: nil)])
+    }
+
+    @Test func aDragNothingHonouredComesBackWhenTheHandLetsGo() async {
+        // The one arrangement where BOTH actuators decline: the bar names an
+        // external display (so DisplayServices refuses it by design, never DDC of
+        // our own) and the neighbour that drew it has its command channel off —
+        // two separate settings in that app, so this is a configuration a person
+        // can really be in. Nothing wrote, so the level under the finger is a
+        // level no display went to, and a control that did nothing must not look
+        // like one that worked.
+        //
+        // Not corrected on the spot: the failure lands while the hand is usually
+        // still down, and a fill that snaps backwards under the pointer is dragged
+        // forward again on the next frame, sixty times a second. It waits for the
+        // gesture to end, then eases home — the rejected drag animating back, the
+        // way a drop the system will not take does.
+        let h = CoordinatorHarness(withExternalBrightness: true)
+        h.external?.refuseEverything()
+        h.screen.refuseEverything()
+        h.hudSource.emit(onExternalDisplay(0.5))
+        #expect(await eventually { h.coordinator.state != .hidden })
+
+        h.coordinator.hudSliderChanged(to: 0.9)
+        #expect(await eventually { h.screen.commands.count == 1 })   // the fallback declined too
+        await settle()
+
+        // Still under the finger, still where the finger put it.
+        #expect(h.coordinator.state == .hud(onExternalDisplay(0.9)))
+
+        h.coordinator.hudSliderReleased()
+
+        #expect(await eventually { h.coordinator.state == .hud(onExternalDisplay(0.5)) })
+    }
+
+    @Test func aDragThatLandedIsNeverPulledBack() async {
+        // The correction reads the same state a working drag does, so a bar that
+        // was honoured has to be left exactly where it was dropped. Releasing is
+        // the moment it could be undone, so releasing is where this is asserted.
+        let h = CoordinatorHarness(withExternalBrightness: true)
+        h.hudSource.emit(neighbourHUD(0.5))
+        #expect(await eventually { h.coordinator.state != .hidden })
+
+        h.coordinator.hudSliderChanged(to: 0.9)
+        #expect(await eventually { h.external?.commands.count == 1 })
+        h.coordinator.hudSliderReleased()
+        await settle()
+
+        #expect(h.coordinator.state == .hud(neighbourHUD(0.9)))
+    }
+
+    @Test func aTapThatWroteNothingCorrectsItselfWhenTheAnswerLandsLate() async {
+        // The hand can be gone before the answer is. A tap releases in a frame or
+        // two while the write it fired is still in flight, so by the time the
+        // refusal comes back the release that would have corrected the bar has
+        // already happened. Nothing is holding the bar then, so the failure
+        // corrects it itself — otherwise the quickest gesture is the one that
+        // leaves the lie on screen, and it is the gesture a dead control invites,
+        // since a tap is what a person tries first.
+        let h = CoordinatorHarness(withExternalBrightness: true)
+        h.external?.refuseEverything()
+        h.screen.refuseEverything()
+        h.hudSource.emit(onExternalDisplay(0.5))
+        #expect(await eventually { h.coordinator.state != .hidden })
+
+        // Synchronous, with no await between: both actuators are still to answer.
+        h.coordinator.hudSliderChanged(to: 0.9)
+        h.coordinator.hudSliderReleased()
+
+        #expect(await eventually { h.coordinator.state == .hud(onExternalDisplay(0.5)) })
+    }
+
+    @Test func aPendingCorrectionDoesNotOutliveTheBarItWasFor() async {
+        // The HUD dismisses on its own timer, and it can do that with the button
+        // still down — the finger is on the bar, not on a mouse the app tracks. A
+        // correction still owed when the bar goes away has nothing left to correct,
+        // and carrying it forward is worse than dropping it: the NEXT bar is a
+        // fresh reading, so the stale mark would fire on the next release and pull
+        // a perfectly good drag back to a level two readings old, while its own
+        // write was still in flight. So the dismissal clears both the correction
+        // and the belief that a finger is down.
+        let h = CoordinatorHarness(withExternalBrightness: true)
+        h.external?.refuseEverything()
+        h.screen.refuseEverything()
+        h.hudSource.emit(onExternalDisplay(0.5))
+        #expect(await eventually { h.coordinator.state != .hidden })
+        h.coordinator.hudSliderChanged(to: 0.9)
+        #expect(await eventually { h.screen.commands.count == 1 })   // owed a correction
+
+        await h.clock.waitForSleep(delay: Coordinator.defaultHUDRevertDelay)
+        h.clock.advance(delay: Coordinator.defaultHUDRevertDelay)
+        #expect(await eventually { h.coordinator.state == .hidden })
+
+        // A new bar, on a display both actuators can write, and a release that
+        // beats its answer back.
+        h.external?.acceptEverything()
+        h.screen.acceptEverything()
+        h.hudSource.emit(neighbourHUD(0.3))
+        #expect(await eventually { h.coordinator.state == .hud(neighbourHUD(0.3)) })
+        h.coordinator.hudSliderChanged(to: 0.8)
+        h.coordinator.hudSliderReleased()
+        await settle()
+
+        #expect(h.coordinator.state == .hud(neighbourHUD(0.8)))   // never yanked to 0.5
     }
 
     @Test func aRefusalIsNotAskedAgainEveryFrame() async {

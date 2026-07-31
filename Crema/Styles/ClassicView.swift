@@ -235,7 +235,13 @@ struct ClassicView: View, SurfaceStyleBody {
                 .foregroundStyle(.secondary)
                 .symbolReplace(on: presentation.iconSystemName)
             Spacer(minLength: 0)
-            HUDLevelSlider(kind: hud.kind, value: presentation.value, onChange: { hudSliderMoved(to: $0) }, appearance: .segmented)
+            HUDLevelSlider(
+                kind: hud.kind,
+                value: presentation.value,
+                onChange: { hudSliderMoved(to: $0) },
+                onRelease: { hudSliderReleased() },
+                appearance: .segmented
+            )
         }
         .padding(ClassicMetrics.hudPadding)
     }
