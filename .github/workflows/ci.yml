@@ -96,6 +96,16 @@ jobs:
         # timeout with no name attached.
         env:
           TEST_RUNNER_CREMA_TEST_WAIT_SECONDS: "25"
+        # The verdict is the "Test run with N tests" line, never xcodebuild's
+        # exit: the app-hosted test host boots the real AppCore, whose pollers
+        # hold the runloop, and its teardown can hang AFTER every test has
+        # reported (documented in CLAUDE.md; measured here — a fully green run
+        # sat mute from the verdict line to the 30-minute job timeout and was
+        # reported "cancelled" with all tests passed). So the step watches the
+        # log for the verdict, takes it, and only then kills the hung host.
+        # A parked test never prints the verdict, so a genuine wedge still
+        # fails — at the ceiling below, with the log's tail attached, instead
+        # of at the job timeout with nothing.
         run: |
           xcodebuild test \
             -project Crema.xcodeproj \
@@ -104,7 +114,39 @@ jobs:
             -destination 'platform=macOS' \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY=""
+            CODE_SIGN_IDENTITY="" > xcodebuild-test.log 2>&1 &
+          XCB=$!
+          tail -F xcodebuild-test.log & TAILER=$!
+          finish() {
+            kill "$TAILER" 2>/dev/null || true
+          }
+          trap finish EXIT
+          for _ in $(seq 1 1200); do
+            verdict=$(grep -m1 -E "Test run with [0-9]+ tests in [0-9]+ suites (passed|failed)" xcodebuild-test.log || true)
+            if [ -n "$verdict" ]; then
+              # Give xcodebuild a moment to exit on its own before ruling it hung.
+              for _ in $(seq 1 20); do kill -0 "$XCB" 2>/dev/null || break; sleep 1; done
+              if kill -0 "$XCB" 2>/dev/null; then
+                echo "Verdict printed but the test host never exited — killing the hung teardown."
+                kill "$XCB" 2>/dev/null || true; sleep 2; kill -9 "$XCB" 2>/dev/null || true
+              fi
+              echo "VERDICT: $verdict"
+              case "$verdict" in
+                *passed*) exit 0 ;;
+                *) grep -E "✘" xcodebuild-test.log | tail -40; exit 1 ;;
+              esac
+            fi
+            if ! kill -0 "$XCB" 2>/dev/null; then
+              wait "$XCB"; status=$?
+              echo "xcodebuild exited ($status) before any verdict line."
+              tail -80 xcodebuild-test.log
+              exit "$status"
+            fi
+            sleep 1
+          done
+          echo "No verdict within 20 minutes — a parked test, not a hung teardown."
+          grep -E "Suite \w+ (passed|failed)" xcodebuild-test.log | tail -20
+          exit 1
 
       - name: Release build, signed as the project says
         # Debug alone leaves the Sparkle updater outside the gate: its code is
