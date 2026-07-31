@@ -107,7 +107,14 @@ struct CGEventTapMediaKeySourceHealthTests {
         // dropped.
         #expect(ops.setEnabledCalls.isEmpty)
         #expect(ops.installedUserInfos.count == 2)
-        #expect(ops.installedUserInfos[0] == ops.installedUserInfos[1])
+        // Whole-collection, never `[0] == [1]`: `#expect` does not stop the test, so
+        // under the very regression this pins (one install instead of two) the next
+        // line would subscript out of range and TRAP — killing the process, taking
+        // sibling tests in flight with it, and leaving no "Test run with N tests"
+        // line at all. Measured. It also refuses a `try #require` on purpose: this
+        // test's teardown is real (stop, removeObserver, withExtendedLifetime), and
+        // a throw would skip it inside a parallel suite.
+        #expect(ops.installedUserInfos.allSatisfy { $0 == ops.installedUserInfos.first })
         withExtendedLifetime(source) {}
     }
 
@@ -195,7 +202,8 @@ struct CGEventTapMediaKeySourceHealthTests {
         #expect(ops.isCurrentlyEnabled)
         #expect(ops.currentToken !== firstToken)
         #expect(ops.installedUserInfos.count == 2)
-        #expect(ops.installedUserInfos[0] == ops.installedUserInfos[1])
+        // Whole-collection, for the reason spelled out at the first of these.
+        #expect(ops.installedUserInfos.allSatisfy { $0 == ops.installedUserInfos.first })
     }
 
     /// (unlock reinstall) `reinstallTap` forces a brand-new port even when the
@@ -225,7 +233,8 @@ struct CGEventTapMediaKeySourceHealthTests {
         // Same source pointer across the reinstall → the callback reads the same,
         // unchanged consumer: suppression/observation preserved by construction.
         #expect(ops.installedUserInfos.count == 2)
-        #expect(ops.installedUserInfos[0] == ops.installedUserInfos[1])
+        // Whole-collection, for the reason spelled out at the first of these.
+        #expect(ops.installedUserInfos.allSatisfy { $0 == ops.installedUserInfos.first })
         withExtendedLifetime(source) {}
     }
 

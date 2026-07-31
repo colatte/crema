@@ -7,7 +7,6 @@ import Testing
 @testable import Crema
 
 // Test fixtures force-unwrap known values (a nil means the test itself is broken).
-// swiftlint:disable force_unwrapping
 
 /// WindowManager logic over fake screens and panels: screen
 /// reconciliation, state-driven frames, per-display style resolution.
@@ -118,21 +117,26 @@ struct WindowManagerTests {
         #expect(h.recorder.panel(for: a.id)?.appliedFrames == [Style.card.frame(for: .hidden, on: a.geometry)])
     }
 
-    @Test func positionTickDoesNotReapplyFrames() async {
+    @Test func positionTickDoesNotReapplyFrames() async throws {
         let h = Harness()
         let a = Self.screen("A")
         h.manager.updateScreens([a])
         h.base.nowPlayingSource.emit(CoordinatorHarness.playingTrack(position: 10))
         #expect(await eventually { h.base.coordinator.nowPlaying?.position == 10 })
         await settle()
-        let applied = h.recorder.panel(for: a.id)!.appliedFrames.count
+        // `try #require`, not `!`: a panel that failed to be created is exactly the
+        // regression a WindowManager test could hit, and a force-unwrap turns that
+        // into a trap — no attributed failure, the process dies, and the suite's
+        // "Test run with N tests" line never prints.
+        let panel = try #require(h.recorder.panel(for: a.id))
+        let applied = panel.appliedFrames.count
 
         // The manager observes `state`, never `nowPlaying`: the tick is silent.
         h.base.nowPlayingSource.emit(CoordinatorHarness.playingTrack(position: 11))
         #expect(await eventually { h.base.coordinator.nowPlaying?.position == 11 })
         await settle()
 
-        #expect(h.recorder.panel(for: a.id)!.appliedFrames.count == applied)
+        #expect(panel.appliedFrames.count == applied)
     }
 
     // MARK: - per-display style resolution via Preferences
@@ -438,14 +442,15 @@ struct WindowManagerTests {
         #expect(panel.appliedFrames.last == Style.card.frame(for: .nowPlaying(track, expanded: true), on: geometry))
     }
 
-    @Test func stateChangeAppliesFramesInTheSameCallout() async {
+    @Test func stateChangeAppliesFramesInTheSameCallout() async throws {
         let h = Harness()
         let a = Self.screen("A")
         h.manager.updateScreens([a])
         let track = CoordinatorHarness.playingTrack()
         h.base.nowPlayingSource.emit(track)
         _ = await eventually { h.base.coordinator.state == .nowPlaying(track, expanded: false) }
-        let before = h.recorder.panel(for: a.id)!.appliedFrames.count
+        let panel = try #require(h.recorder.panel(for: a.id))
+        let before = panel.appliedFrames.count
 
         // The panels' event routing (click-interactive region, hover arming)
         // must track the state in the same callout as the write — an async hop
@@ -453,7 +458,7 @@ struct WindowManagerTests {
         // disagree. No awaits between the intent and the assertions.
         h.base.coordinator.hover(true)
 
-        let applied = h.recorder.panel(for: a.id)!.appliedFrames
+        let applied = panel.appliedFrames
         #expect(applied.count > before)
         #expect(applied.last == Style.card.frame(for: .nowPlaying(track, expanded: true), on: a.geometry))
     }
@@ -645,5 +650,3 @@ struct WindowManagerTests {
         #expect(h.recorder.panel(for: screen.id)?.hudIndicatorStyleStates.last == .slider)
     }
 }
-
-// swiftlint:enable force_unwrapping

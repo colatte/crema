@@ -28,6 +28,14 @@ struct BrightnessKeyTargetingTests {
         bounds: CGRect(x: 0, y: -1440, width: 2560, height: 1440), isBuiltIn: false
     )
 
+    /// The monitor BELOW the laptop — the mirror arrangement, where the laptop's
+    /// bottom row and the monitor's top row sit on the same line. The half-open
+    /// bound is load-bearing in the opposite direction here: the seam is the
+    /// laptop's own maxY, which it must NOT own.
+    private static let monitorBelow = BrightnessKeyDisplay(
+        bounds: CGRect(x: 0, y: 982, width: 2560, height: 1440), isBuiltIn: false
+    )
+
     private static func target(_ pointer: CGPoint?, _ displays: [BrightnessKeyDisplay]) -> BrightnessKeyTarget {
         BrightnessKeyTargeting.target(pointer: pointer, among: displays)
     }
@@ -79,6 +87,22 @@ struct BrightnessKeyTargetingTests {
         #expect(Self.target(CGPoint(x: 700, y: -500), stack) == .anotherDisplay)
     }
 
+    @Test func aPointerOnTheHorizontalSeamBelongsToExactlyOneDisplay() {
+        // The other half of "half-open on BOTH axes", and the one the suite was
+        // missing: the vertical-seam test exercises x, and the menu-bar test puts the
+        // monitor ABOVE, where the built-in tie-break answers `.builtIn` either way
+        // and so hides a closed bound instead of exposing it. Measured — with the
+        // monitor BELOW, changing `point.y < maxY` to `<=` leaves the whole suite
+        // green without this.
+        //
+        // The failure it protects against is the reported bug in one row of pixels:
+        // both rects would claim the laptop's bottom line, the built-in would win the
+        // tie, and the key would dim the panel the user is not looking at.
+        let stack = [Self.laptop, Self.monitorBelow]
+        #expect(Self.target(CGPoint(x: 700, y: 982), stack) == .anotherDisplay)
+        #expect(Self.target(CGPoint(x: 700, y: 981), stack) == .builtIn)
+    }
+
     @Test func aPointerOnNoDisplayNamesNoneRatherThanGuessing() {
         let pair = [Self.laptop, Self.monitorBeside]
         // Past the right edge of both, and below the bottom of both: display
@@ -86,6 +110,10 @@ struct BrightnessKeyTargetingTests {
         // guess.
         #expect(Self.target(CGPoint(x: 5000, y: 100), pair) == .unknown)
         #expect(Self.target(CGPoint(x: 100, y: 2000), pair) == .unknown)
+        // One row past the laptop's bottom with nothing under it — the second,
+        // independent kill for a closed vertical bound, which would answer
+        // `.builtIn` here and move a screen on a guess.
+        #expect(Self.target(CGPoint(x: 700, y: 982), pair) == .unknown)
         // A reading that failed is the same answer, for the same reason.
         #expect(Self.target(nil, pair) == .unknown)
         // And so is a list with nothing in it.

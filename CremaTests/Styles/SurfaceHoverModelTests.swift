@@ -4,7 +4,6 @@ import Testing
 @testable import Crema
 
 // Test fixtures force-unwrap known values (a nil means the test itself is broken).
-// swiftlint:disable force_unwrapping
 
 /// The loop-catcher. These assert the hover behavior at the boundary, not
 /// just static geometry: a cursor idling in the hysteresis band (or the resize
@@ -49,8 +48,8 @@ struct SurfaceHoverModelTests {
 
     /// Once open, the cursor riding the growing surface's former edge (well inside
     /// the expanded exit region) never flips out — the animation can't collapse it.
-    @Test func aCursorRidingTheExpandingEdgeStaysInside() {
-        let regions = Style.notch.hoverRegions(on: notched)!
+    @Test func aCursorRidingTheExpandingEdgeStaysInside() throws {
+        let regions = try #require(Style.notch.hoverRegions(on: notched))
         let model = SurfaceHoverModel(regions: regions)
 
         // Sit at the compact surface's bottom edge, then let the surface "grow"
@@ -107,10 +106,10 @@ struct SurfaceHoverModelTests {
 
     // MARK: - Region contract (detection uses stable geometry, not the frame)
 
-    @Test func notchInitialRegionsHugTheCompactSurfaceWithDirectionalMargins() {
+    @Test func notchInitialRegionsHugTheCompactSurfaceWithDirectionalMargins() throws {
         let style = NotchStyle()
         let track = CoordinatorHarness.playingTrack()
-        let regions = Style.notch.hoverRegions(on: notched)!
+        let regions = try #require(Style.notch.hoverRegions(on: notched))
         let comfort = SurfaceHoverRegions.comfortMargin
 
         // Seed regions come from the compact frame alone — the union with the
@@ -260,16 +259,16 @@ struct SurfaceHoverModelTests {
         )
     }
 
-    @Test func exitContainsEnterSoTheBandIsAlwaysSticky() {
+    @Test func exitContainsEnterSoTheBandIsAlwaysSticky() throws {
         for style in [Style.notch, .card] {
-            let regions = style.hoverRegions(on: notched)!
+            let regions = try #require(style.hoverRegions(on: notched))
             #expect(regions.exit.contains(regions.enter), "\(style): exit must contain enter")
         }
     }
 
-    @Test func cardSeedRegionsComeFromItsCompactFramePlusComfort() {
+    @Test func cardSeedRegionsComeFromItsCompactFramePlusComfort() throws {
         let track = CoordinatorHarness.playingTrack()
-        let regions = Style.card.hoverRegions(on: notched)!
+        let regions = try #require(Style.card.hoverRegions(on: notched))
         let comfort = SurfaceHoverRegions.comfortMargin
         let compact = CardStyle().frame(for: .nowPlaying(track, expanded: false), on: notched)
         #expect(regions.enter == compact.insetBy(dx: -comfort, dy: -comfort))
@@ -339,13 +338,13 @@ struct SurfaceHoverModelTests {
     /// ceiling leaves 50 pt of dead air per side. A point in that dead air is
     /// inside the old rule-derived enter but outside the rendered-surface enter —
     /// so hover no longer arms before the cursor reaches the visible edge.
-    @Test func cardEnterExcludesTheDeadAirBesideAHuggedCard() {
+    @Test func cardEnterExcludesTheDeadAirBesideAHuggedCard() throws {
         let hugged = CGSize(width: CardMetrics.compactMinWidth, height: CardMetrics.compact.height)
         let visible = cardVisibleRect(hugged)
         let tracked = SurfaceHoverRegions.around(visible)
 
         // The former, rule-derived region (compact rule ceiling + comfort).
-        let ruleEnter = Style.card.hoverRegions(on: plain)!.enter
+        let ruleEnter = try #require(Style.card.hoverRegions(on: plain)).enter
         #expect(ruleEnter.width == CardMetrics.compact.width + 2 * SurfaceHoverRegions.comfortMargin)
 
         // A point 120 pt right of center: inside the 280-wide ceiling (±140),
@@ -372,5 +371,3 @@ struct SurfaceHoverModelTests {
         #expect(expanded.exit.contains(compact.enter))
     }
 }
-
-// swiftlint:enable force_unwrapping

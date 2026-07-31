@@ -91,7 +91,14 @@ struct SuppressionUnlockReinstallSeamTests {
         // source, so its dynamically-read consumer survives by construction.
         #expect(ops.operations == ["install", "uninstall", "install"])
         #expect(ops.installedUserInfos.count == 2)
-        #expect(ops.installedUserInfos[0] == ops.installedUserInfos[1])
+        // Whole-collection, never `[0] == [1]`: `#expect` does not stop the test, so
+        // under the very regression this pins (one install instead of two) the next
+        // line would subscript out of range and TRAP — killing the process, taking
+        // sibling tests in flight with it, and leaving no "Test run with N tests"
+        // line at all. Measured. It also refuses a `try #require` on purpose: this
+        // test's teardown is real (stop, removeObserver, withExtendedLifetime), and
+        // a throw would skip it inside a parallel suite.
+        #expect(ops.installedUserInfos.allSatisfy { $0 == ops.installedUserInfos.first })
 
         controller.stop()
         withExtendedLifetime(source) {}
@@ -129,7 +136,9 @@ struct SuppressionUnlockReinstallSeamTests {
         // same source, so its dynamically-read consumer survives by construction.
         #expect(ops.operations == ["install", "uninstall", "install", "uninstall", "install"])
         #expect(ops.installedUserInfos.count == 3)
-        #expect(ops.installedUserInfos[0] == ops.installedUserInfos[2])
+        // Whole-collection, and here it also asserts what the comment beside it
+        // promises: EVERY fresh port routes back to the same source.
+        #expect(ops.installedUserInfos.allSatisfy { $0 == ops.installedUserInfos.first })
 
         for token in tokens { center.removeObserver(token) }
         withExtendedLifetime(source) {}
@@ -173,7 +182,8 @@ struct SuppressionUnlockReinstallSeamTests {
         #expect(ops.isCurrentlyEnabled)
         #expect(ops.operations == ["install", "uninstall", "install"])
         #expect(ops.installedUserInfos.count == 2)
-        #expect(ops.installedUserInfos[0] == ops.installedUserInfos[1])
+        // Whole-collection, for the reason spelled out at the first of these.
+        #expect(ops.installedUserInfos.allSatisfy { $0 == ops.installedUserInfos.first })
         #expect(await eventually { refreshed.value })
 
         center.removeObserver(token)

@@ -111,6 +111,27 @@ struct AbsentCapabilityHandbackTests {
         #expect(h.suppressor.longSuspendedDomains.isEmpty)
     }
 
+    @Test func aTapThatNeverRepeatsStaysSwallowedInBothPhases() async {
+        // The other half of the migration, and the half every other test in this file
+        // misses: they all interleave an autorepeat between the down and the up, so
+        // they pass whether the latch is MIGRATED at the next down or DROPPED at the
+        // mark. This one is a quick tap — down, the absence lands, up — and it is the
+        // shape that tells the two apart.
+        //
+        // Dropping at the mark would let this up through with no down before it: the
+        // system collects a key-up for a press it never saw. Migrating keeps both
+        // phases swallowed, so the system sees a whole press or none. The mutation
+        // that survives without this test is not hypothetical — it stood in this
+        // repository's working tree during the round that shipped the feature.
+        let h = OSDSuppressorHarness()
+        h.volume.available = false
+        h.suppressor.setEngaged(true)
+
+        #expect(h.keys.pressDown(.volumeDown))
+        await settle()   // the absence lands while the key is still down
+        #expect(h.keys.pressUp(.volumeDown))
+    }
+
     @Test func theNextPressAsksAgainWhenTheControlComesBack() async {
         // Invalidation is by evidence, never by timer: the backlight can be missing
         // at a cold boot and answer moments later, so the user's next press on a
