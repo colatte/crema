@@ -14,7 +14,9 @@ struct StylePicker: View {
     @Binding var selection: Style
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
+        // Tight, because the ring now needs room outside each picture and three
+        // tiles plus their gaps still have to fit the Form row.
+        HStack(alignment: .top, spacing: 4) {
             ForEach(Style.allCases, id: \.self) { style in
                 StyleTile(style: style, isSelected: style == selection) { selection = style }
             }
@@ -35,13 +37,23 @@ private struct StyleTile: View {
     var body: some View {
         Button(action: select) {
             VStack(spacing: 6) {
+                // The ring goes OUTSIDE the picture, the way the Appearance and
+                // Wallpaper pickers in System Settings do it. Drawn as a border on
+                // the thumbnail it would paint inward over the top few points —
+                // which is where the whole difference between these skins lives —
+                // so selecting a style used to hide the thing being selected.
                 StyleThumbnail(shapes: StylePreview.shapes(for: style))
                     .overlay {
                         RoundedRectangle(cornerRadius: Thumbnail.cornerRadius, style: .continuous)
-                            .strokeBorder(
-                                isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.separator),
-                                lineWidth: isSelected ? 2.5 : 1
-                            )
+                            .strokeBorder(.separator, lineWidth: 0.5)
+                    }
+                    .padding(Thumbnail.ringInset)
+                    .overlay {
+                        RoundedRectangle(
+                            cornerRadius: Thumbnail.cornerRadius + Thumbnail.ringInset,
+                            style: .continuous
+                        )
+                        .strokeBorder(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear), lineWidth: 2.5)
                     }
                 Text(style.displayName)
                     .font(.callout)
@@ -53,6 +65,11 @@ private struct StyleTile: View {
         .buttonStyle(.plain)
         .contentShape(.rect)
         .accessibilityLabel(style.displayName)
+        // The picture is hidden from VoiceOver, so without this the whole control
+        // is three nouns — exactly the thing this picker exists because names do
+        // not convey. Position only, so the words cannot drift from the frame rules
+        // the way a description of size or colour would.
+        .accessibilityHint(style.previewDescription)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : [.isButton])
     }
 }
@@ -98,6 +115,36 @@ private struct StyleThumbnail: View {
     /// the silhouette is what carries it, and the silhouette is honest: the notch
     /// surface really is flush with the bezel, continuous with the slit it covers.
     private var surface: some View {
+        surfaceShape
+            .fill(shapes.surfaceIsOpaque ? Color.black : Color.black.opacity(Thumbnail.materialOpacity))
+            // Depth only on the ones that float, and it is the cue that survives
+            // the scale: the card's real gap from the top edge is under a point
+            // here, so a shadow says "on top of the screen" where the gap cannot,
+            // and the skin welded to the bezel correctly casts none. Deeper than
+            // the surface is translucent, because SwiftUI masks a drop shadow with
+            // source alpha and a 0.6 fill would eat nearly half of it.
+            .shadow(
+                color: .black.opacity(shapes.surfaceIsOpaque ? 0 : 0.8),
+                radius: 2.5,
+                y: 1.5
+            )
+            // The real surface's own hairline (vibrantSurface), and the second half
+            // of what tells the two top-edge skins apart: the notch is the bezel and
+            // has no edge of its own, while a floating panel is outlined against
+            // whatever is behind it.
+            .overlay {
+                if !shapes.surfaceIsOpaque {
+                    surfaceShape.strokeBorder(.white.opacity(0.12), lineWidth: 0.5)
+                }
+            }
+            .frame(width: shapes.surface.width * Thumbnail.width, height: shapes.surface.height * Thumbnail.height)
+            .offset(x: shapes.surface.minX * Thumbnail.width, y: shapes.surface.minY * Thumbnail.height)
+    }
+
+    /// One shape for the fill and the hairline, so the outline traces the surface
+    /// it outlines. Square on top where the surface hangs off the screen edge,
+    /// rounded everywhere it floats.
+    private var surfaceShape: UnevenRoundedRectangle {
         UnevenRoundedRectangle(
             topLeadingRadius: shapes.surfaceHangsFromTopEdge ? 0 : 2,
             bottomLeadingRadius: 2,
@@ -105,18 +152,6 @@ private struct StyleThumbnail: View {
             topTrailingRadius: shapes.surfaceHangsFromTopEdge ? 0 : 2,
             style: .continuous
         )
-        .fill(.black)
-        // Depth only on the ones that float. It is the cue that survives the scale:
-        // the card sits less than a point below the top edge here, so a shadow says
-        // "on top of the screen" where the gap cannot, and the skin welded to the
-        // bezel correctly casts none.
-        .shadow(
-            color: .black.opacity(shapes.surfaceHangsFromTopEdge ? 0 : 0.5),
-            radius: 2.5,
-            y: 1.5
-        )
-        .frame(width: shapes.surface.width * Thumbnail.width, height: shapes.surface.height * Thumbnail.height)
-        .offset(x: shapes.surface.minX * Thumbnail.width, y: shapes.surface.minY * Thumbnail.height)
     }
 }
 
@@ -131,6 +166,14 @@ private enum Thumbnail {
     /// Mac it describes.
     static let height: CGFloat = width * 982 / 1512
     static let cornerRadius: CGFloat = 6
+    /// Room between the picture and the selection ring.
+    static let ringInset: CGFloat = 3
+    /// How dark a floating surface reads at this size. Hand-calibrated, the one
+    /// number here that is taste rather than measurement: the real material is
+    /// translucent over whatever is behind it, which a flat thumbnail cannot
+    /// reproduce, so this is the value at which the card stops reading as bezel and
+    /// still reads as the app's own dark surface.
+    static let materialOpacity: Double = 0.6
 
     /// A desktop to put the surface on. Deliberately flat and dim: the subject is
     /// the black shape, and a busy wallpaper would compete with the one thing

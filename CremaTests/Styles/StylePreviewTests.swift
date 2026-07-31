@@ -40,6 +40,20 @@ struct StylePreviewTests {
         #expect(surface.minY == 0)
     }
 
+    @Test func onlyTheNotchDrawsItsSurfaceOpaque() {
+        // The one fact about a skin's look that no frame rule can produce, and the
+        // one that separates the two skins that BOTH hug the top edge. The notch
+        // style is opaque black because it camouflages with the hardware cutout;
+        // the card and classic are a translucent material behind a hairline
+        // (vibrantSurface). Painted alike, the card read as part of the bezel —
+        // reported from the field in exactly those words — and no gap can fix that,
+        // because at thumbnail scale the card's real 8 pt offset is 0.57 pt and the
+        // card genuinely covers most of the menu bar rather than floating below it.
+        #expect(StylePreview.shapes(for: .notch).surfaceIsOpaque)
+        #expect(!StylePreview.shapes(for: .card).surfaceIsOpaque)
+        #expect(!StylePreview.shapes(for: .classic).surfaceIsOpaque)
+    }
+
     @Test func theClassicSurfaceSitsLowAndTheFloatingOnesSitHigh() {
         // The one property a person actually picks on. Compared against each
         // other rather than against a magic constant, so a rule that nudges every

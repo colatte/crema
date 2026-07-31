@@ -1344,6 +1344,23 @@
         }
       }
     },
+    "settings.permissions.accessibility.header": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Required"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obrigatória"
+          }
+        }
+      }
+    },
     "settings.permissions.automation": {
       "extractionState": "manual",
       "localizations": {
@@ -1391,6 +1408,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Só o leitor reserva do Crema precisa disso — ele pergunta para %@ o que está tocando. O leitor principal não precisa de permissão nenhuma, então o Tocando Agora funciona de qualquer forma."
+          }
+        }
+      }
+    },
+    "settings.permissions.automation.header": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optional"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opcional"
           }
         }
       }
@@ -1718,6 +1752,23 @@
         }
       }
     },
+    "style.card.description": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Floats near the top of the screen."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flutua perto do topo da tela."
+          }
+        }
+      }
+    },
     "style.classic": {
       "extractionState": "manual",
       "localizations": {
@@ -1735,6 +1786,23 @@
         }
       }
     },
+    "style.classic.description": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sits near the bottom of the screen, like the old macOS indicator."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fica perto da base da tela, como o indicador antigo do macOS."
+          }
+        }
+      }
+    },
     "style.notch": {
       "extractionState": "manual",
       "localizations": {
@@ -1748,6 +1816,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Notch"
+          }
+        }
+      }
+    },
+    "style.notch.description": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hangs from the notch at the top of the screen."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fica preso à fenda, no topo da tela."
           }
         }
       }

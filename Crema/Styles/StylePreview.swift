@@ -13,14 +13,23 @@ struct StylePreviewShapes: Equatable {
     let slit: CGRect?
     /// Height of the menu bar strip, as a fraction of the screen.
     ///
-    /// Scenery rather than rule output, and the only invented number here, kept
-    /// because it carries the difference the pictures exist to show. Measured
-    /// against the rules: at thumbnail size the notch surface touches the top edge
-    /// and the card floats less than a point below it, so without furniture the two
-    /// read as the same black tab. With the bar drawn, the slit becomes a bite
-    /// taken out of it — which is what a notch IS to the eye — and the card is
-    /// plainly a thing floating underneath.
+    /// Scenery rather than rule output, and the only invented number here. It is a
+    /// size reference for the top edge — it makes the slit read as a bite taken out
+    /// of the bar, which is what a notch IS to the eye — and nothing more. It does
+    /// NOT show the card floating underneath, because the card does not float
+    /// underneath: on a slitless panel `safeTop` is 0, so the rule anchors the card
+    /// 8 pt down (CardStyle) and it covers two thirds of a 24 pt bar. The
+    /// difference between the two top-edge skins is carried by MATERIAL, below.
     let menuBar: CGFloat
+
+    /// Whether the surface takes no material and is drawn opaque. The one fact
+    /// about a skin's look that no frame rule can produce, and it is what separates
+    /// the two skins that both hug the top edge: the notch style is opaque black so
+    /// it camouflages with the hardware cutout, while the card and classic are a
+    /// translucent material behind a 0.5 pt white hairline (`vibrantSurface`).
+    /// Painting all three solid black made the card read as part of the bezel,
+    /// which is exactly what it is not.
+    let surfaceIsOpaque: Bool
 
     /// Whether the surface is welded to the top of the screen rather than floating
     /// under it. Read off the rule's own answer instead of declared per style, so a
@@ -78,14 +87,19 @@ enum StylePreview {
         // no slit.
         let geometry = style == .notch ? notchedReference : plainReference
         let screen = geometry.frame
-        // On a notched panel the bar is exactly the safe area the slit cuts
-        // through, so that number comes from the geometry. On a plain one it is
-        // the platform's own 24 pt, which no rule here knows and none needs to.
+        // On a notched panel the safe area stands in for the bar. They are not the
+        // same height — the bar is measured at 37 pt against the slit's 32
+        // (docs/design-reference.md), and that gap is the classic gotcha of this
+        // hardware — but the safe area is the number the rules already agree on,
+        // and the 0.35 pt the difference is worth here does not buy a second
+        // invented constant in the file whose whole argument is derive, don't
+        // declare. On a plain panel it is the platform's own 24 pt.
         let bar = geometry.safeTop > 0 ? geometry.safeTop : 24
         return StylePreviewShapes(
             surface: unit(style.frame(for: previewState, on: geometry), in: screen),
             slit: style == .notch ? unit(slit(of: geometry), in: screen) : nil,
-            menuBar: bar / screen.height
+            menuBar: bar / screen.height,
+            surfaceIsOpaque: style == .notch
         )
     }
 

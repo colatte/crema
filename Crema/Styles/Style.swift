@@ -124,6 +124,26 @@ enum Style: String, CaseIterable, Equatable, Sendable {
         }
     }
 
+    /// Where this skin puts its surface, in one sentence. Spoken by VoiceOver in
+    /// place of the picture, which is hidden from it — so without these the picker
+    /// is three nouns, which is the exact thing the pictures exist because names do
+    /// not convey. Deliberately about POSITION only: size, colour and material
+    /// change with calibration, and a description that named them would go stale
+    /// against the frame rules it is meant to narrate.
+    var previewDescription: String {
+        switch self {
+        case .notch:
+            String(localized: "style.notch.description", defaultValue: "Hangs from the notch at the top of the screen.")
+        case .card:
+            String(localized: "style.card.description", defaultValue: "Floats near the top of the screen.")
+        case .classic:
+            String(
+                localized: "style.classic.description",
+                defaultValue: "Sits near the bottom of the screen, like the old macOS indicator."
+            )
+        }
+    }
+
     @MainActor @ViewBuilder
     func makeView(coordinator: Coordinator, displayPolicy: SurfaceDisplayPolicy) -> some View {
         switch self {

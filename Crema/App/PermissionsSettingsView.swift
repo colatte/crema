@@ -28,13 +28,25 @@ struct PermissionsSettingsView: View {
         Form {
             Section {
                 LabeledContent {
-                    Label(
-                        granted
-                            ? String(localized: "settings.permissions.granted", defaultValue: "Granted")
-                            : String(localized: "settings.permissions.notGranted", defaultValue: "Not granted"),
-                        systemImage: granted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
-                    )
-                    .foregroundStyle(granted ? .green : .orange)
+                    // The colour lives on the GLYPH, never on the word. Tinting the
+                    // whole Label put the one line people open this tab to read at
+                    // roughly 2.2:1 against a light grouped row — under the 4.5:1
+                    // floor for body text, and invisible in the failure it survived
+                    // by looking fine in dark mode. It is also why the glyph is
+                    // hidden from VoiceOver: it repeats the word beside it, and a
+                    // state carried by colour alone is not a state at all.
+                    Label {
+                        Text(
+                            granted
+                                ? String(localized: "settings.permissions.granted", defaultValue: "Granted")
+                                : String(localized: "settings.permissions.notGranted", defaultValue: "Not granted")
+                        )
+                        .foregroundStyle(.primary)
+                    } icon: {
+                        Image(systemName: granted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                            .foregroundStyle(granted ? Color.green : Color.orange)
+                            .accessibilityHidden(true)
+                    }
                 } label: {
                     Text(String(localized: "settings.permissions.accessibility", defaultValue: "Accessibility"))
                 }
@@ -44,6 +56,8 @@ struct PermissionsSettingsView: View {
                         core.requestAccessibilityAccess()
                     }
                 }
+            } header: {
+                Text(String(localized: "settings.permissions.accessibility.header", defaultValue: "Required"))
             } footer: {
                 Text(String(
                     localized: "settings.permissions.footer",
@@ -55,10 +69,16 @@ struct PermissionsSettingsView: View {
 
             Section {
                 LabeledContent {
-                    // Green only for a real grant; everything else is secondary,
-                    // never the orange the row above uses.
-                    Label(automationStatus, systemImage: automationIcon)
-                        .foregroundStyle(automation == .granted ? Color.green : Color.secondary)
+                    // No badge at all, which is the rule and not an omission: the
+                    // symbol column belongs to the permission the app REQUIRES. A
+                    // glyph here ranked an optional permission alongside it, and the
+                    // shapes ranked it WRONG — a refusal got a harsher mark (✗) than
+                    // the required grant's warning, and the resting state of a Mac
+                    // with no music app open got a question mark against a machine
+                    // where nothing is wrong. Words carry it, the way the other
+                    // optional integration already states "Receiving" one tab over.
+                    Text(automationStatus)
+                        .foregroundStyle(automation == .granted ? .primary : .secondary)
                 } label: {
                     Text(String(localized: "settings.permissions.automation", defaultValue: "Automation"))
                 }
@@ -85,6 +105,11 @@ struct PermissionsSettingsView: View {
                 case .quiet:
                     EmptyView()
                 }
+            } header: {
+                // With the badge gone, the word is what ranks the two sections —
+                // and a word survives a screenshot, greyscale and colour blindness,
+                // which an orange-versus-grey ranking does not.
+                Text(String(localized: "settings.permissions.automation.header", defaultValue: "Optional"))
             } footer: {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(String(
@@ -128,14 +153,6 @@ struct PermissionsSettingsView: View {
         case .targetNotRunning:
             String(localized: "settings.permissions.automation.noAppOpen", defaultValue: "No music app open")
         case .unknown: String(localized: "settings.permissions.unknown", defaultValue: "Unknown")
-        }
-    }
-
-    private var automationIcon: String {
-        switch automation {
-        case .granted: "checkmark.circle.fill"
-        case .denied: "xmark.circle"
-        case nil, .undecided, .targetNotRunning, .unknown: "questionmark.circle"
         }
     }
 
