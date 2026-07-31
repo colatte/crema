@@ -128,6 +128,16 @@ final class MockOSDChannel: OSDChannel, @unchecked Sendable {
     var readHangs = false
     var passReadsBeforeHang = 0
 
+    /// The availability guard hangs, on its own gate. Separate from the read's
+    /// because the keyboard channel is the one where the two really are different
+    /// calls: CoreBrightness answers availability by enumerating backlight IDs over
+    /// the private client's connection — IPC that can stall — while its screen
+    /// sibling answers from two dlsym results resolved at init and cannot block at
+    /// all. Modelling them as one switch would let a test claim a screen guard
+    /// stalls, which the real one never does.
+    var availableHangs = false
+    private let availableGate = DispatchSemaphore(value: 0)
+
     /// The read straight after each write comes back nil, and only that one: the
     /// output vanishing for an instant between write and verify. The pre-read and
     /// every probe read still succeed, which is what makes this the shape that
@@ -140,7 +150,14 @@ final class MockOSDChannel: OSDChannel, @unchecked Sendable {
     private var swallowNextRead = false
     private let readGate = DispatchSemaphore(value: 0)
 
-    func isAvailable() -> Bool { available }
+    func isAvailable() -> Bool {
+        if availableHangs { availableGate.wait() }
+        return available
+    }
+
+    /// Frees one parked availability guard so its orphaned detached task
+    /// completes — the read's own gate is released by releaseRead().
+    func releaseAvailable() { availableGate.signal() }
 
     func read() -> Double? {
         let shouldHang: Bool = hangLock.withLock {

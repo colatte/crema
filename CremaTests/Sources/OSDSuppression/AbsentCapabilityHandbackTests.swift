@@ -165,6 +165,44 @@ struct AbsentCapabilityHandbackTests {
         #expect(h.suppressor.suspendedDomains.isEmpty)
     }
 
+    @Test func aStalledRecheckLeavesTheAbsenceStandingAndNeverFreezes() async {
+        // The re-check is fired by the user's own press, and the question it asks
+        // is the same stalling IPC the apply path races. Asked inline it would
+        // block the actor on the very press meant to recover the key — and this
+        // suite runs on the MainActor, so a test that still makes progress is the
+        // proof it does not.
+        //
+        // A stall is also not an answer. The mark is clear-only for exactly this:
+        // a timed-out re-check must leave the absence standing, so the key keeps
+        // going to the system, which is the safe side to be wrong on.
+        let h = OSDSuppressorHarness()
+        h.keyboard.available = false
+        h.suppressor.setEngaged(true)
+
+        h.keys.press(.keyboardBrightnessUp)   // buys the absence
+        #expect(await eventually {
+            let down = h.keys.pressDown(.keyboardBrightnessUp)
+            h.keys.pressUp(.keyboardBrightnessUp)
+            return !down
+        }, "the absence never landed for .keyboardBrightnessUp")
+
+        // The control is back, but its guard now stalls instead of answering.
+        h.keyboard.available = true
+        h.keyboard.availableHangs = true
+        h.keys.press(.keyboardBrightnessUp)   // fires the re-check, which parks
+        h.readClock.advance()                 // and expires
+        await settle()
+
+        #expect(!h.keys.pressDown(.keyboardBrightnessUp))   // still handed back
+        h.keys.pressUp(.keyboardBrightnessUp)
+        #expect(h.keyboard.applied.isEmpty)                 // and still writing nothing
+        #expect(h.suppressor.suspendedDomains.isEmpty)      // an absence is not a failure
+        #expect(h.suppressor.longSuspendedDomains.isEmpty)  // and never reaches the menu
+
+        h.keyboard.releaseAvailable()
+        await settle()
+    }
+
     @Test func anEngagementFlipForgetsEveryAbsence() async {
         // Every other axis is born healthy on a flip — suspensions, probes, the
         // write-health counters — and this one must be too: a disengage is a lock or

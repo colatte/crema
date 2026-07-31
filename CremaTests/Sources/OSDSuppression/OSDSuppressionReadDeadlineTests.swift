@@ -142,6 +142,33 @@ struct OSDSuppressionReadDeadlineTests {
         await settle()
     }
 
+    @Test func aHungKeyboardAvailabilityGuardSuspendsItsDomain() async {
+        // The one availability guard on the brightness side that really is IPC:
+        // CoreBrightness answers it by enumerating the backlight IDs over the
+        // private client's connection, and it is re-asked per press precisely
+        // because a cold boot can answer "no keyboard" before the service is up.
+        // Its screen sibling is two dlsym results resolved at init and cannot
+        // block, which is why only this one races a deadline. Inline, this froze
+        // the MainActor once per backlight key.
+        let h = OSDSuppressorHarness()
+        h.keyboard.availableHangs = true
+        h.suppressor.setEngaged(true)
+
+        h.keys.press(.keyboardBrightnessUp)
+        #expect(await eventually {
+            h.readClock.advance()
+            return h.suppressor.suspendedDomains.contains(.keyboardBrightness)
+        })
+        #expect(h.suppressor.isEngaged)          // domain-scoped, engagement stays on
+        #expect(h.keyboard.applied.isEmpty)      // never reached the write
+        // A stall is not an answer, so it must not be read as "no such control":
+        // that verdict hands the key back with no probe and no way home.
+        #expect(h.suppressor.suspendedDomains.contains(.keyboardBrightness))
+
+        h.keyboard.releaseAvailable()
+        await settle()
+    }
+
     // MARK: - Probe-loop read: expires without freezing, the loop continues
 
     @Test func aHungProbeReadExpiresWithoutFreezingThenRecovers() async {
@@ -174,6 +201,41 @@ struct OSDSuppressionReadDeadlineTests {
         #expect(await eventually {
             h.clock.advance()
             return !h.suppressor.suspendedDomains.contains(.screenBrightness)
+        })
+    }
+
+    @Test func aHungKeyboardAvailabilityGuardInTheProbeExpiresWithoutFreezing() async {
+        // The probe asks availability before the read, to tell a genuinely absent
+        // channel from a present one that cannot be read. On the keyboard that
+        // question is the same stalling IPC the apply path races, and it runs on
+        // every backoff cycle — inline, it blocked the MainActor once per cycle,
+        // for as long as the domain stayed suspended.
+        let h = OSDSuppressorHarness()
+        h.keyboard.value = nil   // a fast failure enters the suspension (no hang yet)
+        h.suppressor.setEngaged(true)
+
+        h.keys.press(.keyboardBrightnessUp)
+        #expect(await eventually { h.suppressor.suspendedDomains.contains(.keyboardBrightness) })
+        await h.clock.waitForSleep()   // the recovery probe is parked on the backoff
+
+        h.keyboard.availableHangs = true
+        h.clock.advance()
+
+        // The loop must park its next backoff rather than freeze on the guard.
+        #expect(await eventually {
+            h.readClock.advance()
+            return h.clock.pendingSleeps == 1
+        })
+        #expect(h.suppressor.suspendedDomains.contains(.keyboardBrightness))
+        #expect(h.suppressor.longSuspendedDomains.isEmpty)   // one failure, not escalated
+
+        // The service answers again; the next probe recovers — proof the loop lived.
+        h.keyboard.availableHangs = false
+        h.keyboard.value = 0.5
+        h.keyboard.releaseAvailable()
+        #expect(await eventually {
+            h.clock.advance()
+            return !h.suppressor.suspendedDomains.contains(.keyboardBrightness)
         })
     }
 
