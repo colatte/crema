@@ -96,6 +96,13 @@ jobs:
         # timeout with no name attached.
         env:
           TEST_RUNNER_CREMA_TEST_WAIT_SECONDS: "25"
+        # Tests run SERIALLY here, parallel everywhere else. The runner's 3-4
+        # vCPUs cannot carry 115 parallel suites: the GCD global pool has a
+        # per-QoS thread ceiling, the hang-modelling tests park real threads on
+        # it by design, and every raced border read wants a slot — measured, a
+        # press's pre-read queued behind the parked orphans for 75 s and the
+        # write it feeds never started (writeStartCount == 0). Each parallel
+        # run tripped a different timing landmine; serial removes the class.
         # The verdict is the "Test run with N tests" line, never xcodebuild's
         # exit: the app-hosted test host boots the real AppCore, whose pollers
         # hold the runloop, and its teardown can hang AFTER every test has
@@ -112,6 +119,7 @@ jobs:
             -scheme Crema \
             -configuration Debug \
             -destination 'platform=macOS' \
+            -parallel-testing-enabled NO \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" > xcodebuild-test.log 2>&1 &
