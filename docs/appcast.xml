@@ -3,12 +3,91 @@
     <channel>
         <title>Crema</title>
         <item>
-            <title>1.2.0</title>
-            <pubDate>Tue, 28 Jul 2026 23:21:53 -0400</pubDate>
-            <sparkle:version>10200</sparkle:version>
-            <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
+            <title>1.4.0</title>
+            <pubDate>Fri, 31 Jul 2026 10:41:06 -0400</pubDate>
+            <sparkle:version>10400</sparkle:version>
+            <sparkle:shortVersionString>1.4.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/colatte/crema/releases/download/v1.2.0/Crema-1.2.0.dmg" length="3120111" type="application/octet-stream" sparkle:edSignature="d7YMn6pZgTife/pzPUkvLa6wtWF2QD2hWQdpjSAAWNBWBvymMPf5VeGh7gxlOVH7U7jRgnFKqAQRSoM15mtqAw=="/>
+            <description><![CDATA[<h2>Crema 1.4.0</h2>
+<ul>
+<li>The documents said what the app used to do</li>
+<li>A label that scopes itself needs no paragraph excusing it</li>
+<li>The Dock was scaffolding for a diagnosis that turned out wrong</li>
+<li>The card was drawn on hardware the author does not own</li>
+<li>The screen had a top and no bottom, so nothing had a place</li>
+<li>A test that asserted an order nothing promises</li>
+<li>The tiles were three grey rectangles with a smudge on them</li>
+<li>The menu gets the switch it was only ever talking about</li>
+<li>Two lines that sent the reader somewhere, and one that blamed macOS</li>
+<li>The rule the permissions tab was following in words but not in symbols</li>
+<li>The card looked welded to the bezel because it was painted like one</li>
+<li>A binding read by nothing, left where a comparison used to be</li>
+<li>The five joins in the composition root that could go wrong in silence</li>
+<li>A function carrying two doc comments, the first refuting the second</li>
+<li>Two documents describing an integration that shipped weeks ago</li>
+<li>The three availability guards that could stall had nothing holding them</li>
+<li>A drag nothing honoured now comes back instead of standing there</li>
+<li>The bar the drag left behind was the one being echoed back</li>
+<li>The retry button did nothing in the window it was written for</li>
+<li>The one write that landed after an await without asking whose world it was</li>
+<li>Two test helpers that could hide the failure they exist to show</li>
+<li>A failing test that kills the process is not a failing test</li>
+<li>Eleven sentences that outlived the design they described</li>
+<li>A copy of the app icon that nothing pointed at</li>
+<li>Four documents that had drifted, and the release gate that was missing one</li>
+<li>A swallowed key on a channel with no control now goes back to the system</li>
+<li>Settings finally mentions the neighbour it has been working with</li>
+<li>Three documents that had stopped describing this app, and a pin declared impossible</li>
+<li>The mirror guard is real; the reason written beside it was not</li>
+<li>The keyboard backlight can arrive after launch, and now it is allowed to</li>
+<li>A HUD names a role, not a display it may not have</li>
+<li>The no-emoji rule says which strings it is about</li>
+<li>The catalog rule finally has something enforcing it</li>
+<li>Pick the style by looking at it</li>
+<li>Six claims of mine, checked against the sources instead of my memory</li>
+<li>Docs catch up with the key that follows the pointer</li>
+<li>The brightness key now acts on the screen you are looking at</li>
+<li>I asked through the wrong door and called the answer a limitation</li>
+<li>Permissions names the one the app needed and never mentioned</li>
+<li>Give the Settings tabs their own files before two more rows go in</li>
+<li>The menu says what Crema is doing, not only when something breaks</li>
+<li>The bar drew on every screen because I threw away which one was named</li>
+<li>The neighbour's brightness can be written but not read</li>
+<li>Sample a clock that cannot lie, and say the fallback out loud</li>
+<li>The last five, and the critics earned their keep</li>
+<li>Holding a key through a suspension no longer mutes the rest of the hold</li>
+<li>Research says one of my findings was wrong, and corroborates another</li>
+<li>Two seams that were never reachable, and I was wrong about one of them</li>
+<li>Seven comments that described a machine we no longer run</li>
+<li>Nothing gates the release script, and the update panel opens blank</li>
+<li>Five smaller edges, and a claim that was backwards</li>
+<li>Three promises the code had stopped keeping</li>
+<li>Sampling volume no longer freezes the app it is drawing for</li>
+<li>Brightness addressed the menu bar's display, not the built-in one</li>
+<li>Xcode's own Archive built an app that could not open</li>
+<li>The write-health axis only counts what it claims to count</li>
+<li>An async signature is not a suspension point</li>
+<li>A live stream is not 292 thousand years long</li>
+<li>Seventeen: the onboarding's order, and a guard that needed two displays</li>
+<li>Two more, and a lesson about what a value can witness</li>
+<li>Three more witnesses, one of them for a test that raced itself</li>
+<li>Give the expensive invariants a witness</li>
+<li>Scope the HUD where it is DRAWN, not only where it is touchable</li>
+<li>A HUD belongs to the display it names</li>
+<li>Send the drag back to whoever drew the bar</li>
+<li>Say when the neighbour is feeding us, and stop drawing over it</li>
+<li>Let BetterDisplay keep the keys, and draw the HUD from what it says</li>
+<li>When another app takes the media keys first, name it</li>
+<li>Sample the clock instead of counting ticks: the bar stops falling behind</li>
+<li>CLAUDE.md: the launch-at-login preference is an intent, not a state</li>
+<li>Notice when macOS revokes launch-at-login, and say so</li>
+<li>A real download button, drawn instead of borrowed</li>
+<li>Showcase with real album art: the three styles, captured live</li>
+<li>README: a big Download-for-macOS button under the hero</li>
+<li>chore(release): appcast 1.2.0 — the feed goes live, docs flip to the shipped truth</li>
+</ul>
+]]></description>
+            <enclosure url="https://github.com/colatte/crema/releases/download/v1.4.0/Crema-1.4.0.dmg" length="3280350" type="application/octet-stream" sparkle:edSignature="V9qP8i5E0MolEugJrCV9V5tpEdNATOY45KUDDC769cIaeu/BAZlVh0CanwD6H1QW2bK9mGM6zDLf18EufmWUCg=="/>
         </item>
     </channel>
 </rss>
