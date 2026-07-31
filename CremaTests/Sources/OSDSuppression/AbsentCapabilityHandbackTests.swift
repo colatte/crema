@@ -187,8 +187,13 @@ struct AbsentCapabilityHandbackTests {
         }, "the absence never landed for .keyboardBrightnessUp")
 
         // The control is back, but its guard now stalls instead of answering.
-        h.keyboard.available = true
+        // Hang armed BEFORE the control comes back, or there is a window a
+        // re-check still in flight (kicked by the probe presses above) reads
+        // `true` unhung, clears the absence, and the next press becomes a normal
+        // apply whose deadline the advance below expires — a suspension this
+        // test exists to rule out. Measured on a starved runner.
         h.keyboard.availableHangs = true
+        h.keyboard.available = true
         h.keys.press(.keyboardBrightnessUp)   // fires the re-check, which parks
         h.readClock.advance()                 // and expires
         await settle()
@@ -199,6 +204,9 @@ struct AbsentCapabilityHandbackTests {
         #expect(h.suppressor.suspendedDomains.isEmpty)      // an absence is not a failure
         #expect(h.suppressor.longSuspendedDomains.isEmpty)  // and never reaches the menu
 
+        h.keyboard.releaseAvailable()
+        // Twice: a late re-check from the probe presses above may have parked on
+        // the gate as well; extra signals on a semaphore nobody awaits are free.
         h.keyboard.releaseAvailable()
         await settle()
     }
