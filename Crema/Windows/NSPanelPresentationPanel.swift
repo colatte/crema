@@ -198,7 +198,6 @@ final class NSPanelPresentationPanel: PresentationPanel {
             hudIndicatorStyle: hudIndicatorStyle
         )
 
-        let previous = currentFrame
         currentFrame = frame
         // Hover retarget at apply time errs TIGHT: the current state's rule
         // frame ∩ the last rendered truth (the reported size still predates
