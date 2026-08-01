@@ -48,8 +48,10 @@ struct TileBackdrop: View {
 
     /// How dark the wash is. Enough that a white desktop still reads as
     /// background behind a black surface; light enough that the picture stays
-    /// recognisably the user's own desk rather than a grey rectangle.
-    static let veilOpacity = 0.28
+    /// recognisably the user's own desk rather than a grey rectangle. Raised
+    /// from the first cut's 0.28 on a field verdict: over a pale sky that wash
+    /// barely existed and the tiles read washed-out rather than staged.
+    static let veilOpacity = 0.35
 
     /// The drawn desk, for when there is no readable one. Flat and dim on
     /// purpose: it stands in for scenery, so it must not become the subject.

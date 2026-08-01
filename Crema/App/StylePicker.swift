@@ -30,9 +30,10 @@ struct StylePicker: View {
     var wallpaper: NSImage?
 
     var body: some View {
-        // Tight, because the ring needs room outside each picture and three
-        // tiles plus their gaps still have to fit the Form row.
-        HStack(alignment: .top, spacing: 4) {
+        // Ten points of air: the field verdict on the 4 pt first cut was one
+        // crowded strip. Three tiles plus rings and gaps still fit the ~440 pt
+        // Form row with room to spare (3 × 114 + 20 = 362).
+        HStack(alignment: .top, spacing: 10) {
             ForEach(Style.allCases, id: \.self) { style in
                 // Asking for the shapes without naming a panel is deliberately not
                 // the same as passing the canonical one: the default belongs to
@@ -161,6 +162,11 @@ private struct StyleThumbnail: View {
         Rectangle()
             .fill(.white.opacity(0.85))
             .frame(width: Thumbnail.width, height: max(shapes.menuBar * height, Thumbnail.minMenuBar))
+            // The bar's own bottom edge: over a pale desk the white strip melts
+            // into the sky and the slit loses the thing it takes a bite out of.
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(.black.opacity(0.18)).frame(height: 0.5)
+            }
     }
 
     @ViewBuilder private var slit: some View {
@@ -212,21 +218,39 @@ private struct StyleThumbnail: View {
                 }
             }
             .frame(width: surfaceSize.width, height: surfaceSize.height)
-            .offset(x: shapes.surface.minX * Thumbnail.width, y: surfaceTop)
+            // Centred on the derived midpoint rather than hung on the derived
+            // minX, so the magnification below grows a surface about its own
+            // centre — for the unmagnified block the two are the same offset.
+            .offset(x: shapes.surface.midX * Thumbnail.width - surfaceSize.width / 2, y: surfaceTop)
     }
 
     /// The drawn surface, in points — the space the content rule answers in, so the
     /// frame above and the rects inside it cannot come from two different sizes.
+    ///
+    /// The strip skins are magnified: the second sanctioned exaggeration, same
+    /// class as the floating clearance below ("only the size of something real").
+    /// A 1512 pt screen lands in a 108 pt picture, so drawn faithfully the
+    /// top-edge surfaces are 13-to-20 pt slivers whose row of cover-and-lines has
+    /// no room to read — the field verdict on the faithful cut. The gate is the
+    /// content ARRANGEMENT, not the skin's name: it names the thing that needs
+    /// width (a row of content), and the near-square block, already legible at
+    /// fidelity, stays faithful.
     private var surfaceSize: CGSize {
-        CGSize(width: shapes.surface.width * Thumbnail.width, height: shapes.surface.height * height)
+        let derived = CGSize(width: shapes.surface.width * Thumbnail.width, height: shapes.surface.height * height)
+        guard shapes.contentArrangement == .coverBesideTwoLines else { return derived }
+        return CGSize(
+            width: derived.width * Thumbnail.stripSurfaceWidthBoost,
+            height: derived.height * Thumbnail.stripSurfaceHeightBoost
+        )
     }
 
     /// What the surface holds, in miniature: cover art and the track's lines.
     ///
     /// Placed by the shared rule (`StylePreviewContent`) rather than by eye — the
-    /// notch tile draws its surface at some 13 by 11 pt, where "looks right" is not
-    /// a check anyone can repeat — and drawn only when that rule finds room:
-    /// silhouette alone says less than furniture too small to read says wrong.
+    /// notch tile draws its surface at some 26 by 15 pt even magnified, where
+    /// "looks right" is not a check anyone can repeat — and drawn only when that
+    /// rule finds room: silhouette alone says less than furniture too small to
+    /// read says wrong.
     @ViewBuilder private var content: some View {
         if let layout = StylePreviewContent.layout(
             in: CGRect(origin: .zero, size: surfaceSize),
@@ -262,7 +286,8 @@ private struct StyleThumbnail: View {
         endPoint: .bottomTrailing
     )
 
-    /// The surface's top, with the one exaggeration in the picture.
+    /// The surface's top, with the clearance exaggeration — the magnification's
+    /// sibling, over on `surfaceSize`.
     ///
     /// A skin that really clears the menu bar is DRAWN clearing it, by a visible
     /// margin. The card's true clearance is 3 pt on a 982 pt screen — a fifth of a
@@ -319,4 +344,10 @@ enum Thumbnail {
     /// How far below the drawn menu bar a floating surface sits. Enough to be a gap
     /// and not a seam; the true one is a fifth of a point at this size.
     static let floatingClearance: CGFloat = 2.5
+    /// How much wider than faithful the strip surfaces are drawn, and how much
+    /// taller. Calibrated against the drawing the owner approved (surfaces at
+    /// roughly 28-37% of the tile's width, cover at ~45% of their height), not
+    /// to taste; the rationale for exaggerating at all is on `surfaceSize`.
+    static let stripSurfaceWidthBoost: CGFloat = 2.0
+    static let stripSurfaceHeightBoost: CGFloat = 1.35
 }
