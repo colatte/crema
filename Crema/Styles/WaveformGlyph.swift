@@ -40,13 +40,18 @@ struct WaveformGlyph: View {
     /// flips right after insertion (onAppear), a real change, so the pulse
     /// provably starts. Purely visual ephemeral state.
     ///
-    /// It tracks `shouldDance`, not `animating`: Reduce Motion can be switched on
-    /// with the glyph already mounted and pulsing, and a phase latched from the
-    /// preference only at mount would keep the bars dancing under it. The sibling
-    /// gates follow a live flip for free — they read the preference inside a
-    /// body, which re-runs; a phase in @State has to be told.
+    /// It tracks `shouldDance`, not `animating`, and that is what makes BOTH vetoes
+    /// live: Reduce Motion can be switched on — and Low Power Mode can engage — with
+    /// the glyph already mounted and pulsing, and a phase latched at mount would
+    /// keep the bars dancing under either. The sibling gates follow a live flip for
+    /// free, because they read their input inside a body, which re-runs; a phase in
+    /// @State has to be told. One derived value carries both vetoes, so the
+    /// `onChange` below stays keyed on it rather than growing a key per input —
+    /// which is how one of them ends up watched and the other forgotten.
     @State private var dancing = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Nil off the panels (previews, the Settings tiles): no mirror, no veto.
+    @Environment(\.lowPowerMode) private var lowPowerMode
     @Environment(\.artworkAccent) private var accent
 
     /// Settle time when playback pauses: quick enough to read as an
@@ -89,10 +94,21 @@ struct WaveformGlyph: View {
         }
     }
 
-    /// Both inputs of the pulse in one value, so the `onChange` above fires on a
-    /// preference flip as well as on play/pause: motion is the accessibility
-    /// preference's to veto at any moment, not only at the next transport event.
+    /// Every input of the pulse in one value, so the `onChange` above fires on either
+    /// veto as well as on play/pause: motion is theirs to stop at any moment, not
+    /// only at the next transport event. Read inside the body, so an @Observable
+    /// mirror flip invalidates it like the accessibility preference does.
     private var shouldDance: Bool {
-        animating && !reduceMotion
+        Self.dances(animating: animating, reduceMotion: reduceMotion, lowPower: lowPowerMode?.isLowPower ?? false)
+    }
+
+    /// The rule itself, pure and static so it is testable without a rendered view.
+    /// Two vetoes, neither reducible to the other: Reduce Motion is the user's
+    /// standing request that nothing move, and Low Power Mode is the system's
+    /// request that nothing be spent on motion — a repeatForever pulse on a
+    /// surface that sits over the menu bar is exactly what it means. An absent
+    /// mirror means nobody wired one, which is no veto.
+    static func dances(animating: Bool, reduceMotion: Bool, lowPower: Bool) -> Bool {
+        animating && !reduceMotion && !lowPower
     }
 }

@@ -109,6 +109,16 @@ final class AppCore {
     /// and observed state written there would be mutation driven by rendering
     /// (rationale on the type).
     private let chainNoticeCache = MediaKeyChainNotice.Cache()
+    /// Low Power Mode, in the two halves it needs: the system source and the mirror
+    /// every panel carries into its view's environment. The mirror is its own
+    /// observable because AppCore is not one — the shape the permission and
+    /// suppression mirrors already use — and it is a REFERENCE the panels hold, so
+    /// an engage/disengage reaches surfaces that were built long before it.
+    private let lowPowerSource: any LowPowerModeSource = ProcessInfoLowPowerModeSource()
+    private let lowPowerMirror = LowPowerModeMirror()
+    /// The task consuming the source, retained for the app lifetime like the wake
+    /// observers.
+    private var lowPowerConsumption: Task<Void, Never>?
     /// Kept past the merge so the menu can report whether the neighbour's OSD
     /// integration is actually feeding us; nil on demo sources.
     private let betterDisplaySource: BetterDisplayOSDSource?
@@ -121,6 +131,11 @@ final class AppCore {
     /// Its own observable because AppCore is not one, the same shape the permission
     /// and suppression mirrors already use.
     let settingsNavigation = SettingsNavigation()
+    /// The desk the Settings and tour style tiles stand on. Owned here, where it
+    /// outlives every window: the panes seed it once per opening and the STORE is
+    /// what remembers the decode, so reopening them costs no second read of the
+    /// file.
+    private let wallpaperTiles = WallpaperTileStore()
     /// Display/system wake observers that reinstall the media-key tap: a
     /// display-sleep/wake can leave the tap enabled with a valid port yet
     /// silently not delivering, and it fires no unlock edge for the lock-edge
@@ -217,8 +232,16 @@ final class AppCore {
             mediaKeyRouter = nil
         }
 
+        // Low Power Mode reaches the surfaces as rendering context, through the
+        // panels: one mirror for the whole app, handed to every panel the factory
+        // builds — including the ones built later, on a hotplug or a style change.
+        // Bound to a local so the escaping factory below captures the mirror and
+        // never `self` — the idiom the roster and manager locals already use.
+        let lowPowerMirror = self.lowPowerMirror
+        lowPowerConsumption = Self.wireLowPowerMode(source: self.lowPowerSource, into: lowPowerMirror)
+
         windowManager = WindowManager(coordinator: coordinator, preferences: preferences) { screen, style, coordinator in
-            NSPanelPresentationPanel(screen: screen, style: style, coordinator: coordinator)
+            NSPanelPresentationPanel(screen: screen, style: style, coordinator: coordinator, lowPower: lowPowerMirror)
         }
 
         coordinator.start()
@@ -526,6 +549,15 @@ final class AppCore {
     /// (docs/DECISIONS.md: rendered-style-gates-settings).
     func rendersAnywhere(_ style: Style) -> Bool {
         windowManager.renders(style)
+    }
+
+    /// The picture for the style tiles, or nil for them to draw their own desk.
+    /// Seeded at view construction — the deal those panes' other mirrors take
+    /// (docs/internal/archive/CONTRACTS-AUDIT.md: S4): SwiftUI re-runs the seed
+    /// per tab visit, the store's URL cache keeps that a dictionary hit, and a
+    /// wallpaper changed with Settings open shows up on the next construction.
+    func tileWallpaper() -> NSImage? {
+        wallpaperTiles.backdrop()
     }
 
     /// The "all displays" entry: declares the style globally and drops the
@@ -1181,6 +1213,41 @@ extension AppCore {
             case (.screenBrightness, .system): screenSampler.sample()
             case (.keyboardBrightness, _): keyboardSampler.sample()
             case (.volume, _): break   // volume echoes itself; never routed here
+            }
+        }
+    }
+}
+
+// MARK: - Low Power Mode
+
+/// An extension and not the class body, for the reason the accessibility one
+/// states: this is what holds the class body inside the `type_body_length`
+/// ceiling the composition root leans on with every feature wired into it. It
+/// needs nothing private — the seam takes both collaborators as parameters.
+@MainActor
+extension AppCore {
+    /// Joins the Low Power Mode source to the mirror the panels carry into their
+    /// views. The SEED is the load-bearing half and it runs BEFORE the stream is
+    /// consumed: a Mac launched already in Low Power Mode posts no notification, so
+    /// a wiring that only followed `updates` would leave the waveform pulsing until
+    /// the user toggled the system setting off and on again — and seeding first also
+    /// means no emission can slip through the gap between the two.
+    ///
+    /// Standalone and static for the reason the other wiring statics are: reaching
+    /// it through an instance means constructing `AppCore`, which boots the real
+    /// system sources, so this join would be unreachable by any test. Returns the
+    /// consuming task the core retains — deliberately not discardable, so the
+    /// retention is a decision at every call site; the mirror is captured weakly so
+    /// a parked stream is never what keeps it alive.
+    static func wireLowPowerMode(
+        source: any LowPowerModeSource,
+        into mirror: LowPowerModeMirror
+    ) -> Task<Void, Never> {
+        mirror.report(source.isLowPower)
+        return Task { @MainActor [weak mirror, source] in
+            for await lowPower in source.updates {
+                guard let mirror else { return }
+                mirror.report(lowPower)
             }
         }
     }

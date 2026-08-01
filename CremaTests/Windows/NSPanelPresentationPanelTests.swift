@@ -25,7 +25,12 @@ struct NSPanelPresentationPanelTests {
     private func panel(_ style: Style = .card) -> (NSPanelPresentationPanel, ScreenDescription, CoordinatorHarness) {
         let harness = CoordinatorHarness()
         let screen = screen()
-        return (NSPanelPresentationPanel(screen: screen, style: style, coordinator: harness.coordinator), screen, harness)
+        return (
+            NSPanelPresentationPanel(
+                screen: screen, style: style, coordinator: harness.coordinator, lowPower: nil
+            ),
+            screen, harness
+        )
     }
 
     private func apply(_ panel: NSPanelPresentationPanel, _ frame: CGRect) {

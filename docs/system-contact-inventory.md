@@ -54,6 +54,8 @@
 | _From the critic:_ the one-shot Perl command channel (not enumerated) | LOUDLY-FATAL (visible throw) |
 | _From the critic:_ no sleep/wake observer at all | systemic hole behind A7/A9 |
 | _From the critic:_ the adapter's Pipe fds under respawn (flapping) | low confidence; check under long flapping |
+| _Added 2026-08-01:_ desktop picture file (`NSWorkspace.desktopImageURL` for `NSScreen.main`, behind `DesktopPictureSource`) | PROTECTED (nil is an answer — the Settings tiles draw their own desk; the border is asked on every backdrop, so a wallpaper just changed is a new URL, and the bounded thumbnail decode is cached per URL with failure remembered) |
+| _Added 2026-08-01:_ Low Power Mode (`ProcessInfo.isLowPowerModeEnabled` + `NSProcessInfoPowerStateDidChange` observer) | PROTECTED (edge triggers an authoritative re-read, never a flip — the system posts it for any power-source change; seeded synchronously at init, since a Mac launched already in Low Power posts nothing; observer removed and stream finished in deinit) |
 
 ## D2 · Class 2 — parity by coincidence (27 items + 5 from the critic)
 

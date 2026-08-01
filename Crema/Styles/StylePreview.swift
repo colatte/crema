@@ -26,12 +26,23 @@ struct StylePreviewShapes: Equatable {
     /// display, not a defect of the drawing.
     let menuBar: CGFloat
 
-    /// Whether the surface takes no material and is drawn opaque. The one fact
-    /// about a skin's look that no frame rule produces, and it is the difference a
-    /// user names first: only the notch style is black, because it camouflages with
-    /// the hardware cutout it covers; the card and classic are a translucent
-    /// material behind a half-point white hairline (`vibrantSurface`).
+    /// Whether the surface takes no material and is drawn opaque. One of the facts
+    /// about a skin's look that no frame rule produces (`contentArrangement` below
+    /// is the other), and the difference a user names first: only the notch style is
+    /// black, because it camouflages with the hardware cutout it covers; the card
+    /// and classic are a translucent material edged by `vibrantSurface`'s chrome
+    /// pair — dark outer rim plus top specular (docs/DECISIONS.md:
+    /// surface-border-2026).
     let surfaceIsOpaque: Bool
+
+    /// How the surface arranges what it holds: a cover with the track's two lines
+    /// beside it on the skins that live along the top edge, a cover above one line
+    /// on the squarish classic block. Like `surfaceIsOpaque`, a fact about the skin
+    /// that no frame rule produces — the rules answer where a surface goes, never
+    /// what is inside it — and taken from the RESOLVED style rather than from the
+    /// rect's proportions: those come from a calibration, so a card grown a few
+    /// points taller would flip its miniature to the block's stack in silence.
+    let contentArrangement: PreviewContentArrangement
 
     /// Width over height of the display these shapes describe. The fractions above
     /// carry no shape of their own, so a drawing that picks its own proportions
@@ -145,6 +156,7 @@ enum StylePreview {
             slit: rendered == .notch ? unit(slit(of: geometry), in: screen) : nil,
             menuBar: fraction(bar, of: screen.height),
             surfaceIsOpaque: rendered == .notch,
+            contentArrangement: rendered == .classic ? .coverAboveOneLine : .coverBesideTwoLines,
             aspectRatio: fraction(screen.width, of: screen.height)
         )
     }

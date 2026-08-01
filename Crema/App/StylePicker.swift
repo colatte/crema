@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Pick the skin by looking at it.
@@ -20,6 +21,13 @@ import SwiftUI
 /// be both is what made a tile mean two things at once.
 struct StylePicker: View {
     @Binding var selection: Style
+    /// The desk the tiles stand on, handed in rather than read here: a view that
+    /// asked the system for the desktop picture would ask again on every body,
+    /// where the picture is worth exactly one decode per window opening
+    /// (`WallpaperTileStore`). Nil is a complete answer and not a missing one — the
+    /// tiles draw their own desk — so a caller with no scenery to give leaves it
+    /// out.
+    var wallpaper: NSImage?
 
     var body: some View {
         // Tight, because the ring needs room outside each picture and three
@@ -34,6 +42,7 @@ struct StylePicker: View {
                 StyleTile(
                     style: style,
                     shapes: StylePreview.shapes(for: style),
+                    wallpaper: wallpaper,
                     isSelected: style == selection
                 ) { selection = style }
             }
@@ -45,10 +54,11 @@ struct StylePicker: View {
     }
 }
 
-/// One option: the picture, its name, and the selection ring.
+/// One option: the picture, its name and caption, and the selection ring.
 private struct StyleTile: View {
     let style: Style
     let shapes: StylePreviewShapes
+    let wallpaper: NSImage?
     let isSelected: Bool
     let select: () -> Void
 
@@ -60,7 +70,7 @@ private struct StyleTile: View {
                 // the thumbnail it would paint inward over the top few points —
                 // which is where the whole difference between these skins lives —
                 // so selecting a style used to hide the thing being selected.
-                StyleThumbnail(shapes: shapes)
+                StyleThumbnail(shapes: shapes, wallpaper: wallpaper)
                     .overlay {
                         RoundedRectangle(cornerRadius: Thumbnail.cornerRadius, style: .continuous)
                             .strokeBorder(.separator, lineWidth: 0.5)
@@ -73,21 +83,36 @@ private struct StyleTile: View {
                         )
                         .strokeBorder(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear), lineWidth: 2.5)
                     }
-                Text(style.displayName)
-                    .font(.callout)
-                    .foregroundStyle(isSelected ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                // Tighter than the gap above: the caption belongs to the name, not
+                // to the picture, and equal spacing would leave it floating between
+                // two tiles' worth of words.
+                VStack(spacing: 1) {
+                    Text(style.displayName)
+                        .font(.callout)
+                        .foregroundStyle(isSelected ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                    Text(style.previewDescription)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .multilineTextAlignment(.center)
+                        // Held to the picture's width and allowed to wrap: three
+                        // tiles have to fit one Form row, so a caption free to grow
+                        // sideways would widen the row instead of taking a second
+                        // line — and a sentence cut short by an ellipsis says the
+                        // position wrong rather than not at all.
+                        .frame(width: Thumbnail.width)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
         // Plain, because the tile IS the control: a bordered button would draw a
         // second frame around a picture that already has one.
         .buttonStyle(.plain)
         .contentShape(.rect)
-        .accessibilityLabel(style.displayName)
-        // The picture is hidden from VoiceOver, so without this the whole control
-        // is three nouns — exactly the thing this picker exists because names do
-        // not convey. Position only, so the words cannot drift from the frame rules
-        // the way a description of size or colour would.
-        .accessibilityHint(style.previewDescription)
+        // No hand-written label here: the button composes one from the two texts it
+        // draws — the name, then the sentence under it — so VoiceOver says exactly
+        // what the eye reads, once. Naming the style instead would replace both and
+        // leave the control as the three nouns the pictures exist because names do
+        // not convey; a hint carrying the same sentence would say it a second time.
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : [.isButton])
     }
 }
@@ -99,17 +124,20 @@ private struct StyleTile: View {
 /// anything.
 private struct StyleThumbnail: View {
     let shapes: StylePreviewShapes
+    let wallpaper: NSImage?
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            Thumbnail.desktop
+            // The user's own desk under a dark wash; why it is theirs, and why it
+            // is washed, lives on `TileBackdrop`.
+            TileBackdrop(wallpaper: wallpaper)
             menuBar
             slit
             surface
         }
         .frame(width: Thumbnail.width, height: height)
         .clipShape(RoundedRectangle(cornerRadius: Thumbnail.cornerRadius, style: .continuous))
-        .accessibilityHidden(true)   // the tile's own label names it
+        .accessibilityHidden(true)   // the tile's own words name it
     }
 
     /// The width, in the proportions of the screen being drawn. A degenerate
@@ -168,17 +196,71 @@ private struct StyleThumbnail: View {
                 radius: 2.5,
                 y: 1.5
             )
-            // The floating skins' own hairline (vibrantSurface). Only the notch is
-            // solid black — it camouflages with the cutout it covers — and that is
-            // the difference a user names first when the three are side by side.
+            .overlay { content }
+            // The floating skins' own border (vibrantSurface), read from the one
+            // place its numbers live: the real surface ramps a specular from the
+            // top edge, and at this size a hairline that fades reads as no edge at
+            // all, so the picture takes that ramp's brightest point
+            // (`SurfaceChrome.tileStrokeTopOpacity`) as a flat line. A literal here
+            // would be a second description of a border the app draws elsewhere,
+            // in the one place a user compares the skins. Only the notch has none —
+            // it camouflages with the cutout it covers, and that is the difference
+            // a user names first when the three are side by side.
             .overlay {
                 if !shapes.surfaceIsOpaque {
-                    surfaceShape.strokeBorder(.white.opacity(0.14), lineWidth: 0.5)
+                    surfaceShape.strokeBorder(.white.opacity(SurfaceChrome.tileStrokeTopOpacity), lineWidth: 0.5)
                 }
             }
-            .frame(width: shapes.surface.width * Thumbnail.width, height: shapes.surface.height * height)
+            .frame(width: surfaceSize.width, height: surfaceSize.height)
             .offset(x: shapes.surface.minX * Thumbnail.width, y: surfaceTop)
     }
+
+    /// The drawn surface, in points — the space the content rule answers in, so the
+    /// frame above and the rects inside it cannot come from two different sizes.
+    private var surfaceSize: CGSize {
+        CGSize(width: shapes.surface.width * Thumbnail.width, height: shapes.surface.height * height)
+    }
+
+    /// What the surface holds, in miniature: cover art and the track's lines.
+    ///
+    /// Placed by the shared rule (`StylePreviewContent`) rather than by eye — the
+    /// notch tile draws its surface at some 13 by 11 pt, where "looks right" is not
+    /// a check anyone can repeat — and drawn only when that rule finds room:
+    /// silhouette alone says less than furniture too small to read says wrong.
+    @ViewBuilder private var content: some View {
+        if let layout = StylePreviewContent.layout(
+            in: CGRect(origin: .zero, size: surfaceSize),
+            arrangement: shapes.contentArrangement
+        ) {
+            ZStack(alignment: .topLeading) {
+                // Takes the whole proposal, so everything below is offset from the
+                // surface's own top-leading corner — the origin the rule measured
+                // from. Without it the stack would shrink to its contents and the
+                // rects would land wherever that left them.
+                Color.clear
+                RoundedRectangle(cornerRadius: 1, style: .continuous)
+                    .fill(Self.cover)
+                    .frame(width: layout.cover.width, height: layout.cover.height)
+                    .offset(x: layout.cover.minX, y: layout.cover.minY)
+                // Title first, artist under it, and the second one dimmer: at this
+                // size the hierarchy is the only thing a line can say.
+                ForEach(Array(layout.titleLines.enumerated()), id: \.offset) { line in
+                    Capsule()
+                        .fill(.white.opacity(line.offset == 0 ? 0.45 : 0.3))
+                        .frame(width: line.element.width, height: line.element.height)
+                        .offset(x: line.element.minX, y: line.element.minY)
+                }
+            }
+        }
+    }
+
+    /// A stand-in for cover art: two colours, because one flat square reads as a
+    /// hole in the surface rather than a picture in it.
+    private static let cover = LinearGradient(
+        colors: [Color(red: 0.60, green: 0.47, blue: 0.40), Color(red: 0.27, green: 0.30, blue: 0.44)],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
 
     /// The surface's top, with the one exaggeration in the picture.
     ///
@@ -210,8 +292,11 @@ private struct StyleThumbnail: View {
 }
 
 /// Drawing constants shared by the tile and its picture, so the selection ring
-/// traces the same rounded rect the screen is clipped to.
-private enum Thumbnail {
+/// traces the same rounded rect the screen is clipped to. Not private because the
+/// indicator mini-tiles under this row take the same corner radius and ring inset:
+/// two rows of pictures in one Settings section have to wear one frame, and a
+/// second copy of these numbers is how they would come to wear two.
+enum Thumbnail {
     /// Sized to the row it sits in, not to taste: three of these plus their gaps
     /// and the "Style" label have to fit the 500 pt Settings window, whose grouped
     /// Form row is about 440 pt wide. 128 pt tiles overflowed it.
@@ -234,16 +319,4 @@ private enum Thumbnail {
     /// How far below the drawn menu bar a floating surface sits. Enough to be a gap
     /// and not a seam; the true one is a fifth of a point at this size.
     static let floatingClearance: CGFloat = 2.5
-
-    /// A desktop to put the surface on. Deliberately flat and dim: the subject is
-    /// the black shape, and a busy wallpaper would compete with the one thing
-    /// these pictures exist to compare. Fixed rather than theme-following for the
-    /// same reason a photo of a screen does not change with the room — and because
-    /// the app's surfaces are always dark, so a light thumbnail would misdescribe
-    /// them (docs/DECISIONS.md: hud-fixed-dark-palette).
-    static let desktop = LinearGradient(
-        colors: [Color(red: 0.29, green: 0.33, blue: 0.42), Color(red: 0.17, green: 0.19, blue: 0.25)],
-        startPoint: .top,
-        endPoint: .bottom
-    )
 }

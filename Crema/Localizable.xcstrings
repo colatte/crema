@@ -1276,23 +1276,6 @@
         }
       }
     },
-    "settings.hud.indicator.footer": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Applies to the Card style, which is chosen in the General tab."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aplica-se ao estilo Cartão, que é escolhido na aba Geral."
-          }
-        }
-      }
-    },
     "settings.hud.indicator.slider": {
       "extractionState": "manual",
       "localizations": {
@@ -1911,13 +1894,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Floats near the top of the screen."
+            "value": "Floats below the menu bar"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Flutua perto do topo da tela."
+            "value": "Flutua sob a barra de menus"
           }
         }
       }
@@ -1945,13 +1928,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sits near the bottom of the screen, like the old macOS indicator."
+            "value": "A quiet block near the bottom"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fica perto da base da tela, como o indicador antigo do macOS."
+            "value": "Bloco discreto perto da base"
           }
         }
       }
@@ -1979,13 +1962,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hangs from the notch at the top of the screen."
+            "value": "Blends into the notch"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fica preso à fenda, no topo da tela."
+            "value": "Funde-se com a fenda"
           }
         }
       }

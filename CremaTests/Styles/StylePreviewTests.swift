@@ -149,6 +149,26 @@ struct StylePreviewTests {
         #expect(abs(reference - 1512.0 / 982.0) < 0.0001, "the reference panel keeps its own shape: \(reference)")
     }
 
+    @Test func theTopEdgeSkinsHoldTheirContentBesideItsCover() {
+        // What a surface HOLDS is not a question any frame rule answers, so the
+        // arrangement is pinned on its own: the notch strip and the card are wide,
+        // and a wide surface puts a track's two lines beside the cover. Asked of the
+        // ultrawide too, where the card's unit rect is TALLER than it is wide
+        // (0.081 by 0.089) — a rule reading the fractions instead of the skin would
+        // stack that one and picture a layout the card never draws.
+        #expect(StylePreview.shapes(for: .notch).contentArrangement == .coverBesideTwoLines)
+        #expect(StylePreview.shapes(for: .card).contentArrangement == .coverBesideTwoLines)
+        #expect(StylePreview.shapes(for: .card, on: ultrawide).contentArrangement == .coverBesideTwoLines)
+    }
+
+    @Test func theClassicBlockStacksItsLineUnderTheCover() {
+        // The block is nearly square, so its content stacks — the other half of what
+        // the arrangement teaches, and what makes a single arrangement for all three
+        // tiles fail here rather than only look bland.
+        #expect(StylePreview.shapes(for: .classic).contentArrangement == .coverAboveOneLine)
+        #expect(StylePreview.shapes(for: .classic, on: slitless).contentArrangement == .coverAboveOneLine)
+    }
+
     @Test func everyStyleStaysInsideEveryScreen() {
         // The same guard rail as the default-panel test above, across the shapes of
         // screen the preview can be asked about: a rule that anchors off a constant

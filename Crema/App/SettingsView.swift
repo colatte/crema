@@ -73,7 +73,8 @@ struct SettingsView: View {
 
 // MARK: - General
 
-/// Style at both of its scopes, then opening at login.
+/// Style at both of its scopes, the Card's indicator under it, then opening at
+/// login.
 ///
 /// Style leads because it is what a person came here to change, and both of its
 /// scopes are in one pane on purpose: the all-displays declaration SWEEPS the
@@ -92,14 +93,24 @@ private struct GeneralSettingsView: View {
     let core: AppCore
     /// The all-displays declaration, as the picker holds it.
     @State private var style: Style
-    /// Whether any connected display RENDERS Card. A mirror of what is drawn, not
-    /// of the declaration: the two disagree on notchless hardware, where the
-    /// default declaration is Notch and every display draws Card.
+    /// Whether any connected display RENDERS Card — which is also whether the
+    /// indicator row exists at all. A mirror of what is drawn, not of the
+    /// declaration: the two disagree on notchless hardware, where the default
+    /// declaration is Notch and every display draws Card.
     @State private var rendersCard: Bool
     /// Whether any connected display actually draws the notch skin — the signal
     /// that separates "Notch declared and honoured" from "Notch declared and
     /// falling back everywhere", which is what the footer has to say out loud.
     @State private var rendersNotch: Bool
+    /// The Card's indicator, on the same persisted key the panels read. It lives
+    /// beside the style tiles rather than in the Indicators tab because the choice
+    /// is a picture of a bar, and the only place that picture means anything is
+    /// next to the picture of the surface the bar sits on.
+    @AppStorage(Preferences.hudIndicatorStyleKey) private var indicatorStyle = HUDIndicatorStyle.slider.rawValue
+    /// The desk both tile rows stand on, read once when this pane is built. Asked
+    /// of the core rather than of each row, so the two rows in one Section cannot
+    /// end up on different desks.
+    @State private var wallpaper: NSImage?
     /// Mirrors the real login-item status (enabled or pending approval), and is
     /// re-read from it after every attempt — the toggle is a view onto reality,
     /// never a wish that outran it.
@@ -111,6 +122,7 @@ private struct GeneralSettingsView: View {
         _style = State(initialValue: core.currentStyle())
         _rendersCard = State(initialValue: core.rendersAnywhere(.card))
         _rendersNotch = State(initialValue: core.rendersAnywhere(.notch))
+        _wallpaper = State(initialValue: core.tileWallpaper())
         _launchesAtLogin = State(initialValue: core.loginItem.isEnabled || core.loginItem.requiresApproval)
         _loginNeedsApproval = State(initialValue: core.loginItem.requiresApproval)
     }
@@ -148,7 +160,7 @@ private struct GeneralSettingsView: View {
                 // longer draws. No geometry: this one speaks for every display, so
                 // no screen's slit decides which tiles are offerable.
                 LabeledContent {
-                    StylePicker(selection: $style)
+                    StylePicker(selection: $style, wallpaper: wallpaper)
                 } label: {
                     Text(String(localized: "settings.general.style", defaultValue: "Style"))
                 }
@@ -160,6 +172,27 @@ private struct GeneralSettingsView: View {
                     core.setStyleEverywhere(new)
                     rendersCard = core.rendersAnywhere(.card)
                     rendersNotch = core.rendersAnywhere(.notch)
+                }
+
+                // Offered where some display draws Card, and ABSENT rather than
+                // greyed out where none does: a visible-but-disabled row was paying
+                // for the tab's worth of distance to the picker that governs it, and
+                // right under that picker there is no distance left to excuse
+                // (docs/DECISIONS.md: rendered-style-gates-settings). The gate is the
+                // mirror the declaration above re-reads on every write, so declaring
+                // Card makes this row appear at once. Residual, the S4 deal that
+                // mirror has always taken: a per-display override — or a monitor
+                // plugged in — while this window is open leaves the row on the
+                // previous answer until Settings is reopened.
+                if rendersCard {
+                    LabeledContent {
+                        IndicatorPicker(selection: $indicatorStyle, wallpaper: wallpaper)
+                    } label: {
+                        Text(String(localized: "settings.hud.indicator", defaultValue: "Card indicator"))
+                    }
+                    .onChange(of: indicatorStyle) { _, new in
+                        core.setHUDIndicatorStyle(HUDIndicatorStyle(rawValue: new) ?? .slider)
+                    }
                 }
             } header: {
                 Text(String(localized: "settings.displays.allDisplays", defaultValue: "All displays"))

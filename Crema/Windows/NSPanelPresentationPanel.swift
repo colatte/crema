@@ -83,7 +83,10 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// exists to kill.
     private(set) var contentIsBarredFromSizingTheWindow = false
 
-    init(screen: ScreenDescription, style: Style, coordinator: Coordinator) {
+    /// `lowPower` carries no default on purpose: forgetting it at the factory then
+    /// fails to compile instead of shipping panels whose waveform never stops
+    /// (the lesson the `wire*` seams were extracted for).
+    init(screen: ScreenDescription, style: Style, coordinator: Coordinator, lowPower: LowPowerModeMirror?) {
         self.style = style
         self.coordinator = coordinator
         panel = NSPanel(
@@ -113,11 +116,15 @@ final class NSPanelPresentationPanel: PresentationPanel {
         // Inject the slit height (so the notch content lays out below the camera
         // cutout) and the rule-derived per-state sizes (so the view sizes its
         // surface within the fixed window). Both captured at creation, which is
-        // why a geometry change rebuilds the panel (WindowManager).
+        // why a geometry change rebuilds the panel (WindowManager). The Low Power
+        // mirror rides along, but as a REFERENCE the composition root keeps
+        // reporting into: an engage/disengage reaches a surface built long before
+        // it, with no panel rebuild — the two captured values above cannot.
         let stateSizes = style.stateSizes(on: screen.geometry)
         let root = style.makeView(coordinator: coordinator, displayPolicy: displayPolicy)
             .environment(\.notchSlitInset, screen.geometry.safeTop)
             .environment(\.surfaceStateSizes, stateSizes)
+            .environment(\.lowPowerMode, lowPower)
             .environment(\.surfaceSizeReporter, { [sizeRelay] size in sizeRelay.onChange?(size) })
 
         fixedWindowFrame = style.windowFrame(on: screen.geometry)

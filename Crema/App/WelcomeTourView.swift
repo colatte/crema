@@ -34,6 +34,10 @@ struct WelcomeTourView: View {
     @State private var rendersNotch: Bool
     @State private var launchesAtLogin: Bool
     @State private var loginNeedsApproval: Bool
+    /// The desk the style tiles stand on, read once with the mirrors above and for
+    /// the same reason — the store behind it (`AppCore.tileWallpaper`) is what
+    /// remembers the decode, so nothing here re-opens the file per body.
+    @State private var wallpaper: NSImage?
 
     init(core: AppCore, dismiss: @escaping () -> Void) {
         self.core = core
@@ -41,6 +45,7 @@ struct WelcomeTourView: View {
         _style = State(initialValue: core.currentStyle())
         _rendersCard = State(initialValue: core.rendersAnywhere(.card))
         _rendersNotch = State(initialValue: core.rendersAnywhere(.notch))
+        _wallpaper = State(initialValue: core.tileWallpaper())
         _launchesAtLogin = State(initialValue: core.loginItem.isEnabled || core.loginItem.requiresApproval)
         _loginNeedsApproval = State(initialValue: core.loginItem.requiresApproval)
     }
@@ -228,7 +233,7 @@ struct WelcomeTourView: View {
             // The rendered-style mirrors are re-read from the panels right after
             // they are re-resolved, never inferred from `new`: which displays have
             // a slit is a fact about the hardware, not about the pick.
-            StylePicker(selection: $style)
+            StylePicker(selection: $style, wallpaper: wallpaper)
                 .onChange(of: style) { _, new in
                     core.setStyleEverywhere(new)
                     rendersCard = core.rendersAnywhere(.card)

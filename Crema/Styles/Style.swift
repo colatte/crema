@@ -130,23 +130,22 @@ enum Style: String, CaseIterable, Equatable, Sendable {
         }
     }
 
-    /// Where this skin puts its surface, in one sentence. Spoken by VoiceOver in
-    /// place of the picture, which is hidden from it — so without these the picker
-    /// is three nouns, which is the exact thing the pictures exist because names do
-    /// not convey. Deliberately about POSITION only: size, colour and material
-    /// change with calibration, and a description that named them would go stale
-    /// against the frame rules it is meant to narrate.
+    /// Where this skin puts its surface, in one sentence: the caption printed under
+    /// each tile's name, which VoiceOver then reads as part of that button. Without
+    /// it the picker is three nouns for a shape in a place — the exact thing a name
+    /// cannot convey and the pictures exist to say. Deliberately about POSITION
+    /// only: size, colour and material change with calibration, and a description
+    /// that named them would go stale against the frame rules it is meant to
+    /// narrate. Short by obligation too — it is set under a tile barely wider than
+    /// the words, three of them across one Settings row.
     var previewDescription: String {
         switch self {
         case .notch:
-            String(localized: "style.notch.description", defaultValue: "Hangs from the notch at the top of the screen.")
+            String(localized: "style.notch.description", defaultValue: "Blends into the notch")
         case .card:
-            String(localized: "style.card.description", defaultValue: "Floats near the top of the screen.")
+            String(localized: "style.card.description", defaultValue: "Floats below the menu bar")
         case .classic:
-            String(
-                localized: "style.classic.description",
-                defaultValue: "Sits near the bottom of the screen, like the old macOS indicator."
-            )
+            String(localized: "style.classic.description", defaultValue: "A quiet block near the bottom")
         }
     }
 

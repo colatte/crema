@@ -61,7 +61,8 @@ card, and the classic's segmented bezel:
   Displays list right below it. A display without a notch renders _notch_ as
   _card_.
 - **Two indicator looks for the card.** The HUD level reads as a thin _line_
-  (the default) or fills the whole card — pick in Settings › Indicators.
+  (the default) or fills the whole card — picked from drawn previews right under
+  the style tiles in Settings › General, offered whenever a display renders Card.
 - **Shows up when it's useful.** Crema surfaces briefly when the track changes,
   then tucks away. Hover to hold it open; click to reach the controls.
 - **Native and light.** Built with SwiftUI and AppKit, it lives in the menu bar

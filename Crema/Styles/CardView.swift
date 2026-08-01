@@ -332,49 +332,19 @@ struct CardView: View, SurfaceStyleBody {
         )
     }
 
-    @ViewBuilder private func hudContent(_ hud: SystemHUD) -> some View {
-        let presentation = HUDPresentation(hud: hud)
-        switch displayPolicy.hudIndicatorStyle {
-        case .slider:
-            // Icon beside the capsule row (the Notch's layout too); Classic keeps its bezel's segmented bar.
-            HStack(spacing: CardMetrics.contentGap) {
-                Image(systemName: presentation.iconSystemName)
-                    .frame(width: CardMetrics.hudIconColumnWidth)
-                    .symbolReplace(on: presentation.iconSystemName)
-                HUDLevelSlider(
-                    kind: hud.kind,
-                    value: presentation.value,
-                    onChange: { hudSliderMoved(to: $0) },
-                    onRelease: { hudSliderReleased() },
-                    appearance: HUDLevelSlider.appearance(for: displayPolicy.hudIndicatorStyle),
-                    isHovered: displayPolicy.pointerInside
-                )
-            }
-            .padding(.horizontal, CardMetrics.contentPaddingHorizontal)
-        case .filled:
-            // Fused, full-bleed: the bar fills the whole HUD frame (no padding,
-            // no inner track) and the card's rounded-rect clip (vibrantSurface)
-            // rounds the sweep. The icon rides inside at the leading edge, over
-            // the fill at high levels and the dark remainder at low ones.
-            HUDLevelSlider(
-                kind: hud.kind,
-                value: presentation.value,
-                onChange: { hudSliderMoved(to: $0) },
-                onRelease: { hudSliderReleased() },
-                appearance: .filled
-            )
-            .overlay(alignment: .leading) {
-                Image(systemName: presentation.iconSystemName)
-                    .foregroundStyle(CardMetrics.hudFilledIconColor)
-                    .padding(.leading, CardMetrics.hudFilledIconLeading)
-                    .accessibilityHidden(true)
-                    // The bar underneath owns the whole drag/tap surface; the
-                    // glyph is decoration and must let touches through to it.
-                    .allowsHitTesting(false)
-                    // Overlay glyph — a separate subtree from the fill below, so
-                    // the swap animates the icon without touching the bar.
-                    .symbolReplace(on: presentation.iconSystemName)
-            }
-        }
+    /// The HUD body itself lives in `CardHUDIndicator`, shared with the Settings
+    /// picker, whose mini-tiles preview a choice by rendering this same body
+    /// frozen — one drawing, so the preview cannot drift from the indicator it
+    /// stands for. What stays here is what only the card knows: the live reading,
+    /// the persisted choice and this panel's pointer.
+    private func hudContent(_ hud: SystemHUD) -> some View {
+        CardHUDIndicator(
+            kind: hud.kind,
+            presentation: HUDPresentation(hud: hud),
+            indicatorStyle: displayPolicy.hudIndicatorStyle,
+            isHovered: displayPolicy.pointerInside,
+            onChange: { hudSliderMoved(to: $0) },
+            onRelease: { hudSliderReleased() }
+        )
     }
 }

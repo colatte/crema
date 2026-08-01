@@ -952,6 +952,34 @@ declaration does. It already has its resolver — `StylePreview.shapes(for:on:)`
 kept as a seam for it (see `rendered-style-gates-settings`) — and it reopens the
 moment a row can hold a picture without turning a two-monitor pane into a scroll.
 
+**Amendment (2026-08-01, fourth): the Card's indicator came home too, and it came
+back as pictures.** The third amendment sent that picker to the Indicators tab,
+"its thematic home". The clause is spent: with style asked in General again, the
+indicator belongs directly under the tiles that declare the style it is an
+indicator FOR. It sits in the same Section, one row below them, drawn as two
+mini-tiles instead of a popup of two nouns — "Line" and "Filled" name bodies the
+reader has not seen, and the whole difference between them is visual, which is the
+argument the style tiles above are already made of. The tiles render the REAL HUD
+body (`CardHUDIndicator`, extracted from `CardView` and shared with it), frozen at
+one reading and at the SAME reading in both: a hand-drawn likeness would be a
+second description of the indicator, and two levels would let the eye read the
+difference between the bodies as a difference in loudness.
+
+The cross-tab footer died with the distance it was paying for. "Applies to the
+Card style, which is chosen in the General tab" existed because a control and the
+picker governing it were a tab apart and a sentence was the only thing that could
+carry a reader between them. Under that picker there is nothing left for it to
+say, so the string was deleted rather than reworded — the same rule the sweep
+footer follows in the other direction: a footer that restates its neighbour
+teaches the reader to skip footers. Adjacency says it again, which is what
+adjacency is for.
+
+Nothing about the choice itself moved: the same `hudIndicatorStyleKey` the panels
+read, the same `setHUDIndicatorStyle` applying it live, now held by the pane that
+draws the tiles. A change of address once more. What DID change is the gate's
+shape — the row's existence, not its enabledness
+(`rendered-style-gates-settings`).
+
 ### rendered-style-gates-settings
 Settings gated the Card-only indicator picker on `.disabled(style != .card)`,
 where `style` is the DECLARATION the all-displays picker holds. But what a display
@@ -1003,6 +1031,30 @@ top edge to sit under, and a slitless screen reports no safe area at all, so tha
 24 is declared rather than derived — without the floor, the tile for every Mac
 without a notch loses the top edge where the whole difference between these skins
 lives.
+
+**Amendment (2026-08-01): the same gate, the opposite chrome — the indicator row
+is now ABSENT where nothing renders Card.** The predicate did not move:
+`AppCore.rendersAnywhere(.card)`, still an ANY over the panel roster, still
+re-read immediately after the declaration is written. What changed is what its
+"no" looks like. The row used to be kept visible and disabled — the macOS
+dependent-setting pattern — and the reason was DISTANCE: from the Indicators tab
+the control that could turn the gate true was a tab away, so a row that simply
+vanished would have left nothing to reason about, and a greyed row named for what
+it governs plus a footer pointing at General was the cheapest honest report. The
+row now sits in the same Section as that declaration, immediately under it
+(`global-style-default`), so the answer to "why is there no indicator row?" is
+drawn above the space where it would be, and declaring Card makes the row appear
+at once — live, off the mirror this pane already re-reads on every write.
+Visible-but-disabled buys nothing once that distance is gone; it spends a row on a
+control nobody can use.
+
+The residual is the seed-once deal this mirror has always taken (S4, the tradeoff
+`one-screen-reading-per-edge` names when it explains why the per-display list does
+NOT take it): the mirror is seeded when the pane is built, so a per-display
+override — or a monitor plugged in — with the window open leaves the row on the
+previous answer until Settings is reopened. The list next to it is reactive
+because its rows ARE displays; this row is not a display, so it keeps the cheaper
+deal.
 
 ### sample-dont-integrate
 A UI ticker that adds a fixed step per tick is a clock that runs slow. Timers are
@@ -1666,9 +1718,9 @@ The rule first, because it outlives the case: an assumption that cannot be caugh
 may rest on an archived guarantee only if it ALSO rests on a measurement someone
 can re-run, and the comment names both — archive status included. A citation that
 hides its own age reads as authority it no longer has.
-Nine `MainActor.assumeIsolated` calls sit on system callbacks, each a fatalError if
+Ten `MainActor.assumeIsolated` calls sit on system callbacks, each a fatalError if
 its callback ever arrives off the main thread, and they do not all rest on the same
-footing. Five are NotificationCenter block observers registered with `queue: .main`
+footing. Six are NotificationCenter block observers registered with `queue: .main`
 — live, undeprecated doc that names the exact predicate ("the operation queue where
 the block runs", and `OperationQueue.main` is "the operation queue associated with
 the main thread"). Four are NSEvent monitors, and for those Apple's only written
@@ -2122,3 +2174,110 @@ This is an entry rather than a comment because it generalizes: when a control
 must not be able to do X, the ban belongs in the pure type the control calls, and
 the greying out is only what keeps X out of reach. Which of the two a given
 framework is giving you is a question a probe answers and a doc does not.
+
+### surface-border-2026
+The floating surfaces (Card and Classic) wore ONE uniform white hairline —
+`.white.opacity(0.12)`, half a point, all the way round — a single stroke asked to
+do two jobs and doing neither. Over a bright desktop it disappears, which is
+exactly where a translucent surface most needs an edge: the material takes its
+tone from what is behind it, so on a pale wallpaper the surface has no boundary of
+its own at all. And a uniform bright line lies about the light. It claims a
+highlight arriving equally from every direction, including from underneath, which
+nothing on a screen lit from above ever has.
+Decision: the border is a PAIR, and neither half does the other's job. A darkened
+outer rim (black at 0.35, half a point) straddles the outline and DEFINES the
+surface against any backdrop, light or dark. An inner specular, brightest at the
+top edge and spent within the upper third, supplies the lit-from-above highlight
+the material does not draw itself. The anchor carries a year because the shape is
+the one the 2026 platform redesign settled on, and the field research of this
+round is where that came from — provenance, recorded so a later round does not
+re-derive it, never the authority: the reason the pair holds is the paragraph
+above, and one stroke cannot be both a boundary and a highlight in any year.
+
+Three mechanics are load bearing.
+
+The specular is a `strokeBorder`, not a `stroke`, which is why `vibrantSurface`
+now takes `some InsettableShape`: `strokeBorder` insets by half the line width, so
+the highlight stays INSIDE the surface instead of bleeding a bright edge outward,
+past the rim that is supposed to be the outermost thing there. The rim is applied
+last, so the boundary is never dimmed by the highlight it is adjacent to.
+
+The numbers live in one place (`SurfaceChrome`) because the Settings tiles draw
+this same border in miniature, and they had already drifted: the surface stroked
+0.12 while the tile depicting it stroked 0.14, two literals nobody could see
+disagree. A tile draws ONE flat hairline where the surface ramps — at 108 pt an
+edge that fades reads as no edge — and it takes that value from the ramp's
+brightest point (`tileStrokeTopOpacity`, derived, never a literal). A forked
+number would paint a border the app does not have, in the one place a person
+compares the skins: the second description is the one that rots.
+
+The Notch does not participate, and that is not an omission. That skin is opaque
+black because it camouflages with the hardware cutout it covers — the same
+commitment `hud-fixed-dark-palette` records — so an edge there would draw the very
+outline the skin exists to hide. Its Settings tile strokes nothing either, off the
+same fact (`surfaceIsOpaque`), so the picture and the surface agree about the
+absence too.
+
+The values are calibration starting points, like `SurfaceAnimation`'s: what must
+survive a retune is the SHAPE of the border — dark outside, light at the top,
+inside — not any single number. Reopening gate: the pair exists because this
+material draws no edge of its own. The day a never-key, nonactivating panel can
+take one that does, the pair is re-examined rather than kept beside it — Liquid
+Glass is the standing candidate and the standing blocker, since `glassEffect`
+renders vivid only while the window is key (the note on `vibrantSurface` carries
+the measurement). The other gate is the Notch: if that skin ever floats instead of
+camouflaging, it takes the border with it.
+
+### tile-backdrop-is-the-real-desktop
+The style tiles stood on a drawn desk — a flat, dim gradient, fixed rather than
+theme-following — defended by two reasons: the subject is the black shape and a
+busy wallpaper would compete with the one thing these pictures exist to compare,
+and the app's surfaces are always dark (`hud-fixed-dark-palette`), so a tile that
+went bright under a pale desktop would describe a skin the app never draws. Both
+reasons are true. What they argued for was not: a tile is a picture of A PLACE —
+each one says "the surface looks like this, up there on your screen" — and a
+screen wearing a wallpaper nobody has ever seen is a picture of somebody else's
+Mac.
+Decision: the backdrop is the user's own desktop picture under a dark wash
+(`TileBackdrop`, 28%), and the WASH is what keeps both old reasons rather than
+trading them away. At that opacity a wallpaper stays background instead of
+becoming the subject, and the palest desk stays dark enough for the surface
+standing on it to be honest. The gradient was not deleted: it is the fallback, for
+a desk that cannot be read — no picture reported, or a dynamic/aerial desktop
+ImageIO will not open. A hole where the screen should be is a worse picture than a
+drawn one.
+
+Three mechanics.
+
+The reading is a source behind a protocol like every other border contact
+(`DesktopPictureSource`), and only a URL crosses it — NSScreen, NSWorkspace and
+the decoded bitmap all stay on the system side. That is what makes the caching
+above it a unit test instead of a trip to the window server. `nil` is an answer
+and not an error: there may be no screen to ask, and macOS names no file for some
+desktops.
+
+ONE screen is asked (`NSScreen.main`, else the first connected), deliberately. The
+picture is SCENERY, not a claim about a particular display: a tile shows a style
+declared for every screen, so asking each display for its own wallpaper would
+answer a question nobody asked and force a per-tile choice that means nothing.
+Reopening gate: the day a tile NAMES a display — the per-display thumbnail
+`global-style-default` leaves for later — the picture stops being scenery and
+becomes a claim about that screen, and the source takes the display as an
+argument.
+
+The decode is bounded and cached BY URL, failure included (`WallpaperTileStore`).
+A wallpaper is several megapixels and a tile is 108 pt of it, so the picture is
+paid once per file as a ~220 px thumbnail (`CGImageSourceCreateThumbnailAtIndex`,
+an eager bounded decode, where `NSImage(contentsOf:)` hands back a lazy full-size
+image whose real cost lands on the first draw, on the main thread, inside the
+Settings window). A read that FAILED is remembered exactly like one that
+succeeded, because a view body runs whenever SwiftUI decides to and an unreadable
+desktop would otherwise be re-opened on every one of them. The border is asked
+every time — the answer is what is worth caching, never the question — so a
+wallpaper the user just changed is a different URL and is seen. And `nil` never
+returns the last image: a picture of a desk the app can no longer confirm is a
+picture of nothing.
+
+The residual is the seed-once deal the Settings mirrors already take (S4): the
+panes read the store when they are built, so a wallpaper changed with the window
+open shows up the next time it opens.
