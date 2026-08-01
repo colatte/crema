@@ -1,8 +1,11 @@
 import AppKit
 import SwiftUI
 
-/// The menu's information block: what Crema is doing, then what needs attention,
-/// closed by the separator that divides both from the actions below.
+/// Everything the menu has to SAY, in the four blocks it says it in: the switch and
+/// the style submenu, then what Crema is doing, then what needs attention, then the
+/// media. Which blocks exist, in what order, and behind which gate is decided in
+/// one pure place (MenuStatus) rather than in the shape of this body; what is left
+/// below the closing separator is the app's own actions, which are unconditional.
 ///
 /// A view of its own for two reasons: it owns the OBSERVED preference reads the
 /// status needs (@AppStorage below), so a Settings toggle rebuilds this block and
@@ -17,31 +20,35 @@ import SwiftUI
 /// rebuilds into a single reading, because each one resets the latency counters of
 /// every tap in the system (MediaKeyChainNotice.Cache).
 ///
-/// What is deliberately NOT here: the track playing. It would have to be read from
-/// `coordinator.nowPlaying`, whose position advances once a second, so this block —
-/// and every reading behind it — would rebuild once a second for a menu nobody is
-/// looking at. It lives in NowPlayingMenuSection, off its own mirrors
-/// (docs/DECISIONS.md: menu-reads-mirrors).
+/// What is deliberately NOT read here: the track playing. It would have to come
+/// from `coordinator.nowPlaying`, whose position advances once a second, so this
+/// block — and every reading behind it — would rebuild once a second for a menu
+/// nobody is looking at. The media block instantiates NowPlayingMenuSection, which
+/// reads its own mirrors in its own body, so a track change repaints that view and
+/// leaves the readings here alone (docs/DECISIONS.md: menu-reads-mirrors).
 ///
 /// No glyphs in any sentence below, in either direction. "⚠️" carried the meaning
 /// the sentence has to carry anyway (and VoiceOver reads it mid-sentence as noise),
 /// and stacked into a wall whenever two conditions fired at once; "✓" collided with
 /// the platform's own vocabulary — a checkmark in an NSMenu means a CHECKED item,
-/// so a title starting with one reads as a toggle that is on. AppKit's own status
+/// which is why the two facts that ARE a checked item (the replacement, the declared
+/// style) ship as a Toggle and a Picker instead of as sentences. AppKit's own status
 /// menus state informational rows as plain disabled sentences.
 /// (docs/DECISIONS.md: menu-status-before-warnings)
 @MainActor
-struct MenuInformation: View {
+struct CremaMenu: View {
     let core: AppCore
     @Environment(\.openSettings) private var openSettings
 
-    /// Observed rather than read through Preferences: the row below asserts the
-    /// feature is in effect, and an unobserved read would keep asserting it after
-    /// the Settings toggle flipped, until something unrelated rebuilt this body.
+    /// Observed rather than read through Preferences: the Toggle below SHOWS this
+    /// value, and an unobserved read would keep showing the old one after the
+    /// Settings switch flipped, until something unrelated rebuilt this body.
     @AppStorage(Preferences.suppressesNativeOSDKey) private var suppresses = false
-    /// The style comes from the key the Settings picker declares into, for the same
-    /// reason, and through Preferences' own resolver — the shipped default and the
-    /// degradation of a rawValue a future version retires are stated once, there.
+    /// The declaration the fallback row is derived from — `menuStatus` answers "no
+    /// connected display honours Notch" against it — read through Preferences' own
+    /// resolver, where the shipped default and the degradation of a rawValue a
+    /// future version retires are stated once. Observed for the same reason as
+    /// above: the row would go stale the moment the Style submenu declared a new one.
     @AppStorage(Preferences.declaredStyleKey) private var declaredStyle = Preferences.defaultDeclaredStyle.rawValue
 
     /// Whether the app can replace anything at all: without the Accessibility
@@ -54,61 +61,67 @@ struct MenuInformation: View {
     }
 
     var body: some View {
-        // The app's headline feature is opt-in and ships OFF, and a status row is a
-        // fact — the block below can only speak about the replacement once it is
-        // already in effect, so without this switch a fresh install's menu would
-        // never name the feature at all. A real Toggle is also the one place a
-        // checkmark belongs in an NSMenu — the rule above bans the glyph INSIDE a
-        // sentence precisely because a checked item is what it means here, and every
-        // AppKit status menu that rule cites (Wi-Fi, Bluetooth, Sound) leads with
-        // its switch. The write stays behind a click, so the read-only contract on
-        // this body holds.
-        Toggle(isOn: Binding(get: { suppresses }, set: { core.setNativeOSDSuppression($0) })) {
-            Text(String(localized: "settings.hud.suppress", defaultValue: "Replace the system indicators"))
-        }
-        .disabled(!canSuppress)
-        Divider()
-
         let status = core.menuStatus(
             style: Preferences.declaredStyle(fromRawValue: declaredStyle),
             suppressionEnabled: suppresses
         )
-        // Each case appears at most once, so the case is its own stable identity.
-        ForEach(status.rows, id: \.self) { row in
-            Text(text(for: row))
+        // The index is the identity here, because the separator rule is stated over
+        // it: each block appears at most once, and which one leads depends on what
+        // the app has to say.
+        ForEach(Array(status.blocks.enumerated()), id: \.offset) { index, block in
+            if status.separatesBlock(at: index) { Divider() }
+            self.block(block, in: status)
         }
-        if !status.warnings.isEmpty {
-            Divider()
+        // Closes the group against the app's own actions below. They are not blocks:
+        // nothing gates them, and one of them exists only in Release.
+        Divider()
+    }
+
+    @ViewBuilder
+    private func block(_ block: MenuStatus.Block, in status: MenuStatus) -> some View {
+        switch block {
+        case .controls:
+            // The app's headline feature is opt-in and ships OFF, and a status row is
+            // a fact — the block below can only speak about the replacement once it
+            // is already in effect, so without this switch a fresh install's menu
+            // would never name the feature at all. A real Toggle is also the one
+            // place a checkmark belongs in an NSMenu — the rule above bans the glyph
+            // INSIDE a sentence precisely because a checked item is what it means
+            // here, and every AppKit status menu that rule cites (Wi-Fi, Bluetooth,
+            // Sound) leads with its switch. The write stays behind a click, so the
+            // read-only contract on this body holds.
+            Toggle(isOn: Binding(get: { suppresses }, set: { core.setNativeOSDSuppression($0) })) {
+                Text(String(localized: "settings.hud.suppress", defaultValue: "Replace the system indicators"))
+            }
+            .disabled(!canSuppress)
+            StyleMenu(core: core)
+        case .status:
+            // Each case appears at most once, so the case is its own stable identity.
+            ForEach(status.rows, id: \.self) { row in
+                Text(text(for: row))
+            }
+        case .warnings:
             ForEach(Array(status.warnings.enumerated()), id: \.offset) { index, warning in
                 if status.separatesWarning(at: index) { Divider() }
                 Text(text(for: warning))
-                if warning == .accessibilityMissing {
-                    // The only warning whose fix lives inside this app. It opens the
-                    // window ON the tab that fixes it rather than naming the tab —
-                    // the same move the Indicators tab makes by putting the grant
-                    // button under the sentence that explains the problem. Behind a
-                    // click, so this body stays read-only.
-                    Button(String(localized: "menu.openPermissions", defaultValue: "Open Permissions…")) {
-                        core.settingsNavigation.request(.permissions)
-                        NSApp.activate()
-                        openSettings()
-                    }
-                }
                 if let advice = warning.advice {
                     Text(text(for: advice))
                 }
+                // Every button here comes from the warning's own action, so a fact
+                // and its repair cannot drift apart: a button hardcoded beside one
+                // warning is how a repair ends up under a sentence it does not fix,
+                // with the exhaustive switch in MenuStatus still compiling.
                 if let action = warning.action {
                     Button(title(for: action)) { perform(action) }
                 }
             }
+        case .media:
+            NowPlayingMenuSection(coordinator: core.coordinator)
         }
-        Divider()
     }
 
     private func text(for row: MenuStatus.Row) -> String {
         switch row {
-        case .style(let style):
-            String(localized: "menu.status.style", defaultValue: "Style: \(style.displayName)")
         case .styleFallsBackToCard:
             // The same sentence the Settings footer uses for the same fact, word for
             // word: one name per concept, in each language.
@@ -191,13 +204,14 @@ struct MenuInformation: View {
     /// The trail out of the one dead end a user can act on. States the requirement,
     /// never a verdict: nothing here knows whether consent is the reason, and
     /// reading that state would put a poll behind a body whose rebuild costs the
-    /// tap-chain read.
+    /// tap-chain read. It stops AT the requirement and no longer names the tab —
+    /// the button right under it is the walk there.
     private func text(for advice: MenuStatus.Advice) -> String {
         switch advice {
         case .automationForBackupReader:
             String(
                 localized: "menu.nowPlayingUnavailable.fallbackHint",
-                defaultValue: "Crema's backup reader needs Automation access — see the Permissions tab"
+                defaultValue: "Crema's backup reader needs Automation access."
             )
         }
     }
@@ -231,6 +245,8 @@ struct MenuInformation: View {
             String(localized: "menu.grantAccessibility", defaultValue: "Grant Accessibility Access…")
         case .retrySuppression:
             String(localized: "menu.osdSuspended.retry", defaultValue: "Try to reactivate now")
+        case .openPermissionsTab:
+            String(localized: "menu.openPermissions", defaultValue: "Open Permissions…")
         case .reactivateLoginItem:
             String(localized: "menu.loginItem.reactivate", defaultValue: "Turn it back on")
         case .openLoginItemsSettings:
@@ -244,8 +260,20 @@ struct MenuInformation: View {
         switch action {
         case .grantAccessibility: core.presentAccessibilityOnboarding()
         case .retrySuppression: core.retryOSDSuppression()
+        case .openPermissionsTab: openPermissionsTab()
         case .reactivateLoginItem: core.reactivateLoginItem()
         case .openLoginItemsSettings: core.openLoginItemsSettings()
         }
+    }
+
+    /// Opens the window ON the tab that carries the fix rather than naming that tab
+    /// in a sentence — the same move the Indicators tab makes by putting the grant
+    /// button under the sentence that explains the problem. The activation is what
+    /// an accessory app needs for the window not to open behind whatever is
+    /// frontmost (SettingsMenuButton documents the same requirement).
+    private func openPermissionsTab() {
+        core.settingsNavigation.request(.permissions)
+        NSApp.activate()
+        openSettings()
     }
 }

@@ -4,7 +4,7 @@ import SwiftUI
 ///
 /// A separate View for a load-bearing reason, not for tidiness: SwiftUI tracks
 /// observation per BODY, so a track change repaints this one and leaves the scene
-/// body — and MenuInformation — alone; a rebuild of that block costs a
+/// body — and CremaMenu — alone; a rebuild of that block costs a
 /// CGGetEventTapList, which resets every tap's latency stats on the machine. For
 /// the same reason this reads the Coordinator's title/artist MIRRORS and never
 /// `nowPlaying`, which is rewritten once per second: an observation on the live

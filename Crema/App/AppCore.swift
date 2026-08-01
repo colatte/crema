@@ -1157,7 +1157,6 @@ extension AppCore {
         let loginStatus = loginItem.status
         let chain = mediaKeyChainNotice()
         return MenuStatus(
-            style: style,
             // What the displays DRAW, not only what the picker declared: on a Mac
             // with no slit the shipped default declares Notch while every panel
             // draws Card, and a lone "Style: Notch" beside a Card-shaped HUD is the

@@ -1,20 +1,18 @@
 import Testing
 @testable import Crema
 
-/// What the menu says, and in what order. The hierarchy is the decision (status
-/// first, warnings only when they exist) and the gating is where it rots in
-/// silence — a row that restates a preference promises something the app is not
-/// doing, a row that restates the DECLARED style promises a shape the display is
-/// not drawing, and a row that names the brightness target while a neighbour draws
-/// the bar is plainly false — so all of it lives in MenuStatus and is pinned here,
-/// not in a view body no test can reach
-/// (docs/DECISIONS.md: menu-status-before-warnings).
+/// What the menu says, in which block, and in what order. The blocks ARE the
+/// hierarchy — the switch that turns the headline feature on, the facts it is true
+/// of, what needs the user, the media — and the gating is where it rots in silence:
+/// a row that restates a preference promises something the app is not doing, and a
+/// transport under the line saying nothing is reporting is four grey items nobody
+/// can use. All of it lives in MenuStatus and is pinned here, not in a view body no
+/// test can reach (docs/DECISIONS.md: menu-status-before-warnings).
 struct MenuStatusTests {
 
     /// A healthy app on hardware that honours the declaration, with every fact
     /// overridable one at a time.
     private func status(
-        style: Style = .notch,
         fallsBackToCard: Bool = false,
         accessibilityGranted: Bool = true,
         suppressionEnabled: Bool = true,
@@ -28,7 +26,6 @@ struct MenuStatusTests {
         loginRegistered: Bool = true
     ) -> MenuStatus {
         MenuStatus(
-            style: style,
             fallsBackToCard: fallsBackToCard,
             accessibilityGranted: accessibilityGranted,
             suppressionEnabled: suppressionEnabled,
@@ -43,17 +40,40 @@ struct MenuStatusTests {
         )
     }
 
+    @Test func theMenuIsFourBlocksAndTheOrderIsTheContract() {
+        // Controls first and unconditionally: the switch is the anchor the menu
+        // opens with, and on a fresh install — the feature is opt-in and ships OFF —
+        // it is the only line that names the headline feature at all.
+        #expect(status().blocks == [.controls, .status, .media])
+        // A warning slots between the facts and the media, never at either end: what
+        // the app IS doing above it, the transport it does not govern below.
+        #expect(status(mediaCommandsAvailable: false).blocks == [.controls, .status, .warnings, .media])
+    }
+
+    @Test func aDeadChainNeverPutsATransportUnderTheLineThatSaysItIsDead() {
+        // With no media source reporting, four grey items are noise and not a
+        // control the user can wait on — and the warning right above already tells
+        // that story. The gate used to live in the scene's ViewBuilder, where no
+        // test could reach it and nothing tied it to the warning it belongs to.
+        let dead = status(nowPlayingActive: false)
+        #expect(!dead.blocks.contains(.media))
+        #expect(dead.warnings.contains(.nowPlayingUnavailable))
+        #expect(status().blocks.contains(.media))
+    }
+
     @Test func aHealthyAppSaysWhatItIsDoingAndWarnsAboutNothing() {
         // No row claims the replacement any more: the menu's own Toggle states it,
         // checked, and a suspension states the exception as a warning right below.
         // A sentence repeating a switch two lines under it was noise.
-        #expect(status().rows == [.style(.notch), .opensAtLogin])
+        #expect(status().rows == [.opensAtLogin])
         #expect(status().warnings.isEmpty)
     }
 
-    @Test func theStatusBlockNeverGoesEmpty() {
-        // Everything off or broken: the style row still opens the menu, so the
-        // anchor line never moves under the pointer.
+    @Test func withNothingToReportTheStatusBlockSimplyIsNotThere() {
+        // Everything off or broken. The block used to be anchored by the style row;
+        // that fact is the checked item in the Style submenu now, so rows CAN go
+        // empty — and an empty block is absent rather than an orphan separator over
+        // nothing. The menu's anchor is the Toggle, which never goes away.
         let broken = status(
             accessibilityGranted: false,
             suppressionEnabled: false,
@@ -62,16 +82,30 @@ struct MenuStatusTests {
             mediaCommandsAvailable: false,
             loginRegistered: false
         )
-        #expect(broken.rows == [.style(.notch)])
+        #expect(broken.rows.isEmpty)
+        #expect(broken.blocks == [.controls, .warnings])
     }
 
-    @Test func aDeclarationNothingHonoursIsSaidOutLoudRightAfterItself() {
+    @Test func aSeparatorOpensEveryBlockButTheFirst() {
+        let healthy = status()
+        #expect(healthy.blocks == [.controls, .status, .media])
+        #expect(!healthy.separatesBlock(at: 0))
+        #expect(healthy.separatesBlock(at: 1))
+        #expect(healthy.separatesBlock(at: 2))
+        // Total at both borders, like separatesWarning: the view walks an enumerated
+        // list, so every index it can hold has to answer instead of trapping.
+        #expect(!healthy.separatesBlock(at: 3))
+        #expect(!healthy.separatesBlock(at: -1))
+    }
+
+    @Test func aDeclarationNothingHonoursIsSaidOutLoud() {
         // A Mac with no slit — the shipped default declares Notch and every panel
-        // draws Card. "Style: Notch" alone would be false there. The pair is
-        // adjacent on purpose: the second line only means anything read against the
-        // first (docs/DECISIONS.md: rendered-style-gates-settings).
+        // draws Card. The declaration itself is the checked item in the Style
+        // submenu; what a checkmark cannot say is that nothing honours it, so the
+        // fallback keeps its row and now opens the block
+        // (docs/DECISIONS.md: rendered-style-gates-settings).
         let notchless = status(fallsBackToCard: true)
-        #expect(notchless.rows.prefix(2) == [.style(.notch), .styleFallsBackToCard])
+        #expect(notchless.rows.first == .styleFallsBackToCard)
         #expect(notchless.warnings.isEmpty)
         #expect(!status().rows.contains(.styleFallsBackToCard))
     }
@@ -90,7 +124,7 @@ struct MenuStatusTests {
         // needs. Domains in declared order, so the same set never reads two ways.
         let suspended = status(suspendedDomains: [.keyboardBrightness, .volume])
         #expect(suspended.warnings == [.suppressionSuspended([.volume, .keyboardBrightness])])
-        #expect(suspended.rows == [.style(.notch), .opensAtLogin])   // and no claim beside it
+        #expect(suspended.rows == [.opensAtLogin])   // and no claim beside it
     }
 
     @Test func theBrightnessTargetIsStatusAndNeverCollidesWithTheNeighboursRow() {
@@ -123,7 +157,6 @@ struct MenuStatusTests {
         // Accessibility leads because without it no media key arrives at all;
         // launch-at-login trails because it is about the next launch.
         let bad = status(
-            style: .card,
             accessibilityGranted: false,
             suspendedDomains: [.volume],
             chainNotice: .anotherAppAhead("Some Other App"),
@@ -140,7 +173,7 @@ struct MenuStatusTests {
             .mediaControlsBlocked,
             .loginItemRevoked,
         ])
-        #expect(bad.rows == [.style(.card)])
+        #expect(bad.rows.isEmpty)
     }
 
     @Test func onlyAWarningWithARepairOffersOne() {
@@ -151,11 +184,14 @@ struct MenuStatusTests {
         #expect(MenuStatus.Warning.suppressionSuspended([.volume]).action == .retrySuppression)
         #expect(MenuStatus.Warning.loginItemRevoked.action == .reactivateLoginItem)
         #expect(MenuStatus.Warning.loginItemNeedsApproval.action == .openLoginItemsSettings)
+        // No button revives a dead media source, but the trail out of it is a place
+        // in this app — the tab where the backup reader's requirement is granted —
+        // so the sentence above it stops naming the tab and this walks there.
+        #expect(MenuStatus.Warning.nowPlayingUnavailable.action == .openPermissionsTab)
         // Naming who is ahead in the tap chain is all the app can honestly do, and
-        // no button revives a dead media source.
+        // a command the player refused has no repair on this side.
         #expect(MenuStatus.Warning.anotherAppAhead("Some Other App").action == nil)
         #expect(MenuStatus.Warning.betterDisplayAheadAndSilent.action == nil)
-        #expect(MenuStatus.Warning.nowPlayingUnavailable.action == nil)
         #expect(MenuStatus.Warning.mediaControlsBlocked.action == nil)
     }
 
@@ -192,8 +228,8 @@ struct MenuStatusTests {
         #expect(mixed.separatesWarning(at: 1))
 
         // Two plain sentences read as a list and need no fence between them.
-        let plain = status(nowPlayingActive: false, mediaCommandsAvailable: false)
-        #expect(plain.warnings == [.nowPlayingUnavailable, .mediaControlsBlocked])
+        let plain = status(chainNotice: .betterDisplayAheadAndSilent, mediaCommandsAvailable: false)
+        #expect(plain.warnings == [.betterDisplayAheadAndSilent, .mediaControlsBlocked])
         #expect(!plain.separatesWarning(at: 1))
         // The block's own separator already opened the first one, and asking past
         // the end is not a question the view can ask — both stay total.

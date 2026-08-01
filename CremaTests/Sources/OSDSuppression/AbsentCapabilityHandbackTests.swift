@@ -176,26 +176,47 @@ struct AbsentCapabilityHandbackTests {
         // a timed-out re-check must leave the absence standing, so the key keeps
         // going to the system, which is the safe side to be wrong on.
         let h = OSDSuppressorHarness()
+        let applies = CounterBox()
+        h.suppressor.onApplied = { [applies] _ in applies.count += 1 }
         h.keyboard.available = false
         h.suppressor.setEngaged(true)
 
         h.keys.press(.keyboardBrightnessUp)   // buys the absence
-        #expect(await eventually {
-            let down = h.keys.pressDown(.keyboardBrightnessUp)
-            h.keys.pressUp(.keyboardBrightnessUp)
-            return !down
-        }, "the absence never landed for .keyboardBrightnessUp")
 
-        // The control is back, but its guard now stalls instead of answering.
-        // Hang armed BEFORE the control comes back, or there is a window a
-        // re-check still in flight (kicked by the probe presses above) reads
-        // `true` unhung, clears the absence, and the next press becomes a normal
-        // apply whose deadline the advance below expires — a suspension this
-        // test exists to rule out. Measured on a starved runner.
+        // The one place in this file that must NOT learn the absence by pressing
+        // until the key comes back, and the barrier that replaces it. Applies run
+        // on ONE global chain, so a volume press queued behind that keyboard press
+        // reports applied only after the apply that RECORDS the absence has
+        // finished: one positive signal for both facts, and the volume apply is a
+        // verified one, so its own reads are done and off the read clock too.
+        //
+        // A press loop proves only the first fact. Every press it makes before the
+        // answer lands queues ANOTHER keyboard apply, and those keep draining after
+        // the loop exits — so the advance() below expires the stalled availability
+        // guard of whichever one is still mid-read. That is a real apply-path
+        // timeout on a key this app SWALLOWED, and suspending the domain is the
+        // correct answer to it; it is simply not this test's subject, and it lands
+        // on the very assertion this test exists to make. Measured: the loop failed
+        // exactly that way under the full parallel suite, and on demand once a
+        // stall was injected into the guard.
+        h.keys.press(.volumeUp)
+        #expect(await eventually { applies.count == 1 }, "the apply chain never drained")
+        #expect(h.volume.applied == [0.5 + OSDTest.step])
+
+        // The control is back, but its guard now stalls instead of answering. The
+        // barrier above is also what makes this flip safe to read torn: nothing of
+        // ours is in flight, and no key has been handed back yet, so there is no
+        // re-check to catch the half-flipped pair (present, not yet hanging), clear
+        // the absence, and turn the press below into a normal apply.
         h.keyboard.availableHangs = true
         h.keyboard.available = true
-        h.keys.press(.keyboardBrightnessUp)   // fires the re-check, which parks
-        h.readClock.advance()                 // and expires
+        let handedBack = h.keys.press(.keyboardBrightnessUp)   // fires the re-check, which parks
+        #expect(!handedBack.down, "the absence never landed for .keyboardBrightnessUp")
+        // Waited for, never fired blind: an advance that lands before the deadline
+        // parks is a no-op, the re-check then stalls forever instead of timing out,
+        // and every assertion below still passes — for the wrong reason.
+        await h.readClock.waitForSleep()
+        h.readClock.advance()
         await settle()
 
         #expect(!h.keys.pressDown(.keyboardBrightnessUp))   // still handed back
@@ -205,8 +226,9 @@ struct AbsentCapabilityHandbackTests {
         #expect(h.suppressor.longSuspendedDomains.isEmpty)  // and never reaches the menu
 
         h.keyboard.releaseAvailable()
-        // Twice: a late re-check from the probe presses above may have parked on
-        // the gate as well; extra signals on a semaphore nobody awaits are free.
+        // Twice: the timed-out re-check left its guard parked on the gate, and the
+        // still-handed-back press above fires another that parks the same way.
+        // Extra signals on a semaphore nobody awaits are free.
         h.keyboard.releaseAvailable()
         await settle()
     }

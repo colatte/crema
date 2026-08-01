@@ -256,23 +256,6 @@
         }
       }
     },
-    "demo.stylePicker": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Style (All Displays)"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Estilo (todas as telas)"
-          }
-        }
-      }
-    },
     "demo.useDemoSources": {
       "extractionState": "manual",
       "localizations": {
@@ -585,13 +568,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Crema's backup reader needs Automation access — see the Permissions tab"
+            "value": "Crema's backup reader needs Automation access."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O leitor reserva do Crema precisa de acesso de Automação — veja a aba Permissões"
+            "value": "O leitor reserva do Crema precisa de acesso de Automação."
           }
         }
       }
@@ -732,23 +715,6 @@
         }
       }
     },
-    "menu.status.style": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Style: %@"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Estilo: %@"
-          }
-        }
-      }
-    },
     "menu.status.styleFallsBack": {
       "extractionState": "manual",
       "localizations": {
@@ -762,6 +728,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nenhuma tela conectada tem fenda, então todas estão desenhando o Cartão."
+          }
+        }
+      }
+    },
+    "menu.style": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Style"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estilo"
+          }
+        }
+      }
+    },
+    "menu.style.appliesEverywhere": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Applies to every display."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplica-se a todas as telas."
           }
         }
       }

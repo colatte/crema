@@ -7,7 +7,6 @@ import SwiftUI
 @MainActor
 struct DemoMenu: View {
     let core: AppCore
-    @State private var style: Style = .notch
     @AppStorage("CremaUseDemoSources") private var useDemoSources = false
     @AppStorage("CremaObserveAdapter") private var observeAdapter = false
     @AppStorage("CremaDisableAdapter") private var disableAdapter = false
@@ -41,14 +40,6 @@ struct DemoMenu: View {
             Button(String(localized: "demo.hud.keyboardBrightness", defaultValue: "Demo: Keyboard Brightness HUD")) {
                 demo.hud.demoKeyPress(.keyboardBrightness)
             }
-        }
-        Picker(String(localized: "demo.stylePicker", defaultValue: "Style (All Displays)"), selection: $style) {
-            ForEach(Style.allCases, id: \.self) { style in
-                Text(style.displayName).tag(style)
-            }
-        }
-        .onChange(of: style) { _, newStyle in
-            core.setStyleEverywhere(newStyle)
         }
     }
 }

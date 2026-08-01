@@ -20,33 +20,25 @@ struct CremaApp: App {
             String(localized: "app.menubar.title", defaultValue: "Crema"),
             image: "MenuBarIcon"
         ) {
-            // Information first, actions last: what Crema IS doing, then what needs
-            // attention. Which lines exist, in what order, and behind which gate is
-            // decided in one pure place (MenuStatus) so it is pinned by tests
-            // instead of resting on the shape of this closure; the block closes with
-            // the separator that divides it from the actions below.
+            // Everything the menu SAYS — the switch and the style submenu, the
+            // status, the warnings, the media — is four blocks decided in one pure
+            // place (MenuStatus) and rendered by CremaMenu, so which lines exist, in
+            // what order and behind which gate is pinned by tests instead of resting
+            // on the shape of this closure. It closes with the separator that
+            // divides it from the actions below, which are what remains here: they
+            // are unconditional, so there is no gating to pin.
             // (docs/DECISIONS.md: menu-status-before-warnings)
-            MenuInformation(core: core)
+            CremaMenu(core: core)
             #if !DEBUG
-            // Closes the informational block: a fact with its repair under it, so it
-            // belongs above the actions and not among them. The one line here that
-            // does NOT come from MenuStatus, deliberately — the updater exists only
-            // in Release and AppCore never holds it, so routing it through that pure
-            // type would put a case in it the Debug-hosted suite can never reach.
-            // Its whole gate is one mirrored Bool, which is the shape MenuStatus
-            // exists to keep out of view bodies in the first place.
+            // A fact with its repair under it, so it sits above the actions and not
+            // among them. The one line of that shape which does NOT come from
+            // MenuStatus, deliberately — the updater exists only in Release and
+            // AppCore never holds it, so routing it through that pure type would put
+            // a case in it the Debug-hosted suite can never reach. Its whole gate is
+            // one mirrored Bool, which is the shape MenuStatus exists to keep out of
+            // view bodies in the first place.
             PendingUpdateMenuSection(updater: updater)
             #endif
-            // Gated on the chain being alive: with no media source at all the
-            // warning inside the block above already tells that story, and four grey
-            // rows that can never work are noise, not a disabled control the user
-            // can wait on. Reads the one observable the scene body already read
-            // before this round, so the expensive block above rebuilds no more often
-            // than it did.
-            if core.nowPlayingMonitor.isActive {
-                NowPlayingMenuSection(coordinator: core.coordinator)
-                Divider()
-            }
             SettingsMenuButton()
             #if !DEBUG
             // Release-only: in Debug the item does not exist, matching a build

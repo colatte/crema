@@ -1169,6 +1169,44 @@ suppression row went with the switch: over a checked item its only extra claim w
 unchanged — the switch reads the same two values the Settings toggle gates on and
 this body already receives, and the write stays behind a click.
 
+
+**Amendment (2026-07-31, second): the menu is four blocks, and the style row
+became the checked item that states it.** The rule finishing here is the one the
+first amendment started — a checkmark in an NSMenu means a CHECKED ITEM, so the
+two facts that ARE a checked item ship as controls rather than as sentences. The
+suppression row went with the Toggle; the style row goes with an inline Picker in
+a `Style` submenu, which says what the sentence said AND lets the user change it
+where they read it. What a checkmark cannot say stays a row: `styleFallsBackToCard`
+is a fact of FALLBACK, not of choice — a Notch tick beside a Card-shaped HUD is
+the contradiction `rendered-style-gates-settings` was written about — so it
+survives its neighbour and now opens the status block. One consequence, faced
+rather than inherited: with no row anchoring it, `rows` can be empty, so a block
+with nothing to say is ABSENT rather than empty (an empty group still draws the
+separator that opens it), and the menu's anchor is the Toggle, which never goes
+away.
+The split into `Block` (controls / status / warnings / media) is the second half,
+and it exists because the shape was already decided in two places: status and
+warnings in `MenuStatus`, the media group in the scene's ViewBuilder behind
+`nowPlayingMonitor.isActive` — the same fact `.nowPlayingUnavailable` is derived
+from, read twice, with no test able to see the second reading. A transport under
+the line that says nothing is reporting is the contradiction that costs; one gate
+in the pure type is the fix. The separator rule is stated over the block INDEX
+(`separatesBlock(at:)`, total at both borders) and not over which block it is,
+because what leads changes with what the app has to say. Deliberately still
+outside the type: the app's own actions (Settings, updates, quit) — nothing gates
+them, and the update item exists only in Release, so a case for it here is one
+the Debug-hosted suite can never reach.
+Third piece, one rule: **every button in the warning block comes from
+`Warning.action`.** The Accessibility warning carried a second, hardcoded button
+beside the one its action produced — which is how a repair ends up under a
+sentence it does not fix while the exhaustive switch still compiles.
+`.nowPlayingUnavailable` gains `.openPermissionsTab`: not a repair, since nothing
+in this app revives a dead media source, but the walk to where the backup
+reader's Automation requirement is granted — and its advice line drops the tail
+that named the tab, because the button under it IS the walk.
+Menu-item icons were reconsidered for the style submenu and rejected again, for
+the reason already stated: an icon stands for an OBJECT, and a symbol that
+silently fails to render leaves the row unmarked anyway.
 ### brightness-key-target-in-the-menu
 Correct behavior nobody can see reads as a bug: with an external monitor as the
 main display, the brightness key dims the laptop panel the user is not looking at.
@@ -1272,6 +1310,16 @@ write. It stays because the alternative is resting a 1 Hz system-wide tap probe 
 optimization inside Observation that no Apple document promises — the same reason
 this codebase never leans on behaviour it cannot see the other side of.
 
+
+Note (2026-07-31): the media lines moved from the scene's ViewBuilder into
+`CremaMenu`'s `.media` block. What makes the move safe is exactly what part (2)
+says — observation is tracked per BODY — so `NowPlayingMenuSection` still reads
+its own mirrors in its own body, and a track change repaints it without touching
+the block that pull-reads the tap chain. The gate that used to wrap it
+(`nowPlayingMonitor.isActive`, read in the scene) is now `MenuStatus.blocks`, off
+the SAME value `.nowPlayingUnavailable` is derived from: two readings of one fact
+is how a transport ends up under a line saying nothing is playing — the
+menu-level form of the `namesMedia` rule this entry already states.
 ### brightness-key-follows-the-pointer
 The brightness key always acted on the built-in panel, whatever the user was
 looking at. With a monitor as the main display that is a key which dims the laptop
