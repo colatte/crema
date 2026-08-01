@@ -330,13 +330,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Accessibility access is missing — Crema can't react to the volume or brightness keys."
+            "value": "Accessibility access is missing —\nCrema can't react to the volume or brightness keys."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Falta o acesso de Acessibilidade — o Crema não reage às teclas de volume e brilho."
+            "value": "Falta o acesso de Acessibilidade —\no Crema não reage às teclas de volume e brilho."
           }
         }
       }
@@ -364,13 +364,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "BetterDisplay receives the brightness keys. Turn on its OSD notification integration and Crema can show the indicator."
+            "value": "BetterDisplay receives the brightness keys.\nTurn on its OSD notification integration and\nCrema can show the indicator."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O BetterDisplay recebe as teclas de brilho. Ligue a integração de notificação de OSD dele e o Crema mostra o indicador."
+            "value": "O BetterDisplay recebe as teclas de brilho.\nLigue a integração de notificação de OSD dele e\no Crema mostra o indicador."
           }
         }
       }
@@ -466,13 +466,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open at login was turned off because the app changed since you enabled it."
+            "value": "Open at login was turned off\nbecause the app changed since you enabled it."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "A abertura ao iniciar sessão foi desativada porque o app mudou desde que você ativou."
+            "value": "A abertura ao iniciar sessão foi desativada\nporque o app mudou desde que você ativou."
           }
         }
       }
@@ -483,13 +483,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The last playback command didn't get through — the player stays view-only."
+            "value": "The last playback command didn't get through —\nthe player stays view-only."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O último comando de reprodução não passou — o player fica só de visualização."
+            "value": "O último comando de reprodução não passou —\no player fica só de visualização."
           }
         }
       }
@@ -500,13 +500,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ receives the media keys before Crema — some of Crema's indicators may not appear."
+            "value": "%@ receives the media keys before Crema —\nsome of Crema's indicators may not appear."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ recebe as teclas de mídia antes do Crema — alguns indicadores do Crema podem não aparecer."
+            "value": "%@ recebe as teclas de mídia antes do Crema —\nalguns indicadores do Crema podem não aparecer."
           }
         }
       }
@@ -551,13 +551,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Now Playing is unavailable — no media source is reporting."
+            "value": "Now Playing is unavailable —\nno media source is reporting."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tocando Agora está indisponível — nenhuma fonte de mídia está reportando."
+            "value": "Tocando Agora está indisponível —\nnenhuma fonte de mídia está reportando."
           }
         }
       }
@@ -619,13 +619,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The system indicator is back for %@ — Crema couldn't apply the change."
+            "value": "The system indicator is back for %@ —\nCrema couldn't apply the change."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O indicador do sistema voltou para %@ — o Crema não conseguiu aplicar a mudança."
+            "value": "O indicador do sistema voltou para %@ —\no Crema não conseguiu aplicar a mudança."
           }
         }
       }
@@ -670,13 +670,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Crema adjusts the built-in display while the pointer is on it — on any other display, the key is left to the system."
+            "value": "Crema adjusts the built-in display while the pointer is on it —\non any other display, the key is left to the system."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Crema ajusta a tela integrada enquanto o ponteiro está nela — em qualquer outra tela, a tecla fica com o sistema."
+            "value": "O Crema ajusta a tela integrada enquanto o ponteiro está nela —\nem qualquer outra tela, a tecla fica com o sistema."
           }
         }
       }
@@ -687,13 +687,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Crema can't control screen brightness — it works only with the built-in display, and none is in use."
+            "value": "Crema can't control screen brightness —\nit works only with the built-in display, and none is in use."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Crema não controla o brilho da tela — ele funciona só com a tela integrada, e não há nenhuma em uso."
+            "value": "O Crema não controla o brilho da tela —\nele funciona só com a tela integrada, e não há nenhuma em uso."
           }
         }
       }
@@ -953,6 +953,23 @@
         }
       }
     },
+    "settings.displays.allDisplays": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All displays"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todas as telas"
+          }
+        }
+      }
+    },
     "settings.displays.builtIn": {
       "extractionState": "manual",
       "localizations": {
@@ -1044,13 +1061,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This display has its own style. Choosing in General replaces it."
+            "value": "This display has its own style. Choosing the all-displays style replaces it."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Esta tela tem um estilo próprio. Escolher na aba Geral o substitui."
+            "value": "Esta tela tem um estilo próprio. Escolher o estilo de todas as telas o substitui."
           }
         }
       }
@@ -1191,23 +1208,6 @@
         }
       }
     },
-    "settings.hud.appearanceHint": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The indicator's appearance is set in the General tab."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A aparência do indicador é definida na aba Geral."
-          }
-        }
-      }
-    },
     "settings.hud.betterDisplay": {
       "extractionState": "manual",
       "localizations": {
@@ -1265,13 +1265,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Not receiving"
+            "value": "No signal"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Não está recebendo"
+            "value": "Sem sinal"
           }
         }
       }
@@ -1323,6 +1323,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Preenchido"
+          }
+        }
+      }
+    },
+    "settings.hud.indicator.footer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Applies to the Card style, which is chosen in the Displays tab."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplica-se ao estilo Cartão, que é escolhido na aba Telas."
           }
         }
       }

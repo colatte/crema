@@ -849,10 +849,10 @@ The clause "with no UI to clear it" is now false for a display in front of the
 user, and the sweep survives on the other half of its reason: an override belongs
 to a display UUID, and a display not attached right now is one no per-display
 control can reach — `clearStyle(for:)` needs a row, and a row needs a display. So
-declaring in General still drops every override, and the consequence stopped being
-invisible: that footer NAMES the sweep ("This also replaces the per-display styles
-in the Displays tab"), and says it only when a per-display style actually exists,
-since a warning about nothing teaches the reader to skip footers.
+declaring for all displays still drops every override, and the consequence stopped
+being invisible: that footer NAMES the sweep ("This also replaces the per-display
+styles in the Displays tab"), and says it only when a per-display style actually
+exists, since a warning about nothing teaches the reader to skip footers.
 
 The row asks the SAME resolver the panels render by (override else declaration,
 `Preferences.style(overrideRawValue:declaredRawValue:)`) rather than reading its
@@ -867,6 +867,20 @@ the whole description — a display renamed under a live panel keeps that panel 
 its hover regions, since neither derives from the name (pinned by
 `WindowManagerTests.aRenamedDisplayKeepsItsPanelAndItsHoverRegions`); rebuilding
 on the description would tear a live surface down for a string.
+
+**Amendment (2026-07-31): the declaration moved house — it is the first section of
+the Displays tab.** Style was asked in two tabs (General declared it, Displays
+overrode it), and in the field that read as two settings instead of one asked at two
+scopes. The declaration now leads the Displays tab as an "All displays" section,
+above the per-display sections it sweeps, so the sweep its footer warns about is
+visible in the same pane as the thing swept. Semantics untouched: same
+`declaredStyle` key, same `setStyleEverywhere`, same sweep, same resolver — this is
+a change of address, not of rule. The menu bar's Style submenu stays what it was,
+the global shortcut, and the welcome tour keeps its own copy of the declaration.
+What travelled with it: the Card indicator picker went to the Indicators tab, its
+thematic home, carrying its rendered-style gate intact
+(`rendered-style-gates-settings`); General keeps what is left, which is opening at
+login.
 
 ### rendered-style-gates-settings
 Settings gated the Card-only indicator picker on `.disabled(style != .card)`,
@@ -1207,6 +1221,18 @@ that named the tab, because the button under it IS the walk.
 Menu-item icons were reconsidered for the style submenu and rejected again, for
 the reason already stated: an icon stands for an OBJECT, and a symbol that
 silently fails to render leaves the row unmarked anyway.
+
+**Amendment (2026-07-31, third): menu lines have a width ceiling, and the catalog
+is what holds it.** An NSMenu is exactly as wide as its widest item, so one
+116-character status row — the brightness-target sentence — opened the whole menu
+at roughly 1500 pt (measured in the field). Decision: every status row, warning and
+advice is rendered as one plain item PER LINE (`CremaMenu.sentence`), and the breaks
+live beside the text in `Localizable.xcstrings` — about 72 characters a line, broken
+at a clause each translation picks for itself, since a break decided in code would
+cut English's clauses out of Portuguese. Nothing is centred and nothing is
+truncated: menu items are leading-aligned on this platform, and a clipped sentence
+is a fact the user cannot read. The width vector left is data rather than chrome — a
+long track title in the media block — and it stays as it is.
 ### brightness-key-target-in-the-menu
 Correct behavior nobody can see reads as a bug: with an external monitor as the
 main display, the brightness key dims the laptop panel the user is not looking at.

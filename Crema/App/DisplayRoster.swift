@@ -4,7 +4,7 @@ import Observation
 /// border's own descriptions (name, geometry, built-in), replaced whole at every
 /// display edge the app already handles.
 ///
-/// Reactive, and deliberately unlike its neighbour in Settings: the General tab
+/// Reactive, and deliberately unlike its Settings neighbours: the seeded-once
 /// seeds its mirrors ONCE and re-reads only when its own picker writes — a
 /// pinned-latent tradeoff (docs/internal/archive/CONTRACTS-AUDIT.md: S4), which
 /// costs a stale value there. A list whose rows ARE the displays cannot take that

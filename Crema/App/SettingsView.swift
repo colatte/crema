@@ -32,9 +32,10 @@ struct SettingsView: View {
             GeneralSettingsView(core: core)
                 .tabItem { Label(String(localized: "settings.tab.general", defaultValue: "General"), systemImage: "gearshape") }
                 .tag(SettingsTab.general)
-            // Beside General, because the two answer the same question at
-            // different scopes: what every display draws, then what one of them
-            // draws instead.
+            // Where style lives, at both of its scopes: what every display draws,
+            // then what one of them draws instead. Split across two tabs it read as
+            // two separate settings, and the all-displays pick — which sweeps every
+            // per-display override — was made in the tab that showed none of them.
             DisplaysSettingsView(core: core)
                 .tabItem { Label(String(localized: "settings.tab.displays", defaultValue: "Displays"), systemImage: "display") }
                 .tag(SettingsTab.displays)
@@ -78,17 +79,6 @@ struct SettingsView: View {
 
 private struct GeneralSettingsView: View {
     let core: AppCore
-    @State private var style: Style
-    /// Whether any connected display RENDERS Card — the gate for the Card-scoped
-    /// Indicator picker below. A mirror of what is drawn, not of the declaration:
-    /// the two disagree on notchless hardware, where the default declaration is
-    /// Notch and every display draws Card.
-    @State private var rendersCard: Bool
-    /// Whether any connected display actually draws the notch skin — the signal
-    /// that separates "Notch selected and honoured" from "Notch selected and
-    /// falling back everywhere", which is what the footer has to say out loud.
-    @State private var rendersNotch: Bool
-    @AppStorage(Preferences.hudIndicatorStyleKey) private var indicatorStyle = HUDIndicatorStyle.slider.rawValue
     /// Mirrors the real login-item status (enabled or pending approval), and is
     /// re-read from it after every attempt — the toggle is a view onto reality,
     /// never a wish that outran it.
@@ -97,119 +87,12 @@ private struct GeneralSettingsView: View {
 
     init(core: AppCore) {
         self.core = core
-        // Pinned-latent (see CONTRACTS-AUDIT S4): both mirrors are seeded once and
-        // re-read only when this picker writes, so a style changed by another
-        // writer — or a display hotplugged — while Settings is open leaves the
-        // picker and the Indicator gate below on the stale answer until the window
-        // reopens.
-        _style = State(initialValue: core.currentStyle())
-        _rendersCard = State(initialValue: core.rendersAnywhere(.card))
-        _rendersNotch = State(initialValue: core.rendersAnywhere(.notch))
         _launchesAtLogin = State(initialValue: core.loginItem.isEnabled || core.loginItem.requiresApproval)
         _loginNeedsApproval = State(initialValue: core.loginItem.requiresApproval)
     }
 
-    /// Notch is what the user picked, and nothing on screen is honouring it.
-    /// Deliberately not `!rendersNotch` alone: with Card or Classic selected there
-    /// is no fallback to report, and the generic sentence is the right one.
-    private var fallbackIsInEffect: Bool {
-        style == .notch && !rendersNotch && rendersCard
-    }
-
-    /// Whether any connected display carries a style of its own. Read where it is
-    /// used instead of mirrored into state: it is one key read per display, and a
-    /// seeded copy would go on promising a replacement after the declaration
-    /// already swept them — the pinned-latent cost the mirrors above accept and
-    /// this sentence cannot.
-    private var hasPerDisplayStyles: Bool {
-        PerDisplayStyleOverride.exists(among: core.displayRoster.displays)
-    }
-
     var body: some View {
         Form {
-            // Style and Indicator are ONE topic — what the surface looks like — and
-            // they share a Section again. They were split because a shared footer
-            // read as ambiguous, which sentence scoping which picker; the label
-            // below now scopes itself ("Card indicator"), so the second footer had
-            // nothing left to say and the ambiguity has nowhere to come from. One
-            // sentence, about the declaration, governing both rows.
-            Section {
-                // Pictures rather than a menu of three nouns: the names describe a
-                // shape in a place, which a person has not seen yet at the moment
-                // they are asked to choose. Each thumbnail is computed from that
-                // skin's own frame rule, so it cannot describe a layout the app no
-                // longer draws.
-                LabeledContent {
-                    StylePicker(selection: $style)
-                } label: {
-                    Text(String(localized: "settings.general.style", defaultValue: "Style"))
-                }
-                // The declaration decides what every display renders, so the
-                // Indicator gate is re-read from the panels right after they are
-                // re-resolved — never inferred from `new`, which says nothing about
-                // which of the connected displays has a slit.
-                .onChange(of: style) { _, new in
-                    core.setStyleEverywhere(new)
-                    rendersCard = core.rendersAnywhere(.card)
-                    rendersNotch = core.rendersAnywhere(.notch)
-                }
-
-                // Named for what it governs, which is also why it can be greyed out
-                // without a sentence excusing it: a disabled row called "Card
-                // indicator" explains itself to someone who just picked Notch, where
-                // a disabled row called "Indicator style" only looked broken.
-                //
-                // Kept visible but disabled when nothing on screen renders Card (the
-                // macOS dependent-setting pattern). The gate is the RENDERED style,
-                // not the declared one: on hardware without a notch the default
-                // declaration is Notch while every display draws Card, so gating on
-                // the declaration greyed out the only control over that HUD's
-                // appearance in the state the app ships in
-                // (docs/DECISIONS.md: rendered-style-gates-settings).
-                Picker(selection: $indicatorStyle) {
-                    ForEach(HUDIndicatorStyle.allCases, id: \.rawValue) { style in
-                        Text(style.displayName).tag(style.rawValue)
-                    }
-                } label: {
-                    Text(String(localized: "settings.hud.indicator", defaultValue: "Card indicator"))
-                }
-                .disabled(!rendersCard)
-                .onChange(of: indicatorStyle) { _, new in
-                    core.setHUDIndicatorStyle(HUDIndicatorStyle(rawValue: new) ?? .slider)
-                }
-            } footer: {
-                // Say what is happening HERE, not only what could happen. With Notch
-                // selected on hardware that has none, the generic sentence left the
-                // window contradicting itself: the picker reads Notch while every
-                // display draws Card, and the Indicator control right below —
-                // enabled, because it governs that Card HUD — looked like it
-                // belonged to a style the user had not chosen. Naming the fallback
-                // as a fact resolves the adjacency instead of explaining it away.
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(fallbackIsInEffect
-                        ? String(
-                            localized: "settings.general.style.footer.fallingBack",
-                            defaultValue: "Applies to every display. No connected display has a notch, so every one is drawing Card."
-                        )
-                        : String(
-                            localized: "settings.general.style.footer",
-                            defaultValue: "Applies to every display. On a display without a notch, the Notch style falls back to Card."
-                        ))
-                    // "Applies to every display" is only half of what picking here
-                    // does: it also drops the per-display styles, which is the one
-                    // consequence a person cannot see from this tab. Said only
-                    // when there is something to replace — a warning about nothing
-                    // teaches the reader to skip the footer.
-                    if hasPerDisplayStyles {
-                        Text(String(
-                            localized: "settings.general.style.footer.replacesPerDisplay",
-                            defaultValue: "This also replaces the per-display styles in the Displays tab."
-                        ))
-                    }
-                }
-                .settingsFootnote()
-            }
-
             Section {
                 // A custom binding (not onChange): the setter routes the intent
                 // through AppCore and reflects the real status it returns, so a

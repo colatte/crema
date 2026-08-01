@@ -58,7 +58,7 @@ brightness-key-follows-the-pointer).
 Each display can look the way you want it to. **Settings → General** declares the
 style for every display at once, and **Settings → Displays** gives any single
 screen its own — _notch_ on the MacBook, _classic_ on the monitor — with a button
-that hands it back to the all-displays choice (declaring in General replaces the
+that hands it back to the all-displays choice (declaring for all displays replaces the
 per-display picks, and says so). The same tab holds "Show now playing here", so
 the player can live on one screen while the HUDs appear where they belong. Each
 screen's thumbnails are pictures of THAT screen: on a display without a notch, the

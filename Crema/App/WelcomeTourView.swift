@@ -24,7 +24,7 @@ struct WelcomeTourView: View {
     /// switch. The live effect is the AppCore call in `onChange`, which every
     /// control that writes a preference owes.
     @AppStorage(Preferences.suppressesNativeOSDKey) private var suppressesNativeOSD = false
-    /// Seeded-once mirrors, the shape the General tab uses: the declared style,
+    /// Seeded-once mirrors, the shape the all-displays section uses: the declared style,
     /// which of the styles any panel actually renders, and the real login-item
     /// status, re-read from every attempt rather than wished at. Nothing else can
     /// write them while this window is up — it is modal in practice, being the
@@ -216,7 +216,7 @@ struct WelcomeTourView: View {
     /// panels behind this window happen to be showing at that moment (a HUD, a
     /// track) changes with it, but nothing here depends on something being up.
     ///
-    /// It carries the General tab's footer because it is the same declaration,
+    /// It carries the all-displays section's footer because it is the same declaration,
     /// and a price named in one place and not the other is a price paid by
     /// whoever met the control here first.
     private var styleStep: some View {
@@ -242,7 +242,7 @@ struct WelcomeTourView: View {
                         localized: "settings.general.style.footer",
                         defaultValue: "Applies to every display. On a display without a notch, the Notch style falls back to Card."
                     ))
-                // Picking a tile calls the same `setStyleEverywhere` the General
+                // Picking a tile calls the same `setStyleEverywhere` the Displays
                 // tab does, which SWEEPS the per-display styles — on an upgrading
                 // install that silently discards configuration, so this window
                 // owes the same warning that tab owes. Said only when there is
@@ -265,7 +265,7 @@ struct WelcomeTourView: View {
     }
 
     /// Notch is what was picked and nothing on screen is honouring it — the
-    /// General tab's gate, copied whole. Deliberately not `!rendersNotch` alone:
+    /// The all-displays section's gate, copied whole. Deliberately not `!rendersNotch` alone:
     /// with Card or Classic picked there is no fallback to report and the generic
     /// sentence is the true one.
     private var fallbackIsInEffect: Bool {
@@ -273,7 +273,7 @@ struct WelcomeTourView: View {
     }
 
     /// Whether any connected display carries a style of its own. Read where it is
-    /// used rather than mirrored into state, as in the General tab: the pick right
+    /// used rather than mirrored into state, as in the Displays tab: the pick right
     /// above sweeps those overrides, and a seeded copy would go on promising a
     /// replacement that has already happened.
     private var hasPerDisplayStyles: Bool {

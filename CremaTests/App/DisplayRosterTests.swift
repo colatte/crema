@@ -7,7 +7,7 @@ import Testing
 /// border's own words, published as the panels are built from the same reading.
 ///
 /// The three claims here are the three the list rests on — it is REACTIVE (the
-/// General tab's mirrors are seeded once by decision, and a list whose rows ARE
+/// seeded-once Settings mirrors exist by decision, and a list whose rows ARE
 /// the displays cannot afford that), an unchanged topology is not a change, and
 /// every row is answerable from the value alone.
 @MainActor

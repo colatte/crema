@@ -3,6 +3,23 @@ import SwiftUI
 struct SystemHUDSettingsView: View {
     let core: AppCore
     @AppStorage(Preferences.suppressesNativeOSDKey) private var suppress = false
+    @AppStorage(Preferences.hudIndicatorStyleKey) private var indicatorStyle = HUDIndicatorStyle.slider.rawValue
+    /// Whether any connected display RENDERS Card — the gate for the Card-scoped
+    /// picker below. A mirror of what is drawn, not of the declaration: the two
+    /// disagree on notchless hardware, where the default declaration is Notch and
+    /// every display draws Card.
+    ///
+    /// Seeded once, and nothing in this tab can change the answer: the writer that
+    /// can is the style declaration, which lives in the Displays tab. So a style
+    /// declared with this window open leaves the gate on the previous answer until
+    /// it reopens — the pinned-latent deal this mirror has always taken
+    /// (docs/internal/archive/CONTRACTS-AUDIT.md: S4).
+    @State private var rendersCard: Bool
+
+    init(core: AppCore) {
+        self.core = core
+        _rendersCard = State(initialValue: core.rendersAnywhere(.card))
+    }
 
     private var canSuppress: Bool {
         core.permissionMonitor.isGranted && core.osdSuppressor != nil
@@ -51,13 +68,6 @@ struct SystemHUDSettingsView: View {
                         // swiftlint:disable:next line_length
                         defaultValue: "Screen brightness is replaced only on the built-in display, while the pointer is on it — a key aimed at any other display is left to the system."
                     ))
-                    // The indicator-style picker lives in General, beside the
-                    // Style picker it depends on — this line is the trail for
-                    // whoever comes to the HUD tab looking for it.
-                    Text(String(
-                        localized: "settings.hud.appearanceHint",
-                        defaultValue: "The indicator's appearance is set in the General tab."
-                    ))
                     if !canSuppress {
                         Text(String(
                             localized: "settings.hud.suppress.needsPermission",
@@ -66,6 +76,41 @@ struct SystemHUDSettingsView: View {
                         .foregroundStyle(.orange)
                     }
                 }
+                .settingsFootnote()
+            }
+
+            // The indicator's own appearance, in the tab that is about indicators.
+            // It sat beside the Style picker in General, where a greyed row explained
+            // itself by adjacency; that neighbour is gone, so the footer names the
+            // style it governs and where that style is chosen.
+            Section {
+                // Named for what it governs, which is also why it can be greyed out
+                // without a sentence excusing it: a row called "Card indicator" says
+                // what it is about, where "Indicator style" only looked broken.
+                //
+                // Kept visible but disabled when nothing on screen renders Card (the
+                // macOS dependent-setting pattern). The gate is the RENDERED style,
+                // not the declared one: on hardware without a notch the default
+                // declaration is Notch while every display draws Card, so gating on
+                // the declaration greyed out the only control over that HUD's
+                // appearance in the state the app ships in
+                // (docs/DECISIONS.md: rendered-style-gates-settings).
+                Picker(selection: $indicatorStyle) {
+                    ForEach(HUDIndicatorStyle.allCases, id: \.rawValue) { style in
+                        Text(style.displayName).tag(style.rawValue)
+                    }
+                } label: {
+                    Text(String(localized: "settings.hud.indicator", defaultValue: "Card indicator"))
+                }
+                .disabled(!rendersCard)
+                .onChange(of: indicatorStyle) { _, new in
+                    core.setHUDIndicatorStyle(HUDIndicatorStyle(rawValue: new) ?? .slider)
+                }
+            } footer: {
+                Text(String(
+                    localized: "settings.hud.indicator.footer",
+                    defaultValue: "Applies to the Card style, which is chosen in the Displays tab."
+                ))
                 .settingsFootnote()
             }
 
@@ -79,6 +124,9 @@ struct SystemHUDSettingsView: View {
             // observable, so it flips with this window open: the person reading
             // this line is usually the one switching that setting on in the other
             // app, and an answer that only arrives on the next open reads as no.
+            // The negative names the channel and not a fault — the common case is a
+            // Mac with no BetterDisplay on it, where nothing is wrong and nothing on
+            // this side turns anything on.
             Section {
                 LabeledContent {
                     Text(core.betterDisplayIsReporting
@@ -88,7 +136,7 @@ struct SystemHUDSettingsView: View {
                         )
                         : String(
                             localized: "settings.hud.betterDisplay.notReceiving",
-                            defaultValue: "Not receiving"
+                            defaultValue: "No signal"
                         ))
                         .foregroundStyle(core.betterDisplayIsReporting ? .primary : .secondary)
                 } label: {

@@ -24,7 +24,8 @@
    General; notch→card where there is no slit — positioned and sized by that
    style. Picking a style for one display moves only that display; the button
    that returns it to the all-displays choice takes effect at once, and declaring
-   in General replaces every per-display style. The Displays tab's "Show now
+   for all displays (the Displays tab's leading section, or the menu bar's Style
+   submenu) replaces every per-display style. The Displays tab's "Show now
    playing here" toggle is honoured live, on by default for the built-in display.
 5. Now playing works through mediaremote-adapter on every supported version; if
    it is unavailable, the JXA fallback takes over; if neither is available, the

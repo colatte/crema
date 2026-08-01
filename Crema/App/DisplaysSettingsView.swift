@@ -1,21 +1,115 @@
 import SwiftUI
 
-/// One section per connected display: the style that screen draws, and whether
-/// the now-playing surface appears on it.
+/// Style, at both of its scopes, in one tab: the declaration that speaks for
+/// every display, then a section per connected display — the style that screen
+/// draws, and whether the now-playing surface appears on it.
 ///
-/// The list is reactive, and deliberately unlike its neighbour in General, which
-/// seeds its mirrors once and re-reads only when its own picker writes — a
-/// pinned-latent tradeoff (docs/internal/archive/CONTRACTS-AUDIT.md: S4) that
-/// costs a stale value there. A list whose rows ARE the displays cannot take that
-/// deal: a row outliving its monitor is a control over a screen the user cannot
-/// see, and a display plugged in with the window open would have no row at all
-/// until Settings is closed and reopened. The roster it reads is the SAME reading
-/// that builds the panels, so the tab cannot list a display no panel carries.
+/// The declaration used to live in General, one tab away from the overrides it
+/// sweeps, which made the same choice read as two settings. It leads here instead,
+/// because that is the order the two answer in: what every display draws, then what
+/// one of them draws instead.
+///
+/// The per-display list is reactive; the declaration's mirrors below are seeded
+/// once and re-read only when that picker writes — a pinned-latent tradeoff
+/// (docs/internal/archive/CONTRACTS-AUDIT.md: S4) that costs a stale value there.
+/// A list whose rows ARE the displays cannot take that deal: a row outliving its
+/// monitor is a control over a screen the user cannot see, and a display plugged in
+/// with the window open would have no row at all until Settings is closed and
+/// reopened. The roster it reads is the SAME reading that builds the panels, so the
+/// tab cannot list a display no panel carries.
 struct DisplaysSettingsView: View {
     let core: AppCore
+    /// The all-displays declaration, as the picker holds it.
+    @State private var style: Style
+    /// Whether any connected display RENDERS Card. A mirror of what is drawn, not
+    /// of the declaration: the two disagree on notchless hardware, where the
+    /// default declaration is Notch and every display draws Card.
+    @State private var rendersCard: Bool
+    /// Whether any connected display actually draws the notch skin — the signal
+    /// that separates "Notch declared and honoured" from "Notch declared and
+    /// falling back everywhere", which is what the footer has to say out loud.
+    @State private var rendersNotch: Bool
+
+    init(core: AppCore) {
+        self.core = core
+        _style = State(initialValue: core.currentStyle())
+        _rendersCard = State(initialValue: core.rendersAnywhere(.card))
+        _rendersNotch = State(initialValue: core.rendersAnywhere(.notch))
+    }
+
+    /// Notch is what the user declared, and nothing on screen is honouring it.
+    /// Deliberately not `!rendersNotch` alone: with Card or Classic declared there
+    /// is no fallback to report, and the generic sentence is the right one.
+    private var fallbackIsInEffect: Bool {
+        style == .notch && !rendersNotch && rendersCard
+    }
+
+    /// Whether any connected display carries a style of its own. Read where it is
+    /// used instead of mirrored into state: it is one key read per display, and a
+    /// seeded copy would go on promising a replacement after the declaration
+    /// already swept them — the pinned-latent cost the mirrors above accept and
+    /// this sentence cannot.
+    private var hasPerDisplayStyles: Bool {
+        PerDisplayStyleOverride.exists(among: core.displayRoster.displays)
+    }
 
     var body: some View {
         Form {
+            Section {
+                // Pictures rather than a menu of three nouns: the names describe a
+                // shape in a place, which a person has not seen yet at the moment
+                // they are asked to choose. Each thumbnail is computed from that
+                // skin's own frame rule, so it cannot describe a layout the app no
+                // longer draws. No geometry: this one speaks for every display, so
+                // no screen's slit decides which tiles are offerable.
+                LabeledContent {
+                    StylePicker(selection: $style)
+                } label: {
+                    Text(String(localized: "settings.general.style", defaultValue: "Style"))
+                }
+                // The declaration decides what every display renders, so the
+                // rendered-style mirrors are re-read from the panels right after
+                // they are re-resolved — never inferred from `new`, which says
+                // nothing about which of the connected displays has a slit.
+                .onChange(of: style) { _, new in
+                    core.setStyleEverywhere(new)
+                    rendersCard = core.rendersAnywhere(.card)
+                    rendersNotch = core.rendersAnywhere(.notch)
+                }
+            } header: {
+                Text(String(localized: "settings.displays.allDisplays", defaultValue: "All displays"))
+            } footer: {
+                // Say what is happening HERE, not only what could happen. With Notch
+                // declared on hardware that has none, the generic sentence left the
+                // window contradicting itself: the picker reads Notch while every
+                // display draws Card. Naming the fallback as a fact resolves that
+                // instead of explaining it away.
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(fallbackIsInEffect
+                        ? String(
+                            localized: "settings.general.style.footer.fallingBack",
+                            defaultValue: "Applies to every display. No connected display has a notch, so every one is drawing Card."
+                        )
+                        : String(
+                            localized: "settings.general.style.footer",
+                            defaultValue: "Applies to every display. On a display without a notch, the Notch style falls back to Card."
+                        ))
+                    // "Applies to every display" is only half of what picking here
+                    // does: it also drops the per-display styles. Said only when
+                    // there is something to replace — a warning about nothing
+                    // teaches the reader to skip the footer. The sections it names
+                    // are the ones below, and the same sentence is what the welcome
+                    // tour owes for making the same declaration.
+                    if hasPerDisplayStyles {
+                        Text(String(
+                            localized: "settings.general.style.footer.replacesPerDisplay",
+                            defaultValue: "This also replaces the per-display styles in the Displays tab."
+                        ))
+                    }
+                }
+                .settingsFootnote()
+            }
+
             ForEach(core.displayRoster.displays, id: \.id) { screen in
                 DisplaySettingsRow(screen: screen, core: core)
             }
@@ -41,8 +135,9 @@ private struct DisplaySettingsRow: View {
     @AppStorage private var styleRaw: String?
     @AppStorage private var showsNowPlaying: Bool
     /// The all-displays declaration, watched because it is the fallback of what
-    /// this row shows: a declaration made in General sweeps every override, and a
-    /// row that missed it would keep naming a style this display no longer draws.
+    /// this row shows: a declaration made in the section above sweeps every
+    /// override, and a row that missed it would keep naming a style this display no
+    /// longer draws.
     @AppStorage(Preferences.declaredStyleKey) private var declaredStyleRaw: String?
 
     init(screen: ScreenDescription, core: AppCore) {
@@ -68,7 +163,7 @@ private struct DisplaySettingsRow: View {
             }
             .onChange(of: styleRaw) { _, new in
                 // Nil is this display returning to the declaration — the button
-                // below, or a declaration in General sweeping every override —
+                // below, or an all-displays declaration sweeping every override —
                 // and both of those already applied their own live effect.
                 guard let style = PerDisplayStyleOverride.value(fromRawValue: new) else { return }
                 core.setStyle(style, for: screen.id)
@@ -162,7 +257,7 @@ private struct DisplaySettingsRow: View {
         ownsItsStyle
             ? String(
                 localized: "settings.displays.style.footer.own",
-                defaultValue: "This display has its own style. Choosing in General replaces it."
+                defaultValue: "This display has its own style. Choosing the all-displays style replaces it."
             )
             : String(
                 localized: "settings.displays.style.footer.inherits",

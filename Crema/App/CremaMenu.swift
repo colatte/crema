@@ -98,14 +98,14 @@ struct CremaMenu: View {
         case .status:
             // Each case appears at most once, so the case is its own stable identity.
             ForEach(status.rows, id: \.self) { row in
-                Text(text(for: row))
+                sentence(text(for: row))
             }
         case .warnings:
             ForEach(Array(status.warnings.enumerated()), id: \.offset) { index, warning in
                 if status.separatesWarning(at: index) { Divider() }
-                Text(text(for: warning))
+                sentence(text(for: warning))
                 if let advice = warning.advice {
-                    Text(text(for: advice))
+                    sentence(text(for: advice))
                 }
                 // Every button here comes from the warning's own action, so a fact
                 // and its repair cannot drift apart: a button hardcoded beside one
@@ -117,6 +117,25 @@ struct CremaMenu: View {
             }
         case .media:
             NowPlayingMenuSection(coordinator: core.coordinator)
+        }
+    }
+
+    /// One menu item per line of a sentence, broken where the catalog breaks it.
+    ///
+    /// An NSMenu is exactly as wide as its widest item, so a single 116-character
+    /// status row opened this menu at roughly 1500 pt (measured in the field,
+    /// 2026-07-31) — the ceiling is about 72 characters a line, and the break points
+    /// live beside the text in the catalog, where each translation breaks at its own
+    /// clause. Stacked plain items, never a centred paragraph: informational rows are
+    /// leading-aligned everywhere else in this menu and in the system's own
+    /// (docs/DECISIONS.md: menu-status-before-warnings).
+    @ViewBuilder
+    private func sentence(_ text: String) -> some View {
+        // The index is the identity, as in the block list above: two lines of one
+        // sentence can read identically, and the whole list is replaced when the
+        // sentence changes.
+        ForEach(Array(text.split(separator: "\n").enumerated()), id: \.offset) { _, line in
+            Text(String(line))
         }
     }
 
@@ -143,12 +162,12 @@ struct CremaMenu: View {
             // gets adjusted would be the false half of a true sentence.
             String(
                 localized: "menu.status.brightnessFollowsPointer",
-                defaultValue: "Crema adjusts the built-in display while the pointer is on it — on any other display, the key is left to the system."
+                defaultValue: "Crema adjusts the built-in display while the pointer is on it —\non any other display, the key is left to the system."
             )
         case .brightnessNoBuiltIn:
             String(
                 localized: "menu.status.brightnessNoBuiltIn",
-                defaultValue: "Crema can't control screen brightness — it works only with the built-in display, and none is in use."
+                defaultValue: "Crema can't control screen brightness —\nit works only with the built-in display, and none is in use."
             )
         case .opensAtLogin:
             String(localized: "menu.status.opensAtLogin", defaultValue: "Crema opens at login.")
@@ -160,14 +179,14 @@ struct CremaMenu: View {
         case .accessibilityMissing:
             String(
                 localized: "menu.accessibilityWarning",
-                defaultValue: "Accessibility access is missing — Crema can't react to the volume or brightness keys."
+                defaultValue: "Accessibility access is missing —\nCrema can't react to the volume or brightness keys."
             )
         case .suppressionSuspended(let domains):
             suspendedText(domains)
         case .betterDisplayAheadAndSilent:
             String(
                 localized: "menu.betterDisplay.silent",
-                defaultValue: "BetterDisplay receives the brightness keys. Turn on its OSD notification integration and Crema can show the indicator."
+                defaultValue: "BetterDisplay receives the brightness keys.\nTurn on its OSD notification integration and\nCrema can show the indicator."
             )
         case .anotherAppAhead(let app):
             // Stated as the fact it is — a position in the chain, not a
@@ -176,22 +195,22 @@ struct CremaMenu: View {
             // unaided (docs/DECISIONS.md: media-key-chain-contention).
             String(
                 localized: "menu.mediaKeysPrecededBy",
-                defaultValue: "\(app) receives the media keys before Crema — some of Crema's indicators may not appear."
+                defaultValue: "\(app) receives the media keys before Crema —\nsome of Crema's indicators may not appear."
             )
         case .nowPlayingUnavailable:
             String(
                 localized: "menu.nowPlayingUnavailable",
-                defaultValue: "Now Playing is unavailable — no media source is reporting."
+                defaultValue: "Now Playing is unavailable —\nno media source is reporting."
             )
         case .mediaControlsBlocked:
             String(
                 localized: "menu.mediaControlsBlocked",
-                defaultValue: "The last playback command didn't get through — the player stays view-only."
+                defaultValue: "The last playback command didn't get through —\nthe player stays view-only."
             )
         case .loginItemRevoked:
             String(
                 localized: "menu.loginItem.revoked",
-                defaultValue: "Open at login was turned off because the app changed since you enabled it."
+                defaultValue: "Open at login was turned off\nbecause the app changed since you enabled it."
             )
         case .loginItemNeedsApproval:
             String(
@@ -224,7 +243,7 @@ struct CremaMenu: View {
         let names = domains.map(localizedDomainName).formatted(.list(type: .and))
         return String(
             localized: "menu.osdSuspended.warning",
-            defaultValue: "The system indicator is back for \(names) — Crema couldn't apply the change."
+            defaultValue: "The system indicator is back for \(names) —\nCrema couldn't apply the change."
         )
     }
 
