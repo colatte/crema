@@ -66,6 +66,19 @@ HUDs appear where they belong. On a display without a notch, the _notch_ option 
 offered dimmed and cannot be picked for it — that screen would really draw the
 card, and the app never records a choice it will not honour.
 
+## The surface itself
+
+Two directions the current surface points at, neither promised:
+
+- **Volume beside the artwork.** Today a volume key while music plays swaps the
+  whole surface to the HUD for a moment. The Dynamic Island answers the same
+  moment differently — the level slots in next to the artwork and the track
+  never leaves the stage. Crema's compact state could speak that grammar.
+- **Live preview on hover.** The style tiles in Settings already draw each style
+  on your own wallpaper; the step beyond a drawing is the real thing — resting
+  the cursor on a tile briefly showing that style on the actual screen, the way
+  the best pickers in this space do it.
+
 ## Automatic updates — shipped in 1.2.0 ✓
 
 Since v1.2.0, Crema keeps itself current: release builds embed
