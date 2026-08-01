@@ -30,7 +30,8 @@ crema/                       # raiz do repositório
 ├── LICENSE                  # GPL-3.0
 ├── CLAUDE.md                # este arquivo — convenções de código
 ├── docs/                    # documentação pública; também a raiz do GitHub Pages (publicado da main)
-│   ├── README.md                    # mapa da documentação; o Pages o renderiza como homepage do site — links de repositório absolutos, nunca relativos
+│   ├── index.html                   # a homepage do site no Pages (landing page estática, auto-contida; a mídia dela vive em assets/ e assets/video/)
+│   ├── README.md                    # mapa da documentação (navegado pelo GitHub; o index.html o superou como homepage do Pages) — links de repositório absolutos, nunca relativos
 │   ├── DECISIONS.md                 # memória de design: decisões nomeadas e jurisprudência de classes de bug (âncoras citadas em comentários de código)
 │   ├── ACCEPTANCE.md                # os 19 critérios de aceitação — a definição observável de "o app está correto"
 │   ├── RELEASE-GUIDE.md             # como um release é publicado e como o ciclo do Sparkle é alimentado (incl. o backup único da chave EdDSA)

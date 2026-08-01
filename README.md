@@ -25,11 +25,11 @@ optionally replacing the system's.
     <img src="docs/assets/download-macos.png" width="208" alt="Download Crema for macOS">
   </a>
   <br>
-  <sub>Free &amp; open source · then just drag it into Applications (<a href="#installation">guide</a>)</sub>
+  <sub>Free &amp; open source · then just drag it into Applications (<a href="#installation">guide</a>) · <a href="https://colatte.github.io/crema">website</a></sub>
 </p>
 
 <p align="center">
-  <img src="docs/assets/notch-expanded.png" width="640" alt="Crema's now playing expanded at the notch: title, artist, scrubber and transport controls">
+  <img src="docs/assets/crema-hero.gif" width="640" alt="Crema expanding at the notch: click the cutout and the track opens with artwork, scrubber and transport controls">
 </p>
 
 ---
@@ -39,6 +39,13 @@ optionally replacing the system's.
 | Notch | Card | Classic |
 | :---: | :---: | :---: |
 | <img src="docs/assets/notch-expanded.png" alt="Notch style, expanded now playing"> | <img src="docs/assets/card-expanded.png" alt="Card style, expanded now playing"> | <img src="docs/assets/classic-expanded.png" alt="Classic style, expanded now playing"> |
+
+Picking one is a picture, not a noun — the tiles draw each style on your own
+wallpaper, and the switch lands live:
+
+<p align="center">
+  <img src="docs/assets/crema-style-switch.gif" width="560" alt="Clicking the Card tile in Settings: the card style takes over live, with the track already on it">
+</p>
 
 The HUDs, in the same three voices — the thin capsule at the notch and on the
 card, and the classic's segmented bezel:
