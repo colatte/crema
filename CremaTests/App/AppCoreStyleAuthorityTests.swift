@@ -50,6 +50,7 @@ struct AppCoreStyleAuthorityTests {
     private static func screen(_ uuid: String, isInternal: Bool) -> ScreenDescription {
         ScreenDescription(
             id: DisplayUUID(rawValue: uuid),
+            name: isInternal ? "Built-in Retina Display" : "LG UltraFine",
             geometry: ScreenGeometry(frame: CGRect(x: 0, y: 0, width: 1000, height: 600)),
             isInternal: isInternal
         )

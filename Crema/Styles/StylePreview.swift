@@ -13,14 +13,17 @@ struct StylePreviewShapes: Equatable {
     let slit: CGRect?
     /// Height of the menu bar strip, as a fraction of the screen.
     ///
-    /// Scenery rather than rule output, and the only invented number here. It is a
-    /// size reference for the top edge — it makes the slit read as a bite taken out
-    /// of the bar, which is what a notch IS to the eye. It does NOT show the card
-    /// floating underneath, because the card does not float underneath: on a
-    /// slitless panel `safeTop` is 0, so the rule anchors the card 8 pt down
-    /// (CardStyle) and it covers two thirds of a 24 pt bar — which is why all three
-    /// are illustrated on the notched panel. What tells the two top-edge skins
-    /// apart is the clearance (`surfaceClearsTheMenuBar`) and the shadow.
+    /// Scenery rather than rule output: a size reference for the top edge, which
+    /// makes the slit read as a bite taken out of the bar — what a notch IS to the
+    /// eye. On a notched panel the safe area stands in for it; a slitless one
+    /// reports zero safe area and still has a bar, so there it is the measured
+    /// slitless height instead. Never zero on a real screen, because a picture with
+    /// no top edge is not a picture of a Mac and leaves the floating surfaces with
+    /// nothing to float under. What tells the two top-edge skins apart is the
+    /// clearance (`surfaceClearsTheMenuBar`) and the shadow — and on a slitless
+    /// panel the card really does cover two thirds of the bar (its rule reads the
+    /// safe area and anchors 8 pt down), which is the honest picture of that
+    /// display, not a defect of the drawing.
     let menuBar: CGFloat
 
     /// Whether the surface takes no material and is drawn opaque. The one fact
@@ -29,6 +32,12 @@ struct StylePreviewShapes: Equatable {
     /// the hardware cutout it covers; the card and classic are a translucent
     /// material behind a half-point white hairline (`vibrantSurface`).
     let surfaceIsOpaque: Bool
+
+    /// Width over height of the display these shapes describe. The fractions above
+    /// carry no shape of their own, so a drawing that picks its own proportions
+    /// draws some other Mac and moves every surface with it. Zero for a degenerate
+    /// screen, the same answer the fractions give: there is nothing to draw.
+    let aspectRatio: CGFloat
 
     /// Whether the surface is welded to the top of the screen rather than floating
     /// under it. Read off the rule's own answer instead of declared per style, so a
@@ -60,15 +69,20 @@ struct StylePreviewShapes: Equatable {
 enum StylePreview {
     /// The panel of a 14-inch MacBook Pro, measured rather than recalled:
     /// 1512x982 points, a 32 pt safe area, and a 185 pt slit between the
-    /// auxiliary areas. A canonical screen rather than whichever one is attached —
-    /// the preview teaches WHERE a style sits, and one familiar panel says that
-    /// more plainly than an arbitrary aspect ratio.
+    /// auxiliary areas. The default screen to be asked about: a picker that speaks
+    /// for all displays at once has no single panel to describe, and one familiar
+    /// Mac teaches WHERE a style sits more plainly than an arbitrary aspect ratio.
     static let notchedReference = ScreenGeometry(
         frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
         safeTop: 32,
         auxLeft: 663,
         auxRight: 664
     )
+
+    /// The menu bar of a display with no slit, measured: 24 pt. Used only where
+    /// `safeTop` is 0 — a notched panel's safe area already stands in for its own
+    /// bar, and the two are not the same height (37 pt against 32 on that panel).
+    private static let slitlessMenuBarPoints: CGFloat = 24
 
     /// The state the preview freezes: a track playing, surface open.
     ///
@@ -84,31 +98,46 @@ enum StylePreview {
         expanded: true
     )
 
-    static func shapes(for style: Style) -> StylePreviewShapes {
-        // ONE panel for all three, and it is the notched one — because the card's
-        // own rule reads the safe area, and a slitless panel reports zero for it.
-        // Drawn there the card anchors 8 pt from the top edge, UNDER a 24 pt menu
-        // bar, and the picture said the card is welded to the bezel. On the
-        // hardware this app was built for it is not: 32 pt of safe area plus its
-        // 8 pt margin puts it 40 pt down, clear of a 37 pt bar — measured, and
-        // reported from the field as the thing the picture was getting wrong.
-        // Comparing three styles on three different screens is what let that
-        // happen. The slit still belongs to the notch tile alone (see `slit`).
-        let geometry = notchedReference
+    /// The shapes of one skin on one display, defaulting to the canonical panel.
+    ///
+    /// The default is what a picker speaking for every display asks for, and it is
+    /// a NOTCHED panel on purpose: the card's own rule reads the safe area, so on a
+    /// slitless one it anchors 8 pt from the top edge, under the bar, and the
+    /// picture said the card was welded to the bezel. On the hardware this app was
+    /// built for it is not — 32 pt of safe area plus its 8 pt margin puts it 40 pt
+    /// down, clear of a 37 pt bar — and the field reported that as the thing the
+    /// picture was getting wrong. Comparing three styles on three different screens
+    /// is what let it happen, so one panel answers for all three unless the caller
+    /// names a display.
+    ///
+    /// Named a display, the picture is of the skin that display RESOLVES to, never
+    /// the declared one: asked for the notch on a slitless panel it draws the card,
+    /// no slit, not opaque — what that Mac would really put on screen. Promising a
+    /// notch to someone whose Mac has none is the same lie in a thumbnail that it
+    /// would be on the panel. Resolving here is also why the notch rule's own
+    /// slitless guard is never reached through this path: the declared→drawn
+    /// mapping lives in one function and every reader asks IT
+    /// (docs/DECISIONS.md: rendered-style-gates-settings).
+    static func shapes(
+        for style: Style,
+        on geometry: ScreenGeometry = Self.notchedReference
+    ) -> StylePreviewShapes {
+        let rendered = style.resolved(on: geometry)
         let screen = geometry.frame
-        // The safe area stands in for the bar — every tile is drawn on the notched
-        // reference, so there is no slitless case to fall back for. They are not
-        // the same height (the bar measures 37 pt against the slit's 32 —
-        // docs/design-reference.md — the classic gotcha of this hardware), but the
-        // safe area is the number the rules already agree on, and the 0.35 pt the
-        // difference is worth here does not buy a second invented constant in the
-        // file whose whole argument is derive, don't declare.
-        let bar = geometry.safeTop
+        // The safe area stands in for the bar wherever there is one: it is the
+        // number the rules already agree on, and the 0.35 pt it differs from this
+        // panel's real 37 pt bar (docs/design-reference.md — the classic gotcha of
+        // this hardware) does not buy a second constant in the file whose whole
+        // argument is derive, don't declare. A slitless panel reports no safe area
+        // and still has a bar, and that one has to be declared or the tile for
+        // every Mac without a notch loses its top edge.
+        let bar = geometry.safeTop > 0 ? geometry.safeTop : slitlessMenuBarPoints
         return StylePreviewShapes(
-            surface: unit(style.frame(for: previewState, on: geometry), in: screen),
-            slit: style == .notch ? unit(slit(of: geometry), in: screen) : nil,
-            menuBar: bar / screen.height,
-            surfaceIsOpaque: style == .notch
+            surface: unit(rendered.frame(for: previewState, on: geometry), in: screen),
+            slit: rendered == .notch ? unit(slit(of: geometry), in: screen) : nil,
+            menuBar: fraction(bar, of: screen.height),
+            surfaceIsOpaque: rendered == .notch,
+            aspectRatio: fraction(screen.width, of: screen.height)
         )
     }
 
@@ -120,6 +149,13 @@ enum StylePreview {
             width: geometry.frame.width - geometry.auxLeft - geometry.auxRight,
             height: geometry.safeTop
         )
+    }
+
+    /// One guarded division for the numbers that are not rects, so a degenerate
+    /// screen answers zero here too instead of dividing by it — the same answer
+    /// `unit` gives, and the drawing has nothing to draw either way.
+    private static func fraction(_ value: CGFloat, of extent: CGFloat) -> CGFloat {
+        extent > 0 ? value / extent : 0
     }
 
     /// AppKit's y-up screen space to SwiftUI's y-down unit space. The flip lives

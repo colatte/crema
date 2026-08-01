@@ -834,6 +834,40 @@ fallen to the shipped default while another carried the user's choice adopts tha
 choice on the next launch. An install with no override writes no key at all, so
 the shipped default stays a decision the app can still change.
 
+**Amendment: the per-display picker shipped, and one clause above went with it.**
+The Displays tab gives every connected display a section of its own — a style
+picker, a button that returns that display to the declaration, and the
+"show now playing here" toggle. Four things it settled.
+
+Inheriting IS the absence of the key. The reset REMOVES the override
+(`clearStyle`) instead of writing today's declaration into it: a copy would look
+identical this afternoon and then shadow the next declaration forever, which is
+the bug the declaration was introduced to fix. Clearing a display that already
+inherits writes nothing at all — not the key, not the declaration.
+
+The clause "with no UI to clear it" is now false for a display in front of the
+user, and the sweep survives on the other half of its reason: an override belongs
+to a display UUID, and a display not attached right now is one no per-display
+control can reach — `clearStyle(for:)` needs a row, and a row needs a display. So
+declaring in General still drops every override, and the consequence stopped being
+invisible: that footer NAMES the sweep ("This also replaces the per-display styles
+in the Displays tab"), and says it only when a per-display style actually exists,
+since a warning about nothing teaches the reader to skip footers.
+
+The row asks the SAME resolver the panels render by (override else declaration,
+`Preferences.style(overrideRawValue:declaredRawValue:)`) rather than reading its
+own key alone — a second copy of that rule is how a row comes to name a style its
+screen does not draw.
+
+Two mechanics are load bearing. A display's NAME is not an identity: two identical
+monitors report the same `localizedName`, so a row is LABELLED by the name and
+KEYED by the UUID (and the built-in panel is labelled in the app's own vocabulary
+instead of AppKit's). And the panel rebuild predicate is style + geometry, never
+the whole description — a display renamed under a live panel keeps that panel and
+its hover regions, since neither derives from the name (pinned by
+`WindowManagerTests.aRenamedDisplayKeepsItsPanelAndItsHoverRegions`); rebuilding
+on the description would tear a live surface down for a string.
+
 ### rendered-style-gates-settings
 Settings gated the Card-only indicator picker on `.disabled(style != .card)`,
 where `style` is the DECLARATION the all-displays picker holds. But what a display
@@ -860,6 +894,24 @@ cannot drift apart by construction; Settings re-reads it immediately after writi
 the declaration, since the panels are re-resolved synchronously there. And the
 declaration reader keeps its own name (`currentStyle()` — what the picker shows),
 so the two questions stay impossible to confuse at the call site.
+
+**Amendment: the third reader is the picture.** `StylePreview.shapes(for:on:)`
+resolves before it draws, so a tile asked about a named display shows what that
+display would really put on screen: the Notch tile on a slitless panel draws the
+card — floating, no slit, not opaque — instead of promising hardware the Mac does
+not have. A notch promised in a thumbnail is the same lie it would be on the
+panel. It also means the notch rule's own `safeTop > 0` guard is never reached
+through this path, which is exactly the shape this entry asks for: one mapping,
+every reader asking IT. The disabled tile reads that same resolver as a yes/no —
+`Style.isHonoured(on:)` is `resolved(on:) == self` — so a tile cannot be offered
+enabled for a style its screen would silently swap out.
+Drawing per display produced one measured number worth keeping: a slitless
+display's menu bar is 24 pt, against the 32 pt safe area a notched panel reports
+(that panel's real bar is 37). The preview needs a bar for the surfaces to have a
+top edge to sit under, and a slitless screen reports no safe area at all, so that
+24 is declared rather than derived — without the floor, the tile for every Mac
+without a notch loses the top edge where the whole difference between these skins
+lives.
 
 ### sample-dont-integrate
 A UI ticker that adds a fixed step per tick is a clock that runs slow. Timers are
@@ -1719,3 +1771,60 @@ caller's trailing pass covers whatever takes its place. The general shape, third
 in this codebase: a teardown that crosses into another subsystem comes back through
 the front door, so order the local bookkeeping before the crossing rather than
 trusting the crossing to be quiet.
+
+### one-screen-reading-per-edge
+At every display edge the app reads the display border ONCE and hands the SAME
+list to both sides that have to agree about it: the panel roster and the
+per-display list in Settings. The seam (`AppCore.applyScreenRoster`) takes the
+already-read descriptions as a parameter instead of calling
+`ScreenTranslation.describeAll()` inside itself, and that parameter is what makes
+the single reading STRUCTURAL rather than a habit the next caller can break. Two
+independent readings can disagree — a display that left between them — and then
+the tab offers a row for a display no panel carries while a panel draws for a
+display no row can reach: the Settings tab becomes a control over a screen the
+panels do not see. Two lists disagreeing about which screen is which is the class
+`hud-target-is-a-role` rules on, where a true sentence ends up describing the
+opposite behaviour. Order inside the seam is panels first, roster second: the
+roster is what a view reads, and publishing it earlier would offer a row whose
+writers reach a display the manager has not reconciled yet.
+
+The roster is REACTIVE, deliberately unlike its neighbour in Settings. The General
+tab seeds its mirrors once and re-reads only when its own picker writes — a
+pinned-latent tradeoff that costs a stale value there and is accepted. A list
+whose rows ARE the displays cannot take that deal: a row outliving its monitor is
+a control over a screen the user cannot see, and a display plugged in with the
+window open would have no row at all until Settings is closed and reopened. The
+write is guarded like every other read mirror, because an unchanged topology is
+the common case rather than the rare one — `didChangeScreenParameters` fires for a
+resolution change, a rearrangement or a display waking, and only some of those
+move this list.
+
+The menu bar does NOT read the roster. Its status block pull-reads the event-tap
+chain, and each of those readings resets the min/max latency counters of every tap
+on the machine (`media-key-chain-contention`), so a roster the menu observed would
+turn every display change into a system-wide probe — the same reason the
+automation monitor stays out of that body (`automation-is-fallback-only`).
+
+### selected-and-disabled-is-a-state
+A per-display style picker gets asked about screens that cannot draw the style the
+user declared: notch, on a panel with no slit. That tile is drawn SELECTED AND
+DISABLED, which is not a contradiction but the honest report of "you declared this
+and this screen does not draw it". So the selection ring keeps full strength — it
+states the choice, which is still true — and only the picture recedes (0.4),
+because the picture is the part that is not happening on this display; a faded
+ring would blur the second statement into the first. And the picture under the
+disabled tile is the fallback that display REALLY draws (`rendered-style-gates-settings`),
+which is what makes the pair readable at all: the tile says what was chosen and
+shows what is drawn, at the same time.
+
+Two accessibility facts were measured on the way there, and both generalize.
+SwiftUI's `AccessibilityTraits` has no member for "not enabled" — the set is
+`isButton` / `isSelected` / `isHeader` and their kin — so unavailability in SwiftUI
+is spoken through `.disabled(_:)` and through no other channel.
+`allowsHitTesting(false)` is the tempting alternative and is the wrong one: it
+leaves a tile that still announces as a live button and does nothing when
+activated, the one failure a person using VoiceOver cannot see. And the disabled
+trait by itself reads as "dimmed" with no reason attached, so the hint on such a
+tile says WHY (`style.unavailableOnThisDisplay`) in place of the position sentence
+the enabled tiles narrate. `.isSelected` survives the disabling for the same
+reason the ring does.

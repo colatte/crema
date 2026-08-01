@@ -19,11 +19,13 @@
    app's own HUD in the display's configured style; with the opt-in suppression
    active, the native HUD does not appear.
 3. Turning suppression off restores the native HUD (verifiable reversibility).
-4. Each display renders the HUD and now playing in its resolved style (the one
-   chosen globally; notch→card where there is no slit), positioned and sized by
-   that style, and honours the per-display "show now playing here" preference
-   (honoured at runtime; the per-display UI — a different style per screen, and
-   the toggle — is roadmap).
+4. Each display renders the HUD and now playing in its resolved style — its own
+   override from the Displays tab when it has one, else the style declared in
+   General; notch→card where there is no slit — positioned and sized by that
+   style. Picking a style for one display moves only that display; the button
+   that returns it to the all-displays choice takes effect at once, and declaring
+   in General replaces every per-display style. The Displays tab's "Show now
+   playing here" toggle is honoured live, on by default for the built-in display.
 5. Now playing works through mediaremote-adapter on every supported version; if
    it is unavailable, the JXA fallback takes over; if neither is available, the
    availability check disables the feature without crashing. A recovered adapter

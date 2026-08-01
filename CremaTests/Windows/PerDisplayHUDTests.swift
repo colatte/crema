@@ -23,6 +23,7 @@ struct PerDisplayHUDTests {
     private static func internalScreen() -> ScreenDescription {
         ScreenDescription(
             id: internalID,
+            name: "Built-in Retina Display",
             geometry: ScreenGeometry(frame: CGRect(x: 0, y: 0, width: 1512, height: 982)),
             isInternal: true
         )
@@ -31,6 +32,7 @@ struct PerDisplayHUDTests {
     private static func externalScreen() -> ScreenDescription {
         ScreenDescription(
             id: externalID,
+            name: "LG UltraFine",
             geometry: ScreenGeometry(frame: CGRect(x: 2000, y: 0, width: 2560, height: 1440)),
             isInternal: false
         )
@@ -110,6 +112,7 @@ struct PerDisplayHUDTests {
         let h = WindowManagerTests.Harness()
         let notched = ScreenDescription(
             id: Self.internalID,
+            name: "Built-in Retina Display",
             geometry: ScreenGeometry(
                 frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
                 safeTop: 32, auxLeft: 663.5, auxRight: 663.5
@@ -199,6 +202,7 @@ struct PerDisplayHUDTests {
         let secondID = DisplayUUID(rawValue: "EXTERNAL-2")
         let second = ScreenDescription(
             id: secondID,
+            name: "DELL U2720Q",
             geometry: ScreenGeometry(frame: CGRect(x: 5000, y: 0, width: 2560, height: 1440)),
             isInternal: false
         )

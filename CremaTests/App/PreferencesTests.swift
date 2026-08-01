@@ -99,6 +99,55 @@ struct PreferencesTests {
         #expect(preferences.style(for: internalDisplay) == .classic)
     }
 
+    /// The per-display control has to tell "inherits" from "has its own", and it
+    /// asks the same question resolution answers. The table is written
+    /// independently of the production rule on purpose: what bites is the VALUE
+    /// each combination lands on, not that some accessor answered.
+    @Test func theOverrideAccessorAgreesWithTheResolverIncludingTheRetiredRawValue() {
+        let preferences = Preferences(defaults: store.defaults)
+        // (override rawValue, declaration rawValue) → (what the display draws,
+        // what the control shows as this display's own).
+        struct Combination {
+            let override: String?
+            let declared: String?
+            let resolved: Style
+            let own: Style?
+        }
+        let cases: [Combination] = [
+            Combination(override: "card", declared: "classic", resolved: .card, own: .card),
+            Combination(override: "card", declared: nil, resolved: .card, own: .card),
+            // A rawValue a future version retired is no choice the user made, so
+            // it is no override: it falls through to the DECLARATION, and where
+            // there is none, to the shipped default.
+            Combination(override: "pill", declared: "classic", resolved: .classic, own: nil),
+            Combination(override: "pill", declared: nil, resolved: Preferences.defaultDeclaredStyle, own: nil),
+            Combination(override: nil, declared: "classic", resolved: .classic, own: nil),
+            Combination(override: nil, declared: nil, resolved: Preferences.defaultDeclaredStyle, own: nil),
+        ]
+
+        for testCase in cases {
+            let label = "override \(testCase.override ?? "unset") under declaration \(testCase.declared ?? "unset")"
+            store.defaults.removeObject(forKey: Preferences.styleKey(for: internalDisplay))
+            store.defaults.removeObject(forKey: Preferences.declaredStyleKey)
+            if let override = testCase.override {
+                store.defaults.set(override, forKey: Preferences.styleKey(for: internalDisplay))
+            }
+            if let declared = testCase.declared {
+                store.defaults.set(declared, forKey: Preferences.declaredStyleKey)
+            }
+
+            #expect(preferences.style(for: internalDisplay) == testCase.resolved, "\(label)")
+            #expect(preferences.styleOverride(for: internalDisplay) == testCase.own, "\(label)")
+            // The shared resolver is the same rule, so a per-display picker
+            // reading raw values through @AppStorage cannot disagree with the
+            // app about what any of these combinations means.
+            #expect(
+                Preferences.style(overrideRawValue: testCase.override, declaredRawValue: testCase.declared) == testCase.resolved,
+                "\(label)"
+            )
+        }
+    }
+
     @Test func declaringAStyleEverywhereDropsEveryOverrideAndSparesOtherPreferences() {
         let preferences = Preferences(defaults: store.defaults)
         // Overrides written the way the old all-displays writer did — one of
@@ -118,6 +167,59 @@ struct PreferencesTests {
         #expect(!preferences.showsNowPlaying(on: internalDisplay, isInternal: true))
         #expect(preferences.hudIndicatorStyle == .filled)
         #expect(Preferences(defaults: store.defaults).declaredStyle == .classic)
+    }
+
+    /// Returning ONE display to the declaration is not the all-displays sweep:
+    /// the neighbour that carries its own choice keeps it, and the declaration
+    /// itself is untouched. "Inherits" is the ABSENCE of the key — writing the
+    /// declaration into it would freeze today's declaration and shadow the next
+    /// one, which is the bug the declaration exists to fix.
+    @Test func clearingOneDisplaysStyleReturnsItToTheDeclarationAndSparesTheOthers() {
+        let preferences = Preferences(defaults: store.defaults)
+        preferences.declaredStyle = .classic
+        preferences.setStyle(.card, for: internalDisplay)
+        preferences.setStyle(.notch, for: externalDisplay)
+        preferences.setShowsNowPlaying(false, on: internalDisplay)
+
+        preferences.clearStyle(for: internalDisplay)
+
+        #expect(preferences.styleOverride(for: internalDisplay) == nil)
+        #expect(preferences.style(for: internalDisplay) == .classic)
+        // Removal, not a copy of the declaration: a later declaration has to
+        // reach this display, which only an absent key allows.
+        preferences.declaredStyle = .card
+        #expect(preferences.style(for: internalDisplay) == .card)
+
+        // The neighbour, the declaration and the unrelated per-display key all
+        // survive one display's clear.
+        #expect(preferences.styleOverride(for: externalDisplay) == .notch)
+        #expect(preferences.declaredStyle == .card)
+        #expect(!preferences.showsNowPlaying(on: internalDisplay, isInternal: true))
+        // The key a per-display picker binds @AppStorage to is the one this
+        // type writes and clears — a second spelling would bind the picker to a
+        // key nothing reads.
+        #expect(store.defaults.string(forKey: Preferences.styleKey(for: externalDisplay)) == Style.notch.rawValue)
+        #expect(store.defaults.object(forKey: Preferences.styleKey(for: internalDisplay)) == nil)
+        // Persisted, not just in this instance's view of the store.
+        #expect(Preferences(defaults: store.defaults).style(for: internalDisplay) == .card)
+    }
+
+    /// Clearing a display that inherits is a no-op on the store: it must not
+    /// materialize the key (a written key is an override, and the display would
+    /// stop following the declaration) and must not touch the declaration —
+    /// "return this display to the declaration" is not "declare anything".
+    @Test func clearingADisplayWithNoOverrideWritesNothing() {
+        let preferences = Preferences(defaults: store.defaults)
+
+        preferences.clearStyle(for: externalDisplay)
+
+        // The whole suite, so any key at all counts as a write.
+        let written = store.defaults.persistentDomain(forName: store.suiteName) ?? [:]
+        #expect(written.isEmpty, "clearing an inherited display wrote \(written.keys.sorted())")
+        #expect(store.defaults.object(forKey: Preferences.styleKey(for: externalDisplay)) == nil)
+        #expect(store.defaults.string(forKey: Preferences.declaredStyleKey) == nil)
+        #expect(preferences.styleOverride(for: externalDisplay) == nil)
+        #expect(preferences.style(for: externalDisplay) == Preferences.defaultDeclaredStyle)
     }
 
     @Test func theDeclarationIsAdoptedFromALegacyOverrideOnce() {
@@ -158,6 +260,33 @@ struct PreferencesTests {
         let preferences = Preferences(defaults: store.defaults)
         #expect(preferences.showsNowPlaying(on: internalDisplay, isInternal: true))
         #expect(!preferences.showsNowPlaying(on: externalDisplay, isInternal: false))
+    }
+
+    /// Two readers of the unset value: this type, and a per-display control that
+    /// binds the raw key through @AppStorage and cannot call an instance
+    /// accessor. Naming the default once is what keeps the control from showing
+    /// "off" on the internal display the moment the default changes.
+    @Test func theShowNowPlayingDefaultIsNamedOnceAndBothReadersAgree() {
+        let preferences = Preferences(defaults: store.defaults)
+
+        #expect(Preferences.defaultShowsNowPlaying(isInternal: true))
+        #expect(!Preferences.defaultShowsNowPlaying(isInternal: false))
+        #expect(
+            preferences.showsNowPlaying(on: internalDisplay, isInternal: true)
+                == Preferences.defaultShowsNowPlaying(isInternal: true)
+        )
+        #expect(
+            preferences.showsNowPlaying(on: externalDisplay, isInternal: false)
+                == Preferences.defaultShowsNowPlaying(isInternal: false)
+        )
+
+        // A written value beats the default on both sides, so the agreement
+        // above is about the UNSET reading and nothing else — and the key the
+        // control binds is the one this type writes.
+        preferences.setShowsNowPlaying(true, on: externalDisplay)
+
+        #expect(preferences.showsNowPlaying(on: externalDisplay, isInternal: false))
+        #expect(store.defaults.object(forKey: Preferences.showsNowPlayingKey(for: externalDisplay)) as? Bool == true)
     }
 
     @Test func nativeOSDSuppressionDefaultsToOffAndPersists() {

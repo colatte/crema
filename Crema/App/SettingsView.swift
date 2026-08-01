@@ -32,6 +32,12 @@ struct SettingsView: View {
             GeneralSettingsView(core: core)
                 .tabItem { Label(String(localized: "settings.tab.general", defaultValue: "General"), systemImage: "gearshape") }
                 .tag(SettingsTab.general)
+            // Beside General, because the two answer the same question at
+            // different scopes: what every display draws, then what one of them
+            // draws instead.
+            DisplaysSettingsView(core: core)
+                .tabItem { Label(String(localized: "settings.tab.displays", defaultValue: "Displays"), systemImage: "display") }
+                .tag(SettingsTab.displays)
             NowPlayingSettingsView(core: core)
                 .tabItem { Label(String(localized: "settings.tab.nowPlaying", defaultValue: "Now Playing"), systemImage: "music.note") }
                 .tag(SettingsTab.nowPlaying)
@@ -110,6 +116,15 @@ private struct GeneralSettingsView: View {
         style == .notch && !rendersNotch && rendersCard
     }
 
+    /// Whether any connected display carries a style of its own. Read where it is
+    /// used instead of mirrored into state: it is one key read per display, and a
+    /// seeded copy would go on promising a replacement after the declaration
+    /// already swept them — the pinned-latent cost the mirrors above accept and
+    /// this sentence cannot.
+    private var hasPerDisplayStyles: Bool {
+        PerDisplayStyleOverride.exists(among: core.displayRoster.displays)
+    }
+
     var body: some View {
         Form {
             // Style and Indicator are ONE topic — what the surface looks like — and
@@ -170,16 +185,29 @@ private struct GeneralSettingsView: View {
                 // enabled, because it governs that Card HUD — looked like it
                 // belonged to a style the user had not chosen. Naming the fallback
                 // as a fact resolves the adjacency instead of explaining it away.
-                Text(fallbackIsInEffect
-                    ? String(
-                        localized: "settings.general.style.footer.fallingBack",
-                        defaultValue: "Applies to every display. No connected display has a notch, so every one is drawing Card."
-                    )
-                    : String(
-                        localized: "settings.general.style.footer",
-                        defaultValue: "Applies to every display. On a display without a notch, the Notch style falls back to Card."
-                    ))
-                    .settingsFootnote()
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(fallbackIsInEffect
+                        ? String(
+                            localized: "settings.general.style.footer.fallingBack",
+                            defaultValue: "Applies to every display. No connected display has a notch, so every one is drawing Card."
+                        )
+                        : String(
+                            localized: "settings.general.style.footer",
+                            defaultValue: "Applies to every display. On a display without a notch, the Notch style falls back to Card."
+                        ))
+                    // "Applies to every display" is only half of what picking here
+                    // does: it also drops the per-display styles, which is the one
+                    // consequence a person cannot see from this tab. Said only
+                    // when there is something to replace — a warning about nothing
+                    // teaches the reader to skip the footer.
+                    if hasPerDisplayStyles {
+                        Text(String(
+                            localized: "settings.general.style.footer.replacesPerDisplay",
+                            defaultValue: "This also replaces the per-display styles in the Displays tab."
+                        ))
+                    }
+                }
+                .settingsFootnote()
             }
 
             Section {

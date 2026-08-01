@@ -8,6 +8,14 @@ import Testing
 /// rule that moves a surface also moves its thumbnail, or fails here.
 struct StylePreviewTests {
 
+    /// A panel with no slit: the whole class of Macs the notch skin cannot be
+    /// drawn on (mini, Studio, iMac, older Air), and every external monitor.
+    private let slitless = ScreenGeometry(frame: CGRect(x: 0, y: 0, width: 1920, height: 1200))
+    /// An ultrawide sitting to the right of a primary display. Its shape matches
+    /// none of the constants in the preview, and its origin is not zero, so a rule
+    /// that assumed either one shows up here instead of on someone's desk.
+    private let ultrawide = ScreenGeometry(frame: CGRect(x: 1512, y: 0, width: 3440, height: 1440))
+
     @Test func everyStylePutsItsSurfaceInsideTheScreen() {
         for style in Style.allCases {
             let surface = StylePreview.shapes(for: style).surface
@@ -97,5 +105,66 @@ struct StylePreviewTests {
         let screen = StylePreview.notchedReference.frame
         #expect(abs(classic.minY - (screen.maxY - raw.maxY) / screen.height) < 0.0001)
         #expect(classic.minY > 0.5, "the classic surface is near the BOTTOM once flipped")
+    }
+
+    // The tests above ask about the canonical panel — the default argument, and
+    // what the picker calls. The ones below name a display: the same question with
+    // the answer no longer fixed to one Mac.
+
+    @Test func onASlitlessPanelTheNotchTileDrawsWhatThatDisplayWouldDraw() {
+        // A tile is a picture OF a display, so on a display with no slit the notch
+        // tile has to show what that display would really draw — the card — rather
+        // than promise hardware the Mac does not have. It resolves through the one
+        // declared→drawn mapping every reader shares, so the picture and the panel
+        // cannot disagree (docs/DECISIONS.md: rendered-style-gates-settings).
+        let notch = StylePreview.shapes(for: .notch, on: slitless)
+        let card = StylePreview.shapes(for: .card, on: slitless)
+        #expect(notch.slit == nil, "no slit is drawn for hardware that has none")
+        #expect(notch.surface == card.surface, "the surface is the card's: \(notch.surface) vs \(card.surface)")
+        #expect(!notch.surfaceIsOpaque, "the card's translucent material, not the notch's black camouflage")
+        #expect(notch == card, "on a slitless panel the two tiles are one picture")
+    }
+
+    @Test func theMenuBarStripSurvivesADisplayWithNoSafeArea() {
+        // The strip is what makes the tile read as a SCREEN, and it derives from
+        // the safe area — which a slitless panel reports as zero. Derived alone the
+        // picture loses its top edge on exactly the displays where every skin is a
+        // floating one, and the surfaces would have nothing to float under.
+        let bar = StylePreview.shapes(for: .card, on: slitless).menuBar
+        #expect(bar > 0, "a tile with no top edge is not a picture of a screen")
+        // The 24 pt is written out here rather than read back from production: a
+        // measured number that changes has to be re-measured, not just re-run.
+        #expect(abs(bar * slitless.frame.height - 24) < 0.0001, "the slitless bar measures 24 pt: \(bar)")
+    }
+
+    @Test func theTileIsShapedLikeTheDisplayItDescribes() {
+        // A picture of a 21:9 monitor drawn in a 3:2 frame is a picture of some
+        // other Mac, and the surface positions it illustrates land in the wrong
+        // place along with it.
+        let sixteenTen = StylePreview.shapes(for: .card, on: slitless).aspectRatio
+        #expect(abs(sixteenTen - 1.6) < 0.0001, "1920x1200 is 16:10: \(sixteenTen)")
+        let wide = StylePreview.shapes(for: .card, on: ultrawide).aspectRatio
+        #expect(abs(wide - 3440.0 / 1440.0) < 0.0001, "3440x1440 is 21:9: \(wide)")
+        let reference = StylePreview.shapes(for: .notch).aspectRatio
+        #expect(abs(reference - 1512.0 / 982.0) < 0.0001, "the reference panel keeps its own shape: \(reference)")
+    }
+
+    @Test func everyStyleStaysInsideEveryScreen() {
+        // The same guard rail as the default-panel test above, across the shapes of
+        // screen the preview can be asked about: a rule that anchors off a constant
+        // instead of the geometry it was handed draws off one of them.
+        let screens: [(name: String, geometry: ScreenGeometry)] = [
+            ("notched", StylePreview.notchedReference),
+            ("slitless", slitless),
+            ("ultrawide", ultrawide),
+        ]
+        for screen in screens {
+            for style in Style.allCases {
+                let surface = StylePreview.shapes(for: style, on: screen.geometry).surface
+                #expect(surface.minX >= 0 && surface.maxX <= 1, "\(style) leaves \(screen.name) sideways: \(surface)")
+                #expect(surface.minY >= 0 && surface.maxY <= 1, "\(style) leaves \(screen.name) vertically: \(surface)")
+                #expect(surface.width > 0 && surface.height > 0, "\(style) draws nothing on \(screen.name)")
+            }
+        }
     }
 }

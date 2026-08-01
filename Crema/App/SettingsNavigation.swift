@@ -31,5 +31,5 @@ final class SettingsNavigation {
 /// The raw values are the DEBUG initial-tab flag's vocabulary and the persisted
 /// spelling; renaming one is a user-visible change to that harness.
 enum SettingsTab: String {
-    case general, nowPlaying, indicators, permissions, about
+    case general, displays, nowPlaying, indicators, permissions, about
 }

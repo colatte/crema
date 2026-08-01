@@ -40,10 +40,12 @@ struct WindowManagerTests {
     private static func screen(
         _ uuid: String,
         isInternal: Bool = true,
-        frame: CGRect = CGRect(x: 0, y: 0, width: 1000, height: 600)
+        frame: CGRect = CGRect(x: 0, y: 0, width: 1000, height: 600),
+        name: String? = nil
     ) -> ScreenDescription {
         ScreenDescription(
             id: DisplayUUID(rawValue: uuid),
+            name: name ?? (isInternal ? "Built-in Retina Display" : "LG UltraFine"),
             geometry: ScreenGeometry(frame: frame),
             isInternal: isInternal
         )
@@ -53,6 +55,7 @@ struct WindowManagerTests {
     private static func notchedScreen(_ uuid: String) -> ScreenDescription {
         ScreenDescription(
             id: DisplayUUID(rawValue: uuid),
+            name: "Built-in Retina Display",
             geometry: ScreenGeometry(
                 frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
                 safeTop: 32,
@@ -355,6 +358,7 @@ struct WindowManagerTests {
         // panel captured the old slit inset, so it must be rebuilt.
         let rescaled = ScreenDescription(
             id: notched.id,
+            name: notched.name,
             geometry: ScreenGeometry(frame: notched.geometry.frame, safeTop: 38, auxLeft: 620, auxRight: 620),
             isInternal: true
         )
@@ -378,6 +382,30 @@ struct WindowManagerTests {
 
         #expect(firstPanel?.closed == true)
         #expect(h.recorder.created.count == 2)
+    }
+
+    /// The other side of the two rebuild tests above, and the reason the rebuild
+    /// comparison is style + geometry rather than the whole description: the name
+    /// is the one field a panel captures nothing from — its slit inset and its
+    /// screen-space hover regions are identical before and after. A kept display
+    /// can still change name (AppKit disambiguates two identically named
+    /// monitors when the twin is attached; a Sidecar/AirPlay screen carries the
+    /// device's own name), and rebuilding on that would close a live panel and
+    /// re-arm hover for a string nothing draws from.
+    @Test func aRenamedDisplayKeepsItsPanelAndItsHoverRegions() throws {
+        let h = Harness()
+        let before = Self.screen("A", name: "DELL U2720Q")
+        h.manager.updateScreens([before])
+        // `try #require`, not `!`: a panel missing here is a WindowManager
+        // regression, and a trap would take the whole run's verdict with it.
+        let panel = try #require(h.recorder.panel(for: before.id))
+
+        // Same UUID, same geometry, new name.
+        h.manager.updateScreens([Self.screen("A", name: "Studio Display")])
+
+        #expect(h.recorder.created.count == 1)
+        #expect(h.recorder.panel(for: before.id) === panel)
+        #expect(!panel.closed)
     }
 
     @Test func refreshStylesWithoutChangesKeepsPanels() {

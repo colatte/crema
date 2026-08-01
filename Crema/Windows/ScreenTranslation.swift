@@ -45,6 +45,7 @@ enum ScreenTranslation {
 
         return ScreenDescription(
             id: uuid,
+            name: screen.localizedName,
             geometry: geometry(of: screen),
             isInternal: CGDisplayIsBuiltin(displayID) != 0
         )

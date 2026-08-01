@@ -56,9 +56,9 @@ card, and the classic's segmented bezel:
   and volume get a HUD that matches the rest — optionally replacing the system's.
 - **Three styles.** _Notch_ expands the cutout, _card_ floats a rounded panel
   near the top, and _classic_ is a quieter take on the native bezel, sitting
-  centered near the bottom where the system's HUD always lived. Pick the one you
-  like — it applies to every display, and a display without a notch renders
-  _notch_ as _card_.
+  centered near the bottom where the system's HUD always lived. Pick one for
+  every display in Settings › General, and give any display its own in
+  Settings › Displays. A display without a notch renders _notch_ as _card_.
 - **Two indicator looks for the card.** The HUD level reads as a thin _line_
   (the default) or fills the whole card — pick in Settings → General.
 - **Shows up when it's useful.** Crema surfaces briefly when the track changes,
@@ -67,9 +67,10 @@ card, and the classic's segmented bezel:
   with no Dock icon, and stays out of the way when you don't need it.
 - **Speaks your language.** English and Brazilian Portuguese, following the
   system.
-- **Configurable.** A standard Settings window covers the style, now-playing
-  behavior, the Indicators toggle, permissions, launch at login — and an About
-  tab with the version and links.
+- **Configurable.** A standard Settings window covers the style, a Displays tab
+  where each screen gets its own style and decides whether the player appears
+  there, now-playing behavior, the Indicators toggle, permissions, launch at
+  login — and an About tab with the version and links.
 
 ## What Crema is
 

@@ -29,6 +29,14 @@ struct Preferences {
     /// is the comment above.
     static let defaultDeclaredStyle = Style.notch
 
+    /// The override key of one display, exposed for the @AppStorage binding of a
+    /// per-display control, which cannot call an instance accessor. Delegates to
+    /// `Key` so the exposed spelling is byte-for-byte the one this type writes —
+    /// and so it stays under the prefix the declaration's sweep walks.
+    static func styleKey(for display: DisplayUUID) -> String {
+        Key.style(display)
+    }
+
     /// The key's whole reading rule, over the raw value: unset — or a rawValue a
     /// future version retired — resolves to the shipped default. Static so the two
     /// readers of this key, this type and the menu's @AppStorage, cannot disagree
@@ -38,33 +46,75 @@ struct Preferences {
         return style
     }
 
+    /// The whole per-display reading rule, over the two raw values: an override
+    /// the app can still name wins; anything else — unset, or a rawValue a future
+    /// version retired — falls through to the DECLARATION, and only from there to
+    /// the shipped default. A retired override deliberately does NOT reach the
+    /// default: it is not a choice the user made, so it must not outrank one he
+    /// did make (docs/DECISIONS.md: global-style-default). Static so a control
+    /// reading both keys raw through @AppStorage resolves by the same rule the
+    /// app renders by, instead of a second copy of it.
+    static func style(overrideRawValue: String?, declaredRawValue: String?) -> Style {
+        styleOverride(fromRawValue: overrideRawValue) ?? declaredStyle(fromRawValue: declaredRawValue)
+    }
+
+    /// The one home of "does this raw value name a style the app still ships?" —
+    /// a retired rawValue reads as no override at all, so it falls to the
+    /// declaration, never to the factory default (the user never chose it).
+    /// Static because a view reaches the raw key through @AppStorage, not the
+    /// store; the instance accessor and the resolver above both funnel here.
+    static func styleOverride(fromRawValue raw: String?) -> Style? {
+        raw.flatMap { Style(rawValue: $0) }
+    }
+
     var declaredStyle: Style {
         get { Self.declaredStyle(fromRawValue: defaults.string(forKey: Self.declaredStyleKey)) }
         nonmutating set { defaults.set(newValue.rawValue, forKey: Self.declaredStyleKey) }
     }
 
-    /// This display's override when it has one, else the declaration. An unknown
-    /// persisted rawValue (a style removed since — "pill", "circular") is no
-    /// override at all, so it falls through to the declaration rather than to a
-    /// value the user never picked.
+    /// This display's override when it has one, else the declaration — through
+    /// the shared resolver, so there is one rule and not one per reader.
     func style(for display: DisplayUUID) -> Style {
-        persistedStyle(for: display) ?? declaredStyle
+        Self.style(
+            overrideRawValue: defaults.string(forKey: Key.style(display)),
+            declaredRawValue: defaults.string(forKey: Self.declaredStyleKey)
+        )
     }
 
-    /// The per-display override. No Settings control writes it yet (the
-    /// per-display picker is roadmap), but resolution above is already
-    /// override-aware, which is what makes that picker a UI change only. Not
-    /// dead: do not remove for lack of a production caller.
+    /// This display's own choice, or nil when it inherits — the distinction a
+    /// per-display control shows and `style(for:)` resolves away. A rawValue a
+    /// future version retired reads as nil for the same reason it does not
+    /// resolve: presenting it as this display's choice would name a style the app
+    /// can no longer draw.
+    func styleOverride(for display: DisplayUUID) -> Style? {
+        Self.styleOverride(fromRawValue: defaults.string(forKey: Key.style(display)))
+    }
+
+    /// The per-display override, written programmatically; a control binds
+    /// `styleKey(for:)` instead of calling here, so do not remove this for lack
+    /// of a production caller — it is the same key from the other side.
     func setStyle(_ style: Style, for display: DisplayUUID) {
         defaults.set(style.rawValue, forKey: Key.style(display))
+    }
+
+    /// Returns one display to the declaration, and only that display. Inheriting
+    /// IS the absence of the key, so this removes rather than writing the current
+    /// declaration into it: a copy would look identical today and then shadow the
+    /// next declaration forever, which is the bug the declaration exists to fix.
+    /// A display that already inherits gets nothing written — not the key, not
+    /// the declaration.
+    func clearStyle(for display: DisplayUUID) {
+        defaults.removeObject(forKey: Key.style(display))
     }
 
     /// The all-displays declaration, as one operation. "Applies to every
     /// display" cannot be honored by writing the attached displays alone — a
     /// monitor plugged in afterwards has no key and would keep the shipped
     /// default — so this declares globally AND drops the overrides: one left
-    /// behind would hold its display on the style the user just replaced, with
-    /// no UI to clear it. Only explicit user action reaches here (pref-sacred).
+    /// behind would hold its display on the style the user just replaced, and a
+    /// display not attached right now is one no per-display control can reach —
+    /// `clearStyle(for:)` needs a display in front of the user. Only explicit
+    /// user action reaches here (pref-sacred).
     func declareStyleEverywhere(_ style: Style) {
         declaredStyle = style
         clearStyleOverrides()
@@ -86,15 +136,10 @@ struct Preferences {
     /// shipped default in every install past any change to it.
     func adoptDeclaredStyleFromOverrides(preferring displays: [DisplayUUID]) {
         guard defaults.string(forKey: Self.declaredStyleKey) == nil,
-              let adopted = displays.compactMap({ persistedStyle(for: $0) }).first else {
+              let adopted = displays.compactMap({ styleOverride(for: $0) }).first else {
             return
         }
         defaults.set(adopted.rawValue, forKey: Self.declaredStyleKey)
-    }
-
-    private func persistedStyle(for display: DisplayUUID) -> Style? {
-        guard let raw = defaults.string(forKey: Key.style(display)) else { return nil }
-        return Style(rawValue: raw)
     }
 
     /// Swept by key prefix because the override set is open-ended: one key per
@@ -108,15 +153,33 @@ struct Preferences {
 
     // MARK: - "Show now playing here"
 
-    /// Unset falls back to the default: on only for the internal display.
-    /// (`object(forKey:)` instead of `bool(forKey:)` to distinguish unset.)
-    func showsNowPlaying(on display: DisplayUUID, isInternal: Bool) -> Bool {
-        defaults.object(forKey: Key.showsNowPlaying(display)) as? Bool ?? isInternal
+    /// The key of one display, exposed for the @AppStorage binding of a
+    /// per-display control, which cannot call an instance accessor. Delegates to
+    /// `Key` so the exposed spelling is byte-for-byte the one this type writes.
+    static func showsNowPlayingKey(for display: DisplayUUID) -> String {
+        Key.showsNowPlaying(display)
     }
 
-    /// Honored live by WindowManager but intentionally headless — no Settings
-    /// control writes it yet (deferred to the per-display-styling roadmap; see
-    /// CONTRACTS-AUDIT P5). Not dead: do not remove for lack of a caller.
+    /// The unset reading, named once: this type and a control that binds the key
+    /// raw both ask here, so the internal display's "on" is not spelled twice and
+    /// left to drift. On only for the internal display — the surface belongs
+    /// where the user's eyes rest by default, and any other display says so
+    /// explicitly.
+    static func defaultShowsNowPlaying(isInternal: Bool) -> Bool {
+        isInternal
+    }
+
+    /// (`object(forKey:)` instead of `bool(forKey:)` to distinguish unset from a
+    /// stored `false`, which the default above is not free to override.)
+    func showsNowPlaying(on display: DisplayUUID, isInternal: Bool) -> Bool {
+        defaults.object(forKey: Key.showsNowPlaying(display)) as? Bool
+            ?? Self.defaultShowsNowPlaying(isInternal: isInternal)
+    }
+
+    /// Honored live by WindowManager; written programmatically, while a
+    /// per-display control binds `showsNowPlayingKey(for:)` instead of calling
+    /// here. Do not remove for lack of a caller — it is the same key from the
+    /// other side.
     func setShowsNowPlaying(_ shows: Bool, on display: DisplayUUID) {
         defaults.set(shows, forKey: Key.showsNowPlaying(display))
     }

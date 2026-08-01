@@ -16,6 +16,7 @@ struct NSPanelPresentationPanelTests {
     private func screen() -> ScreenDescription {
         ScreenDescription(
             id: DisplayUUID(rawValue: "PANEL-TEST"),
+            name: "Built-in Retina Display",
             geometry: ScreenGeometry(frame: CGRect(x: 0, y: 0, width: 1512, height: 982)),
             isInternal: true
         )

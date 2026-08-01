@@ -53,15 +53,16 @@ entire cycle into dead code in the one arrangement it was written for — and th
 suite stays green while it does (docs/DECISIONS.md:
 brightness-key-follows-the-pointer).
 
-## Per-display styles
+## Per-display styles — shipped ✓
 
-The style you pick applies to every display today, even though each display
-already has its own window: the picker declares one global style, and the
-preference store already resolves a per-display override on top of that
-declaration (alongside a "show now playing here" flag that defaults to the
-built-in display). What's missing is only the Settings surface to choose, say,
-_notch_ on the MacBook and _classic_ on the monitor — or which displays show the
-player at all.
+Each display can look the way you want it to. **Settings → General** declares the
+style for every display at once, and **Settings → Displays** gives any single
+screen its own — _notch_ on the MacBook, _classic_ on the monitor — with a button
+that hands it back to the all-displays choice (declaring in General replaces the
+per-display picks, and says so). The same tab holds "Show now playing here", so
+the player can live on one screen while the HUDs appear where they belong. Each
+screen's thumbnails are pictures of THAT screen: on a display without a notch, the
+_notch_ tile shows the card it would really draw instead of promising a slit.
 
 ## Automatic updates — shipped in 1.2.0 ✓
 

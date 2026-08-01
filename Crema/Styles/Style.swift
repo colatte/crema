@@ -20,6 +20,12 @@ enum Style: String, CaseIterable, Equatable, Sendable {
         self == .notch && geometry.safeTop <= 0 ? .card : self
     }
 
+    /// Whether this display draws the style as chosen instead of the fallback
+    /// standing in for it — the same single resolver, asked as a yes/no.
+    func isHonoured(on geometry: ScreenGeometry) -> Bool {
+        resolved(on: geometry) == self
+    }
+
     /// Pure frame-rule dispatch — same purity and testability as each style's
     /// own rule; receives ScreenGeometry, never NSScreen.
     func frame(for state: PresentationState, on geometry: ScreenGeometry) -> CGRect {

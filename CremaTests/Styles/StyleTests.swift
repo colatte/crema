@@ -45,6 +45,20 @@ struct StyleTests {
         }
     }
 
+    /// The same rule read as a yes/no, for a reader that has to SAY whether a
+    /// display honours the choice instead of drawing it. The table is written out
+    /// rather than derived from `resolved`, which would restate the implementation
+    /// instead of checking it: only the notch skin needs hardware, so it is the
+    /// only one a slitless panel refuses.
+    @Test func aStyleIsHonouredExactlyWhereItResolvesToItself() {
+        #expect(Style.notch.isHonoured(on: notched))
+        #expect(!Style.notch.isHonoured(on: geometry))
+        #expect(Style.card.isHonoured(on: notched))
+        #expect(Style.card.isHonoured(on: geometry))
+        #expect(Style.classic.isHonoured(on: notched))
+        #expect(Style.classic.isHonoured(on: geometry))
+    }
+
     @Test func cardCaseDispatchesToTheCardFrameRule() {
         let states: [PresentationState] = [
             .hidden,

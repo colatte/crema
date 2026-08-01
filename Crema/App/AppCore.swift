@@ -66,6 +66,11 @@ final class AppCore {
     /// (docs/DECISIONS.md: automation-is-fallback-only)
     let automationMonitor = AutomationPermissionMonitor()
     let nowPlayingMonitor: NowPlayingMonitor
+    /// The connected displays as the per-display Settings list reads them, kept in
+    /// step with the panels because both are handed the SAME reading
+    /// (`applyScreenRoster`). Its own observable because AppCore is not one — the
+    /// shape the permission and suppression mirrors already use (docs/DECISIONS.md: one-screen-reading-per-edge).
+    let displayRoster = DisplayRoster()
     /// Menu signal for domains whose native-OSD suppression stayed
     /// unrecoverable long enough to escalate — a failed apply suspends only its
     /// own domain, not all three. (docs/DECISIONS.md: per-domain-suspension)
@@ -224,11 +229,12 @@ final class AppCore {
         // shipped default and swap them a beat later.
         // (docs/DECISIONS.md: global-style-default)
         preferences.adoptDeclaredStyleFromOverrides(preferring: Self.styleAuthorityOrder(screens))
-        windowManager.updateScreens(screens)
+        Self.applyScreenRoster(screens, to: windowManager, mirroring: displayRoster)
 
         let windowManager = self.windowManager
+        let displayRoster = self.displayRoster
         screenObservation = Self.wireScreenParameterReinstall(reinstalling: tapSource) {
-            windowManager.updateScreens(ScreenTranslation.describeAll())
+            Self.applyScreenRoster(ScreenTranslation.describeAll(), to: windowManager, mirroring: displayRoster)
         }
 
         // Kill the adapter's Perl process on quit — deinit does not run reliably
@@ -1220,5 +1226,111 @@ extension AppCore {
         let displays = census()
         guard displays.hasBuiltIn else { return .noBuiltInDisplay }
         return displays.count > 1 ? .builtInAmongOthers : .quiet
+    }
+}
+
+// MARK: - Displays and their per-display preferences
+
+/// Extension in THIS file, not another, for the reason the menu-bar one gives:
+/// every writer below reaches `preferences` and `windowManager`, both private, and
+/// SE-0169 grants that only to a same-file extension. It also keeps the class body
+/// inside the `type_body_length` ceiling the composition root leans on.
+///
+/// Each instance method is a one-line delegation to a static, the shape the other
+/// seams here use: reaching the behaviour through an instance means constructing an
+/// `AppCore`, which boots the real system sources, so a static is what makes it
+/// reachable from a test at all — Preferences over ephemeral defaults and a
+/// WindowManager over a fake panel factory are both constructible without touching
+/// a system API. The residual is the standard one and is stated so nobody reads
+/// more into it: a mutation that removes the DELEGATION itself is not caught.
+@MainActor
+extension AppCore {
+    /// The one reading of the display border per edge, handed to both sides that
+    /// have to agree about it: the panel roster and the per-display Settings list.
+    ///
+    /// It takes the already-read list rather than calling
+    /// `ScreenTranslation.describeAll()` itself, and that parameter is what makes
+    /// the single reading STRUCTURAL: two independent readings can differ — a
+    /// display that left between them — and then Settings offers a row for a
+    /// display no panel carries while a panel draws for one no row can reach. Two
+    /// lists disagreeing about which screen is which is the class
+    /// docs/DECISIONS.md: hud-target-is-a-role rules on, where the true sentence
+    /// ends up describing the opposite behaviour.
+    ///
+    /// Panels first: the roster is what a view reads, and publishing it before the
+    /// panels exist would offer a row whose writers reach a display the manager has
+    /// not reconciled yet.
+    static func applyScreenRoster(
+        _ screens: [ScreenDescription],
+        to windowManager: WindowManager,
+        mirroring roster: DisplayRoster
+    ) {
+        windowManager.updateScreens(screens)
+        roster.update(screens)
+    }
+
+    /// One display's own style — the override that outranks the declaration, for
+    /// the display in front of the user.
+    func setStyle(_ style: Style, for display: DisplayUUID) {
+        Self.applyStyleOverride(style, on: display, in: preferences, applyingTo: windowManager)
+    }
+
+    /// Writes the per-display override and swaps that display's panel from the
+    /// re-resolved styles. Deliberately NOT `declareStyleEverywhere`, which is the
+    /// tempting shortcut because it also applies live: that one writes the global
+    /// declaration and sweeps every override, so a pick made for one display would
+    /// move the others and rewrite what the all-displays picker reports
+    /// (docs/DECISIONS.md: global-style-default). `refreshStyles` re-resolves every
+    /// display and rebuilds only the ones whose answer changed, so the untouched
+    /// displays keep their live panels — and their hover monitors with them.
+    static func applyStyleOverride(
+        _ style: Style,
+        on display: DisplayUUID,
+        in preferences: Preferences,
+        applyingTo windowManager: WindowManager
+    ) {
+        preferences.setStyle(style, for: display)
+        windowManager.refreshStyles()
+    }
+
+    /// Returns one display to the declaration — the "follow the global choice"
+    /// side of the same control.
+    func clearStyle(for display: DisplayUUID) {
+        Self.clearStyleOverride(on: display, in: preferences, applyingTo: windowManager)
+    }
+
+    /// Drops the override (inheriting IS the absence of the key — writing today's
+    /// declaration into it would look identical now and then shadow the next
+    /// declaration forever) and applies the re-resolved style at once, so the user
+    /// is not left looking at the style they just cleared.
+    static func clearStyleOverride(
+        on display: DisplayUUID,
+        in preferences: Preferences,
+        applyingTo windowManager: WindowManager
+    ) {
+        preferences.clearStyle(for: display)
+        windowManager.refreshStyles()
+    }
+
+    /// Whether this display shows the now-playing surface — on by default for the
+    /// built-in panel, off elsewhere.
+    func setShowsNowPlaying(_ shows: Bool, on display: DisplayUUID) {
+        Self.applyShowsNowPlaying(shows, on: display, in: preferences, applyingTo: windowManager)
+    }
+
+    /// Writes the per-display flag and re-applies it through a frame pass, which
+    /// already reads the preference for each panel. `refreshPresentation` and not
+    /// `refreshStyles`: nothing about the window changes here — the flag is render
+    /// context the panel carries into its view — and recreating a panel would tear
+    /// down a live surface and re-arm its hover monitors for a value the view
+    /// already reads.
+    static func applyShowsNowPlaying(
+        _ shows: Bool,
+        on display: DisplayUUID,
+        in preferences: Preferences,
+        applyingTo windowManager: WindowManager
+    ) {
+        preferences.setShowsNowPlaying(shows, on: display)
+        windowManager.refreshPresentation()
     }
 }

@@ -953,6 +953,142 @@
         }
       }
     },
+    "settings.displays.builtIn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Built-in display"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tela integrada"
+          }
+        }
+      }
+    },
+    "settings.displays.showNowPlaying": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show now playing here"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar o Tocando Agora aqui"
+          }
+        }
+      }
+    },
+    "settings.displays.showNowPlaying.footer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The player appears on this display. On by default for the built-in display."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O player aparece nesta tela. Ligado por padrão na tela integrada."
+          }
+        }
+      }
+    },
+    "settings.displays.style.footer.inherits": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This display follows the all-displays style. Pick one here to give it its own."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta tela segue o estilo de todas as telas. Escolha um aqui para dar um só dela."
+          }
+        }
+      }
+    },
+    "settings.displays.style.footer.noNotch": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This display has no notch, so Notch draws as Card here."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta tela não tem fenda, então o Notch desenha como Cartão aqui."
+          }
+        }
+      }
+    },
+    "settings.displays.style.footer.own": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This display has its own style. Choosing in General replaces it."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta tela tem um estilo próprio. Escolher na aba Geral o substitui."
+          }
+        }
+      }
+    },
+    "settings.displays.style.reset": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use the all-displays style"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usar o estilo de todas as telas"
+          }
+        }
+      }
+    },
+    "settings.displays.unnamed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Display"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tela"
+          }
+        }
+      }
+    },
     "settings.general.launchAtLogin": {
       "extractionState": "manual",
       "localizations": {
@@ -1034,6 +1170,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aplica-se a todas as telas. Nenhuma tela conectada tem fenda, então todas estão desenhando o Cartão."
+          }
+        }
+      }
+    },
+    "settings.general.style.footer.replacesPerDisplay": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This also replaces the per-display styles in the Displays tab."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Isso também substitui os estilos por tela da aba Telas."
           }
         }
       }
@@ -1701,6 +1854,23 @@
         }
       }
     },
+    "settings.tab.displays": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Displays"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telas"
+          }
+        }
+      }
+    },
     "settings.tab.general": {
       "extractionState": "manual",
       "localizations": {
@@ -1867,6 +2037,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fica preso à fenda, no topo da tela."
+          }
+        }
+      }
+    },
+    "style.unavailableOnThisDisplay": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not available on this display."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Indisponível nesta tela."
           }
         }
       }
