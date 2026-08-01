@@ -118,6 +118,14 @@ enum StylePreview {
     /// slitless guard is never reached through this path: the declared→drawn
     /// mapping lives in one function and every reader asks IT
     /// (docs/DECISIONS.md: rendered-style-gates-settings).
+    ///
+    /// `on:` has no caller in the app today — the per-display control is a popup of
+    /// names, not pictures — and it stays anyway: the resolution it selects is a
+    /// rule embedded in the line below, and the suite is what pins it, so the
+    /// parameter is the seam that reaches that rule rather than an unused argument
+    /// (the same standing `Preferences.setShowsNowPlaying` has). The next caller is
+    /// already named: tiles at the head of each per-display row, which would have to
+    /// picture that row's own screen.
     static func shapes(
         for style: Style,
         on geometry: ScreenGeometry = Self.notchedReference

@@ -41,4 +41,15 @@ struct NowPlayingMenuLineTests {
         #expect(NowPlayingMenuLine(title: "Breathe", artist: nil).namesMedia)
         #expect(NowPlayingMenuLine(title: "Breathe", artist: "Pink Floyd").namesMedia)
     }
+
+    /// The same predicate over the three SHAPES rather than over the inputs that
+    /// build them, because it now decides whether the transport EXISTS: stopped
+    /// media leaves the row alone in the block, so a case answering the wrong way
+    /// hides three working buttons or ships three dead ones. Total on purpose — a
+    /// fourth shape must come here and choose.
+    @Test func everyShapeAnswersWhetherThereIsMediaToActOn() {
+        #expect(!NowPlayingMenuLine.nothing.namesMedia)
+        #expect(NowPlayingMenuLine.title("Breathe").namesMedia)
+        #expect(NowPlayingMenuLine.titleAndArtist(title: "Breathe", artist: "Pink Floyd").namesMedia)
+    }
 }

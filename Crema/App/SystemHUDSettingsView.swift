@@ -10,7 +10,7 @@ struct SystemHUDSettingsView: View {
     /// every display draws Card.
     ///
     /// Seeded once, and nothing in this tab can change the answer: the writer that
-    /// can is the style declaration, which lives in the Displays tab. So a style
+    /// can is the style declaration, which lives in the General tab. So a style
     /// declared with this window open leaves the gate on the previous answer until
     /// it reopens — the pinned-latent deal this mirror has always taken
     /// (docs/internal/archive/CONTRACTS-AUDIT.md: S4).
@@ -80,9 +80,10 @@ struct SystemHUDSettingsView: View {
             }
 
             // The indicator's own appearance, in the tab that is about indicators.
-            // It sat beside the Style picker in General, where a greyed row explained
-            // itself by adjacency; that neighbour is gone, so the footer names the
-            // style it governs and where that style is chosen.
+            // It once sat beside the Style picker, where a greyed row explained
+            // itself by adjacency; it is a tab away from that picker now, so the
+            // footer has to name the style it governs and where that style is
+            // chosen — the sentence is what adjacency used to say.
             Section {
                 // Named for what it governs, which is also why it can be greyed out
                 // without a sentence excusing it: a row called "Card indicator" says
@@ -109,7 +110,7 @@ struct SystemHUDSettingsView: View {
             } footer: {
                 Text(String(
                     localized: "settings.hud.indicator.footer",
-                    defaultValue: "Applies to the Card style, which is chosen in the Displays tab."
+                    defaultValue: "Applies to the Card style, which is chosen in the General tab."
                 ))
                 .settingsFootnote()
             }

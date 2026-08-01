@@ -1252,10 +1252,7 @@ extension AppCore {
                 preferences: preferences,
                 status: loginStatus,
                 currentBuild: Self.currentBuild
-            ),
-            // Only the registration macOS honours: requiresApproval opens nothing
-            // yet and has its own warning.
-            loginRegistered: loginStatus == .enabled
+            )
         )
     }
 

@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import Crema
 
-/// The Displays tab's raw-value seam: a view reaches the override only through
+/// The per-display row's raw-value seam: a view reaches the override only through
 /// its raw @AppStorage key, so these pin the rule it applies — and that the
 /// rule is the store's own, not a second spelling.
 struct PerDisplayStyleOverrideTests {

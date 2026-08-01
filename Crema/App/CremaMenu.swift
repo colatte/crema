@@ -124,9 +124,10 @@ struct CremaMenu: View {
     ///
     /// An NSMenu is exactly as wide as its widest item, so a single 116-character
     /// status row opened this menu at roughly 1500 pt (measured in the field,
-    /// 2026-07-31) — the ceiling is about 72 characters a line, and the break points
-    /// live beside the text in the catalog, where each translation breaks at its own
-    /// clause. Stacked plain items, never a centred paragraph: informational rows are
+    /// 2026-07-31; that row has since left the block, the ceiling it bought governs
+    /// every line here) — the ceiling is about 72 characters a line, and the break
+    /// points live beside the text in the catalog, where each translation breaks at
+    /// its own clause. Stacked plain items, never a centred paragraph: informational rows are
     /// leading-aligned everywhere else in this menu and in the system's own
     /// (docs/DECISIONS.md: menu-status-before-warnings).
     @ViewBuilder
@@ -153,24 +154,14 @@ struct CremaMenu: View {
                 localized: "menu.betterDisplay.drawing",
                 defaultValue: "The screen brightness indicator comes from BetterDisplay."
             )
-        case .brightnessFollowsPointer:
+        case .brightnessNoBuiltIn:
             // Crema is the subject, never "the brightness keys": a sentence about
             // the KEY would assert what macOS and other apps do with it
-            // (docs/DECISIONS.md: brightness-key-target-in-the-menu). And the second
-            // clause stops at "left to the system" — this row appears only where no
-            // neighbour is ahead or reporting, so promising that the other display
-            // gets adjusted would be the false half of a true sentence.
-            String(
-                localized: "menu.status.brightnessFollowsPointer",
-                defaultValue: "Crema adjusts the built-in display while the pointer is on it —\non any other display, the key is left to the system."
-            )
-        case .brightnessNoBuiltIn:
+            // (docs/DECISIONS.md: brightness-key-target-in-the-menu).
             String(
                 localized: "menu.status.brightnessNoBuiltIn",
                 defaultValue: "Crema can't control screen brightness —\nit works only with the built-in display, and none is in use."
             )
-        case .opensAtLogin:
-            String(localized: "menu.status.opensAtLogin", defaultValue: "Crema opens at login.")
         }
     }
 

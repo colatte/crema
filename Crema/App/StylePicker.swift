@@ -11,34 +11,30 @@ import SwiftUI
 /// Every rectangle is computed from the skin's own frame rule (`StylePreview`), so
 /// a change that moves a surface moves its thumbnail with it.
 ///
-/// Asked about one display, the pictures are of THAT screen and a style it cannot
-/// draw is offered disabled: a Mac with no slit has no notch skin to hand over,
-/// and taking the choice anyway would answer the person with a fallback they did
-/// not ask for. Asked about no display — the global declaration — every tile stays
-/// offerable, because that choice is not about one screen: some connected display
-/// may well honour it, and where none does the Settings footer says so in a
-/// sentence instead of greying out the option the app ships declaring.
+/// This control speaks for EVERY display, and only for that: no screen's geometry
+/// decides which tiles are offerable, because the choice is not about one screen —
+/// some connected display may well honour it, and where none does the footer
+/// beside it says so in a sentence rather than greying out the option the app
+/// ships declaring. One display's own style is a different control in a different
+/// place (the per-display popup in the Displays section), and asking this one to
+/// be both is what made a tile mean two things at once.
 struct StylePicker: View {
     @Binding var selection: Style
-    /// The display the pictures describe; nil is the declaration that speaks for
-    /// every display at once.
-    private let geometry: ScreenGeometry?
-
-    init(selection: Binding<Style>, on geometry: ScreenGeometry? = nil) {
-        _selection = selection
-        self.geometry = geometry
-    }
 
     var body: some View {
         // Tight, because the ring needs room outside each picture and three
         // tiles plus their gaps still have to fit the Form row.
         HStack(alignment: .top, spacing: 4) {
             ForEach(Style.allCases, id: \.self) { style in
+                // Asking for the shapes without naming a panel is deliberately not
+                // the same as passing the canonical one: the default belongs to
+                // `StylePreview`, so this picker keeps asking about whatever panel
+                // that file decides is the one to teach from, rather than pinning a
+                // second copy of the answer here.
                 StyleTile(
                     style: style,
-                    shapes: shapes(for: style),
-                    isSelected: style == selection,
-                    isEnabled: honours(style)
+                    shapes: StylePreview.shapes(for: style),
+                    isSelected: style == selection
                 ) { selection = style }
             }
         }
@@ -47,25 +43,6 @@ struct StylePicker: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(String(localized: "settings.general.style", defaultValue: "Style"))
     }
-
-    /// The picture for one tile. Naming no display is deliberately not the same as
-    /// naming the canonical panel here: the default belongs to `StylePreview`, so
-    /// the global picker keeps asking about whatever panel that file decides is
-    /// the one to teach from, rather than pinning a second copy of the answer.
-    private func shapes(for style: Style) -> StylePreviewShapes {
-        guard let geometry else { return StylePreview.shapes(for: style) }
-        return StylePreview.shapes(for: style, on: geometry)
-    }
-
-    /// Whether the named display draws this style as picked rather than the
-    /// fallback standing in for it. One resolver answers it (`Style.isHonoured`),
-    /// the same one the panels and the preview ask, so the tile cannot be enabled
-    /// for a style the screen would silently swap out
-    /// (docs/DECISIONS.md: rendered-style-gates-settings).
-    private func honours(_ style: Style) -> Bool {
-        guard let geometry else { return true }
-        return style.isHonoured(on: geometry)
-    }
 }
 
 /// One option: the picture, its name, and the selection ring.
@@ -73,12 +50,6 @@ private struct StyleTile: View {
     let style: Style
     let shapes: StylePreviewShapes
     let isSelected: Bool
-    /// Whether the display this tile speaks for draws the style as picked. Selected
-    /// AND disabled is a real pair, not a contradiction: it is the honest report of
-    /// "you declared this and this screen does not draw it", so the ring keeps full
-    /// strength there and only the picture — the part that is not happening on this
-    /// display — recedes (docs/DECISIONS.md: selected-and-disabled-is-a-state).
-    let isEnabled: Bool
     let select: () -> Void
 
     var body: some View {
@@ -94,10 +65,6 @@ private struct StyleTile: View {
                         RoundedRectangle(cornerRadius: Thumbnail.cornerRadius, style: .continuous)
                             .strokeBorder(.separator, lineWidth: 0.5)
                     }
-                    // Inside the ring, never around it: the dim says "this screen
-                    // does not draw this", and the ring says "you chose it" — a
-                    // faded ring would blur the second statement into the first.
-                    .opacity(isEnabled ? 1 : Thumbnail.unhonouredOpacity)
                     .padding(Thumbnail.ringInset)
                     .overlay {
                         RoundedRectangle(
@@ -108,33 +75,19 @@ private struct StyleTile: View {
                     }
                 Text(style.displayName)
                     .font(.callout)
-                    .foregroundStyle(isSelected && isEnabled ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                    .foregroundStyle(isSelected ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
             }
         }
         // Plain, because the tile IS the control: a bordered button would draw a
         // second frame around a picture that already has one.
         .buttonStyle(.plain)
         .contentShape(.rect)
-        // Disabled through the environment rather than by blocking hits: SwiftUI's
-        // accessibility traits have no member for "not enabled" (the set is
-        // isButton / isSelected / isHeader and their kin), so `isEnabled` is the
-        // only channel that reaches VoiceOver. `allowsHitTesting(false)` would
-        // leave a tile that still reads as a live button and does nothing when
-        // activated — the one failure a person using VoiceOver cannot see.
-        .disabled(!isEnabled)
         .accessibilityLabel(style.displayName)
         // The picture is hidden from VoiceOver, so without this the whole control
         // is three nouns — exactly the thing this picker exists because names do
         // not convey. Position only, so the words cannot drift from the frame rules
-        // the way a description of size or colour would. It narrates the skin the
-        // name promises; where a display cannot draw that skin, the hint says WHY
-        // instead, because the disabled trait alone reads as "dimmed" without a
-        // reason.
-        .accessibilityHint(
-            isEnabled
-                ? style.previewDescription
-                : String(localized: "style.unavailableOnThisDisplay", defaultValue: "Not available on this display.")
-        )
+        // the way a description of size or colour would.
+        .accessibilityHint(style.previewDescription)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : [.isButton])
     }
 }
@@ -271,11 +224,6 @@ private enum Thumbnail {
     static let cornerRadius: CGFloat = 6
     /// Room between the picture and the selection ring.
     static let ringInset: CGFloat = 3
-    /// How far the picture recedes on a display that does not draw that style.
-    /// Enough to read as unavailable next to two tiles at full strength, and not
-    /// so far that the silhouette — the whole content of the tile — stops being
-    /// legible to someone deciding whether they mind.
-    static let unhonouredOpacity: Double = 0.4
     /// Floor for the menu-bar strip and the slit that cuts it. Scenery, like the
     /// strip itself: the tile scales its screen by `width / that screen's width`,
     /// so the reference panel's 32 pt safe area derives to roughly 2.3 pt here,

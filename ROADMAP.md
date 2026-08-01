@@ -56,13 +56,15 @@ brightness-key-follows-the-pointer).
 ## Per-display styles — shipped ✓
 
 Each display can look the way you want it to. **Settings → General** declares the
-style for every display at once, and **Settings → Displays** gives any single
-screen its own — _notch_ on the MacBook, _classic_ on the monitor — with a button
-that hands it back to the all-displays choice (declaring for all displays replaces the
-per-display picks, and says so). The same tab holds "Show now playing here", so
-the player can live on one screen while the HUDs appear where they belong. Each
-screen's thumbnails are pictures of THAT screen: on a display without a notch, the
-_notch_ tile shows the card it would really draw instead of promising a slit.
+style for every display at once, and — whenever there is a per-display answer the
+declaration cannot give — a row per screen right below it gives any single one its
+own: _notch_ on the MacBook, _classic_ on the monitor, picked from a popup whose
+first item, "Follow all displays", hands the screen back to the declaration
+(declaring for all displays replaces the per-display picks, and says so). Each row
+also holds "Show now playing here", so the player can live on one screen while the
+HUDs appear where they belong. On a display without a notch, the _notch_ option is
+offered dimmed and cannot be picked for it — that screen would really draw the
+card, and the app never records a choice it will not honour.
 
 ## Automatic updates — shipped in 1.2.0 ✓
 

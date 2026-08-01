@@ -216,9 +216,11 @@ struct WelcomeTourView: View {
     /// panels behind this window happen to be showing at that moment (a HUD, a
     /// track) changes with it, but nothing here depends on something being up.
     ///
-    /// It carries the all-displays section's footer because it is the same declaration,
-    /// and a price named in one place and not the other is a price paid by
-    /// whoever met the control here first.
+    /// It carries the all-displays section's footer because it is the same
+    /// declaration, and a price named in one place and not the other is a price paid
+    /// by whoever met the control here first. Only the sweep sentence is worded for
+    /// this window, because that one points at a list Settings has and this step
+    /// does not.
     private var styleStep: some View {
         VStack(spacing: 16) {
             Text(String(localized: "tour.step.style.title", defaultValue: "Pick a style"))
@@ -242,20 +244,25 @@ struct WelcomeTourView: View {
                         localized: "settings.general.style.footer",
                         defaultValue: "Applies to every display. On a display without a notch, the Notch style falls back to Card."
                     ))
-                // Picking a tile calls the same `setStyleEverywhere` the Displays
-                // tab does, which SWEEPS the per-display styles — on an upgrading
-                // install that silently discards configuration, so this window
-                // owes the same warning that tab owes. Said only when there is
-                // something to replace.
+                // Picking a tile calls the same `setStyleEverywhere` the Settings
+                // declaration does, which SWEEPS the per-display styles — on an
+                // upgrading install that silently discards configuration, so this
+                // window owes the same warning that section owes. Said only when
+                // there is something to replace.
+                //
+                // Its own key, and not the Settings one: that sentence points DOWN
+                // at the list under it, and there is no list here. A shared string
+                // would have to lose the pointer to be true in both places, which
+                // costs the pane the only wording that says WHERE.
                 if hasPerDisplayStyles {
                     Text(String(
-                        localized: "settings.general.style.footer.replacesPerDisplay",
-                        defaultValue: "This also replaces the per-display styles in the Displays tab."
+                        localized: "tour.step.style.replacesPerDisplay",
+                        defaultValue: "This also replaces the per-display styles in Settings."
                     ))
                 }
                 Text(String(
                     localized: "tour.step.style.body",
-                    defaultValue: "You can give a single display its own style later, in Settings › Displays."
+                    defaultValue: "You can give a single display its own style later, in Settings › General."
                 ))
             }
             .font(.footnote)
@@ -265,16 +272,16 @@ struct WelcomeTourView: View {
     }
 
     /// Notch is what was picked and nothing on screen is honouring it — the
-    /// The all-displays section's gate, copied whole. Deliberately not `!rendersNotch` alone:
-    /// with Card or Classic picked there is no fallback to report and the generic
-    /// sentence is the true one.
+    /// all-displays section's gate, copied whole. Deliberately not `!rendersNotch`
+    /// alone: with Card or Classic picked there is no fallback to report and the
+    /// generic sentence is the true one.
     private var fallbackIsInEffect: Bool {
         style == .notch && !rendersNotch && rendersCard
     }
 
     /// Whether any connected display carries a style of its own. Read where it is
-    /// used rather than mirrored into state, as in the Displays tab: the pick right
-    /// above sweeps those overrides, and a seeded copy would go on promising a
+    /// used rather than mirrored into state, as in Settings: the pick right above
+    /// sweeps those overrides, and a seeded copy would go on promising a
     /// replacement that has already happened.
     private var hasPerDisplayStyles: Bool {
         PerDisplayStyleOverride.exists(among: core.displayRoster.displays)

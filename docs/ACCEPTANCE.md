@@ -20,12 +20,19 @@
    active, the native HUD does not appear.
 3. Turning suppression off restores the native HUD (verifiable reversibility).
 4. Each display renders the HUD and now playing in its resolved style — its own
-   override from the Displays tab when it has one, else the style declared in
-   General; notch→card where there is no slit — positioned and sized by that
-   style. Picking a style for one display moves only that display; the button
-   that returns it to the all-displays choice takes effect at once, and declaring
-   for all displays (the Displays tab's leading section, or the menu bar's Style
-   submenu) replaces every per-display style. The Displays tab's "Show now
+   override from the Displays list in General when it has one, else the style
+   declared just above it; notch→card where there is no slit — positioned and
+   sized by that style. That list is offered only where there is a per-display
+   answer to give: more than one screen, or a sole display that is not the
+   built-in one, or a display already carrying an override; a lone built-in panel
+   with no override shows no list at all, the way System Settings offers no
+   Arrange with one display. Picking a style for one display moves only that
+   display; picking that display's "Follow all displays (…)" item returns it to
+   the declaration at once, and declaring for all displays (General's leading
+   section, or the menu bar's Style submenu) replaces every per-display style. On
+   a display without a notch, Notch is offered greyed out: it cannot be picked,
+   and a pick that reached the store anyway writes nothing — that display keeps
+   the style it had. The per-display "Show now
    playing here" toggle is honoured live, on by default for the built-in display.
 5. Now playing works through mediaremote-adapter on every supported version; if
    it is unavailable, the JXA fallback takes over; if neither is available, the

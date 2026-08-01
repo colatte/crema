@@ -26,10 +26,15 @@ struct MenuStatus {
         case media
     }
 
-    /// A fact about what Crema is doing, never a wish. Every row is gated on the
-    /// feature actually being IN EFFECT, because a block that restated preferences
-    /// would promise "replacing the system indicators" with the native HUD on
-    /// screen.
+    /// A fact about what Crema is doing, never a wish, and never one another surface
+    /// already carries. Two gates, and both are load-bearing. Every row is gated on
+    /// the feature actually being IN EFFECT, because a block that restated
+    /// preferences would promise "replacing the system indicators" with the native
+    /// HUD on screen. And a fact the user reads on a control — the login checkbox in
+    /// General, the switch at the top of this very menu — or in a sentence Settings
+    /// states unconditionally is not news here: it costs a permanent status block,
+    /// and it teaches the reader that these lines are decoration rather than the
+    /// app's own report.
     enum Row: Hashable {
         /// Notch is declared and no attached display has a slit, so every panel
         /// draws Card. The declaration itself is said by the checked item in the
@@ -39,21 +44,14 @@ struct MenuStatus {
         /// (docs/DECISIONS.md: rendered-style-gates-settings).
         case styleFallsBackToCard
         case brightnessFromBetterDisplay
-        /// The rule the user cannot see: a brightness key acts on the display under
-        /// the pointer, Crema applies it only on the built-in panel, and every other
-        /// display is left to the system. Said out loud because both halves read as
-        /// a bug unnamed — the old behavior dimmed the laptop from the monitor, and
-        /// the new one makes the same key do two different things depending on where
-        /// the pointer rests. Deliberately does NOT promise that the other display
-        /// gets adjusted: this row only appears where no neighbour is ahead or
-        /// reporting, which is where nobody may be managing it
-        /// (docs/DECISIONS.md: brightness-key-follows-the-pointer).
-        case brightnessFollowsPointer
         /// No built-in panel in use: clamshell, or a Mac that has none. Crema applies
         /// no brightness key there — every display in use belongs to someone else —
-        /// so the honest line is what Crema cannot do.
+        /// so the honest line is what Crema cannot do. The one brightness arrangement
+        /// still worth a row: the pointer rule that governs the ordinary case is
+        /// stated unconditionally in the Indicators tab, under the switch that turns
+        /// the replacement on, and this one is stated nowhere else in the app
+        /// (docs/DECISIONS.md: brightness-key-follows-the-pointer).
         case brightnessNoBuiltIn
-        case opensAtLogin
     }
 
     /// The one-click repair a warning offers, when there is one to offer.
@@ -133,8 +131,7 @@ struct MenuStatus {
         brightnessTarget: BrightnessKeyTargetNotice,
         nowPlayingActive: Bool,
         mediaCommandsAvailable: Bool,
-        loginOutcome: LoginItemReconciler.Outcome,
-        loginRegistered: Bool
+        loginOutcome: LoginItemReconciler.Outcome
     ) {
         let suspended = OSDSuppressionDomain.allCases.filter(suspendedDomains.contains)
 
@@ -150,20 +147,15 @@ struct MenuStatus {
         }
         // Gated on Crema being the one that applies, which is the whole subject of
         // the sentence: with the pref off, the suppressor absent, or the domain
-        // suspended, someone else applies the key and a line about Crema's aim
-        // explains nothing. The field measurement that shaped this row still holds —
-        // with a neighbour ahead in the tap chain the keys follow the display under
-        // the POINTER, which is where Crema's own rule came from — and where Crema
-        // does not apply, the row above is the one that speaks. It also qualifies
-        // the menu's own Toggle, which is a flat wish: for brightness the
-        // replacement holds only while the pointer is on the built-in panel.
+        // suspended, someone else applies the key and a line about what Crema cannot
+        // reach explains nothing — where the neighbour reports, the row above speaks
+        // instead, and where a domain is suspended, the warning below does. It also
+        // qualifies the menu's own Toggle, which is a flat wish: with no built-in
+        // panel in use, the replacement covers no screen brightness at all.
         let cremaApplies = suppressionEnabled && suppressionAvailable && suspended.isEmpty
         if cremaApplies, let row = Self.brightnessRow(for: brightnessTarget) {
             rows.append(row)
         }
-        // Only a registration macOS honours right now: requiresApproval opens
-        // nothing yet, and it has its own warning below.
-        if loginRegistered { rows.append(.opensAtLogin) }
         self.rows = rows
 
         var warnings: [Warning] = []
@@ -182,12 +174,13 @@ struct MenuStatus {
         var blocks: [Block] = [.controls]
         if !rows.isEmpty { blocks.append(.status) }
         if !warnings.isEmpty { blocks.append(.warnings) }
-        // The transport is gated on the chain being alive, and on the SAME value the
-        // warning above it comes from: with no source reporting, four disabled items
-        // are noise rather than a control the user can wait on, and a transport
-        // under the line that says nothing is reporting contradicts it. The gate
-        // used to sit in the scene's ViewBuilder, where the two could drift apart
-        // with no test able to see either.
+        // The media block is gated on the chain being alive, and on the SAME value
+        // the warning above it comes from: with no source reporting the block is a
+        // lone "Nothing playing" row — the transport inside it stands down on its own
+        // (NowPlayingMenuSection) — which states as news what the warning right above
+        // just said, and leaves nothing under it to wait on. The gate used to sit in
+        // the scene's ViewBuilder, where the two could drift apart with no test able
+        // to see either.
         if nowPlayingActive { blocks.append(.media) }
         self.blocks = blocks
     }
@@ -198,11 +191,18 @@ struct MenuStatus {
     // mapping seam rather than on rows-versus-warnings keeps the ORDER of both
     // lists — which is the contract the tests pin — visible in one place.
 
+    /// Silence for a built-in panel among others, and it is not the same silence as
+    /// `.quiet`: there the app has nothing true to say, here it has a sentence that
+    /// the Indicators tab already states UNCONDITIONALLY — the pointer scope, under
+    /// the switch that turns the replacement on — so the menu copy added no fact and
+    /// bought a status block on every healthy Mac. What must never happen is this
+    /// target falling through to the row below: telling a Mac that HAS a built-in
+    /// display that Crema cannot control screen brightness is false, not merely
+    /// redundant (docs/DECISIONS.md: brightness-key-target-in-the-menu).
     private static func brightnessRow(for target: BrightnessKeyTargetNotice) -> Row? {
         switch target {
-        case .builtInAmongOthers: .brightnessFollowsPointer
         case .noBuiltInDisplay: .brightnessNoBuiltIn
-        case .quiet: nil
+        case .builtInAmongOthers, .quiet: nil
         }
     }
 

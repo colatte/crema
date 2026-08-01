@@ -882,6 +882,76 @@ thematic home, carrying its rendered-style gate intact
 (`rendered-style-gates-settings`); General keeps what is left, which is opening at
 login.
 
+**Amendment (2026-08-01, third): the tab went away, the two scopes stayed
+together.** The Displays tab lasted one round. Style came back to General — the
+declaration as its leading "All displays" section, the per-display list as a
+"Displays" section immediately under it — so the pane a person opens first is the
+pane where style is asked at both of its scopes. Semantics untouched once more:
+same `declaredStyle` key, same sweep, same resolver.
+
+What travelled with the address change is the control itself. The per-display
+style stopped being a row of thumbnails and became a POPUP of names whose first
+item is "Follow all displays (<declaration>)"; the separate "Use the all-displays
+style" button died with it, because inheriting is now one of the options instead
+of a button beside them (the write is still `clearStyle` — inheriting IS the
+absence of the key). Three pieces of provenance chose that shape, and they are
+recorded so a later round does not undo it by taste: the platform asks this kind
+of choice with an inline pop-up button in the row (System Settings' Sound pane is
+full of them, and the HIG's pop-up button guidance is written for exactly that
+position) and reserves pictures for the choice a pane is ABOUT; a list of rows is
+offered only where there is more than one thing to arrange, which is what System
+Settings' own Displays pane does with Arrange; and a dropdown is the quieter
+control — the long-standing usability finding against it (it hides its options;
+Nielsen Norman Group's line on dropdowns has not moved in twenty years) is a cost
+where the choice is primary and exactly the right demotion where it is not. The
+declaration keeps the pictures; the override gets names.
+
+The reset became STRUCTURAL rather than conventional. `write(for: nil)` is
+`.clear` unconditionally — never `.override(declaration)`, not even when the
+declaration names the style this display already carries, which is precisely the
+case where writing it back looks identical this afternoon and then shadows the
+next declaration forever (pinned by
+`DisplayStyleOptionsTests.pickingInheritClearsTheKeyEvenWhenTheDeclarationNamesTheSameStyle`).
+
+One asymmetry inside the list is deliberate: inheriting is always ENABLED, even
+on a screen that cannot draw the declaration it falls to, while a style that
+screen cannot draw is offered disabled. A display can END UP on a style its panel
+does not honour, by inheriting one; it may never be PUT there here. Refusing to
+inherit would be refusing the one answer that exists for every screen whatever it
+draws.
+
+And the list is now CONDITIONAL, gated by `DisplayStyleOptions.listIsOffered` —
+not a count of screens but the question "is there an answer per display that the
+section above cannot give?". Three clauses: more than one screen, the only
+arrangement in which per-display answers can differ from each other at all; a
+sole display that is NOT internal — the Mac mini class, where
+`Preferences.defaultShowsNowPlaying(isInternal:)` is literally `isInternal`, so
+the now-playing surface is born OFF there and no other control in the app can
+turn it on (the same class of hardware `rendered-style-gates-settings` was
+written about); and a sole display already carrying an override, a key some
+earlier arrangement wrote that nothing else can clear while the sweep footer goes
+on naming a per-display style nobody can see. An empty roster answers false
+rather than subscripting. On a lone laptop with no override every row would
+repeat the declaration, and a control that decides nothing still reads as one
+that does.
+
+The sweep footer became deictic — "This also replaces the per-display styles
+below" — and it may point down, because the clause that makes it appear (an
+override among the connected displays) is also one of the clauses that opens the
+list: wherever that sentence is drawn, the section it names is drawn under it —
+an implication, not a coincidence, and pinned as one
+(`DisplayStyleListOfferTests.anOverrideAnywhereGuaranteesTheListThatShowsIt`).
+The welcome tour makes the same declaration with no list beneath it, and
+therefore carries its own wording (`tour.step.style.replacesPerDisplay`) rather
+than sharing a string that would have to lose the pointer to be true in both
+windows.
+
+The step deliberately left for later, with the gate that reopens it: a thumbnail
+at the head of each row, so a per-display choice can show its shape the way the
+declaration does. It already has its resolver — `StylePreview.shapes(for:on:)`,
+kept as a seam for it (see `rendered-style-gates-settings`) — and it reopens the
+moment a row can hold a picture without turning a two-monitor pane into a scroll.
+
 ### rendered-style-gates-settings
 Settings gated the Card-only indicator picker on `.disabled(style != .card)`,
 where `style` is the DECLARATION the all-displays picker holds. But what a display
@@ -918,7 +988,14 @@ panel. It also means the notch rule's own `safeTop > 0` guard is never reached
 through this path, which is exactly the shape this entry asks for: one mapping,
 every reader asking IT. The disabled tile reads that same resolver as a yes/no —
 `Style.isHonoured(on:)` is `resolved(on:) == self` — so a tile cannot be offered
-enabled for a style its screen would silently swap out.
+enabled for a style its screen would silently swap out. (Amended 2026-08-01:
+there is no disabled tile any more — the per-display control is a popup, and the
+yes/no it reads is `DisplayStyleOptions.isEnabled`, still `Style.isHonoured(on:)`,
+still the same resolver. `StylePreview.shapes(for:on:)` therefore has no caller in
+the app today and stays as a SEAM rather than dead code: the resolve-before-drawing
+rule lives in that function and the suite is what pins it, the same standing
+`Preferences.setShowsNowPlaying` has. The named next caller is a thumbnail at the
+head of each per-display row.)
 Drawing per display produced one measured number worth keeping: a slitless
 display's menu bar is 24 pt, against the 32 pt safe area a notched panel reports
 (that panel's real bar is 37). The preview needs a bar for the surfaces to have a
@@ -1233,6 +1310,48 @@ cut English's clauses out of Portuguese. Nothing is centred and nothing is
 truncated: menu items are leading-aligned on this platform, and a clipped sentence
 is a fact the user cannot read. The width vector left is data rather than chrome — a
 long track title in the media block — and it stays as it is.
+
+**Amendment (2026-08-01, fourth): a row that restates another surface is not a
+fact.** "A status row is a fact, never a wish" had a second half it never stated:
+a fact the user already reads on a CONTROL, or in a sentence Settings states
+UNCONDITIONALLY, is not news in the menu. Two rows went by that half.
+`opensAtLogin` was the mirror of General's "Open Crema at login" checkbox — which
+is also where the fact is CHANGED, so the mirror was strictly the poorer surface,
+and the two warnings about a revoked or unapproved registration already cover
+every case where the checkbox and reality disagree. `brightnessFollowsPointer`
+was the menu's copy of `settings.hud.suppress.footer.brightnessScope`, the
+sentence the Indicators tab states under the switch that turns the replacement
+on, with no gate at all. Both were GATED redundancy, and a gate does not make a
+copy news: between them they kept the status block permanent on a healthy Mac,
+which is what teaches a reader that these lines are decoration rather than the
+app's own report.
+What survives is `brightnessNoBuiltIn` — no built-in panel in use, so Crema
+applies no brightness key at all — because nothing else in the app says it, and
+the `cremaApplies` gate survives with it, since that row makes the same promise
+about who applies. One trap named so it is never re-opened: `.builtInAmongOthers`
+maps to NO row, never to the surviving one — telling a Mac that HAS a built-in
+display that Crema cannot control screen brightness is false, not merely
+redundant (`brightness-key-target-in-the-menu`). `styleFallsBackToCard` survives
+for the reason the second amendment already gave: it is a fact of FALLBACK rather
+than of choice, and no checked item can state it.
+Consequence, faced rather than inherited: on a healthy Mac `blocks` is
+`[.controls, .media]` — the status block is ABSENT, which is exactly what making
+the block conditional was for, and the menu's anchor is still the Toggle, which
+never goes away. The empty-`rows` case the second amendment introduced is now the
+COMMON shape rather than the corner one.
+The media block learned the same distinction from the other side: the three
+transport items EXIST only while there is a track. A command the player REFUSED
+greys its item in place — the rule `TransportControls` follows, so the block does
+not flinch as availability moves — while a verb with no OBJECT is removed,
+because three permanently dead items under "Nothing playing" are the one part of
+this menu nobody can ever use. The gate comes off `NowPlayingMenuLine.namesMedia`,
+the SAME value the row above is drawn from, and it deliberately stays in
+`NowPlayingMenuSection`'s body instead of rising into `MenuStatus` with the rest
+of the menu's gating: `MenuStatus` is built in `CremaMenu`'s body, whose every
+rebuild pull-reads the event-tap chain, so a gate over the media state would hang
+that system-wide probe off a value rewritten once a second — the whole thesis of
+`menu-reads-mirrors`.
+
 ### brightness-key-target-in-the-menu
 Correct behavior nobody can see reads as a bug: with an external monitor as the
 main display, the brightness key dims the laptop panel the user is not looking at.
@@ -1286,6 +1405,17 @@ instead of a limit, and stops short of saying what happens on the other display 
 this row appears only where no neighbour is ahead or reporting, which is exactly
 where nobody may be managing that display, so "left to the system" is the last true
 word available.
+
+**Amendment (2026-08-01): three states, two of them silent.** The row for a
+built-in panel among others left the menu — not because the sentence was wrong,
+but because the Indicators tab states it UNCONDITIONALLY, under the switch that
+turns the replacement on, so the menu was carrying a gated copy of an ungated
+sentence (`menu-status-before-warnings`, fourth amendment). `.noBuiltInDisplay`
+keeps its row: it is the one arrangement no other surface in the app names.
+`.quiet` is unchanged, and so is every gate above — the `cremaApplies` gate, the
+three causes of silence, the ACTIVE-display census the line is read from and the
+pull-read (never a mirror) it is taken by. The census is still consulted only
+after the gate, so a silenced menu asks the system nothing.
 
 ### menu-reads-mirrors
 A menu that names the track reads MIRRORS of title and artist, never the live
@@ -1346,6 +1476,18 @@ the block that pull-reads the tap chain. The gate that used to wrap it
 the SAME value `.nowPlayingUnavailable` is derived from: two readings of one fact
 is how a transport ends up under a line saying nothing is playing — the
 menu-level form of the `namesMedia` rule this entry already states.
+
+Note (2026-08-01): the added predicate now decides EXISTENCE. "Is there media at
+all" no longer greys the three transport items — it removes them, so a stopped
+player leaves the media block as its row alone. The two questions stay separate
+on purpose: a command the player REFUSED greys its item in place, so the block
+does not flinch as availability moves, while a verb with no object goes away. The
+identity this entry already demanded is unchanged and is load-bearing in a second
+way now — the gate IS `NowPlayingMenuLine.namesMedia`, the same value the row is
+drawn from — and it stays in the media view's own body: raising it into
+`MenuStatus` would give the block that pull-reads the tap chain a 1 Hz
+dependency, which is the cost this entry exists to refuse.
+
 ### brightness-key-follows-the-pointer
 The brightness key always acted on the built-in panel, whatever the user was
 looking at. With a monitor as the main display that is a key which dims the laptop
@@ -1903,6 +2045,24 @@ tile says WHY (`style.unavailableOnThisDisplay`) in place of the position senten
 the enabled tiles narrate. `.isSelected` survives the disabling for the same
 reason the ring does.
 
+**Amendment (2026-08-01): the state survived, its chrome did not.** The
+per-display control is a popup of names now, not a row of thumbnails, so
+"selected and disabled" is a CHECKED MENU ITEM that cannot be picked — the same
+honest report of "you chose this and this screen does not draw it", stated with a
+checkmark instead of a ring. `DisplayStyleOptions.selection` is still read from
+the user's own key and never filtered through `isHonoured`, which is what makes
+the pair representable at all: a legacy "notch" key on a slitless panel still
+reports `.notch` selected while its item reports `isEnabled == false`. Two things
+went with the tiles — the `style.unavailableOnThisDisplay` hint (a menu item has
+no hint channel) and the 0.4 dim of the picture. The DISABLING CHANNEL changed
+too, and that change is measured rather than stylistic: a `Picker` in `.menu`
+style DISCARDS `.disabled` on its options (macOS 26.5.2,
+`scripts/probes/picker-option-disabled.swift`), so the chrome is a custom `Menu`
+of Toggles, where `.disabled` is honoured and therefore still reaches VoiceOver
+through the only channel SwiftUI has for unavailability. Both accessibility facts
+above are untouched by the move and still generalize. And what keeps an unhonoured
+pick out of the STORE was never the chrome (`the-chrome-is-not-the-guarantee`).
+
 ### the-tour-configures-instead-of-pointing
 The welcome tour is five steps that CONFIGURE the app, not five pictures of it:
 the Accessibility permission, the style every display draws, the switch that
@@ -1942,3 +2102,23 @@ amounts and a window that resized between them would jump under the pointer at
 the moment a button is being clicked. The words, because `openSettings` is an
 environment action of the Settings scene: from a window built outside that
 scene it is a no-op, so a button there would be one that does nothing.
+
+### the-chrome-is-not-the-guarantee
+The per-display style control has to refuse a style the screen cannot draw. The
+obvious shape was a `Picker` in `.menu` style with `.disabled` on the option, and
+it does not work: measured on macOS 26.5.2
+(`scripts/probes/picker-option-disabled.swift`), a `.menu` Picker DISCARDS
+`.disabled` on its options — the marked item read back `isEnabled == true` while
+an `NSPopUpButton` in the same window, carrying a natively disabled item, read
+`false`. That control is what makes the negative mean something: the probe's
+introspection can see disablement, so the Picker's option genuinely is not
+disabled rather than merely unreadable from outside.
+So the popup is a custom `Menu` of one item per option, where `.disabled` is
+honoured, and its label is the effective style. But the chrome is not where the
+guarantee lives: `DisplayStyleOptions.write(for:)` answers `.refused` for a style
+this geometry does not honour, `.clear` for inherit and `.override` otherwise, so
+a pick that reaches the store despite the greying still writes nothing.
+This is an entry rather than a comment because it generalizes: when a control
+must not be able to do X, the ban belongs in the pure type the control calls, and
+the greying out is only what keeps X out of reach. Which of the two a given
+framework is giving you is a question a probe answers and a doc does not.

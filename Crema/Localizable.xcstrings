@@ -664,23 +664,6 @@
         }
       }
     },
-    "menu.status.brightnessFollowsPointer": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Crema adjusts the built-in display while the pointer is on it —\non any other display, the key is left to the system."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "O Crema ajusta a tela integrada enquanto o ponteiro está nela —\nem qualquer outra tela, a tecla fica com o sistema."
-          }
-        }
-      }
-    },
     "menu.status.brightnessNoBuiltIn": {
       "extractionState": "manual",
       "localizations": {
@@ -694,23 +677,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "O Crema não controla o brilho da tela —\nele funciona só com a tela integrada, e não há nenhuma em uso."
-          }
-        }
-      }
-    },
-    "menu.status.opensAtLogin": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Crema opens at login."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "O Crema abre ao iniciar sessão."
           }
         }
       }
@@ -1010,30 +976,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The player appears on this display. On by default for the built-in display."
+            "value": "The player appears on each display switched on here. On by default for the built-in display."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O player aparece nesta tela. Ligado por padrão na tela integrada."
-          }
-        }
-      }
-    },
-    "settings.displays.style.footer.inherits": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This display follows the all-displays style. Pick one here to give it its own."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Esta tela segue o estilo de todas as telas. Escolha um aqui para dar um só dela."
+            "value": "O player aparece em cada tela ligada aqui. Ligado por padrão na tela integrada."
           }
         }
       }
@@ -1055,40 +1004,6 @@
         }
       }
     },
-    "settings.displays.style.footer.own": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This display has its own style. Choosing the all-displays style replaces it."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Esta tela tem um estilo próprio. Escolher o estilo de todas as telas o substitui."
-          }
-        }
-      }
-    },
-    "settings.displays.style.reset": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Use the all-displays style"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Usar o estilo de todas as telas"
-          }
-        }
-      }
-    },
     "settings.displays.unnamed": {
       "extractionState": "manual",
       "localizations": {
@@ -1102,6 +1017,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tela"
+          }
+        }
+      }
+    },
+    "settings.general.displays": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Displays"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telas"
           }
         }
       }
@@ -1197,13 +1129,30 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This also replaces the per-display styles in the Displays tab."
+            "value": "This also replaces the per-display styles below."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Isso também substitui os estilos por tela da aba Telas."
+            "value": "Isso também substitui os estilos por tela abaixo."
+          }
+        }
+      }
+    },
+    "settings.general.style.inherit": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Follow all displays (%@)"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seguir todas as telas (%@)"
           }
         }
       }
@@ -1333,13 +1282,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Applies to the Card style, which is chosen in the Displays tab."
+            "value": "Applies to the Card style, which is chosen in the General tab."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aplica-se ao estilo Cartão, que é escolhido na aba Telas."
+            "value": "Aplica-se ao estilo Cartão, que é escolhido na aba Geral."
           }
         }
       }
@@ -1871,23 +1820,6 @@
         }
       }
     },
-    "settings.tab.displays": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Displays"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Telas"
-          }
-        }
-      }
-    },
     "settings.tab.general": {
       "extractionState": "manual",
       "localizations": {
@@ -2058,23 +1990,6 @@
         }
       }
     },
-    "style.unavailableOnThisDisplay": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Not available on this display."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Indisponível nesta tela."
-          }
-        }
-      }
-    },
     "tour.back": {
       "extractionState": "manual",
       "localizations": {
@@ -2234,13 +2149,30 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "You can give a single display its own style later, in Settings › Displays."
+            "value": "You can give a single display its own style later, in Settings › General."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Depois você pode dar um estilo só para uma tela, em Ajustes › Telas."
+            "value": "Depois você pode dar um estilo só para uma tela, em Ajustes › Geral."
+          }
+        }
+      }
+    },
+    "tour.step.style.replacesPerDisplay": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This also replaces the per-display styles in Settings."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Isso também substitui os estilos por tela nos Ajustes."
           }
         }
       }

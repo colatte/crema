@@ -29,7 +29,9 @@ final class SettingsNavigation {
 
 /// The tabs, named where both the window and whoever steers it can see them.
 /// The raw values are the DEBUG initial-tab flag's vocabulary and the persisted
-/// spelling; renaming one is a user-visible change to that harness.
+/// spelling; renaming one is a user-visible change to that harness — and dropping
+/// one, as "displays" was dropped when style came back to General, leaves that
+/// flag's old value parsing to nil and landing on General.
 enum SettingsTab: String {
-    case general, displays, nowPlaying, indicators, permissions, about
+    case general, nowPlaying, indicators, permissions, about
 }
