@@ -980,6 +980,18 @@ draws the tiles. A change of address once more. What DID change is the gate's
 shape — the row's existence, not its enabledness
 (`rendered-style-gates-settings`).
 
+**Amendment (2026-08-01, fifth): the picker's seed reads the declaration key,
+never the leading display's answer.** `currentStyle()` seeded the all-displays
+tiles (and the tour's) with the leading display's RESOLVED style, which let that
+display's own override show up selected in the control that speaks for every
+screen — the tiles claimed a declaration nobody had made, one row above the row
+already reporting the override as that display's own, while the menu's Style
+submenu, bound to the raw key, said the truth. The rule that closes it: every
+surface of ONE declaration reads the ONE key (`Preferences.declaredStyle`); the
+reader was renamed `declaredStyle()` so the name stops promising a "current"
+that geometry or overrides could bend. The authority order survives with its one
+remaining reader, the upgrade adoption above.
+
 ### rendered-style-gates-settings
 Settings gated the Card-only indicator picker on `.disabled(style != .card)`,
 where `style` is the DECLARATION the all-displays picker holds. But what a display
@@ -1004,8 +1016,10 @@ be the same divergence in a new place. The gate reads the ROSTER rather than
 re-resolving from Preferences, so "what the user declared" and "what is on screen"
 cannot drift apart by construction; Settings re-reads it immediately after writing
 the declaration, since the panels are re-resolved synchronously there. And the
-declaration reader keeps its own name (`currentStyle()` — what the picker shows),
-so the two questions stay impossible to confuse at the call site.
+declaration reader keeps its own name (`declaredStyle()` — what the picker seeds
+from; `global-style-default`'s fifth amendment records why the earlier
+`currentStyle()` died), so the two questions stay impossible to confuse at the
+call site.
 
 **Amendment: the third reader is the picture.** `StylePreview.shapes(for:on:)`
 resolves before it draws, so a tile asked about a named display shows what that

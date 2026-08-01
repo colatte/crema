@@ -531,18 +531,26 @@ final class AppCore {
 
     // MARK: - Settings (live preference changes)
 
-    /// The value the all-displays picker shows: what the leading display has
-    /// DECLARED — the global declaration, unless that display still carries a
-    /// legacy per-display override. Never what it draws: no geometry enters here,
-    /// which is why a style-scoped control gates on `rendersAnywhere` instead
-    /// (docs/DECISIONS.md: global-style-default).
-    func currentStyle() -> Style {
-        let leading = Self.styleAuthorityOrder(ScreenTranslation.describeAll()).first
-        return leading.map { preferences.style(for: $0) } ?? preferences.declaredStyle
+    /// The value the all-displays picker seeds from: the DECLARATION, raw — the
+    /// same key the menu's Style submenu binds, so the two surfaces of one
+    /// declaration cannot disagree. It used to answer with the leading display's
+    /// RESOLVED style, which let that display's own override show up selected in
+    /// the tiles that speak for every screen — the tiles claimed a declaration
+    /// nobody had made, one row above the row that already reported the override
+    /// as this display's own (docs/DECISIONS.md: global-style-default). Never
+    /// what any screen draws either: no geometry enters here, which is why a
+    /// style-scoped control gates on `rendersAnywhere` instead.
+    ///
+    /// A one-line delegate to a pinned resolver: the rule is proven at
+    /// `Preferences.declaredStyle(fromRawValue:)`, and this carries the same
+    /// declared residual as every seam like it — a mutation that reroutes the
+    /// delegation is not caught without constructing AppCore.
+    func declaredStyle() -> Style {
+        preferences.declaredStyle
     }
 
     /// Whether any connected display RENDERS this style — the gate for
-    /// style-scoped Settings controls, and deliberately not `currentStyle()`:
+    /// style-scoped Settings controls, and deliberately not `declaredStyle()`:
     /// that reports the declaration, and on a Mac without a notch the shipped
     /// default declares notch while every panel draws card, which left the
     /// Card-only indicator picker gray with the HUD it governs on screen

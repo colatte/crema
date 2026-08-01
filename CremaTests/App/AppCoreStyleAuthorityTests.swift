@@ -2,11 +2,14 @@ import CoreGraphics
 import Testing
 @testable import Crema
 
-/// The single display order both style readers share
-/// (`AppCore.styleAuthorityOrder`): the value the all-displays picker shows and
-/// the legacy override an upgrade adopts as the global declaration. If the two
-/// disagreed, an upgrade would adopt a style the picker never displayed. Pure
-/// over ScreenDescription values — no AppCore instance, no system API.
+/// The display order the upgrade migration reads
+/// (`AppCore.styleAuthorityOrder`): which legacy per-display override an install
+/// that predates the global declaration adopts as it. It once had a second
+/// reader — the all-displays picker's seed — until that seed was caught showing
+/// the leading display's own override as though it were the declaration; the
+/// seed now reads the declaration key itself, and this order speaks only for
+/// the one-time adoption (docs/DECISIONS.md: global-style-default). Pure over
+/// ScreenDescription values — no AppCore instance, no system API.
 ///
 /// The gap this file used to declare unfixable is closed, and the declaration was
 /// wrong: "reaching that method means constructing AppCore" is true of the INSTANCE

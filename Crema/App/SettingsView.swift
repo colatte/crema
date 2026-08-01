@@ -119,7 +119,7 @@ private struct GeneralSettingsView: View {
 
     init(core: AppCore) {
         self.core = core
-        _style = State(initialValue: core.currentStyle())
+        _style = State(initialValue: core.declaredStyle())
         _rendersCard = State(initialValue: core.rendersAnywhere(.card))
         _rendersNotch = State(initialValue: core.rendersAnywhere(.notch))
         _wallpaper = State(initialValue: core.tileWallpaper())
