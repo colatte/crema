@@ -1,9 +1,15 @@
 import SwiftUI
 
-/// Single onboarding screen shown when the app launches without the
-/// Accessibility permission. Explains why the permission is needed,
-/// deep-links to the exact Settings pane, and reflects a grant live — the
-/// monitor keeps polling, so no relaunch is needed.
+/// The Accessibility permission on its own, reachable from the menu whenever
+/// someone wants it back. First launch belongs to the welcome tour, which walks
+/// this same permission as one of its steps (docs/DECISIONS.md:
+/// the-tour-configures-instead-of-pointing), so this window is the MANUAL path
+/// and nothing presents it automatically.
+///
+/// It explains why the permission is needed, deep-links to the exact Settings
+/// pane, and reflects a grant live — the monitor keeps polling, so no relaunch
+/// is needed. Its sentences are the ones the tour's permission step reuses:
+/// one permission asked for in one set of words.
 @MainActor
 struct AccessibilityOnboardingView: View {
     let monitor: AccessibilityPermissionMonitor

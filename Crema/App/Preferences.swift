@@ -270,13 +270,17 @@ struct Preferences {
         nonmutating set { defaults.set(newValue, forKey: Self.launchesAtLoginBuildKey) }
     }
 
-    // MARK: - Accessibility onboarding
+    // MARK: - Welcome tour
 
-    /// Whether the first-launch Accessibility onboarding was already shown
-    /// (it appears once; the persistent signal afterwards is the menu warning).
-    var hasSeenAccessibilityOnboarding: Bool {
-        get { defaults.bool(forKey: "hasSeenAccessibilityOnboarding") }
-        nonmutating set { defaults.set(newValue, forKey: "hasSeenAccessibilityOnboarding") }
+    /// Whether the welcome tour has already been presented. Once per install: it
+    /// is the walk through the app's setup, not a reference — the menu bar and
+    /// Settings are where any of it is reached again, and the Accessibility
+    /// warning in the menu is the persistent signal for the one step that can
+    /// stay unfinished. Unset reads false, which is the only reading a fresh
+    /// install can produce.
+    var hasSeenWelcomeTour: Bool {
+        get { defaults.bool(forKey: "hasSeenWelcomeTour") }
+        nonmutating set { defaults.set(newValue, forKey: "hasSeenWelcomeTour") }
     }
 
     private enum Key {

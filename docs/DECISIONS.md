@@ -1876,3 +1876,43 @@ trait by itself reads as "dimmed" with no reason attached, so the hint on such a
 tile says WHY (`style.unavailableOnThisDisplay`) in place of the position sentence
 the enabled tiles narrate. `.isSelected` survives the disabling for the same
 reason the ring does.
+
+### the-tour-configures-instead-of-pointing
+The welcome tour is five steps that CONFIGURE the app, not five pictures of it:
+the Accessibility permission, the style every display draws, the switch that
+replaces the system indicators, and opening at login. Every control in it is
+the control the Settings window carries — the same persisted key, applied live
+through the same AppCore call — so nothing in the tour is a second source of
+truth and nothing it does needs undoing: what was picked there is what Settings
+shows afterwards.
+
+Four rules came out of building it, and each one is a way this window could
+have gone wrong.
+
+The flag is committed BEFORE the window is shown (`hasSeenWelcomeTour`, written
+inside `presentWelcomeTourIfFirstLaunch` ahead of the presentation). A crash or
+a force quit in the middle of the tour must not re-arm it: a window that
+returns after every bad launch is worse than one that was missed once.
+
+The gate asks about no permission. The Accessibility-only onboarding it
+replaces skipped anyone who already had the grant — which is every upgrading
+install — and an install that carries the grant is not one that was walked
+through anything; it is usually the one whose first launch went worst. So the
+tour is shown once per install, to everybody, and the legacy flag of the old
+onboarding is not consulted.
+
+No step may hold anyone back. The permission decides what the prominent button
+OFFERS (Grant while it is missing, Continue once it lands, which the polling
+monitor picks up live with the window open), never where the road goes: the
+grant button stands BESIDE Continue rather than replacing it. Crema runs
+without that permission, so a step that could only be left by granting would
+trap someone who declines inside a window whose whole point is that it can be
+left. The rule lives in `WelcomeTourFlow` — pure, stringless, both ends total —
+which is why it is pinned by tests instead of by a view body.
+
+The window is one fixed size for every step, and the last step spells ⌘, out in
+words instead of offering a button. The size, because the steps hold different
+amounts and a window that resized between them would jump under the pointer at
+the moment a button is being clicked. The words, because `openSettings` is an
+environment action of the Settings scene: from a window built outside that
+scene it is a no-op, so a button there would be one that does nothing.

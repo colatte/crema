@@ -128,6 +128,7 @@ final class AppCore {
     /// alongside the tap. (docs/DECISIONS.md: J7-estado-do-outro-lado)
     private var wakeObservations: [NSObjectProtocol] = []
     private var onboardingWindow: NSWindow?
+    private var welcomeTourWindow: NSWindow?
 
     // The composition root wires every source, actuator, and observer; long by nature.
     // swiftlint:disable:next function_body_length
@@ -311,7 +312,7 @@ final class AppCore {
             suppressionLockController = nil
         }
 
-        presentAccessibilityOnboardingIfFirstLaunch()
+        Self.presentWelcomeTourIfFirstLaunch(preferences: preferences) { self.presentWelcomeTour() }
 
         // The one moment the persisted login-item intent is reconciled against
         // reality: an item the user removed themselves is forgotten here, at a
@@ -486,10 +487,11 @@ final class AppCore {
         }
     }
 
-    /// Persists the opt-in and engages/disengages the suppressor. Called by the
-    /// Settings toggle. Routed through the lock controller so a toggle-on while
-    /// locked persists the wish but defers engagement to unlock; when there is
-    /// no suppressor to control, the wish is still persisted.
+    /// Persists the opt-in and engages/disengages the suppressor — the single
+    /// seam every switch over this preference writes through, wherever it is
+    /// offered. Routed through the lock controller so a toggle-on while locked
+    /// persists the wish but defers engagement to unlock; when there is no
+    /// suppressor to control, the wish is still persisted.
     func setNativeOSDSuppression(_ enabled: Bool) {
         if let suppressionLockController {
             suppressionLockController.setPreferredSuppression(enabled)
@@ -871,8 +873,14 @@ extension AppCore {
 /// Its own extension for the same reason the graph builders keep theirs — and it
 /// is what holds the class body inside the type_body_length ceiling, which the
 /// composition root leans on with every feature wired into it. In THIS file and
-/// not another: `presentAccessibilityOnboardingIfFirstLaunch` is private and is
-/// called from `init`, and SE-0169 grants that only to a same-file extension.
+/// not another: it reads `onboardingWindow`, a private stored property, and
+/// SE-0169 grants that only to a same-file extension.
+///
+/// The window below is opened by the menu's grant action and by nothing else:
+/// first launch belongs to the welcome tour, which walks this same permission as
+/// one of its steps, so this is the manual path back to it rather than a
+/// launch-time one. (`requestAccessibilityAccess` beside it is the shared ask,
+/// called from Settings too.)
 @MainActor
 extension AppCore {
     /// Requests the permission (system prompt registers the app in the
@@ -917,15 +925,76 @@ extension AppCore {
         NSApp.activate()
     }
 
-    private func presentAccessibilityOnboardingIfFirstLaunch() {
-        guard !accessibilityPermission.isGranted(), !preferences.hasSeenAccessibilityOnboarding else { return }
-        preferences.hasSeenAccessibilityOnboarding = true
-        presentAccessibilityOnboarding()
-    }
-
     private func closeAccessibilityOnboarding() {
         onboardingWindow?.close()
         onboardingWindow = nil
+    }
+}
+
+// MARK: - Welcome tour
+
+/// Same-file for the same reason as the extension above: `welcomeTourWindow` is a
+/// private stored property, and the gate is called from `init`.
+@MainActor
+extension AppCore {
+    /// The tour, once per install, and the two rules that decide who sees it.
+    ///
+    /// The flag is written BEFORE `present()` runs: a crash or a force quit in the
+    /// middle of the tour must not re-arm it, and a window that comes back after
+    /// every bad launch is worse than one that was missed. And nothing here asks
+    /// about the Accessibility permission — the onboarding this replaces did, and
+    /// skipped exactly the installs that already had it, which include every
+    /// upgrade. An install that carries the grant is not one that was walked
+    /// through anything; it is usually one whose first launch went worst.
+    ///
+    /// Standalone and static so a test pins both rules without booting the graph
+    /// (the reason the other AppCore seams are statics): reaching it through an
+    /// instance means constructing `AppCore`, which boots the real system sources.
+    static func presentWelcomeTourIfFirstLaunch(preferences: Preferences, present: () -> Void) {
+        guard !preferences.hasSeenWelcomeTour else { return }
+        preferences.hasSeenWelcomeTour = true
+        present()
+    }
+
+    /// Window built by the same recipe as the Accessibility onboarding above: a
+    /// plain titled window outside the Settings scene, because an accessory app
+    /// has no scene to open one into and `openSettings` is a no-op from here.
+    /// `NSApp.activate()` and never `activate(ignoringOtherApps:)` — the app has
+    /// no Dock tile, so it asks for the front the way the system offers it.
+    ///
+    /// The view holds this core and this core holds the window: a cycle whose far
+    /// end is the composition root, which lives for the whole app either way.
+    /// Closing by the title-bar box does not come through `closeWelcomeTour`
+    /// (there is no delegate, exactly as with the Accessibility onboarding above),
+    /// so the window stays retained — deliberately: the guard at the top then
+    /// REUSES it, and a second presentation shows the same window instead of
+    /// building a second one. `closeWelcomeTour` is the programmatic way out, for
+    /// the buttons inside the view.
+    func presentWelcomeTour() {
+        if let welcomeTourWindow {
+            welcomeTourWindow.makeKeyAndOrderFront(nil)
+            NSApp.activate()
+            return
+        }
+
+        let view = WelcomeTourView(core: self, dismiss: { [weak self] in self?.closeWelcomeTour() })
+        let window = NSWindow(contentViewController: NSHostingController(rootView: view))
+        window.styleMask = [.titled, .closable]
+        window.title = String(localized: "tour.window.title", defaultValue: "Welcome to Crema")
+        window.isReleasedWhenClosed = false
+        window.center()
+        welcomeTourWindow = window
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+    }
+
+    /// Leaving the tour by Skip or by the last button. The close box does not come
+    /// through here (no delegate, as with the onboarding window above) and does not
+    /// need to: nothing records a "finished", because the flag was committed before
+    /// the window existed — leaving early and reaching the end are the same act.
+    func closeWelcomeTour() {
+        welcomeTourWindow?.close()
+        welcomeTourWindow = nil
     }
 }
 

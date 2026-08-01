@@ -299,13 +299,16 @@ struct PreferencesTests {
         #expect(Preferences(defaults: store.defaults).suppressesNativeOSD)
     }
 
-    @Test func accessibilityOnboardingFlagDefaultsToFalseAndPersists() {
+    /// The tour's once-per-install flag. Off by default, so an install that has
+    /// never recorded anything is a first launch — the reading a missing key has
+    /// to give, since it is the only one a fresh install can produce.
+    @Test func welcomeTourFlagDefaultsToFalseAndPersists() {
         let preferences = Preferences(defaults: store.defaults)
-        #expect(!preferences.hasSeenAccessibilityOnboarding)
+        #expect(!preferences.hasSeenWelcomeTour)
 
-        preferences.hasSeenAccessibilityOnboarding = true
+        preferences.hasSeenWelcomeTour = true
 
-        #expect(Preferences(defaults: store.defaults).hasSeenAccessibilityOnboarding)
+        #expect(Preferences(defaults: store.defaults).hasSeenWelcomeTour)
     }
 
     @Test func showsNowPlayingOverridesBeatTheDefaultInBothDirections() {

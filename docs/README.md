@@ -18,7 +18,7 @@
 ## docs/
 
 - [DECISIONS.md](https://github.com/colatte/crema/blob/main/docs/DECISIONS.md) — design memory: the load-bearing decisions behind the fragile parts of the system, plus bug-class jurisprudence. Code comments cite its anchors as `(docs/DECISIONS.md: <anchor>)` but always carry the lesson themselves; the anchor is a pointer for depth.
-- [ACCEPTANCE.md](https://github.com/colatte/crema/blob/main/docs/ACCEPTANCE.md) — the 18 acceptance criteria: the observable definition of "the app is correct", each one checkable on a running Crema.
+- [ACCEPTANCE.md](https://github.com/colatte/crema/blob/main/docs/ACCEPTANCE.md) — the 19 acceptance criteria: the observable definition of "the app is correct", each one checkable on a running Crema.
 - [RELEASE-GUIDE.md](https://github.com/colatte/crema/blob/main/docs/RELEASE-GUIDE.md) — how a release is built, signed, packaged and published, and how the Sparkle update cycle is fed — including the one-time backup of the EdDSA private key, whose loss would end the update channel for every installation.
 - [LOCKSCREEN-INVESTIGATION.md](https://github.com/colatte/crema/blob/main/docs/LOCKSCREEN-INVESTIGATION.md) — the closed investigation proving on hardware that no window level composites over the lock shield; it is the evidence behind lock-aware suppression, and three code comments cite it.
 - [system-contact-inventory.md](https://github.com/colatte/crema/blob/main/docs/system-contact-inventory.md) — the ~90 places the app touches a resource that can die underneath it, in five classes. A checklist for future review; its statuses are dated and must be re-verified before they are trusted.
