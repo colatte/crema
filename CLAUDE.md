@@ -40,7 +40,7 @@ crema/                       # raiz do repositório
 │   ├── design-reference.md          # pesquisa: estilos e polish visual
 │   ├── osd-suppression-reference.md # pesquisa: supressão do OSD nativo
 │   ├── appcast.xml                  # feed do Sparkle (vivo desde a v1.2.0; regenerado pelo release.sh, ASSINADO — nunca editado à mão)
-│   ├── assets/                      # imagens do README: screenshots da vitrine + icon.png (export web do appiconset)
+│   ├── assets/                      # mídia do README e do site: screenshots da vitrine, os 2 GIFs do README, espécimes de HUD do index.html, icon.png (export web do appiconset), badge de download e video/ (teaser)
 │   └── internal/            # gitignored (local-only): SPEC.md, PLAN.md, auditorias e investigações de trabalho
 ├── design/
 │   ├── badge/               # makedownloadbadge.swift — gera o botão "Download for macOS" do README (docs/assets/download-macos.png); chão calibrado contra os dois temas do GitHub
