@@ -31,6 +31,7 @@ enum MediaSourceFilter {
         "org.torproject.torbrowser",    // Tor Browser
         "com.kagi.kagimacOS",           // Orion
         "app.zen-browser.zen",          // Zen
+        "net.imput.helium",             // Helium (per-product, like Firefox: imput ships non-browser apps)
     ]
 
     /// Carve-outs checked before the browser prefixes: sources that live

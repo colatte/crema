@@ -27,6 +27,7 @@ struct MediaSourceFilterTests {
             "org.torproject.torbrowser",
             "com.kagi.kagimacOS",
             "app.zen-browser.zen",
+            "net.imput.helium",
         ] {
             #expect(MediaSourceFilter.isBrowser(id), "\(id) must be filtered")
         }
