@@ -60,7 +60,7 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// silence, and until these existed no test could see them at all: mutations
     /// handing SwiftUI the power to size the window, and dropping the fixed
     /// frame entirely, both left the whole suite green.
-    /// (CLAUDE.md "Nunca fazer"; design-reference §1.3.)
+    /// (CLAUDE.md "Never do"; design-reference §1.3.)
     var currentWindowFrame: CGRect { panel.frame }
 
     /// What this panel's hover detection is keyed on right now; nil for a style

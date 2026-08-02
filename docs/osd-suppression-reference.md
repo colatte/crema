@@ -1,335 +1,343 @@
-# Referência — supressão do OSD nativo
+# Reference — native OSD suppression
 
-> Documento de pesquisa sobre a supressão do HUD nativo de volume/brilho/
-> teclado. **Nenhuma técnica aqui exige desabilitar o
-> SIP, tocar em /System ou pedir permissões além da Acessibilidade que o Crema
-> já usa.** Pesquisa realizada em 2026-07 (macOS 26 "Tahoe" 26.5.2 vigente,
-> verificações locais no MBP 14" M4 Pro); fontes citadas por afirmação.
-> Constraints: sem SIP off, reversível e opt-in, sem permissões
-> perigosas, distribuível.
+> Research document on suppressing the native volume/brightness/keyboard
+> HUD. **No technique here requires disabling SIP, touching /System or
+> asking for permissions beyond the Accessibility grant Crema already
+> uses.** Research performed 2026-07 (macOS 26 "Tahoe" 26.5.2 current,
+> local verification on an MBP 14" M4 Pro); sources cited per claim.
+> Constraints: no SIP off, reversible and opt-in, no dangerous
+> permissions, distributable.
 
-## 0. Licenças dos projetos citados — leia antes de abrir qualquer repo
+## 0. Licenses of the cited projects — read before opening any repo
 
-Mesma regra do design-reference §0: o Crema é escrito do zero e **nunca copia,
-transcreve ou adapta código de terceiros** — nem dos copyleft, nem dos
-permissivos. Deste documento usam-se **princípios, fatos e valores** descritos
-em prosa.
+Same rule as design-reference §0: Crema is written from scratch and **never
+copies, transcribes or adapts third-party code** — not from the copyleft
+projects, not from the permissive ones. What gets used from this document is
+**principles, facts and values** described in prose.
 
-| Projeto                                                                                                            | Licença (SPDX)                | Tipo         | Uso permitido no Crema                                                      |
-| ------------------------------------------------------------------------------------------------------------------ | ----------------------------- | ------------ | --------------------------------------------------------------------------- |
-| [SlimHUD](https://github.com/AlexPerathoner/SlimHUD)                                                               | **GPL-3.0**                   | ⚠️ Copyleft  | Só princípios/fatos — **nunca código**                                      |
-| [Atoll](https://github.com/Ebullioscopic/Atoll)                                                                    | **GPL-3.0**                   | ⚠️ Copyleft  | Só princípios/fatos — **nunca código**                                      |
-| [MewNotch](https://github.com/monuk7735/mew-notch)                                                                 | **GPL-3.0**                   | ⚠️ Copyleft  | Só princípios/fatos — **nunca código**                                      |
-| [boring.notch](https://github.com/TheBoredTeam/boring.notch)                                                       | **GPL-3.0**                   | ⚠️ Copyleft  | Só princípios/fatos — **nunca código**                                      |
-| [volumeHUD](https://github.com/dannystewart/volumeHUD)                                                             | MIT                           | Permissiva   | **Melhor referência de leitura** (Tahoe-nativa; política: não copiar)       |
-| [MonitorControl](https://github.com/MonitorControl/MonitorControl)                                                 | MIT                           | Permissiva   | Referência de leitura (consumo de teclas, repeat, Option+Shift)             |
-| [MediaKeyTap](https://github.com/nhurden/MediaKeyTap) (+ [fork MC](https://github.com/MonitorControl/MediaKeyTap)) | MIT                           | Permissiva   | Legalmente usável até como dependência; o Crema já tem tap próprio          |
-| [FreeDisplay](https://github.com/huberdf/FreeDisplay)                                                              | MIT                           | Permissiva   | Referência de leitura (teclas de brilho do teclado via tap)                 |
-| [Karabiner-Elements](https://github.com/pqrs-org/Karabiner-Elements)                                               | Unlicense                     | Permissiva   | Mecanismo (DriverKit) fora do escopo do Crema; contexto apenas              |
-| [Lunar](https://github.com/alin23/Lunar)                                                                           | MIT no repo, app freemium     | ⚠️ Ambígua   | Tratar como source-available; não reusar sem confirmar o componente         |
-| [NewBezelServices](https://github.com/MLforAll/NewBezelServices)                                                   | sem licença declarada         | ⚠️ Reservada | Só os fatos de arquitetura (XPC do OSDUIHelper); nada de código             |
-| [cleanHUD](https://github.com/w0lfschild/cleanHUD)                                                                 | sem licença (all rights res.) | ⚠️ Reservada | Nada — sem releases desde 2020 e exige SIP off                              |
-| [MacForge](https://github.com/MacEnhance/MacForge)                                                                 | MIT                           | Permissiva   | Fora de escopo — exige SIP + Library Validation off; sem releases recentes  |
-| MediaMate ([FAQ](https://wouter01.github.io/MediaMate/faq))                                                        | proprietário (Gumroad)        | Proprietário | Só comportamento observável (declara "sem mexer no SIP"; mecanismo fechado) |
-| BetterDisplay ([repo](https://github.com/waydabber/BetterDisplay))                                                 | proprietário (repo só issues) | Proprietário | Só issues/wiki                                                              |
-| Hudlum ([Many Tricks](https://manytricks.com))                                                                     | proprietário (freeware)       | Proprietário | Só páginas públicas; mecanismo não documentado                              |
+| Project                                                                                                            | License (SPDX)                | Type          | Permitted use in Crema                                                      |
+| ------------------------------------------------------------------------------------------------------------------ | ----------------------------- | ------------- | --------------------------------------------------------------------------- |
+| [SlimHUD](https://github.com/AlexPerathoner/SlimHUD)                                                               | **GPL-3.0**                   | ⚠️ Copyleft   | Principles/facts only — **never code**                                      |
+| [Atoll](https://github.com/Ebullioscopic/Atoll)                                                                    | **GPL-3.0**                   | ⚠️ Copyleft   | Principles/facts only — **never code**                                      |
+| [MewNotch](https://github.com/monuk7735/mew-notch)                                                                 | **GPL-3.0**                   | ⚠️ Copyleft   | Principles/facts only — **never code**                                      |
+| [boring.notch](https://github.com/TheBoredTeam/boring.notch)                                                       | **GPL-3.0**                   | ⚠️ Copyleft   | Principles/facts only — **never code**                                      |
+| [volumeHUD](https://github.com/dannystewart/volumeHUD)                                                             | MIT                           | Permissive    | **Best reading reference** (Tahoe-native; policy: no copying)               |
+| [MonitorControl](https://github.com/MonitorControl/MonitorControl)                                                 | MIT                           | Permissive    | Reading reference (key consumption, repeat, Option+Shift)                   |
+| [MediaKeyTap](https://github.com/nhurden/MediaKeyTap) (+ [MC fork](https://github.com/MonitorControl/MediaKeyTap)) | MIT                           | Permissive    | Legally usable even as a dependency; Crema already has its own tap          |
+| [FreeDisplay](https://github.com/huberdf/FreeDisplay)                                                              | MIT                           | Permissive    | Reading reference (keyboard-brightness keys via tap)                        |
+| [Karabiner-Elements](https://github.com/pqrs-org/Karabiner-Elements)                                               | Unlicense                     | Permissive    | Mechanism (DriverKit) out of Crema's scope; context only                    |
+| [Lunar](https://github.com/alin23/Lunar)                                                                           | MIT in the repo, freemium app | ⚠️ Ambiguous  | Treat as source-available; do not reuse without confirming the component    |
+| [NewBezelServices](https://github.com/MLforAll/NewBezelServices)                                                   | no declared license           | ⚠️ Reserved   | Architecture facts only (the OSDUIHelper XPC); no code                      |
+| [cleanHUD](https://github.com/w0lfschild/cleanHUD)                                                                 | no license (all rights res.)  | ⚠️ Reserved   | Nothing — no releases since 2020 and requires SIP off                       |
+| [MacForge](https://github.com/MacEnhance/MacForge)                                                                 | MIT                           | Permissive    | Out of scope — requires SIP + Library Validation off; no recent releases    |
+| MediaMate ([FAQ](https://wouter01.github.io/MediaMate/faq))                                                        | proprietary (Gumroad)         | Proprietary   | Observable behaviour only (claims "no tampering with SIP"; closed mechanism) |
+| BetterDisplay ([repo](https://github.com/waydabber/BetterDisplay))                                                 | proprietary (repo issues-only) | Proprietary  | Issues/wiki only                                                            |
+| Hudlum ([Many Tricks](https://manytricks.com))                                                                     | proprietary (freeware)        | Proprietary   | Public pages only; mechanism undocumented                                   |
 
-## 1. Como o OSD nativo funciona
+## 1. How the native OSD works
 
-### 1.1 O pipeline clássico (pré-Tahoe)
+### 1.1 The classic pipeline (pre-Tahoe)
 
-- O HUD de volume/brilho/teclado é desenhado pelo **OSDUIHelper.app**
-  (`/System/Library/CoreServices/`), que escuta o serviço Mach
-  `com.apple.OSDUIHelper` via `NSXPCListener` e implementa o protocolo privado
-  `OSDUIHelperProtocol` — método central
-  `showImage:onDisplayID:priority:msecUntilFade:withText:` (enum `OSDImage`
-  com valores 1–28). O wrapper cliente é o framework privado **OSD.framework**
-  (`OSDManager`). Engenharia reversa canônica:
+- The volume/brightness/keyboard HUD is drawn by **OSDUIHelper.app**
+  (`/System/Library/CoreServices/`), which listens on the Mach service
+  `com.apple.OSDUIHelper` via `NSXPCListener` and implements the private
+  protocol `OSDUIHelperProtocol` — central method
+  `showImage:onDisplayID:priority:msecUntilFade:withText:` (the `OSDImage`
+  enum, values 1–28). The client-side wrapper is the private **OSD.framework**
+  (`OSDManager`). Canonical reverse engineering:
   [ffried.codes, "The internals of the macOS HUD"](https://ffried.codes/2018/01/20/the-internals-of-the-macos-hud/)
-  (2018 — os detalhes de renderização **não** valem mais no Tahoe, ver §1.2).
-- **Domínio launchd decide o privilégio**: o OSDUIHelper é um **LaunchAgent
-  por usuário no domínio gui** (`/System/Library/LaunchAgents/com.apple.OSDUIHelper.plist`:
+  (2018 — the rendering details **no longer** hold on Tahoe, see §1.2).
+- **The launchd domain decides the privilege**: OSDUIHelper is a **per-user
+  LaunchAgent in the gui domain** (`/System/Library/LaunchAgents/com.apple.OSDUIHelper.plist`:
   `LimitLoadToSessionType [LoginWindow, Aqua]`, `MachServices`,
-  `EnablePressuredExit true`), **demand-launched** — não sobe no boot; nasce no
-  primeiro pedido de HUD. Por rodar como o usuário logado, um processo comum
-  pode dar `launchctl kickstart` e enviar sinais **sem sudo, sem TCC, sem SIP**
-  (`kill(2)` permite sinalizar processos do mesmo usuário; verificado
-  localmente no 26.5.2).
-- Quem **envia** o pedido de OSD não é documentado publicamente; o
-  [NewBezelServices](https://github.com/MLforAll/NewBezelServices) documenta
-  que o sistema roteia os eventos pro serviço Mach — quem detém o nome recebe.
-- A restrição do macOS 14.4 ao `launchctl kickstart -k`
+  `EnablePressuredExit true`), **demand-launched** — it does not come up at
+  boot; it is born on the first HUD request. Because it runs as the logged-in
+  user, an ordinary process can `launchctl kickstart` it and send it signals
+  **without sudo, without TCC, without SIP** (`kill(2)` allows signalling
+  processes of the same user; verified locally on 26.5.2).
+- Who **sends** the OSD request is not publicly documented;
+  [NewBezelServices](https://github.com/MLforAll/NewBezelServices) documents
+  that the system routes the events to the Mach service — whoever holds the
+  name receives them.
+- macOS 14.4's restriction on `launchctl kickstart -k`
   ([kevinmcox.com](https://www.kevinmcox.com/2024/03/changes-to-launchctl-kickstart-in-macos-14-4/))
-  atinge ~153 daemons **de sistema**; o agente gui por usuário não é afetado
-  (kickstart em `gui/UID/com.apple.OSDUIHelper` retornou 0 no 26.5.2).
+  hits ~153 **system** daemons; the per-user gui agent is not affected
+  (kickstart on `gui/UID/com.apple.OSDUIHelper` returned 0 on 26.5.2).
 
-### 1.2 O que mudou no macOS 26 (Tahoe) — o fato que reordena tudo
+### 1.2 What changed in macOS 26 (Tahoe) — the fact that reorders everything
 
-- O Tahoe substituiu o bezel central de 25 anos por um **popover estilo
-  Control Center no canto superior-direito** — a mudança que gerou a leva de
-  apps de 2025–26 (volumeHUD, Hudlum, Notchy).
-- **O renderer novo é o ControlCenter, não o OSDUIHelper.** Evidência
-  (forense local, 26.5.2 build 25F84): o binário do ControlCenter contém
-  `ControlCenterApp/SystemBannerService+OSD.swift` e o conjunto completo de
-  seletores do `OSDUIHelperProtocol` (inclusive a variante
-  `filledChiclets:totalChiclets:locked:` do bezel clássico) — ou seja, o
-  ControlCenter implementa ele mesmo o protocolo de OSD. Corroboração de
-  ecossistema: o
-  [PR #48 do Atoll](https://github.com/Ebullioscopic/Atoll/pull/48)
-  ("Works without the OSDUIHelper Disabler… also works on macOS Tahoe") e o
-  [volumeHUD](https://github.com/dannystewart/volumeHUD), feito PARA o Tahoe,
-  que suprime só por interceptação e nem menciona OSDUIHelper.
-- **Correção de forense (2026-07-20, hardware, uid 501).** A leitura original
-  desta seção era que o OSDUIHelper ficaria **ocioso** no Tahoe (`state = not
-  running` em uso normal) — o que sozinho tornaria o freeze do SlimHUD um no-op.
-  A forense de julho/2026 refina o fato **e** prova a conclusão por outro
-  caminho: o OSDUIHelper é um agente **demand-launched** — pode estar "not
-  running" porque ninguém o invocou, mas quando invocado sobe **vivo, ativo e
-  100% freezável/reversível** (kickstart → `state = running`, `endpoint
-  active = 1`; SIGSTOP/SIGCONT e SIGKILL+respawn confirmados). A pergunta
-  decisiva — *congelá-lo suprime o popover por-tecla do Tahoe?* — foi então
-  testada diretamente: com o helper **vivo e congelado** (SIGSTOP), o OSD
-  por-tecla **continuou aparecendo normalmente**. Ou seja, "ocioso" era
-  impreciso, mas a conclusão da seção (mira o processo errado) **está certa e
-  agora provada em hardware**, não apenas inferida das strings.
-- Consequência direta: **suspender o OSDUIHelper não suprime o popover do
-  Tahoe** (provado pelo smoke acima) — e suspender o renderer real está fora de
-  cogitação (o ControlCenter hospeda a barra de menus e tem `KeepAlive`).
-- O popover novo é frágil perto de apps de barra de menus: com o BetterDisplay
-  rodando, o HUD de volume do Tahoe simplesmente não aparece
+- Tahoe replaced the 25-year-old centred bezel with a **Control Center-style
+  popover in the top-right corner** — the change that spawned the 2025–26 wave
+  of apps (volumeHUD, Hudlum, Notchy).
+- **The new renderer is ControlCenter, not OSDUIHelper.** Evidence
+  (local forensics, 26.5.2 build 25F84): the ControlCenter binary contains
+  `ControlCenterApp/SystemBannerService+OSD.swift` and the full set of
+  `OSDUIHelperProtocol` selectors (including the classic bezel's
+  `filledChiclets:totalChiclets:locked:` variant) — that is, ControlCenter
+  implements the OSD protocol itself. Ecosystem corroboration:
+  [Atoll PR #48](https://github.com/Ebullioscopic/Atoll/pull/48)
+  ("Works without the OSDUIHelper Disabler… also works on macOS Tahoe") and
+  [volumeHUD](https://github.com/dannystewart/volumeHUD), built FOR Tahoe,
+  which suppresses by interception alone and never even mentions OSDUIHelper.
+- **Forensics correction (2026-07-20, hardware, uid 501).** This section
+  originally read that OSDUIHelper would sit **idle** on Tahoe (`state = not
+  running` in normal use) — which on its own would make SlimHUD's freeze a
+  no-op. The July 2026 forensics refines the fact **and** proves the
+  conclusion by another route: OSDUIHelper is a **demand-launched** agent — it
+  may be "not running" because nobody has invoked it, but when invoked it
+  comes up **alive, active and 100% freezable/reversible** (kickstart →
+  `state = running`, `endpoint active = 1`; SIGSTOP/SIGCONT and
+  SIGKILL+respawn confirmed). The decisive question — *does freezing it
+  suppress Tahoe's per-key popover?* — was then tested directly: with the
+  helper **alive and frozen** (SIGSTOP), the per-key OSD **kept appearing
+  normally**. That is, "idle" was imprecise, but the section's conclusion (it
+  aims at the wrong process) **is right and now proven on hardware**, not
+  merely inferred from the strings.
+- Direct consequence: **suspending OSDUIHelper does not suppress the Tahoe
+  popover** (proven by the smoke test above) — and suspending the real
+  renderer is out of the question (ControlCenter hosts the menu bar and has
+  `KeepAlive`).
+- The new popover is fragile around menu-bar apps: with BetterDisplay
+  running, Tahoe's volume HUD simply does not appear
   ([BetterDisplay #4726](https://github.com/waydabber/BetterDisplay/issues/4726));
-  mesmo sintoma com o Ice ([Ice #719](https://github.com/jordanbaird/Ice/issues/719)).
-  Sinal de que a Apple ainda está assentando essa superfície.
+  same symptom with Ice ([Ice #719](https://github.com/jordanbaird/Ice/issues/719)).
+  A sign that Apple is still settling this surface.
 
-## 2. Abordagens descartadas (não recomendar; documentado o porquê)
+## 2. Discarded approaches (do not recommend; the why is documented)
 
-| Abordagem                                                                                                                  | Por que está morta                                                                                                                                                                                                                                                               |
-| -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `launchctl unload -wF /System/Library/LaunchAgents/com.apple.OSDUIHelper.plist` (ou `com.apple.BezelUI.plist`, pré-Sierra) | Exige **SIP off**; a mudança se perde ao reabilitar o SIP e reiniciar ([SlimHUD discussion #23](https://github.com/AlexPerathoner/SlimHUD/discussions/23))                                                                                                                       |
-| `sudo defaults write` nos plists de `/System`                                                                              | Caminho protegido por SIP no macOS moderno; receita da era Sierra                                                                                                                                                                                                                |
-| Injeção MacForge/cleanHUD (SIMBL-style)                                                                                    | Exige SIP **e** Library Validation off ([docs do MacEnhance](https://www.macenhance.com/docs/general/sip-sec.html)); incompatível com notarização; sem releases desde 2020/2023                                                                                                  |
-| Takeover do serviço Mach (NewBezelServices): registrar o próprio listener em `com.apple.OSDUIHelper`                       | Elegante (receberia TODOS os eventos), mas exige impedir o agente da Apple de reivindicar o nome — operação SIP-protected                                                                                                                                                        |
-| `defaults write com.apple.controlcenter EnableSystemBanners -bool false`                                                   | Curiosidade Tahoe (volta o OSD estilo Sequoia; domínio de usuário, reversível — [MonitorControl #1873](https://github.com/MonitorControl/MonitorControl/discussions/1873)), mas é chave privada não documentada e **já não funciona no macOS 27 beta** — não construir sobre ela |
+| Approach                                                                                                                   | Why it is dead                                                                                                                                                                                                                                                                   |
+| -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `launchctl unload -wF /System/Library/LaunchAgents/com.apple.OSDUIHelper.plist` (or `com.apple.BezelUI.plist`, pre-Sierra) | Requires **SIP off**; the change is lost on re-enabling SIP and rebooting ([SlimHUD discussion #23](https://github.com/AlexPerathoner/SlimHUD/discussions/23))                                                                                                                   |
+| `sudo defaults write` on the `/System` plists                                                                              | SIP-protected path on modern macOS; a Sierra-era recipe                                                                                                                                                                                                                          |
+| MacForge/cleanHUD injection (SIMBL-style)                                                                                  | Requires SIP **and** Library Validation off ([MacEnhance docs](https://www.macenhance.com/docs/general/sip-sec.html)); incompatible with notarization; no releases since 2020/2023                                                                                               |
+| Mach service takeover (NewBezelServices): registering your own listener on `com.apple.OSDUIHelper`                         | Elegant (it would receive ALL the events), but requires keeping Apple's agent from claiming the name — a SIP-protected operation                                                                                                                                                  |
+| `defaults write com.apple.controlcenter EnableSystemBanners -bool false`                                                   | A Tahoe curiosity (brings back the Sequoia-style OSD; user domain, reversible — [MonitorControl #1873](https://github.com/MonitorControl/MonitorControl/discussions/1873)), but it is an undocumented private key and **no longer works on the macOS 27 beta** — do not build on it |
 
-Não existe **nenhuma** API pública, entitlement, toggle de Ajustes ou chave de
-defaults suportada para desligar o OSD nativo — inclusive no Tahoe (threads de
-usuários pedindo exatamente isso não têm resposta baseada em configuração:
+There is **no** public API, entitlement, System Settings toggle or supported
+defaults key to turn off the native OSD — including on Tahoe (user threads
+asking for exactly that get no configuration-based answer:
 [Apple Discussions](https://discussions.apple.com/thread/256219850),
 [MacRumors](https://forums.macrumors.com/threads/new-volume-and-brightness-indicators-stress-me-out.2468210/)).
-É por isso que todo app do gênero usa uma das duas técnicas da §3.
+That is why every app in the genre uses one of the two techniques in §3.
 
-## 3. As duas técnicas modernas sem SIP
+## 3. The two modern SIP-free techniques
 
-### 3.1 Interceptação de teclas — consumir o evento no event tap ✅ RECOMENDADA
+### 3.1 Key interception — consuming the event in the event tap ✅ RECOMMENDED
 
-**Princípio:** o OSD nativo é consequência do sistema PROCESSAR a tecla. Um
-`CGEventTap` no nível HID (`kCGHIDEventTap`, opção `.defaultTap`) escutando
-eventos `NX_SYSDEFINED` (CGEventType raw 14) decodifica os códigos de tecla
-auxiliar do `data1` (soundUp=0, soundDown=1, brightnessUp=2, brightnessDown=3,
-mute=7), **engole o evento devolvendo nil do callback** — o sistema nunca vê a
-tecla, logo nunca mostra HUD nenhum — e o app **aplica a mudança ele mesmo**
-pelos seus atuadores. Quem usa hoje: [volumeHUD 3.0](https://github.com/dannystewart/volumeHUD)
-(MIT, nov/2025, feito para o Tahoe — README: "hides the system HUD… by
+**Principle:** the native OSD is a consequence of the system PROCESSING the key.
+A `CGEventTap` at the HID level (`kCGHIDEventTap`, option `.defaultTap`)
+listening for `NX_SYSDEFINED` events (CGEventType raw 14) decodes the auxiliary
+key codes from `data1` (soundUp=0, soundDown=1, brightnessUp=2,
+brightnessDown=3, mute=7), **swallows the event by returning nil from the
+callback** — the system never sees the key, so it never shows any HUD — and the
+app **applies the change itself** through its actuators. Who uses this today:
+[volumeHUD 3.0](https://github.com/dannystewart/volumeHUD)
+(MIT, Nov 2025, built for Tahoe — README: "hides the system HUD… by
 intercepting the volume/brightness keys and handling changes directly"),
-MewNotch (toggle opt-in "System HUD Suppression" desde v2.0.0), boring.notch,
-[MonitorControl](https://github.com/MonitorControl/MonitorControl) (MIT, para
-displays externos). Também é quase certamente o que o MediaMate faz (fechado;
-FAQ só declara "sem mexer no SIP").
+MewNotch (opt-in "System HUD Suppression" toggle since v2.0.0), boring.notch,
+[MonitorControl](https://github.com/MonitorControl/MonitorControl) (MIT, for
+external displays). It is also almost certainly what MediaMate does (closed
+source; the FAQ only states "no tampering with SIP").
 
-**O que o app passa a dever ao usuário** (consumiu a tecla = assumiu o
-comportamento inteiro):
+**What the app now owes the user** (consumed the key = owns the entire
+behaviour):
 
-- Aplicar o delta: escala nativa de **16 passos**; com **Option+Shift**,
-  quartos de passo (**64**) — vale pra volume, brilho da tela E teclado
+- Apply the delta: native scale of **16 steps**; with **Option+Shift**,
+  quarter steps (**64**) — applies to volume, screen brightness AND keyboard
   ([How-To Geek](https://www.howtogeek.com/265487/how-to-adjust-your-macs-volume-in-smaller-increments/));
-  lê-se os modifiers do próprio evento tapado.
-- **Key repeat** (tecla segurada): o evento `NX_SYSDEFINED` carrega o flag de
-  repeat; tratar como o sistema trata.
-- Mute (toggle), teclas de brilho do teclado, e o som de feedback de volume
-  quando habilitado nos Ajustes.
-- Modo F-key: o tap só vê evento de mídia quando a tecla RESOLVE para mídia —
-  o ajuste "Use F1, F2… as standard function keys" é acompanhado de graça
+  the modifiers are read from the tapped event itself.
+- **Key repeat** (held key): the `NX_SYSDEFINED` event carries the repeat
+  flag; handle it the way the system does.
+- Mute (toggle), the keyboard-brightness keys, and the volume feedback sound
+  when it is enabled in System Settings.
+- F-key mode: the tap only sees a media event when the key RESOLVES to media —
+  the "Use F1, F2… as standard function keys" setting is tracked for free
   ([Apple](https://support.apple.com/en-us/102439)).
 
-**Permissões:** Acessibilidade (que o Crema já exige) — o tap de
-consumo é o MESMO mecanismo, mudando `.listenOnly` → `.defaultTap`; escuta
-global envolve também Input Monitoring (`CGPreflightListenEventAccess`).
-Gotcha de desenvolvimento: re-assinar o binário pode deixar o tap **morto em
-silêncio** (o TCC reavalia a identidade do código; o tap "existe" mas nada
-chega) — re-conceder a permissão resolve
+**Permissions:** Accessibility (which Crema already requires) — the consuming
+tap is the SAME mechanism, changing `.listenOnly` → `.defaultTap`; global
+listening also involves Input Monitoring (`CGPreflightListenEventAccess`).
+Development gotcha: re-signing the binary can leave the tap **silently dead**
+(TCC re-evaluates the code identity; the tap "exists" but nothing arrives) —
+re-granting the permission fixes it
 ([danielraffel.me](https://danielraffel.me/til/2026/02/19/cgevent-taps-and-code-signing-the-silent-disable-race/)).
 
-**Reversibilidade: trivial e à prova de crash.** O tap morre com o processo.
-Desligar o toggle = parar de consumir; quit/crash/desinstalar = comportamento
-nativo restaurado instantaneamente, zero resíduo. É a única técnica em que a
-falha catastrófica do app deixa o sistema **exatamente** como era.
+**Reversibility: trivial and crash-proof.** The tap dies with the process.
+Toggling off = stop consuming; quit/crash/uninstall = native behaviour restored
+instantly, zero residue. It is the only technique in which the app's
+catastrophic failure leaves the system **exactly** as it was.
 
-**Modo de falha a mitigar:** consumir a tecla e FALHAR em aplicar a mudança
-deixa o usuário sem volume/brilho — o boring.notch lançou exatamente esse bug
-([#1040](https://github.com/TheBoredTeam/boring.notch/issues/1040)). O padrão
-de segurança do volumeHUD (fato externo): após cada tecla interceptada,
-verificar se o valor realmente mudou e, se não, autodesabilitar a supressão
-inteira até um restart/troca de device.
+**Failure mode to mitigate:** consuming the key and FAILING to apply the change
+leaves the user without volume/brightness — boring.notch shipped exactly that bug
+([#1040](https://github.com/TheBoredTeam/boring.notch/issues/1040)). volumeHUD's
+safety pattern (external fact): after each intercepted key, verify the value
+actually changed and, if not, auto-disable the entire suppression until a
+restart/device change.
 
-> **Como o Crema resolve (modelo em vigor, difere do volumeHUD).** O
-> auto-desligar global — e persistir a preferência — foi **abolido** (era a
-> classe de bug J5). No Crema, apply+verify que falha **suspende só o canal que
-> falhou** (volume / brilho-tela / brilho-teclado; mute cavalga com volume): as
-> teclas desse canal voltam ao sistema, o feedback nativo reaparece só ali, e os
-> outros domínios seguem suprimidos. Um probe read-only com backoff re-engaja em
-> silêncio quando o canal se recupera. **Nenhum caminho de falha escreve a
-> preferência** — o único writer de "suprimir HUD nativo" é a ação explícita do
-> usuário (docs/DECISIONS.md: per-domain-suspension, pref-sacred).
+> **How Crema solves it (the model in force, differs from volumeHUD).** The
+> global auto-disable — and persisting the preference — was **abolished** (it
+> was bug class J5). In Crema, an apply+verify that fails **suspends only the
+> channel that failed** (volume / screen-brightness / keyboard-brightness; mute
+> rides with volume): that channel's keys return to the system, native feedback
+> reappears only there, and the other domains stay suppressed. A read-only
+> probe with backoff re-engages silently when the channel recovers. **No
+> failure path writes the preference** — the only writer of "suppress native
+> HUD" is the user's explicit action (docs/DECISIONS.md:
+> per-domain-suspension, pref-sacred).
 
-**Limitação estrutural:** só suprime HUDs **originados por tecla**. Mudanças
-por slider do Control Center, Siri, coroa/haste de AirPods, brilho automático
-etc. não passam pelo teclado — o tap não as vê e o HUD nativo (quando o
-sistema decidir mostrá-lo nesses fluxos) aparece. Fato arquitetural
-confirmado; o inventário POR GATILHO no Tahoe não está documentado em nenhuma
-fonte (o slider do Control Center é feedback visual em si — não está provado
-que ele dispare popover adicional). Ver §6, "spike de matriz de gatilhos".
+**Structural limitation:** it only suppresses **key-originated** HUDs. Changes
+via the Control Center slider, Siri, the AirPods crown/stem, auto-brightness
+etc. never pass through the keyboard — the tap does not see them and the native
+HUD (whenever the system decides to show it in those flows) appears. Confirmed
+architectural fact; the PER-TRIGGER inventory on Tahoe is not documented in any
+source (the Control Center slider is visual feedback in itself — it is not
+proven to fire an additional popover). See §6, the "trigger-matrix spike".
 
-### 3.2 Suspensão do OSDUIHelper (kickstart + SIGSTOP) — pré-Tahoe; hoje complemento questionável
+### 3.2 OSDUIHelper suspension (kickstart + SIGSTOP) — pre-Tahoe; today a questionable complement
 
-**Princípio (em prosa; SlimHUD desde v1.4.0, jan/2023):** (1) `launchctl
-kickstart gui/<uid>/com.apple.OSDUIHelper` força o agente demand-launched a
-existir (pode nunca ter nascido — e o kickstart garante um processo FRESCO,
-não um no meio de um desenho); (2) espera-se o processo aparecer (SlimHUD
-dorme ~500 ms; Atoll faz poll de até 5 s); (3) `killall -STOP OSDUIHelper` o
-suspende. Funciona porque **um processo parado continua existindo e ocupando
-o job do launchd** — o launchd/XPC não sobe substituto, e o congelado nunca
-desenha; as mensagens XPC só enfileiram. Restaurar = `killall -9` (SIGKILL
-funciona em processo parado) e o launchd respawna sob demanda. Sem SIP, sem
-sudo, sem TCC (sinais a processo do mesmo usuário).
+**Principle (in prose; SlimHUD since v1.4.0, Jan 2023):** (1) `launchctl
+kickstart gui/<uid>/com.apple.OSDUIHelper` forces the demand-launched agent to
+exist (it may never have been born — and the kickstart guarantees a FRESH
+process, not one mid-draw); (2) wait for the process to appear (SlimHUD sleeps
+~500 ms; Atoll polls for up to 5 s); (3) `killall -STOP OSDUIHelper` suspends
+it. It works because **a stopped process goes on existing and occupying the
+launchd job** — launchd/XPC brings up no substitute, and the frozen one never
+draws; the XPC messages just queue. Restoring = `killall -9` (SIGKILL works on
+a stopped process) and launchd respawns on demand. No SIP, no sudo, no TCC
+(signals to a same-user process).
 
-**Por que é frágil (histórico de quem mantém):**
+**Why it is fragile (maintainer history):**
 
-- O sistema **respawna o helper** após sleep/wake, mudança de display/lid e
-  jetsam do idle (`EnablePressuredExit`) — o processo novo nasce
-  não-suprimido. SlimHUD precisou de release dedicada
+- The system **respawns the helper** after sleep/wake, display/lid changes and
+  idle jetsam (`EnablePressuredExit`) — the new process is born unsuppressed.
+  SlimHUD needed a dedicated release
   ([v1.5.2](https://github.com/AlexPerathoner/SlimHUD/releases/tag/v1.5.2):
-  re-esconder após sleep/monitor/lid + timer de 60 s cujo comentário admite
-  que os HUDs "ainda aparecem aleatoriamente"); o Atoll roda **watchdog de
-  ~150 ms** re-suspendendo cada PID novo.
-- **SIGSTOP no meio de um render congela o HUD nativo na tela**
-  ([SlimHUD #159](https://github.com/AlexPerathoner/SlimHUD/issues/159), aberto).
-- **Crash/force-quit deixa o helper suspenso** até logout/reboot ou kill
-  manual — há relato de HUD nativo que não voltou depois de sair do app
-  ([SlimHUD #160](https://github.com/AlexPerathoner/SlimHUD/issues/160); a
-  chave `AppleBezelHUDDisabled` citada nesse thread é folclore vindo de
-  resposta de IA — não confiar).
-- **No Tahoe, mira o processo errado** (§1.2): o popover novo é do
-  ControlCenter; suspender o OSDUIHelper vira no-op para o HUD visível. O
-  Atoll ainda embarca a técnica, mas o próprio PR #48 comemora funcionar sem
-  ela no Tahoe.
+  re-hide after sleep/monitor/lid + a 60 s timer whose comment admits the HUDs
+  "still show up randomly"); Atoll runs a **~150 ms watchdog** re-suspending
+  every new PID.
+- **A SIGSTOP mid-render freezes the native HUD on screen**
+  ([SlimHUD #159](https://github.com/AlexPerathoner/SlimHUD/issues/159), open).
+- **Crash/force-quit leaves the helper suspended** until logout/reboot or a
+  manual kill — there is a report of a native HUD that never came back after
+  quitting the app
+  ([SlimHUD #160](https://github.com/AlexPerathoner/SlimHUD/issues/160); the
+  `AppleBezelHUDDisabled` key cited in that thread is folklore from an AI
+  answer — do not trust it).
+- **On Tahoe it targets the wrong process** (§1.2): the new popover belongs to
+  ControlCenter; suspending the OSDUIHelper becomes a no-op for the visible
+  HUD. Atoll still ships the technique, but its own PR #48 celebrates working
+  without it on Tahoe.
 
-**Playbook de reversibilidade** (se algum dia for usada como complemento em
-macOS 14/15): restaurar com SIGKILL + respawn (não SIGCONT — melhor um helper
-limpo que retomar um possivelmente corrompido); restaurar em todo quit limpo
-E toggle-off; re-armar após wake/lid/display-change; watchdog de respawn;
-na inicialização, matar qualquer helper suspenso órfão de uma sessão anterior.
+**Reversibility playbook** (should it ever be used as a complement on macOS
+14/15): restore with SIGKILL + respawn (not SIGCONT — better a clean helper
+than resuming a possibly corrupted one); restore on every clean quit AND
+toggle-off; re-arm after wake/lid/display change; a respawn watchdog; on
+startup, kill any suspended helper orphaned from a previous session.
 
-## 4. O event tap existente do Crema — o encaixe
+## 4. Crema's existing event tap — the fit
 
-O tap de teclas de mídia (`Sources/MediaKeys/`, atrás de protocolo, permissão de
-Acessibilidade já pedida no onboarding) é **exatamente o ponto de
-interceptação** da técnica recomendada. O que muda em princípio (esboço, sem
-código):
+The media-key tap (`Sources/MediaKeys/`, behind a protocol, Accessibility
+permission already requested during onboarding) is **exactly the interception
+point** of the recommended technique. What changes in principle (a sketch, no
+code):
 
-1. O tap precisa ser criado com opção de **consumo** (`.defaultTap`) em vez de
-   só escuta, e o callback passa a DEVOLVER nil para as teclas cobertas
-   **quando a supressão estiver ligada** — desligada, devolve o evento intacto
-   (coexistência de dois HUDs, comportamento atual).
-2. O fluxo que hoje é "tecla → fonte emite evento → Coordinator mostra HUD
-   próprio (e o sistema TAMBÉM aplica e mostra o dele)" vira, com supressão
-   ON: "tecla → consumida → atuador do Crema aplica o delta (16/64 passos,
-   repeat, mute) → fonte emite → HUD próprio". Os atuadores de volume/brilho
-   já existem; o passo novo é o Crema ser o ÚNICO aplicador.
-3. **Apply+verify por canal, com suspensão por domínio**: após aplicar,
-   confirmar que o valor mudou; falha **suspende só o canal que falhou** (suas
-   teclas voltam ao sistema, feedback nativo ali) enquanto os outros domínios
-   seguem suprimidos, e um probe read-only re-engaja na recuperação — nunca
-   deixar o usuário sem controle de volume, e **nunca escrever a preferência**
-   num caminho de falha (docs/DECISIONS.md: per-domain-suspension, pref-sacred).
-   O auto-desligar global do modelo antigo (J5) foi abolido.
+1. The tap needs to be created with the **consuming** option (`.defaultTap`)
+   instead of listen-only, and the callback starts RETURNING nil for the
+   covered keys **while suppression is on** — off, it returns the event intact
+   (two HUDs coexisting, the current behaviour).
+2. The flow that today is "key → source emits event → Coordinator shows its
+   own HUD (and the system ALSO applies and shows its own)" becomes, with
+   suppression ON: "key → consumed → Crema's actuator applies the delta (16/64
+   steps, repeat, mute) → source emits → own HUD". The volume/brightness
+   actuators already exist; the new step is Crema being the ONLY applier.
+3. **Apply+verify per channel, with per-domain suspension**: after applying,
+   confirm the value changed; a failure **suspends only the channel that
+   failed** (its keys return to the system, native feedback there) while the
+   other domains stay suppressed, and a read-only probe re-engages on recovery
+   — never leave the user without volume control, and **never write the
+   preference** on a failure path (docs/DECISIONS.md: per-domain-suspension,
+   pref-sacred). The old model's global auto-disable (J5) was abolished.
 
-## 5. Reversibilidade — a história completa
+## 5. Reversibility — the full story
 
-| Cenário                      | Interceptação (recomendada)                         | SIGSTOP (complemento hipotético)                              |
-| ---------------------------- | --------------------------------------------------- | ------------------------------------------------------------- |
-| Toggle off nos Settings      | Callback devolve os eventos; nativo volta na hora   | SIGKILL + respawn on demand                                   |
-| Quit limpo                   | Tap morre com o processo; nativo volta na hora      | Precisa restaurar ANTES de sair (único call site no quit)     |
-| **Crash / force-quit**       | **Nativo volta sozinho (tap morre com o processo)** | **Helper fica suspenso até logout/reboot/kill manual** (#160) |
-| Desinstalar                  | Zero resíduo                                        | Resíduo até o fim da sessão se não restaurou antes            |
-| Sleep/wake, troca de display | Nada a fazer                                        | Re-armar (watchdog + observers)                               |
+| Scenario                   | Interception (recommended)                            | SIGSTOP (hypothetical complement)                              |
+| -------------------------- | ----------------------------------------------------- | -------------------------------------------------------------- |
+| Toggle off in Settings     | Callback returns the events; native is back instantly | SIGKILL + respawn on demand                                     |
+| Clean quit                 | Tap dies with the process; native is back instantly   | Must restore BEFORE exiting (single call site on quit)          |
+| **Crash / force-quit**     | **Native comes back on its own (tap dies with the process)** | **Helper stays suspended until logout/reboot/manual kill** (#160) |
+| Uninstall                  | Zero residue                                          | Residue until the session ends unless restored beforehand       |
+| Sleep/wake, display change | Nothing to do                                         | Re-arm (watchdog + observers)                                   |
 
-## 6. Compatibilidade e risco entre versões
+## 6. Compatibility and cross-version risk
 
-- **Essa área quebra a cada ~2 releases**: plists pré-SIP morreram com o SIP;
-  unload exigiu SIP off (Big Sur); kickstart+SIGSTOP chegou em 2023; Sequoia
-  15.3.x produziu HUD congelado e HUD morto (#159/#160); **Tahoe redesenhou o
-  OSD e moveu o renderer**, causando a migração do ecossistema para
-  interceptação (volumeHUD/Atoll/MewNotch, 2025–26).
-- A interceptação é a técnica **menos acoplada a internals**: depende de
-  CGEventTap + NX_SYSDEFINED (API pública estável há décadas, a mesma do
-  Karabiner/MonitorControl) e dos atuadores que o Crema já valida por spike.
-  O risco recai sobre os atuadores (já mitigado por protocolo + degradação),
-  não sobre o mecanismo de supressão.
-- **Degradação sã** (o que o Crema faz): supressão **opt-in e feature-flagged**;
-  apply+verify com **suspensão por domínio** na falha (a preferência nunca é
-  escrita por falha — o modelo de autodesligamento global dos apps maduros foi
-  abolido, docs/DECISIONS.md: per-domain-suspension, pref-sacred); sem a
-  permissão de Acessibilidade a supressão simplesmente não arma — para o brilho
-  o HUD nativo volta a ser o ÚNICO feedback (sem tap não há origem-de-tecla e
-  os HUDs próprios de brilho nem surgem; docs/DECISIONS.md:
-  key-origin-brightness-gate); no volume, event-driven via Core Audio, os dois
-  HUDs coexistem; sinalização no menu da barra só
-  para suspensão duradoura com canal presente.
-- **Aberto — exige spike de hardware (~30 min)**: a
-  matriz de gatilhos residuais no Tahoe (slider do Control Center, Siri,
-  AirPods, brilho automático — quais deles mostram o popover nativo com a
-  interceptação ligada?) não está documentada em fonte nenhuma; decide se o
-  complemento §3.2 tem alguma utilidade real em máquinas pré-Tahoe do público.
+- **This area breaks every ~2 releases**: pre-SIP plists died with SIP; unload
+  came to require SIP off (Big Sur); kickstart+SIGSTOP arrived in 2023; Sequoia
+  15.3.x produced a frozen HUD and a dead HUD (#159/#160); **Tahoe redesigned
+  the OSD and moved the renderer**, driving the ecosystem's migration to
+  interception (volumeHUD/Atoll/MewNotch, 2025–26).
+- Interception is the technique **least coupled to internals**: it depends on
+  CGEventTap + NX_SYSDEFINED (public API, stable for decades, the same one
+  Karabiner/MonitorControl use) and on the actuators Crema already validates by
+  spike. The risk falls on the actuators (already mitigated by protocol +
+  degradation), not on the suppression mechanism.
+- **Sane degradation** (what Crema does): suppression is **opt-in and
+  feature-flagged**; apply+verify with **per-domain suspension** on failure
+  (the preference is never written by a failure — the mature apps' global
+  auto-disable model was abolished, docs/DECISIONS.md: per-domain-suspension,
+  pref-sacred); without the Accessibility permission suppression simply never
+  arms — for brightness the native HUD goes back to being the ONLY feedback
+  (no tap means no key origin, and Crema's own brightness HUDs never even appear;
+  docs/DECISIONS.md: key-origin-brightness-gate); for volume, event-driven via
+  Core Audio, the two HUDs coexist; the menu bar signals only a lasting
+  suspension with the channel present.
+- **Open — requires a hardware spike (~30 min)**: the residual trigger matrix
+  on Tahoe (Control Center slider, Siri, AirPods, auto-brightness — which of
+  them show the native popover with interception on?) is documented in no
+  source; it decides whether the §3.2 complement has any real use on the
+  audience's pre-Tahoe machines.
 
-## 7. Recomendação e esboço de encaixe (só esboço, sem código)
+## 7. Recommendation and fit sketch (sketch only, no code)
 
-**Recomendação: interceptação de teclas (§3.1), sozinha.** É a única técnica
-que satisfaz as três constraints por construção — sem SIP (API pública +
-Acessibilidade já exigida), reversível até sob crash (o tap morre com o
-processo), opt-in trivial (flag no callback) — e é a técnica para onde o
-ecossistema convergiu no Tahoe. A suspensão do OSDUIHelper fica DOCUMENTADA
-(esta página) e descartada como default: no Tahoe mira o processo errado, e
-seus modos de falha (HUD congelado, resíduo pós-crash) ferem a constraint de
-reversibilidade. Se o spike da §6 mostrar vazamento residual relevante em
-macOS 14/15, ela pode voltar como complemento **atrás do mesmo toggle**, com o
-playbook da §5 completo.
+**Recommendation: key interception (§3.1), alone.** It is the only technique
+that satisfies all three constraints by construction — no SIP (public API +
+Accessibility already required), reversible even under crash (the tap dies with
+the process), trivially opt-in (a flag in the callback) — and it is the
+technique the ecosystem converged on under Tahoe. The OSDUIHelper suspension
+stays DOCUMENTED (this page) and discarded as a default: on Tahoe it targets
+the wrong process, and its failure modes (frozen HUD, post-crash residue)
+violate the reversibility constraint. If the §6 spike shows relevant residual leakage
+on macOS 14/15, it can come back as a complement **behind the same toggle**,
+with the §5 playbook in full.
 
-Encaixe na arquitetura (nomes ilustrativos):
+Fit into the architecture (illustrative names):
 
-- `Sources/OSDSuppression/` — atuador atrás de protocolo com nome de
-  capacidade (ex.: `NativeOSDSuppressing`), implementação
-  `EventTapOSDSuppressor` COLABORANDO com a fonte de MediaKeys existente: a
-  fonte ganha o modo de consumo; o protocolo expõe ligar/desligar +
-  `isAvailable()` (Acessibilidade concedida?). Mock em `CremaTests/Mocks/`.
-- O consumo aciona os atuadores existentes de volume/brilho (16/64 passos,
-  repeat, mute) — lógica de passos é pura e testável; a borda (tap real)
-  continua fina e fora dos testes unitários, como manda o CLAUDE.md.
-- `Preferences`: toggle "suprimir HUD nativo" (OFF por padrão, opt-in),
-  injetado; menu da barra sinaliza supressão ativa/degradada. **A preferência é
-  sagrada**: só a ação do usuário a escreve, nunca um caminho de falha
+- `Sources/OSDSuppression/` — an actuator behind a capability-named protocol
+  (e.g. `NativeOSDSuppressing`), implementation `EventTapOSDSuppressor`
+  COLLABORATING with the existing MediaKeys source: the source gains the
+  consuming mode; the protocol exposes on/off + `isAvailable()` (Accessibility
+  granted?). Mock in `CremaTests/Mocks/`.
+- Consumption drives the existing volume/brightness actuators (16/64 steps,
+  repeat, mute) — the step logic is pure and testable; the edge (the real tap)
+  stays thin and outside the unit tests, as CLAUDE.md mandates.
+- `Preferences`: a "suppress native HUD" toggle (OFF by default, opt-in),
+  injected; the menu bar signals active/degraded suppression. **The preference
+  is sacred**: only the user's action writes it, never a failure path
   (docs/DECISIONS.md: pref-sacred).
-- Apply+verify na própria fonte: aplicou → confere → falhou ⇒ **suspende só o
-  canal que falhou** (teclas dele voltam ao sistema) e um probe read-only
-  re-engaja na recuperação, sem tocar a preferência (docs/DECISIONS.md:
-  per-domain-suspension). A supressão é ainda **lock-aware**: com a tela
-  bloqueada ela é suspensa (não há caminho público para desenhar sobre o lock
-  shield), re-engajando no unlock se a preferência estiver ligada — também sem
-  escrever a preferência. Degradação graciosa: sem permissão ⇒ dois HUDs no volume; no brilho, só o nativo (key-origin-brightness-gate).
+- Apply+verify in the source itself: applied → check → failed ⇒ **suspend only
+  the channel that failed** (its keys return to the system) and a read-only
+  probe re-engages on recovery, without touching the preference
+  (docs/DECISIONS.md: per-domain-suspension). Suppression is also
+  **lock-aware**: with the screen locked it is suspended (there is no public
+  path to draw over the lock shield), re-engaging on unlock if the preference
+  is on — again without writing the preference. Graceful degradation: no
+  permission ⇒ two HUDs for volume; for brightness, only the native one
+  (key-origin-brightness-gate).
 
-## 8. Fontes completas
+## 8. Full sources
 
-**Internals do pipeline:** [ffried.codes — internals do HUD](https://ffried.codes/2018/01/20/the-internals-of-the-macos-hud/) · [man OSDUIHelper](https://keith.github.io/xcode-man-pages/OSDUIHelper.8.html) · [man kill(2)](https://keith.github.io/xcode-man-pages/kill.2.html) · [kevinmcox — launchctl kickstart no 14.4](https://www.kevinmcox.com/2024/03/changes-to-launchctl-kickstart-in-macos-14-4/) · [9to5Mac — 14.4 e serviços](https://9to5mac.com/2024/04/13/macos-14-4-removes-support-for-commands-that-are-used-to-restart-various-system-services/) · forense local 26.5.2 (strings do ControlCenter; launchctl print; plutil dos LaunchAgents)
+**Pipeline internals:** [ffried.codes — HUD internals](https://ffried.codes/2018/01/20/the-internals-of-the-macos-hud/) · [man OSDUIHelper](https://keith.github.io/xcode-man-pages/OSDUIHelper.8.html) · [man kill(2)](https://keith.github.io/xcode-man-pages/kill.2.html) · [kevinmcox — launchctl kickstart in 14.4](https://www.kevinmcox.com/2024/03/changes-to-launchctl-kickstart-in-macos-14-4/) · [9to5Mac — 14.4 and services](https://9to5mac.com/2024/04/13/macos-14-4-removes-support-for-commands-that-are-used-to-restart-various-system-services/) · local forensics on 26.5.2 (ControlCenter strings; launchctl print; plutil over the LaunchAgents)
 
-**Projetos (licenças na §0):** [SlimHUD](https://github.com/AlexPerathoner/SlimHUD) ([discussion #23](https://github.com/AlexPerathoner/SlimHUD/discussions/23) · [#134](https://github.com/AlexPerathoner/SlimHUD/issues/134) · [#159](https://github.com/AlexPerathoner/SlimHUD/issues/159) · [#160](https://github.com/AlexPerathoner/SlimHUD/issues/160) · [releases](https://github.com/AlexPerathoner/SlimHUD/releases)) · [volumeHUD](https://github.com/dannystewart/volumeHUD) · [Atoll PR #48](https://github.com/Ebullioscopic/Atoll/pull/48) · [MewNotch releases](https://github.com/monuk7735/mew-notch/releases) · [boring.notch #1040](https://github.com/TheBoredTeam/boring.notch/issues/1040) · [MonitorControl](https://github.com/MonitorControl/MonitorControl) ([discussion #1873](https://github.com/MonitorControl/MonitorControl/discussions/1873)) · [MediaKeyTap](https://github.com/nhurden/MediaKeyTap) · [NewBezelServices](https://github.com/MLforAll/NewBezelServices) · [cleanHUD](https://github.com/w0lfschild/cleanHUD) · [MacForge/docs SIP](https://www.macenhance.com/docs/general/sip-sec.html) · [BetterDisplay #966](https://github.com/waydabber/BetterDisplay/issues/966) · [#4726](https://github.com/waydabber/BetterDisplay/issues/4726) · [Ice #719](https://github.com/jordanbaird/Ice/issues/719) · [MediaMate FAQ](https://wouter01.github.io/MediaMate/faq)
+**Projects (licenses in §0):** [SlimHUD](https://github.com/AlexPerathoner/SlimHUD) ([discussion #23](https://github.com/AlexPerathoner/SlimHUD/discussions/23) · [#134](https://github.com/AlexPerathoner/SlimHUD/issues/134) · [#159](https://github.com/AlexPerathoner/SlimHUD/issues/159) · [#160](https://github.com/AlexPerathoner/SlimHUD/issues/160) · [releases](https://github.com/AlexPerathoner/SlimHUD/releases)) · [volumeHUD](https://github.com/dannystewart/volumeHUD) · [Atoll PR #48](https://github.com/Ebullioscopic/Atoll/pull/48) · [MewNotch releases](https://github.com/monuk7735/mew-notch/releases) · [boring.notch #1040](https://github.com/TheBoredTeam/boring.notch/issues/1040) · [MonitorControl](https://github.com/MonitorControl/MonitorControl) ([discussion #1873](https://github.com/MonitorControl/MonitorControl/discussions/1873)) · [MediaKeyTap](https://github.com/nhurden/MediaKeyTap) · [NewBezelServices](https://github.com/MLforAll/NewBezelServices) · [cleanHUD](https://github.com/w0lfschild/cleanHUD) · [MacForge/docs SIP](https://www.macenhance.com/docs/general/sip-sec.html) · [BetterDisplay #966](https://github.com/waydabber/BetterDisplay/issues/966) · [#4726](https://github.com/waydabber/BetterDisplay/issues/4726) · [Ice #719](https://github.com/jordanbaird/Ice/issues/719) · [MediaMate FAQ](https://wouter01.github.io/MediaMate/faq)
 
-**Comportamento de teclas/UX:** [Apple — teclas de função](https://support.apple.com/en-us/102439) · [How-To Geek — 64 passos](https://www.howtogeek.com/265487/how-to-adjust-your-macs-volume-in-smaller-increments/) · [danielraffel — tap silencioso pós re-assinatura](https://danielraffel.me/til/2026/02/19/cgevent-taps-and-code-signing-the-silent-disable-race/) · [MacRumors — OSD do Tahoe](https://forums.macrumors.com/threads/new-volume-and-brightness-indicators-stress-me-out.2468210/) · [Apple Discussions](https://discussions.apple.com/thread/256219850)
+**Key behaviour/UX:** [Apple — function keys](https://support.apple.com/en-us/102439) · [How-To Geek — 64 steps](https://www.howtogeek.com/265487/how-to-adjust-your-macs-volume-in-smaller-increments/) · [danielraffel — silent tap after re-signing](https://danielraffel.me/til/2026/02/19/cgevent-taps-and-code-signing-the-silent-disable-race/) · [MacRumors — the Tahoe OSD](https://forums.macrumors.com/threads/new-volume-and-brightness-indicators-stress-me-out.2468210/) · [Apple Discussions](https://discussions.apple.com/thread/256219850)
+

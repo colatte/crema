@@ -1,276 +1,279 @@
-# Referência de design — estilos e polish visual
+# Design reference — styles and visual polish
 
-> Documento de pesquisa que informa a implementação dos estilos e o polish
-> visual do Crema. **Todos os valores aqui são pontos de partida a calibrar
-> visualmente no hardware — não verdades absolutas.** Pesquisa realizada em
-> 2026-07-04 (macOS 26 "Tahoe" vigente); alvo de referência: MacBook Pro 14"
-> M4 Pro.
+> Research document informing the implementation of Crema's styles and visual
+> polish. **Every value here is a starting point to calibrate visually on
+> hardware — not absolute truth.** Research conducted on 2026-07-04 (macOS 26
+> "Tahoe" current); reference target: MacBook Pro 14" M4 Pro.
 >
-> **Conjunto de estilos entregue (`Style`): notch · card · classic.** A pesquisa
-> original explorou quatro estilos (notch, pílula, circular, classic); a
-> **pílula** e a **circular** foram descartadas e convergiram no **card** — o
-> painel flutuante arredondado que hoje cobre as telas sem fenda. As seções §4.2
-> e §4.3 abaixo ficam como registro dessas explorações precursoras (a pesquisa
-> de cápsula e de anel alimentou o card); onde citam métricas de código, o
-> vigente é o card (`CardMetrics`), não `PillMetrics`.
+> **Shipped style set (`Style`): notch · card · classic.** The original
+> research explored four styles (notch, pill, circular, classic); the **pill**
+> and the **circular** were dropped and converged into the **card** — the
+> rounded floating panel that today covers displays without a notch slit.
+> Sections §4.2 and §4.3 below remain as a record of those precursor
+> explorations (the capsule and ring research fed the card); where they cite
+> code metrics, the current one is the card (`CardMetrics`), not `PillMetrics`.
 
-## 0. Licenças dos projetos citados — leia antes de abrir qualquer repo
+## 0. Licenses of the projects cited — read before opening any repo
 
-O Crema é escrito do zero. Regra do projeto: **nunca copiar, transcrever ou
-adaptar código de terceiros** — nem de projetos copyleft, nem dos permissivos.
-Deste documento, usa-se **abordagens, princípios e valores numéricos** (fatos,
-não protegidos por copyright), descritos em prosa. O Crema é distribuído sob
-GPL-3.0; escrever tudo do zero é independente da licença — mantém o código sem
-herança de origem, copyleft ou permissiva.
+Crema is written from scratch. Project rule: **never copy, transcribe or
+adapt third-party code** — not from copyleft projects, not from permissive
+ones. From this document we use **approaches, principles and numeric values**
+(facts, not protected by copyright), described in prose. Crema ships under
+GPL-3.0; writing everything from scratch is independent of the license — it
+keeps the code free of any inherited lineage, copyleft or permissive.
 
-Licenças verificadas em 2026-07-04 via `api.github.com/repos/OWNER/REPO/license`:
+Licenses verified on 2026-07-04 via `api.github.com/repos/OWNER/REPO/license`:
 
-| Projeto                                                       | Licença (SPDX)                 | Tipo         | Uso permitido no Crema                                                    |
-| ------------------------------------------------------------- | ------------------------------ | ------------ | ------------------------------------------------------------------------- |
-| [Atoll](https://github.com/Ebullioscopic/Atoll)               | **GPL-3.0**                    | ⚠️ Copyleft  | Só inspiração/princípios — **nunca código**                               |
-| [boring.notch](https://github.com/TheBoredTeam/boring.notch)  | **GPL-3.0**                    | ⚠️ Copyleft  | Só inspiração/princípios — **nunca código**                               |
-| [MewNotch](https://github.com/monuk7735/mew-notch)            | **GPL-3.0**                    | ⚠️ Copyleft  | Só inspiração — é o projeto mais parecido com o Crema; cuidado redobrado  |
-| [SlimHUD](https://github.com/AlexPerathoner/SlimHUD)          | **GPL-3.0**                    | ⚠️ Copyleft  | Só inspiração/princípios — **nunca código**                               |
-| [NotchDrop](https://github.com/Lakr233/NotchDrop)             | MIT                            | Permissiva   | Referência de leitura (cópia exigiria atribuição; política: não copiar)   |
-| [DynamicNotchKit](https://github.com/MrKai77/DynamicNotchKit) | MIT                            | Permissiva   | Referência de leitura; legalmente usável até como dependência SPM         |
-| [volumeHUD](https://github.com/dannystewart/volumeHUD)        | MIT                            | Permissiva   | Referência de leitura (valores do bezel clássico)                         |
-| [Notchmeister](https://github.com/chockenberry/Notchmeister)  | própria                        | —            | Referência de leitura (geometria da fenda)                                |
-| Alcove ([site](https://tryalcove.com))                        | **fechado/comercial** (US$ 17) | Proprietário | Só o comportamento observável do produto; o repo GitHub é apenas releases |
+| Project                                                       | Licence (SPDX)                   | Type         | Permitted use in Crema                                                     |
+| ------------------------------------------------------------- | -------------------------------- | ------------ | -------------------------------------------------------------------------- |
+| [Atoll](https://github.com/Ebullioscopic/Atoll)               | **GPL-3.0**                      | ⚠️ Copyleft  | Inspiration/principles only — **never code**                               |
+| [boring.notch](https://github.com/TheBoredTeam/boring.notch)  | **GPL-3.0**                      | ⚠️ Copyleft  | Inspiration/principles only — **never code**                               |
+| [MewNotch](https://github.com/monuk7735/mew-notch)            | **GPL-3.0**                      | ⚠️ Copyleft  | Inspiration only — the project most similar to Crema; redoubled caution    |
+| [SlimHUD](https://github.com/AlexPerathoner/SlimHUD)          | **GPL-3.0**                      | ⚠️ Copyleft  | Inspiration/principles only — **never code**                               |
+| [NotchDrop](https://github.com/Lakr233/NotchDrop)             | MIT                              | Permissive   | Reading reference (copying would require attribution; policy: do not copy) |
+| [DynamicNotchKit](https://github.com/MrKai77/DynamicNotchKit) | MIT                              | Permissive   | Reading reference; legally usable even as an SPM dependency                |
+| [volumeHUD](https://github.com/dannystewart/volumeHUD)        | MIT                              | Permissive   | Reading reference (classic bezel values)                                   |
+| [Notchmeister](https://github.com/chockenberry/Notchmeister)  | custom                           | —            | Reading reference (slit geometry)                                          |
+| Alcove ([site](https://tryalcove.com))                        | **closed/commercial** (US$ 17)   | Proprietary  | Only the product's observable behaviour; the GitHub repo is releases only  |
 
-Prática de segurança: **não abrir o código-fonte dos projetos
-GPL lado a lado enquanto implementa feature equivalente** — usar este documento
-como intermediário.
+Safety practice: **do not open the GPL projects' source code side by side
+while implementing an equivalent feature** — use this document as the
+intermediary.
 
 ---
 
-## 1. Geometria da notch (alvo: MBP 14" M4 Pro)
+## 1. Notch geometry (target: MBP 14" M4 Pro)
 
-### 1.1 Dimensões
+### 1.1 Dimensions
 
-Painel: 14,2", nativo 3024×1964 @ 254 ppi; escala default "looks like"
+Panel: 14.2", native 3024×1964 @ 254 ppi; default "looks like" scale
 **1512×982 @ 2x** ([Apple Tech Specs](https://support.apple.com/en-us/121553)).
 
-A fenda física tem ~370×64 **px nativos**; em **points ela varia com o modo de
-escala** (por isso a regra do projeto de derivar em runtime, nunca hardcodar):
+The physical slit is ~370×64 **native px**; in **points it varies with the
+scaling mode** (hence the project rule of deriving it at runtime, never
+hardcoding):
 
-| Modo de escala         | Altura da fenda (`safeAreaInsets.top`) | Largura aproximada |
-| ---------------------- | -------------------------------------- | ------------------ |
-| Default (1512×982)     | **32 pt**                              | ~185–200 pt        |
-| More Space (1800×1169) | 38 pt                                  | ~220 pt            |
-| Larger Text            | 22 pt                                  | ~127 pt            |
+| Scaling mode           | Slit height (`safeAreaInsets.top`) | Approximate width  |
+| ---------------------- | ---------------------------------- | ------------------ |
+| Default (1512×982)     | **32 pt**                          | ~185–200 pt        |
+| More Space (1800×1169) | 38 pt                              | ~220 pt            |
+| Larger Text            | 22 pt                              | ~127 pt            |
 
-Fontes: datapoint real de `safeAreaInsets.top == 32` ([The Swift Den](https://www.answeroverflow.com/m/1145112887048810606));
-Notchmeister usa 185×32 / 220×38 / 127×22 pt por modo. Fallbacks escolhidos
-pelos apps para telas onde não dá pra medir: 185 pt (boring.notch,
-Notchmeister), 180 pt (MewNotch), 160 pt (Atoll, escolha de estilo), 150 pt
-(NotchDrop, deliberadamente menor).
+Sources: a real datapoint of `safeAreaInsets.top == 32` ([The Swift Den](https://www.answeroverflow.com/m/1145112887048810606));
+Notchmeister uses 185×32 / 220×38 / 127×22 pt per mode. Fallbacks the apps
+chose for screens where measuring is impossible: 185 pt (boring.notch,
+Notchmeister), 180 pt (MewNotch), 160 pt (Atoll, a style choice), 150 pt
+(NotchDrop, deliberately smaller).
 
-**Gotcha central — menu bar ≠ fenda:** a menu bar com notch tem **37 pt** no
-modo default (vs 32 pt da fenda) e varia 27/29/34/37/43 pt conforme a escala
-([Bjango, medição sistemática](https://bjango.com/articles/designingmenubarextras/)).
-Os apps maduros (boring.notch, Atoll, MewNotch) expõem **como preferência** se
-o painel casa com a fenda (`safeAreaInsets.top`) ou com a menu bar
-(`frame.maxY − visibleFrame.maxY`). Para o Crema: começar casando com a fenda
-(nosso `ScreenGeometry.safeTop`), considerar a preferência depois.
+**Central gotcha — menu bar ≠ slit:** the menu bar on a notched machine is
+**37 pt** in the default mode (vs the slit's 32 pt) and varies 27/29/34/37/43 pt
+with the scale ([Bjango, systematic measurement](https://bjango.com/articles/designingmenubarextras/)).
+The mature apps (boring.notch, Atoll, MewNotch) expose **as a preference**
+whether the panel matches the slit (`safeAreaInsets.top`) or the menu bar
+(`frame.maxY − visibleFrame.maxY`). For Crema: start by matching the slit
+(our `ScreenGeometry.safeTop`), consider the preference later.
 
 ### 1.2 APIs
 
-Todas em `NSScreen`, macOS 12+:
+All on `NSScreen`, macOS 12+:
 
 - [`safeAreaInsets`](https://developer.apple.com/documentation/appkit/nsscreen/safeareainsets)
-  — distâncias das bordas em que o conteúdo não fica obscurecido; só `top` é
-  não-zero em notebooks com fenda; zero em telas sem obstrução.
+  — distances from the edges within which content is not obscured; only `top`
+  is non-zero on notebooks with a slit; zero on displays with no obstruction.
 - [`auxiliaryTopLeftArea` / `auxiliaryTopRightArea`](https://developer.apple.com/documentation/appkit/nsscreen/3882915-auxiliarytopleftarea)
-  — os dois rects _utilizáveis_ que flanqueiam a fenda, **em coordenadas
-  globais** (o mesmo espaço de `frame`); `nil` quando não há fenda.
+  — the two _usable_ rects flanking the slit, **in global coordinates** (the
+  same space as `frame`); `nil` when there is no slit.
 
-Derivação da fenda (princípio comum a todos os apps estudados):
+Deriving the slit (a principle common to every app studied):
 
-- Detecção: `safeAreaInsets.top > 0` ⇔ tem fenda.
-- Largura: `frame.width − auxLeft.width − auxRight.width` (equivalente: o vão
-  de `auxLeft.maxX` a `auxRight.minX`).
-- Altura: `safeAreaInsets.top`.
-- Rect global: `x = auxLeft.maxX`, `y = frame.maxY − safeAreaInsets.top`. Como
-  os rects auxiliares já vêm no espaço global do AppKit, o resultado entra
-  direto no `NSPanel.setFrame` — exatamente a convenção de coordenadas do
+- Detection: `safeAreaInsets.top > 0` ⇔ there is a slit.
+- Width: `frame.width − auxLeft.width − auxRight.width` (equivalently: the gap
+  from `auxLeft.maxX` to `auxRight.minX`).
+- Height: `safeAreaInsets.top`.
+- Global rect: `x = auxLeft.maxX`, `y = frame.maxY − safeAreaInsets.top`.
+  Since the auxiliary rects already come in AppKit's global space, the result
+  goes straight into `NSPanel.setFrame` — exactly the coordinate convention of
   CLAUDE.md/`ScreenTranslation`.
 
-### 1.3 Como os apps ancoram a janela (princípios, em prosa)
+### 1.3 How the apps anchor the window (principles, in prose)
 
-Padrão consolidado (boring.notch/Atoll, descrito como princípio):
+Consolidated pattern (boring.notch/Atoll, described as a principle):
 
-- Painel transparente não-ativante, **nível `.mainMenu + 3`** (acima da menu
-  bar), `collectionBehavior` com canJoinAllSpaces + **fullScreenAuxiliary**
-  (visível sobre apps fullscreen) + stationary + ignoresCycle.
-- Janela **dimensionada para o estado aberto** e ancorada topo-centro
-  (x centrado no midX da tela — a fenda é centrada no display; maxY colado em
-  `frame.maxY`); o estado fechado é desenhado _dentro_ da janela maior. Isso
-  evita re-frame de janela a cada hover — só a view anima.
-  - Nota — shipped: é exatamente este o modelo adotado — janela FIXA no frame
-    máximo do estilo (`windowFrame`, função pura da regra de frame), só o
-    conteúdo anima; o frame por estado sobrevive apenas como fallback
-    defensivo, nunca aplicado pelos estilos (CLAUDE.md, "Nunca fazer").
-- **Alargar a fenda em ~4 pt** no desenho (2 pt por lado, ou −4 de inset):
-  o recorte físico tem cantos suavizados; sem a folga aparecem frestas de luz
-  (boring.notch/Atoll somam 4 pt; NotchDrop expande 4 pt por lado).
-  _(Shipped diverge: `NotchMetrics.lateralInset = 0` — flush com o recorte,
-  com snap ao pixel de dispositivo em `topAnchored`; overhang descartado por
-  calibragem em hardware ("never negative") e as frestas cobertas por um
-  underlay preto estático em NotchView.)_
-- Multi-display: janela por tela chaveada por **UUID do display** (idêntico à
-  nossa convenção); reconciliar em `didChangeScreenParametersNotification`.
-- MewNotch usa janela do tamanho da tela inteira com conteúdo posicionado por
-  SwiftUI — alternativa que evita re-frames mas exige controle de hit-testing.
+- Non-activating transparent panel, **level `.mainMenu + 3`** (above the menu
+  bar), `collectionBehavior` with canJoinAllSpaces + **fullScreenAuxiliary**
+  (visible over fullscreen apps) + stationary + ignoresCycle.
+- Window **sized for the open state** and anchored top-center (x centered on
+  the screen's midX — the slit is centered on the display; maxY flush against
+  `frame.maxY`); the closed state is drawn _inside_ the larger window. This
+  avoids re-framing the window on every hover — only the view animates.
+  - Note — shipped: this is exactly the model adopted — a FIXED window at the
+    style's maximum frame (`windowFrame`, a pure function of the frame rule),
+    only the content animates; the per-state frame survives only as a
+    defensive fallback, never applied by the styles (CLAUDE.md, "Never do").
+- **Widen the slit by ~4 pt** when drawing (2 pt per side, or −4 of inset):
+  the physical cutout has softened corners; without the allowance, cracks of
+  light show through (boring.notch/Atoll add 4 pt; NotchDrop expands 4 pt per
+  side).
+  _(Shipped diverges: `NotchMetrics.lateralInset = 0` — flush with the cutout,
+  with device-pixel snapping in `topAnchored`; the overhang dropped by
+  hardware calibration ("never negative") and the cracks covered by a static
+  black underlay in NotchView.)_
+- Multi-display: one window per screen keyed by **display UUID** (identical to
+  our convention); reconcile on `didChangeScreenParametersNotification`.
+- MewNotch uses a window the size of the whole screen with content positioned
+  by SwiftUI — an alternative that avoids re-frames but demands hit-testing
+  control.
 
 ### 1.4 Gotchas
 
-- **A fenda é zona morta de pixels e cliques** — o cursor passa por baixo dela
-  ([AppleInsider](https://appleinsider.com/articles/21/10/20/macbook-pros-mouse-cursor-moves-behind-camera-notch)).
-  Nunca colocar UI interativa dentro do rect físico; só ao redor/abaixo.
-- **"Scale to fit below built-in camera"** (Get Info) reescala a tela para um
-  modo sem fenda em runtime — mais um motivo para reagir à notificação de
-  mudança de parâmetros e nunca cachear geometria.
-- **Tahoe:** MewNotch documentou crash do WindowServer ao mover a janela da
-  notch para um space privado via SkyLight ([releases](https://github.com/monuk7735/mew-notch/releases))
-  — **evitar CGSSpace/SkyLight**; NSPanel com nível alto + collectionBehavior é
-  o caminho seguro (o que já fazemos). Há também o bug de login com "Displays
-  have separate Spaces" desligado ([BetterDisplay #4752](https://github.com/waydabber/BetterDisplay/discussions/4752)).
-- Fullscreen: a menu bar some mas a fenda fica — sem `fullScreenAuxiliary` o
-  painel desaparece sobre apps fullscreen.
+- **The slit is a dead zone for pixels and clicks** — the cursor passes
+  beneath it ([AppleInsider](https://appleinsider.com/articles/21/10/20/macbook-pros-mouse-cursor-moves-behind-camera-notch)).
+  Never place interactive UI inside the physical rect; only around/below it.
+- **"Scale to fit below built-in camera"** (Get Info) rescales the screen to a
+  slit-less mode at runtime — one more reason to react to the
+  parameters-changed notification and never cache geometry.
+- **Tahoe:** MewNotch documented a WindowServer crash when moving the notch
+  window to a private space via SkyLight ([releases](https://github.com/monuk7735/mew-notch/releases))
+  — **avoid CGSSpace/SkyLight**; an NSPanel with a high level +
+  collectionBehavior is the safe path (what we already do). There is also the
+  login bug with "Displays have separate Spaces" turned off ([BetterDisplay #4752](https://github.com/waydabber/BetterDisplay/discussions/4752)).
+- Fullscreen: the menu bar goes away but the slit stays — without
+  `fullScreenAuxiliary` the panel disappears over fullscreen apps.
 
 ---
 
-## 2. Timing e animação
+## 2. Timing and animation
 
-### 2.1 Por que springs
+### 2.1 Why springs
 
 [WWDC23 "Animate with springs"](https://developer.apple.com/videos/play/wwdc2023/10158/):
-springs **preservam posição e velocidade quando retargetadas** — o caso exato
-do hover (mouse entra/sai/volta no meio do voo). Easing fixo "salta" ao
-retargetar. Desde iOS 17/macOS 14 o default do SwiftUI já é spring. Guia da
-Apple para `bounce`: 0 = criticamente amortecido (default versátil); ~0.15 =
-vivacidade sutil; ~0.3 = claramente bouncy; **> 0.4 desaconselhado para UI**.
+springs **preserve position and velocity when retargeted** — exactly the hover
+case (mouse enters/leaves/returns mid-flight). Fixed easing "jumps" on
+retarget. Since iOS 17/macOS 14, SwiftUI's default is already spring. Apple's
+guidance for `bounce`: 0 = critically damped (the versatile default); ~0.15 =
+subtle liveliness; ~0.3 = clearly bouncy; **> 0.4 discouraged for UI**.
 
-### 2.2 Valores de referência (convergência das fontes)
+### 2.2 Reference values (convergence of the sources)
 
-Presets da Apple ([doc](<https://developer.apple.com/documentation/swiftui/animation/snappy(duration:extrabounce:)>)):
-`.smooth` = bounce 0, `.snappy` = bounce 0.15, `.bouncy` = bounce 0.3 (todos
-duration 0.5 default). Conversões úteis: `dampingFraction = 1 − bounce`;
-`response ≈ duration`. Defaults clássicos: `.spring()` = 0.55/0.825;
+Apple presets ([doc](<https://developer.apple.com/documentation/swiftui/animation/snappy(duration:extrabounce:)>)):
+`.smooth` = bounce 0, `.snappy` = bounce 0.15, `.bouncy` = bounce 0.3 (all
+duration 0.5 default). Useful conversions: `dampingFraction = 1 − bounce`;
+`response ≈ duration`. Classic defaults: `.spring()` = 0.55/0.825;
 `interactiveSpring()` = 0.15/0.86.
 
-Valores observados (fatos, projetos GPL descritos em prosa):
+Observed values (facts, GPL projects described in prose):
 
-| Fonte                 | Abrir                                         | Fechar                              | Interativo/hover                                                       |
+| Source                | Open                                          | Close                               | Interactive/hover                                                      |
 | --------------------- | --------------------------------------------- | ----------------------------------- | ---------------------------------------------------------------------- |
-| boring.notch          | response **0.42** / damping **0.8**           | response **0.45** / damping **1.0** | interactiveSpring 0.38/0.8 (um spring compartilhado p/ frame+conteúdo) |
-| Atoll                 | idem boring.notch                             | idem                                | `.bouncy` acelerado 1.2×; micro-interações 0.16–0.2 / 0.5–0.72         |
-| DynamicNotchKit (MIT) | notch: `.bouncy(0.4)`; pílula: `.snappy(0.4)` | `.smooth(0.4)`                      | hover `.snappy(0.4)`                                                   |
+| boring.notch          | response **0.42** / damping **0.8**           | response **0.45** / damping **1.0** | interactiveSpring 0.38/0.8 (one spring shared for frame+content)       |
+| Atoll                 | same as boring.notch                          | same                                | `.bouncy` sped up 1.2×; micro-interactions 0.16–0.2 / 0.5–0.72         |
+| DynamicNotchKit (MIT) | notch: `.bouncy(0.4)`; pill: `.snappy(0.4)`   | `.smooth(0.4)`                      | hover `.snappy(0.4)`                                                   |
 
-**Síntese:** abrir com response/duration **0.35–0.45 s** e bounce **0.15–0.3**
-(card no piso, notch no teto); fechar com **0.4–0.45 s** e bounce **0**
-_(shipped: 0.35 — orçamento de latência de saída; docs/DECISIONS.md:
-hover-follows-the-eye)_ —
-**nunca bounce no recolhimento** (overshoot contra a borda da tela lê como
-instabilidade). O iOS usa mais bounce no Dynamic Island (recriações convergem
-em dampingFraction ~0.6), mas o consenso no macOS é conter, porque a superfície
-vive ao lado da menu bar estática.
+**Synthesis:** open with response/duration **0.35–0.45 s** and bounce
+**0.15–0.3** (card at the floor, notch at the ceiling); close with
+**0.4–0.45 s** and bounce **0** _(shipped: 0.35 — exit-latency budget;
+docs/DECISIONS.md: hover-follows-the-eye)_ —
+**never bounce on collapse** (overshoot against the screen edge reads as
+instability). iOS uses more bounce in the Dynamic Island (recreations converge
+on dampingFraction ~0.6), but the macOS consensus is restraint, because the
+surface lives next to the static menu bar.
 
-### 2.3 Hover: delay, histerese, recolhimento
+### 2.3 Hover: delay, hysteresis, collapse
 
-Padrão convergente (boring.notch/Atoll, em prosa) + pesquisa de UX:
+Convergent pattern (boring.notch/Atoll, in prose) + UX research:
 
-- **Delay antes de expandir (hover intent): default 0.3 s**, exposto como
-  preferência 0–1 s. Implementado como task cancelável (nossa convenção de
-  timers já cobre). [Baymard](https://baymard.com/blog/dropdown-menu-flickering-issue)
-  recomenda 300–500 ms para hover-menus; apps de notch ficam no piso (300 ms)
-  porque a borda superior é alvo de Fitts "infinito".
-- **Feedback imediato mesmo com delay**: um crescimento sutil de poucos pontos
-  dispara na hora (interactiveSpring ~0.38/0.8); só a expansão completa espera
-  o intent — responsividade sem acionamento acidental.
-- **Recolher ao sair: debounce de ~100 ms**, também cancelável — re-entrar
-  dentro da janela cancela o fechamento (elimina o "piscar" na borda).
-- **Histerese espacial de graça**: a fronteira de saída é a superfície
-  expandida (maior que a de entrada) — histerese geométrica + temporal.
-  _(Shipped diverge: a fronteira de saída segue a superfície do ESTADO
-  atual/renderizada + banda por aresta — a fronteira presa ao expandido criava
-  uma zona grudenta invisível de ~100 pt sob a notch compacta;
+- **Delay before expanding (hover intent): default 0.3 s**, exposed as a
+  0–1 s preference. Implemented as a cancellable task (our timer convention
+  already covers it). [Baymard](https://baymard.com/blog/dropdown-menu-flickering-issue)
+  recommends 300–500 ms for hover menus; notch apps sit at the floor (300 ms)
+  because the top edge is an "infinite" Fitts target.
+- **Immediate feedback even with the delay**: a subtle growth of a few points
+  fires instantly (interactiveSpring ~0.38/0.8); only the full expansion waits
+  for the intent — responsiveness without accidental triggering.
+- **Collapse on exit: ~100 ms debounce**, also cancellable — re-entering
+  within the window cancels the close (eliminates the edge "flicker").
+- **Spatial hysteresis for free**: the exit boundary is the expanded surface
+  (larger than the entry one) — geometric + temporal hysteresis.
+  _(Shipped diverges: the exit boundary follows the rendered surface of the
+  CURRENT state + a per-edge band — a boundary pinned to the expanded surface
+  created an invisible ~100 pt sticky zone under the compact notch;
   docs/DECISIONS.md: hover-follows-the-eye.)_
-- **Supressão pós-ação**: janela de ~0.35 s sem hover-open após fechamento
-  programático (ex.: HUD assumiu a superfície), senão reabre porque o mouse
-  ainda está lá. _(Shipped diverge: não implementada — a constante existiu sem
-  call site e foi removida; o re-arm é coberto pelo debounce de saída +
-  `hoverExitRelinger` do modelo de hover comprometido.)_
-- **Recheck ao disparar**: quando o timer expira, revalidar as condições
-  (ainda em hover, ainda fechado) antes de abrir.
+- **Post-action suppression**: a ~0.35 s window with no hover-open after a
+  programmatic close (e.g. the HUD took over the surface), otherwise it
+  reopens because the mouse is still there. _(Shipped diverges: not
+  implemented — the constant existed without a call site and was removed;
+  re-arming is covered by the exit debounce + the committed-hover model's
+  `hoverExitRelinger`.)_
+- **Recheck on firing**: when the timer expires, revalidate the conditions
+  (still hovering, still closed) before opening.
 
 ---
 
-## 3. Liquid Glass (macOS 26 "Tahoe") — a API nativa
+## 3. Liquid Glass (macOS 26 "Tahoe") — the native API
 
-### 3.1 SwiftUI (o caminho certo; **não** blur caseiro)
+### 3.1 SwiftUI (the right path; **not** a home-made blur)
 
-API central: [`glassEffect(_:in:)`](<https://developer.apple.com/documentation/swiftui/view/glasseffect(_:in:)>)
-(**macOS 26.0+**; default `Glass.regular` + shape `Capsule`):
+Core API: [`glassEffect(_:in:)`](<https://developer.apple.com/documentation/swiftui/view/glasseffect(_:in:)>)
+(**macOS 26.0+**; defaults to `Glass.regular` + a `Capsule` shape):
 
 ```swift
-content.padding().glassEffect()                          // cápsula regular
+content.padding().glassEffect()                          // regular capsule
 content.glassEffect(.regular, in: .rect(cornerRadius: 16))
 content.glassEffect(.regular.tint(.accentColor).interactive())
 ```
 
 - [`Glass`](https://developer.apple.com/documentation/swiftui/glass): `.regular`
-  (adaptativo — usar em quase tudo), `.clear` (só sobre mídia rica; nunca
-  misturar as variantes), `.identity` (desliga condicionalmente); métodos
-  `.tint(_:)` (só para significado, não decoração) e `.interactive()`.
+  (adaptive — use it for almost everything), `.clear` (only over rich media;
+  never mix the variants), `.identity` (turns the effect off conditionally);
+  methods `.tint(_:)` (for meaning only, not decoration) and `.interactive()`.
 - [`GlassEffectContainer`](https://developer.apple.com/documentation/swiftui/glasseffectcontainer):
-  agrupa shapes próximas num único sampling pass e habilita blend/morph
+  groups nearby shapes into a single sampling pass and enables blend/morph
   ("glass cannot sample other glass" — WWDC25 323). `glassEffectID(_:in:)` +
-  `@Namespace` para morphing entre estados; `glassEffectUnion` para fundir;
-  `glassEffectTransition(.materialize)` quando os efeitos estão distantes.
-- Botões: [`buttonStyle(.glass)` / `.glassProminent`](https://developer.apple.com/documentation/swiftui/glassbuttonstyle)
-  — preferir aos glassEffect manuais em controles clicáveis.
-- **Aplicar `glassEffect` por último** na cadeia de modifiers.
+  `@Namespace` for morphing between states; `glassEffectUnion` to merge;
+  `glassEffectTransition(.materialize)` when the effects sit far apart.
+- Buttons: [`buttonStyle(.glass)` / `.glassProminent`](https://developer.apple.com/documentation/swiftui/glassbuttonstyle)
+  — prefer these over hand-rolled glassEffect on clickable controls.
+- **Apply `glassEffect` last** in the modifier chain.
 
-Sessões: [Meet Liquid Glass (219)](https://developer.apple.com/videos/play/wwdc2025/219/),
+Sessions: [Meet Liquid Glass (219)](https://developer.apple.com/videos/play/wwdc2025/219/),
 [Build a SwiftUI app with the new design (323)](https://developer.apple.com/videos/play/wwdc2025/323/),
 [Build an AppKit app with the new design (310)](https://developer.apple.com/videos/play/wwdc2025/310/);
-guia: [Adopting Liquid Glass](https://developer.apple.com/documentation/TechnologyOverviews/adopting-liquid-glass).
+guide: [Adopting Liquid Glass](https://developer.apple.com/documentation/TechnologyOverviews/adopting-liquid-glass).
 
 ### 3.2 AppKit
 
 [`NSGlassEffectView`](https://developer.apple.com/documentation/appkit/nsglasseffectview)
-(macOS 26+): setar **`contentView`** (não sibling) — o glass amarra a geometria
-e aplica vibrância ao conteúdo; `cornerRadius` (999 → cápsula), `tintColor`,
-`style` (.regular/.clear). [`NSGlassEffectContainerView`](https://developer.apple.com/documentation/appkit/nsglasseffectcontainerview)
-para merge/performance. Janela precisa de `backgroundColor = .clear` +
-`isOpaque = false` (nosso painel já é assim).
+(macOS 26+): set **`contentView`** (not a sibling) — the glass binds the
+geometry and applies vibrancy to the content; `cornerRadius` (999 → capsule),
+`tintColor`, `style` (.regular/.clear). [`NSGlassEffectContainerView`](https://developer.apple.com/documentation/appkit/nsglasseffectcontainerview)
+for merging/performance. The window needs `backgroundColor = .clear` +
+`isOpaque = false` (our panel already is).
 
-### 3.3 Aplicação no card/notch do Crema
+### 3.3 Applying it to Crema's card/notch
 
-- O Liquid Glass é, por definição da Apple, o material da **camada funcional
-  flutuante acima do conteúdo** — um HUD flutuante é exatamente esse caso.
-- **Rota recomendada para o Crema**: manter o painel transparente e aplicar
-  `.glassEffect(in:)` **dentro da view SwiftUI** (o WindowManager continua
-  dono do frame). Motivos: relatos de `NSGlassEffectView` envolvendo
-  `NSHostingView` com conteúdo em branco/tint errado ([cmux #2459](https://github.com/manaflow-ai/cmux/issues/2459));
-  e a rota SwiftUI casa com as skins puras.
-- **Shipped diverge**: o material embarcado é vibrancy clássica
-  (`NSVisualEffectView` via `VibrancyMaterial`, fixada dark — ver
-  DECISIONS: hud-fixed-dark-palette); a rota `.glassEffect` não foi adotada.
-  Esta seção permanece como pesquisa para uma revisita Tahoe-nativa.
-- **Bordas/highlight vêm de graça** (lensing, reflexo, adaptação claro/escuro)
-  — a view **não** desenha stroke/highlight próprios no ramo 26+.
-- **Não fazer**: blur/material caseiro por cima/por baixo do glass; glass
-  aninhado em glass; glass na camada de conteúdo; excesso de efeitos
-  simultâneos (warning literal da doc).
-- **Smoke test obrigatório**: há relato de glass degradando para blur simples
-  quando o app não está focado ([HWS forums](https://www.hackingwithswift.com/forums/swiftui/glasseffect-in-floating-window-panel/30067))
-  — o Crema é LSUIElement e quase nunca é o app ativo; validar no hardware.
+- Liquid Glass is, by Apple's own definition, the material of the **floating
+  functional layer above the content** — a floating HUD is exactly that case.
+- **Recommended route for Crema**: keep the panel transparent and apply
+  `.glassEffect(in:)` **inside the SwiftUI view** (the WindowManager stays the
+  owner of the frame). Reasons: reports of `NSGlassEffectView` wrapping an
+  `NSHostingView` with blank/wrongly tinted content ([cmux #2459](https://github.com/manaflow-ai/cmux/issues/2459));
+  and the SwiftUI route matches the pure skins.
+- **Shipped diverges**: the shipped material is classic vibrancy
+  (`NSVisualEffectView` via `VibrancyMaterial`, pinned dark — see
+  DECISIONS: hud-fixed-dark-palette); the `.glassEffect` route was not adopted.
+  This section remains as research for a Tahoe-native revisit.
+- **Edges/highlight come for free** (lensing, reflection, light/dark adaptation)
+  — the view draws **no** stroke/highlight of its own on the 26+ branch.
+- **Never do**: home-made blur/material over or under the glass; glass nested
+  in glass; glass on the content layer; too many simultaneous effects (a
+  literal warning in the docs).
+- **Mandatory smoke test**: there is a report of glass degrading to a plain blur
+  when the app is not focused ([HWS forums](https://www.hackingwithswift.com/forums/swiftui/glasseffect-in-floating-window-panel/30067))
+  — Crema is an LSUIElement and is almost never the active app; validate on hardware.
 
-### 3.4 Fallback (target macOS 14+)
+### 3.4 Fallback (macOS 14+ target)
 
-Todas as APIs de glass são **26.0+, sem back-deployment**. Padrão para as skins:
+All the glass APIs are **26.0+, with no back-deployment**. Pattern for the skins:
 
 ```swift
 if #available(macOS 26.0, *) {
@@ -281,132 +284,136 @@ if #available(macOS 26.0, *) {
 }
 ```
 
-O stroke sutil só existe no ramo antigo (no 26+ o sistema desenha o highlight).
-Nossas views já usam `.ultraThinMaterial` — o trabalho aqui é embrulhar
-isso num modifier de "superfície" com o branch de disponibilidade. Testar com
-Reduce Transparency/Reduce Motion (o sistema adapta os dois ramos sozinho).
+The subtle stroke exists only on the legacy branch (on 26+ the system draws the
+highlight). Our views already use `.ultraThinMaterial` — the work here is
+wrapping that in a "surface" modifier with the availability branch. Test with
+Reduce Transparency/Reduce Motion (the system adapts both branches on its own).
 
 ---
 
-## 4. Os quatro estilos — referência visual
+## 4. The four styles — visual reference
 
-### 4.1 Notch (expande a fenda)
+### 4.1 Notch (expands the slit)
 
-- **Âncora**: fenda real via safe area/aux areas (§1); desenho alargado ~4 pt.
-- **Compacto**: a própria fenda (~185×32 pt no default) — conteúdo do HUD
-  inline nas áreas auxiliares, **nunca sob o recorte físico**: padrão de 3
-  regiões (ícone+label à esquerda, espaçador preto central da largura da
-  fenda, valor/progresso à direita), o mesmo layout do Dynamic Island compacto.
-- **Expandido**: referência 640×190 pt de conteúdo (+20 pt de respiro para
-  sombra) — valores do boring.notch como fato.
-- **Raios assimétricos — o princípio central do estilo**: topo menor que a
-  base (base ≈ 2× topo) produz o visual de fenda "escorrendo" do hardware.
-  Referência: fechado **6 pt topo / 14 pt base**; aberto **19 / 24**.
-- **Cantos concêntricos** (regra da Apple): raio interno = raio externo −
-  padding; ≤ 0 vira canto reto. iOS 26 formalizou com `ConcentricRectangle`
+- **Anchor**: the real notch slit via safe area/aux areas (§1); the drawing
+  widened by ~4 pt.
+- **Compact**: the slit itself (~185×32 pt on the default) — HUD content
+  inline in the auxiliary areas, **never under the physical cutout**: a
+  3-region pattern (icon+label on the left, a central black spacer the width
+  of the slit, value/progress on the right), the same layout as the compact
+  Dynamic Island.
+- **Expanded**: 640×190 pt of content as the reference (+20 pt of breathing
+  room for the shadow) — boring.notch's values taken as fact.
+- **Asymmetric radii — the style's central principle**: top smaller than
+  bottom (bottom ≈ 2× top) produces the look of the slit "dripping" out of
+  the hardware. Reference: closed **6 pt top / 14 pt bottom**; open **19 / 24**.
+- **Concentric corners** (Apple's rule): inner radius = outer radius −
+  padding; ≤ 0 becomes a square corner. iOS 26 formalized it with `ConcentricRectangle`
   ([Livsy](https://livsycode.com/swiftui/concentricrectangle-and-corner-radius-consistency/)).
-  Artwork de referência: 90×90 pt (raio 13) aberto, 20×20 pt (raio 4) fechado.
-- Organização do expandido (padrão Dynamic Island/Live Activities,
+  Reference artwork: 90×90 pt (radius 13) open, 20×20 pt (radius 4) closed.
+- Expanded layout (the Dynamic Island/Live Activities pattern,
   [HIG](https://developer.apple.com/design/human-interface-guidelines/live-activities)):
-  leading = artwork, center = título/artista, trailing/bottom =
-  controles/progresso; raio expandido de referência no iOS: 44 pt, margens 20 pt.
+  leading = artwork, center = title/artist, trailing/bottom =
+  controls/progress; iOS reference expanded radius: 44 pt, margins 20 pt.
 
-### 4.2 Pílula (exploração precursora — convergiu no card)
+### 4.2 Pill (precursor exploration — converged into the card)
 
-> Estilo **descartado**; a pesquisa de cápsula abaixo alimentou o **card**
-> entregue (telas sem fenda). `PillMetrics` não existe mais no código — o
-> vigente é `CardMetrics` (compacto 280×64), um painel arredondado, não uma
-> cápsula pura.
+> Style **discarded**; the capsule research below fed the shipped **card**
+> (screens without a slit). `PillMetrics` no longer exists in the code — the
+> current type is `CardMetrics` (compact 280×64), a rounded panel, not a
+> pure capsule.
 
-- **Cápsula sempre**: raio = altura/2, cantos contínuos (squircle,
-  `.continuous`), raio nunca excede metade da menor dimensão.
-- **Compacto**: 36–44 pt de altura (Dynamic Island compacto ≈ 36–37 pt, ícone
-  24 px, texto 15 pt — [Infinum](https://infinum.com/blog/start-designing-for-dynamic-island-and-live-activities/));
-  o Atoll usa 185×32 como fato. O card entregue usa `CardMetrics.compact`
-  (280×64, painel arredondado com hugging de largura); calibrar visualmente.
-- **Expandido**: referência 640×200 pt (Atoll usa os mesmos tamanhos do notch
-  para reusar conteúdo — mesmo truque que nossas skins já fazem).
-- Comportamento inspirador: o indicador de volume do iOS 13+ encolhe de pílula
-  cheia para linha fina após um instante ([9to5Mac](https://9to5mac.com/2019/06/03/this-is-the-new-volume-indicator-in-ios-13/))
-  — dois níveis de presença (interação → persistência mínima).
+- **Always a capsule**: radius = height/2, continuous corners (squircle,
+  `.continuous`), radius never exceeding half the smaller dimension.
+- **Compact**: 36–44 pt tall (compact Dynamic Island ≈ 36–37 pt, 24 px icon,
+  15 pt text — [Infinum](https://infinum.com/blog/start-designing-for-dynamic-island-and-live-activities/));
+  Atoll uses 185×32 as fact. The shipped card uses `CardMetrics.compact`
+  (280×64, a rounded panel with width hugging); calibrate visually.
+- **Expanded**: 640×200 pt as the reference (Atoll uses the same sizes as the
+  notch to reuse content — the same trick our skins already pull).
+- Inspiring behaviour: the iOS 13+ volume indicator shrinks from a full pill
+  to a thin line after a moment ([9to5Mac](https://9to5mac.com/2019/06/03/this-is-the-new-volume-indicator-in-ios-13/))
+  — two levels of presence (interaction → minimal persistence).
 
-### 4.3 Circular/radial (exploração precursora — descartada)
+### 4.3 Circular/radial (precursor exploration — discarded)
 
-> Estilo **descartado** (não entregue; o card o substituiu antes da pílula). Fica
-> como registro da pesquisa de anel/gauge; nada aqui corresponde a código atual.
+> Style **discarded** (never shipped; the card replaced it before it replaced
+> the pill). Kept as a record of the ring/gauge research; nothing here maps to
+> current code.
 
-Convenção clássica de knobs/gauges de áudio + valores do Atoll (fatos):
+The classic audio knob/gauge convention + Atoll's values (facts):
 
-- **Anel com fresta na base**: arco de ~**252°** (15%→85% da circunferência,
-  começando em 144°) — o gap embaixo é a assinatura do estilo (o `Gauge`
-  circular acessório do SwiftUI segue o mesmo desenho).
-- **Tudo escala de um único diâmetro**: ícone central = 32% do diâmetro; label
-  numérico abaixo = 15%; bolinha indicadora na ponta = 1,45× a espessura do
-  traço.
-- Ícone adaptativo por contexto (mudo / `speaker.wave.1→3` por faixa de volume
-  com thresholds ~0.3/0.8; sol min/max com threshold 0.6) — casa com o nosso
-  `HUDPresentation`, que pode ganhar níveis depois.
-- Organização: ícone no centro ("o quê"), anel na borda ("quanto"), valor
-  numérico abaixo; sombra leve para descolar do fundo.
+- **Ring with a gap at the bottom**: an arc of ~**252°** (15%→85% of the
+  circumference, starting at 144°) — the gap at the bottom is the style's
+  signature (SwiftUI's accessory circular `Gauge` follows the same drawing).
+- **Everything scales from a single diameter**: central icon = 32% of the
+  diameter; numeric label below = 15%; indicator dot at the tip = 1.45× the
+  stroke width.
+- Adaptive icon per context (mute / `speaker.wave.1→3` by volume band with
+  thresholds ~0.3/0.8; min/max sun with a 0.6 threshold) — fits our
+  `HUDPresentation`, which may gain levels later.
+- Layout: icon at the center ("what"), ring at the edge ("how much"), numeric
+  value below; a light shadow to lift it off the background.
 
-### 4.4 Classic (bezel nativo pré-Tahoe, repaginado)
+### 4.4 Classic (the pre-Tahoe native bezel, restyled)
 
-O OSD que a Apple **aposentou no Tahoe** (hoje é um slider no canto
-superior-direito, criticado — [MacRumors](https://forums.macrumors.com/threads/new-volume-and-brightness-indicators-stress-me-out.2468210/);
-isso valida o "classic" como nostalgia deliberada e o próprio mercado de apps
-que o restauram: volumeHUD, Hudlum).
+The OSD Apple **retired in Tahoe** (today it is a slider in the top-right
+corner, and a criticized one — [MacRumors](https://forums.macrumors.com/threads/new-volume-and-brightness-indicators-stress-me-out.2468210/);
+that validates "classic" as deliberate nostalgia, along with the very market
+of apps restoring it: volumeHUD, Hudlum).
 
-Medidas do original (engenharia reversa, [ffried.codes](https://ffried.codes/2018/01/20/the-internals-of-the-macos-hud/)
+Measurements of the original (reverse engineering, [ffried.codes](https://ffried.codes/2018/01/20/the-internals-of-the-macos-hud/)
 
-- recreação MIT [volumeHUD](https://github.com/dannystewart/volumeHUD)):
+- MIT recreation [volumeHUD](https://github.com/dannystewart/volumeHUD)):
 
-* **Quadrado 200×200 pt**, centralizado em x, **y = 140 pt do fundo** da tela
-  (constante entre displays).
-* **Raio de canto 16–19 pt** (o sistema usava 18.0; a recreação usa 16).
-* Material translúcido (vibrancy/blur; a recreação usa `regularMaterial`),
-  adapta ao dark mode.
-* **Ícone ~80 pt** central a ~70% de opacidade; layout vertical ~100 pt para o
-  ícone + ~80 pt para a barra; margens horizontais 20 pt.
-* **Barra de 16 segmentos** na base (7,5×7,5 pt com 2 pt de espaçamento na
-  recreação): preenchidos ~70% de opacidade, vazios ~20%. Detalhe fiel:
-  segmentos **mais largos que altos** e preenchimento parcial **por largura**,
-  não por opacidade ([Hudlum](https://manytricks.com/blog/?p=6623)); com
-  Option+Shift o sistema ajustava em **quartos de segmento** (64 passos —
+* **200×200 pt square**, centered in x, **y = 140 pt from the bottom** of the
+  screen (constant across displays).
+* **Corner radius 16–19 pt** (the system used 18.0; the recreation uses 16).
+* Translucent material (vibrancy/blur; the recreation uses `regularMaterial`),
+  adapts to dark mode.
+* **Icon ~80 pt** centered at ~70% opacity; vertical layout ~100 pt for the
+  icon + ~80 pt for the bar; horizontal margins 20 pt.
+* **16-segment bar** at the bottom (7.5×7.5 pt with 2 pt spacing in the
+  recreation): filled at ~70% opacity, empty at ~20%. A faithful detail:
+  segments **wider than tall**, with partial fill **by width**, not by
+  opacity ([Hudlum](https://manytricks.com/blog/?p=6623)); with Option+Shift
+  the system adjusted in **quarter segments** (64 steps —
   [How-To Geek](https://www.howtogeek.com/265487/how-to-adjust-your-macs-volume-in-smaller-increments/)).
-* Timing do original: visível ~1,1 s e fade-out de ~0,11 s (recreação); o
-  sistema usava fade de 2000 ms via OSDUIHelper com priority 500.
-  - Nota: nosso revert atual é 1,5 s — dentro da faixa; o fade curto (~0,1 s)
-    é o detalhe a copiar.
-* Repaginação sugerida: manter proporções/posição/segmentos e trocar o
-  material pelo Liquid Glass (§3) no macOS 26.
+* Timing of the original: visible for ~1.1 s with a ~0.11 s fade-out
+  (recreation); the system used a 2000 ms fade via OSDUIHelper at priority 500.
+  - Note: our current revert is 1.5 s — within the range; the short fade
+    (~0.1 s) is the detail to copy.
+* Suggested restyling: keep the proportions/position/segments and swap the
+  material for Liquid Glass (§3) on macOS 26.
 
 ---
 
-## 5. Resumo — valores de partida recomendados
+## 5. Summary — recommended starting values
 
-**Tudo abaixo é ponto de partida a calibrar visualmente no hardware.**
+**Everything below is a starting point, to be calibrated visually on hardware.**
 
-| Parâmetro                       | Valor de partida                                                                                                | Fonte |
+| Parameter                       | Starting value                                                                                                  | Source |
 | ------------------------------- | --------------------------------------------------------------------------------------------------------------- | ----- |
-| Fenda MBP 14 (default)          | ~185×32 pt — **sempre derivar em runtime** (aux areas + safeTop); fallback cosmético 185 pt                     | §1.1  |
-| Alargamento do desenho da fenda | pesquisa: +4 pt (2 pt/lado); **shipped: inset 0** (flush + snap ao pixel; underlay cobre as frestas)            | §1.3  |
-| Nível de janela (estilo notch)  | `.mainMenu + 3`, canJoinAllSpaces + fullScreenAuxiliary + stationary                                            | §1.3  |
-| Spring de abrir                 | pesquisa: 0.42/0.8 (notch) · `.snappy(0.4)` (card); **shipped: família única 0.42/0.8** (`SurfaceAnimation.open`) | §2.2  |
-| Spring de fechar                | pesquisa 0.45 / damping 1.0 — **sem bounce**; shipped 0.35 (hover-follows-the-eye)                              | §2.2  |
-| Hover-intent delay              | 0.3 s (preferência 0–1 s), task cancelável + recheck                                                            | §2.3  |
-| Hover-out debounce              | ~100 ms, cancelável                                                                                             | §2.3  |
-| Supressão pós-fechamento        | pesquisa: ~0.35 s; **shipped: não implementada** (debounce de saída + re-linger cobrem)                         | §2.3  |
-| Liquid glass                    | `.glassEffect(.regular, in:)` dentro da view SwiftUI (26+); `.ultraThinMaterial` + stroke sutil no fallback <26 | §3    |
-| Notch: raios                    | fechado 6/14 (topo/base), aberto 19/24; cantos concêntricos p/ conteúdo                                         | §4.1  |
-| Notch: expandido                | ~640×190 pt                                                                                                     | §4.1  |
-| Card (entregue; telas sem fenda) | painel arredondado com hugging de largura; compacto `CardMetrics` 280×64; expandido cresce em altura            | §4.2  |
-| ~~Pílula / Circular~~ (descartados) | explorações precursoras que convergiram no card — registro em §4.2/§4.3, sem correspondência em código          | §4.2/§4.3 |
-| Classic                         | 200×200 pt, y=140 do fundo, raio 16–19, ícone 80 pt, 16 segmentos preenchidos por largura, fade ~0,11 s         | §4.4  |
+| MBP 14 notch slit (default)     | ~185×32 pt — **always derive at runtime** (aux areas + safeTop); cosmetic fallback 185 pt                       | §1.1  |
+| Widening of the slit drawing    | research: +4 pt (2 pt/side); **shipped: inset 0** (flush + pixel snap; the underlay covers the gaps)            | §1.3  |
+| Window level (notch style)      | `.mainMenu + 3`, canJoinAllSpaces + fullScreenAuxiliary + stationary                                            | §1.3  |
+| Open spring                     | research: 0.42/0.8 (notch) · `.snappy(0.4)` (card); **shipped: one family, 0.42/0.8** (`SurfaceAnimation.open`) | §2.2  |
+| Close spring                    | research 0.45 / damping 1.0 — **no bounce**; shipped 0.35 (hover-follows-the-eye)                               | §2.2  |
+| Hover-intent delay              | 0.3 s (preference 0–1 s), cancellable task + recheck                                                            | §2.3  |
+| Hover-out debounce              | ~100 ms, cancellable                                                                                            | §2.3  |
+| Post-close suppression          | research: ~0.35 s; **shipped: not implemented** (exit debounce + re-linger cover it)                            | §2.3  |
+| Liquid glass                    | `.glassEffect(.regular, in:)` inside the SwiftUI view (26+); `.ultraThinMaterial` + subtle stroke on the <26 fallback | §3    |
+| Notch: radii                    | closed 6/14 (top/bottom), open 19/24; concentric corners for content                                            | §4.1  |
+| Notch: expanded                 | ~640×190 pt                                                                                                     | §4.1  |
+| Card (shipped; screens without a slit) | rounded panel with width hugging; compact `CardMetrics` 280×64; expanded grows in height                 | §4.2  |
+| ~~Pill / Circular~~ (discarded) | precursor explorations that converged into the card — recorded in §4.2/§4.3, with no counterpart in code        | §4.2/§4.3 |
+| Classic                         | 200×200 pt, y=140 from the bottom, radius 16–19, 80 pt icon, 16 segments filled by width, ~0.11 s fade          | §4.4  |
 
-## 6. Fontes completas
+## 6. Full sources
 
-**Apple (oficial):** [safeAreaInsets](https://developer.apple.com/documentation/appkit/nsscreen/safeareainsets) · [auxiliaryTopLeftArea](https://developer.apple.com/documentation/appkit/nsscreen/3882915-auxiliarytopleftarea) · [glassEffect](<https://developer.apple.com/documentation/swiftui/view/glasseffect(_:in:)>) · [Glass](https://developer.apple.com/documentation/swiftui/glass) · [GlassEffectContainer](https://developer.apple.com/documentation/swiftui/glasseffectcontainer) · [Applying Liquid Glass to custom views](https://developer.apple.com/documentation/SwiftUI/Applying-Liquid-Glass-to-custom-views) · [NSGlassEffectView](https://developer.apple.com/documentation/appkit/nsglasseffectview) · [NSGlassEffectContainerView](https://developer.apple.com/documentation/appkit/nsglasseffectcontainerview) · [Adopting Liquid Glass](https://developer.apple.com/documentation/TechnologyOverviews/adopting-liquid-glass) · [HIG Materials](https://developer.apple.com/design/human-interface-guidelines/materials) · [HIG Live Activities](https://developer.apple.com/design/human-interface-guidelines/live-activities) · [WWDC23 Animate with springs](https://developer.apple.com/videos/play/wwdc2023/10158/) · [WWDC25 219 Meet Liquid Glass](https://developer.apple.com/videos/play/wwdc2025/219/) · [WWDC25 323 SwiftUI new design](https://developer.apple.com/videos/play/wwdc2025/323/) · [WWDC25 310 AppKit new design](https://developer.apple.com/videos/play/wwdc2025/310/) · [Animation.snappy](<https://developer.apple.com/documentation/swiftui/animation/snappy(duration:extrabounce:)>) · [Animation.bouncy](<https://developer.apple.com/documentation/swiftui/animation/bouncy(duration:extrabounce:)>) · [MBP 14 M4 Tech Specs](https://support.apple.com/en-us/121553)
+**Apple (official):** [safeAreaInsets](https://developer.apple.com/documentation/appkit/nsscreen/safeareainsets) · [auxiliaryTopLeftArea](https://developer.apple.com/documentation/appkit/nsscreen/3882915-auxiliarytopleftarea) · [glassEffect](<https://developer.apple.com/documentation/swiftui/view/glasseffect(_:in:)>) · [Glass](https://developer.apple.com/documentation/swiftui/glass) · [GlassEffectContainer](https://developer.apple.com/documentation/swiftui/glasseffectcontainer) · [Applying Liquid Glass to custom views](https://developer.apple.com/documentation/SwiftUI/Applying-Liquid-Glass-to-custom-views) · [NSGlassEffectView](https://developer.apple.com/documentation/appkit/nsglasseffectview) · [NSGlassEffectContainerView](https://developer.apple.com/documentation/appkit/nsglasseffectcontainerview) · [Adopting Liquid Glass](https://developer.apple.com/documentation/TechnologyOverviews/adopting-liquid-glass) · [HIG Materials](https://developer.apple.com/design/human-interface-guidelines/materials) · [HIG Live Activities](https://developer.apple.com/design/human-interface-guidelines/live-activities) · [WWDC23 Animate with springs](https://developer.apple.com/videos/play/wwdc2023/10158/) · [WWDC25 219 Meet Liquid Glass](https://developer.apple.com/videos/play/wwdc2025/219/) · [WWDC25 323 SwiftUI new design](https://developer.apple.com/videos/play/wwdc2025/323/) · [WWDC25 310 AppKit new design](https://developer.apple.com/videos/play/wwdc2025/310/) · [Animation.snappy](<https://developer.apple.com/documentation/swiftui/animation/snappy(duration:extrabounce:)>) · [Animation.bouncy](<https://developer.apple.com/documentation/swiftui/animation/bouncy(duration:extrabounce:)>) · [MBP 14 M4 Tech Specs](https://support.apple.com/en-us/121553)
 
-**Projetos estudados (licenças na §0):** [boring.notch](https://github.com/TheBoredTeam/boring.notch) (GPL) · [Atoll](https://github.com/Ebullioscopic/Atoll) (GPL) · [MewNotch](https://github.com/monuk7735/mew-notch) (GPL) · [SlimHUD](https://github.com/AlexPerathoner/SlimHUD) (GPL) · [NotchDrop](https://github.com/Lakr233/NotchDrop) (MIT) · [DynamicNotchKit](https://github.com/MrKai77/DynamicNotchKit) (MIT) · [volumeHUD](https://github.com/dannystewart/volumeHUD) (MIT) · [Notchmeister](https://github.com/chockenberry/Notchmeister)
+**Projects studied (licenses in §0):** [boring.notch](https://github.com/TheBoredTeam/boring.notch) (GPL) · [Atoll](https://github.com/Ebullioscopic/Atoll) (GPL) · [MewNotch](https://github.com/monuk7735/mew-notch) (GPL) · [SlimHUD](https://github.com/AlexPerathoner/SlimHUD) (GPL) · [NotchDrop](https://github.com/Lakr233/NotchDrop) (MIT) · [DynamicNotchKit](https://github.com/MrKai77/DynamicNotchKit) (MIT) · [volumeHUD](https://github.com/dannystewart/volumeHUD) (MIT) · [Notchmeister](https://github.com/chockenberry/Notchmeister)
 
-**Artigos/medições:** [Bjango — menu bar por escala](https://bjango.com/articles/designingmenubarextras/) · [ffried.codes — internals do HUD](https://ffried.codes/2018/01/20/the-internals-of-the-macos-hud/) · [Hudlum/Many Tricks](https://manytricks.com/blog/?p=6623) · [How-To Geek — 16 segmentos](https://www.howtogeek.com/265487/how-to-adjust-your-macs-volume-in-smaller-increments/) · [Infinum — Dynamic Island specs](https://infinum.com/blog/start-designing-for-dynamic-island-and-live-activities/) · [Baymard — hover delay 300–500ms](https://baymard.com/blog/dropdown-menu-flickering-issue) · [Ondřej Konečný — nested rounded corners](https://www.ondrejkonecny.com/blog/nested-rounded-corners/) · [The Swift Den — safeAreaInsets 32pt](https://www.answeroverflow.com/m/1145112887048810606) · [9to5Mac — volume iOS 13](https://9to5mac.com/2019/06/03/this-is-the-new-volume-indicator-in-ios-13/) · [MacStories — NotchNook/MediaMate](https://www.macstories.net/reviews/notchnook-and-mediamate-two-apps-to-add-a-dynamic-island-to-the-mac/) · [sinasamaki — Dynamic Island recreation](https://www.sinasamaki.com/dynamic-island/) · [Create with Swift — springs](https://www.createwithswift.com/understanding-spring-animations-in-swiftui/) · [GetStream — spring catalog](https://github.com/GetStream/swiftui-spring-animations)
+**Articles/measurements:** [Bjango — menu bar by scale](https://bjango.com/articles/designingmenubarextras/) · [ffried.codes — HUD internals](https://ffried.codes/2018/01/20/the-internals-of-the-macos-hud/) · [Hudlum/Many Tricks](https://manytricks.com/blog/?p=6623) · [How-To Geek — 16 segments](https://www.howtogeek.com/265487/how-to-adjust-your-macs-volume-in-smaller-increments/) · [Infinum — Dynamic Island specs](https://infinum.com/blog/start-designing-for-dynamic-island-and-live-activities/) · [Baymard — hover delay 300–500ms](https://baymard.com/blog/dropdown-menu-flickering-issue) · [Ondřej Konečný — nested rounded corners](https://www.ondrejkonecny.com/blog/nested-rounded-corners/) · [The Swift Den — safeAreaInsets 32pt](https://www.answeroverflow.com/m/1145112887048810606) · [9to5Mac — iOS 13 volume](https://9to5mac.com/2019/06/03/this-is-the-new-volume-indicator-in-ios-13/) · [MacStories — NotchNook/MediaMate](https://www.macstories.net/reviews/notchnook-and-mediamate-two-apps-to-add-a-dynamic-island-to-the-mac/) · [sinasamaki — Dynamic Island recreation](https://www.sinasamaki.com/dynamic-island/) · [Create with Swift — springs](https://www.createwithswift.com/understanding-spring-animations-in-swiftui/) · [GetStream — spring catalog](https://github.com/GetStream/swiftui-spring-animations)
+

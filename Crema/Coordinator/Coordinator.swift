@@ -19,7 +19,7 @@ import os
 @Observable
 // Cohesive past the 400-line body ceiling for the same reason the file opts
 // out of file_length above: priority and timers live ONLY here by design
-// (CLAUDE.md, Fluxo de estado), so every presentation feature lands in this
+// (CLAUDE.md, State flow), so every presentation feature lands in this
 // type. Pure decisions still get extracted (ScrubGrace, PresentationState).
 // swiftlint:disable:next type_body_length
 final class Coordinator {

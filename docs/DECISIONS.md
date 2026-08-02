@@ -1487,7 +1487,7 @@ after the gate, so a silenced menu asks the system nothing.
 A menu that names the track reads MIRRORS of title and artist, never the live
 snapshot.
 `Coordinator.nowPlaying` is rewritten once per second by the position tick — which
-is exactly why the tick stays out of `state` (CLAUDE.md, Fluxo de estado) — and
+is exactly why the tick stays out of `state` (CLAUDE.md, State flow) — and
 Observation invalidates per PROPERTY, not per value: any read of that property,
 `nowPlaying?.title` included, subscribes the reader to a 1 Hz rebuild. The reader
 here is a `MenuBarExtra` content body, which SwiftUI re-evaluates whenever it likes

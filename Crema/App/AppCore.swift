@@ -1151,7 +1151,7 @@ extension AppCore {
     /// and reads most deletable — its comment argues Core Audio echoes anyway,
     /// which is true everywhere EXCEPT the scale boundary, where a consumed key
     /// writes nothing and fires no echo. Folding it into `.mute` would make the
-    /// app swallow a key and draw nothing, which "Nunca fazer" forbids outright.
+    /// app swallow a key and draw nothing, which "Never do" forbids outright.
     static func wireApplyPoke(
         from suppressor: any NativeOSDSuppressor,
         screen screenSampler: any ManuallySampledSource,
