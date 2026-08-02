@@ -625,7 +625,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O indicador do sistema voltou para %@ —\no Crema não conseguiu aplicar a mudança."
+            "value": "O sistema voltou a mostrar o indicador de %@ —\no Crema não conseguiu aplicar a mudança."
           }
         }
       }
@@ -693,7 +693,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nenhuma tela conectada tem fenda, então todas estão desenhando o Cartão."
+            "value": "Nenhuma tela conectada tem notch, então todas mostram o Cartão."
           }
         }
       }
@@ -982,7 +982,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O player aparece em cada tela ligada aqui. Ligado por padrão na tela integrada."
+            "value": "O player aparece em cada tela marcada aqui. Ligado por padrão na tela integrada."
           }
         }
       }
@@ -999,7 +999,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Esta tela não tem fenda, então o Notch desenha como Cartão aqui."
+            "value": "Esta tela não tem notch, então o Notch aparece como Cartão aqui."
           }
         }
       }
@@ -1101,7 +1101,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aplica-se a todas as telas. Numa tela sem fenda, o estilo Notch volta para o Cartão."
+            "value": "Aplica-se a todas as telas. Numa tela sem notch, o estilo Notch volta para o Cartão."
           }
         }
       }
@@ -1118,7 +1118,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aplica-se a todas as telas. Nenhuma tela conectada tem fenda, então todas estão desenhando o Cartão."
+            "value": "Aplica-se a todas as telas. Nenhuma tela conectada tem notch, então todas mostram o Cartão."
           }
         }
       }
@@ -1339,7 +1339,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O brilho da tela é substituído só na tela integrada, enquanto o ponteiro está nela — uma tecla mirada em qualquer outra tela fica com o sistema."
+            "value": "O brilho da tela é substituído só na tela integrada, enquanto o ponteiro está nela — uma tecla apontada para qualquer outra tela fica com o sistema."
           }
         }
       }
@@ -1543,7 +1543,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Só o leitor reserva do Crema precisa disso — ele pergunta para %@ o que está tocando. O leitor principal não precisa de permissão nenhuma, então o Tocando Agora funciona de qualquer forma."
+            "value": "Só o leitor reserva do Crema precisa disso — ele pergunta ao %@ o que está tocando. O leitor principal não precisa de permissão nenhuma, então o Tocando Agora funciona de qualquer forma."
           }
         }
       }
@@ -1645,7 +1645,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O macOS ainda não perguntou nada sobre isso. Solicite e o próprio macOS mostra o diálogo dele."
+            "value": "O macOS ainda não perguntou nada sobre isso. Solicite e o próprio macOS mostra o diálogo."
           }
         }
       }
@@ -1968,7 +1968,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Funde-se com a fenda"
+            "value": "Funde-se com o notch"
           }
         }
       }
@@ -2087,7 +2087,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Crema mora na barra de menus — o ícone dele abre o menu, e os Ajustes estão lá também, ou pressione Command-vírgula."
+            "value": "O Crema mora na barra de menus — o ícone dele abre o menu, e os Ajustes estão lá também, ou pressione Comando-vírgula."
           }
         }
       }
