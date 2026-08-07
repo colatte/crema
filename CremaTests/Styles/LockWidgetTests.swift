@@ -103,12 +103,16 @@ struct LockWidgetMetricsTests {
         #expect(LockWidgetMetrics.collapsedSize.width == LockWidgetMetrics.cardWidth)
     }
 
-    @Test func expandedHeightDropsExactlyTheCoverAndNothingElse() {
-        // Expanding removes the thumbnail from the head row and nothing more, so
-        // the card must shrink by exactly the difference between the cover and
-        // the words it stood beside. Any other delta means a row went missing.
-        let delta = LockWidgetMetrics.collapsedHeight - LockWidgetMetrics.expandedCardHeight
-        #expect(delta == LockWidgetMetrics.headHeight - LockWidgetMetrics.textBlockHeight)
+    @Test func theRowsFitInsideTheExpandedSquareWithCoverLeftOver() {
+        // Expanded, the rows are laid OVER a 300 pt square rather than stacked
+        // under a cover. If they ever grow past the tile they stop being a scrim
+        // on artwork and become the artwork's replacement — and the fix would be
+        // to shrink the rows, never to grow the tile, which is pinned to the
+        // measured band.
+        #expect(LockWidgetMetrics.expandedControlsHeight < LockWidgetMetrics.expandedSide)
+        // At least half the square stays picture, or the point of expanding is
+        // gone.
+        #expect(LockWidgetMetrics.expandedControlsHeight < LockWidgetMetrics.expandedSide / 2)
     }
 
     @Test func theHeadIsTallEnoughForBothThingsItCanHold() {
@@ -116,14 +120,62 @@ struct LockWidgetMetricsTests {
         #expect(LockWidgetMetrics.headHeight >= LockWidgetMetrics.textBlockHeight)
     }
 
-    @Test func theCardClearsTheAvatarAndTheHeroClearsTheCard() {
-        // The password field and the avatar own the middle and low centre of the
-        // lock screen. The inset is what keeps the card off them, and it has to
-        // be more than the card's own corner radius or the two visually collide.
+    // MARK: - Placement, against what the ruler measured
+
+    /// The lock screen, as measured on hardware 2026-08-07 with
+    /// `scripts/probes/lockscreen-geometry.swift` on a 1440×900 pt display: the
+    /// login (avatar, name, password field) owns the bottom strip up to about
+    /// 250 pt, and a 300 pt square centred on the display touched nothing.
+    ///
+    /// These are the numbers the placement has to satisfy. They are written here
+    /// independently of the production constants — a table restating
+    /// `bottomInset` would agree with any value it was given.
+    private enum Measured {
+        static let screenHeight: CGFloat = 900
+        static let loginTop: CGFloat = 250
+        static let clearFloor: CGFloat = 300
+        static let clearCeiling: CGFloat = 600
+    }
+
+    @Test func theCollapsedCardSitsAboveTheLoginRatherThanOnIt() {
+        // The bug this replaces: 96 pt, taken from a mock, put the card exactly
+        // on the avatar and the password field. Sonoma moved the login DOWN, so
+        // the old comment claiming the inset cleared them was not merely
+        // unproven — it described the opposite of what the screen does.
+        let bottom = LockWidgetMetrics.bottomInset
+        #expect(bottom >= Measured.loginTop)
+        #expect(bottom >= Measured.clearFloor)
+        // And the whole card, not just its bottom edge, has to stay under the
+        // clear band's ceiling.
+        #expect(bottom + LockWidgetMetrics.collapsedHeight <= Measured.clearCeiling)
+    }
+
+    @Test func theExpandedSquareIsExactlyTheRectangleThatWasMeasuredClear() {
+        // Centring the tile on the display is what makes the measurement
+        // transferable: the ruler proved a 300 pt square at the centre, so the
+        // tile must be that square and no larger. A stack of cover + card would
+        // be ~470 pt and its bottom edge would land back on the login, which is
+        // the version this replaced.
+        let side = LockWidgetMetrics.expandedSide
+        let bottom = (Measured.screenHeight - side) / 2
+        #expect(bottom >= Measured.clearFloor)
+        #expect(bottom + side <= Measured.clearCeiling)
+        #expect(side <= Measured.clearCeiling - Measured.clearFloor)
+    }
+
+    @Test func aStackedCompositionWouldNotHaveFit() {
+        // Kept as the record of why the design changed rather than the metric.
+        // Cover + gap + card is the shape that was drawn first; centring it puts
+        // its bottom edge inside the login's strip.
+        let stacked = LockWidgetMetrics.expandedSide
+            + LockWidgetMetrics.gap
+            + LockWidgetMetrics.collapsedHeight
+        let bottom = (Measured.screenHeight - stacked) / 2
+        #expect(bottom < Measured.loginTop, "the stack is what the tile exists to avoid")
+    }
+
+    @Test func theInsetClearsTheCardsOwnCorner() {
         #expect(LockWidgetMetrics.bottomInset > LockWidgetMetrics.cornerRadius)
-        // The cover is the subject once expanded: it must read as larger than
-        // the card that used to hold it.
-        #expect(LockWidgetMetrics.heroSide > LockWidgetMetrics.expandedCardWidth * 0.8)
     }
 }
 
@@ -136,7 +188,7 @@ struct LockScreenArtworkBoundTests {
         // 88 pt thumbnail. Raising the shared one instead would make every
         // thumbnail in every skin pay for a size only this surface shows.
         #expect(ArtworkDecoding.lockScreenMaxSide > ArtworkDecoding.displayMaxSide)
-        #expect(Double(ArtworkDecoding.lockScreenMaxSide) >= LockWidgetMetrics.heroSide * 2)
+        #expect(Double(ArtworkDecoding.lockScreenMaxSide) >= LockWidgetMetrics.expandedSide * 2)
     }
 
     @Test func theSharedBoundStillFitsTheLargestDesktopSlot() {

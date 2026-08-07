@@ -45,29 +45,62 @@ enum LockWidgetMetrics {
         CGSize(width: cardWidth, height: collapsedHeight)
     }
 
-    // MARK: - The card, expanded
+    // MARK: - Expanded: one tile, not a stack
 
-    /// Narrower than collapsed, because the cover left: the words centre in a
-    /// card that no longer has to hold a 50 pt square beside them.
-    static let expandedCardWidth: CGFloat = 300
+    /// Expanded, the surface is a SQUARE the size of the cover, with the words
+    /// and the controls laid over its lower part — not the cover with a card
+    /// beneath it.
+    ///
+    /// That was the first design and it does not fit. Cover (300) + gap + card
+    /// (~152) is roughly 470 pt tall, and centring 470 pt on a 900 pt display
+    /// puts its bottom edge at y≈214 — back inside the strip the login owns
+    /// (`clearBandFloor`). One tile is 300 and centres to exactly 300…600, which
+    /// is the band that was measured clear rather than assumed clear.
+    ///
+    /// It also settles the interaction. Only the drawn surface takes a click
+    /// here (`LockWidgetClickThrough`), so with the controls on the cover the
+    /// cover IS the surface — where a separate hero above a card was a large
+    /// picture that deliberately ignored every click aimed at it.
+    static let expandedSide: CGFloat = 300
+    static let expandedRadius: CGFloat = 24
 
-    static var expandedCardHeight: CGFloat {
-        padding + textBlockHeight + gap + scrubberHeight + gap + transportSide + padding
+    static var expandedSize: CGSize {
+        CGSize(width: expandedSide, height: expandedSide)
     }
 
-    static var expandedCardSize: CGSize {
-        CGSize(width: expandedCardWidth, height: expandedCardHeight)
+    /// The scrim's share of the tile: enough for the two text lines, the
+    /// scrubber and the transport row, plus the padding around them.
+    static var expandedControlsHeight: CGFloat {
+        textBlockHeight + gap + scrubberHeight + gap + transportSide + padding
     }
-
-    /// The cover, once it has left the card and taken the middle of the screen.
-    static let heroSide: CGFloat = 300
-    static let heroRadius: CGFloat = 24
 
     // MARK: - Placement
 
-    /// How far the card floats above the bottom of the display. Above the
-    /// avatar and the password field, which own the middle and the low centre.
-    static let bottomInset: CGFloat = 96
+    /// MEASURED, not chosen — and the distinction is why this comment is long.
+    ///
+    /// The card used to sit 96 pt up with a comment claiming that cleared "the
+    /// avatar and the password field". It did not: macOS **Sonoma moved the
+    /// login UI down**, clock to the top and user tile to the bottom section, so
+    /// 96 pt is precisely where the password field now lives. Confirmed on
+    /// hardware 2026-08-07 with `scripts/probes/lockscreen-geometry.swift`: a
+    /// card at 96 pt lands on the avatar, while a 300 pt square centred on the
+    /// display touches nothing.
+    ///
+    /// Two reasons this number is allowed to be a measurement at all. The app
+    /// requires macOS 14+, and Sonoma IS the release that moved the login down —
+    /// so every version in range shares this layout. And the axis that has moved
+    /// between releases is the vertical one; horizontally the login has been
+    /// centred in every version, which is why the surface can stay centred
+    /// without a second thought.
+    ///
+    /// When to distrust it: a macOS that moves the login again. The signal is
+    /// visible — re-run the ruler.
+    static let clearBandFloor: CGFloat = 300
+
+    /// Collapsed, the surface rests on the floor of the clear band, which keeps
+    /// the "card near the bottom" reading it was designed with while clearing
+    /// the login by construction.
+    static let bottomInset: CGFloat = clearBandFloor
 
     /// The blurred backdrop's radius and how far past the screen it is scaled,
     /// so a drifting image never exposes an edge.

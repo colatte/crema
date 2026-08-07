@@ -57,7 +57,7 @@ struct LockScreenSettingsSection: View {
                 Text(String(
                     localized: "settings.lockScreen.widget.footer",
                     // swiftlint:disable:next line_length
-                    defaultValue: "A card above your login shows the cover, the title and the controls while music plays. Click it and the cover fills the screen. It never asks for your password or reads anything you type."
+                    defaultValue: "A card above your login shows the cover, the title and the controls while music plays. Click it and the cover grows to fill the middle of the screen. It never asks for your password or reads anything you type."
                 ))
                 .settingsFootnote()
 

@@ -1,7 +1,12 @@
 import SwiftUI
 
 /// Now playing on the lock screen: a glass card over the user's own wallpaper
-/// that, on a click, hands its cover to the whole display.
+/// that, on a click, becomes the cover itself.
+///
+/// Both states live inside the one rectangle the lock screen leaves free — the
+/// card rests on the floor of that band, the expanded tile is centred in it
+/// (`LockWidgetMetrics.clearBandFloor`, measured rather than chosen). The
+/// blurred backdrop is the layer that does take the whole display.
 ///
 /// It reads `coordinator.nowPlaying` rather than `coordinator.state`, and that
 /// is the whole reason it can exist. `state` is the ephemeral presentation
@@ -41,7 +46,7 @@ struct LockWidgetView: View {
     /// asymmetry is deliberate. A new song is continuous listening, and yanking
     /// a cover the user deliberately enlarged back into the card would be the
     /// surface undoing their choice. A gap is the surface leaving; whatever
-    /// comes back after it has to come back the way it is born, or a full-display
+    /// comes back after it has to come back the way it is born, or the large
     /// cover appears over the lock screen with nobody having clicked anything.
     @State private var expanded = false
 
@@ -50,7 +55,8 @@ struct LockWidgetView: View {
     private var track: NowPlaying? { coordinator.nowPlaying }
 
     /// One place decides which bytes every layer draws, so the thumbnail, the
-    /// hero and the backdrop can never disagree about which cover is showing.
+    /// expanded tile and the backdrop can never disagree about which cover is
+    /// showing.
     private func cover(_ track: NowPlaying) -> [UInt8]? {
         artwork?.artwork(for: track) ?? track.artworkData
     }
@@ -59,8 +65,7 @@ struct LockWidgetView: View {
         ZStack {
             if let track {
                 backdrop(track)
-                hero(track)
-                card(track)
+                surface(track)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -104,26 +109,36 @@ struct LockWidgetView: View {
             }
     }
 
-    /// The cover once it has left the card. Grows out of the thumbnail's
-    /// position rather than fading in on the spot, so the click reads as the
-    /// picture moving rather than two pictures swapping.
-    @ViewBuilder
-    private func hero(_ track: NowPlaying) -> some View {
-        if expanded {
-            ArtworkView(
-                data: cover(track),
-                side: LockWidgetMetrics.heroSide,
-                cornerRadius: LockWidgetMetrics.heroRadius,
-                maxSide: ArtworkDecoding.lockScreenMaxSide
+    /// One surface in both states, moved and reshaped rather than swapped.
+    ///
+    /// Collapsed it rests on the floor of the clear band; expanded it becomes a
+    /// 300 pt square centred on the display, which is the rect the ruler proved
+    /// free. Being ONE view across the two is what lets the cover travel — the
+    /// earlier hero was a separate view that appeared at screen centre, so the
+    /// comment claiming it "grows out of the thumbnail's position" described a
+    /// motion that never happened.
+    private func surface(_ track: NowPlaying) -> some View {
+        card(track)
+            .frame(
+                maxHeight: .infinity,
+                alignment: expanded ? .center : .bottom
             )
-            .shadow(color: .black.opacity(0.5), radius: 40, y: 18)
-            .transition(.scale(scale: 0.2).combined(with: .opacity))
-            .allowsHitTesting(false)
-        }
+            .padding(.bottom, expanded ? 0 : LockWidgetMetrics.bottomInset)
+    }
+
+    /// Expanding is only offered when there is a cover to expand INTO. With no
+    /// artwork — the JXA fallback carries none — the big state would be a glass
+    /// square with the same words already on screen, and a control whose hint
+    /// says "show the cover" would be promising something that does not exist.
+    private func canExpand(_ track: NowPlaying) -> Bool {
+        cover(track) != nil
     }
 
     private func card(_ track: NowPlaying) -> some View {
         VStack(spacing: LockWidgetMetrics.gap) {
+            // Expanded, the rows sink to the bottom of the square and the cover
+            // fills what they leave.
+            if expanded { Spacer(minLength: 0) }
             head(track)
             ScrubberRow(
                 position: coordinator.nowPlaying?.position ?? 0,
@@ -146,29 +161,65 @@ struct LockWidgetView: View {
         }
         .padding(LockWidgetMetrics.padding)
         .frame(
-            width: expanded
-                ? LockWidgetMetrics.expandedCardWidth
-                : LockWidgetMetrics.cardWidth
+            width: expanded ? LockWidgetMetrics.expandedSide : LockWidgetMetrics.cardWidth,
+            height: expanded ? LockWidgetMetrics.expandedSide : nil
         )
-        .background { cardSurface }
+        .background { background(track) }
         .artworkAccent(from: cover(track))
         // One appearance for the whole surface, in every state — scoping it per
         // branch would flip the palette mid-transition.
         .environment(\.colorScheme, .dark)
         // Hit region, accessibility element and reported rect all attach HERE,
-        // above the stretching frame below and never under it. Under it they
-        // would describe the card's LAYOUT frame, which is the card's width by
-        // the whole height of the display — a tap target, and a VoiceOver
-        // button, sitting over the password field.
+        // above the placement frame in `surface(_:)` and never under it. Under
+        // it they would describe the LAYOUT frame, which is this width by the
+        // whole height of the display — a tap target, and a VoiceOver button,
+        // sitting over the password field.
         .contentShape(Rectangle())
-        .onTapGesture { toggle() }
-        .accessibilityAddTraits(.isButton)
+        .onTapGesture { if canExpand(track) || expanded { toggle() } }
+        .accessibilityAddTraits(canExpand(track) || expanded ? .isButton : [])
         .accessibilityHint(Text(expanded
-                ? String(localized: "lock.collapse", defaultValue: "Hide the full-screen cover")
-                : String(localized: "lock.expand", defaultValue: "Show the cover full screen")))
+                ? String(localized: "lock.collapse", defaultValue: "Hide the large cover")
+                : String(localized: "lock.expand", defaultValue: "Show the cover large")))
         .background { interactiveRectReporter }
-        .frame(maxHeight: .infinity, alignment: .bottom)
-        .padding(.bottom, LockWidgetMetrics.bottomInset)
+    }
+
+    /// Glass when collapsed; the cover itself when expanded, with a scrim under
+    /// the rows so the words hold against any album art.
+    ///
+    /// The fallback matters more than it looks: a track with no artwork keeps
+    /// the glass even in the big state, so the square is never a placeholder
+    /// glyph blown up to 300 pt.
+    @ViewBuilder
+    private func background(_ track: NowPlaying) -> some View {
+        if expanded, let data = cover(track) {
+            let shape = RoundedRectangle(
+                cornerRadius: LockWidgetMetrics.expandedRadius, style: .continuous
+            )
+            ArtworkView(
+                data: data,
+                side: LockWidgetMetrics.expandedSide,
+                cornerRadius: LockWidgetMetrics.expandedRadius,
+                maxSide: ArtworkDecoding.lockScreenMaxSide
+            )
+            .overlay {
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.55), .black.opacity(0.88)],
+                    startPoint: .init(x: 0.5, y: 0.42),
+                    endPoint: .bottom
+                )
+                .clipShape(shape)
+            }
+            .overlay {
+                shape.strokeBorder(
+                    Color(white: SurfaceChrome.outerHairlineWhite)
+                        .opacity(SurfaceChrome.outerHairlineOpacity),
+                    lineWidth: SurfaceChrome.outerHairlineWidth
+                )
+            }
+            .shadow(color: .black.opacity(0.5), radius: 40, y: 18)
+        } else {
+            cardSurface
+        }
     }
 
     /// Publishes the drawn card's rect to the window. A background rather than

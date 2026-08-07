@@ -2394,6 +2394,33 @@ unlocked, and an earlier verdict called the whole thing inconclusive for that
 reason. A control gives meaning to a silence; there was no silence on the side
 being measured, and a positive reading stands without one.
 
+**Where it sits is measured, and the measurement has an expiry the code names.**
+The card was first placed 96 pt off the bottom, from a mock, with a comment
+claiming that cleared the avatar and the password field. It did the opposite:
+macOS **Sonoma moved the login UI down** — clock to the top, user tile to the
+bottom section — so 96 pt is exactly where the password field now lives. Reported
+from hardware, then measured with a ruler drawn over the shield
+(`scripts/probes/lockscreen-geometry.swift`, 2026-08-07): a card at 96 pt lands
+on the avatar; a 300 pt square centred on the display touches nothing.
+
+Two things make a measured constant acceptable here, and both are the reason the
+obvious fix — read a number off the ruler and freeze it — was not enough on its
+own. The app requires **macOS 14+, and Sonoma IS the release that moved the
+login**, so every version in range shares this layout. And the axis that has
+moved between releases is the vertical one: horizontally the login has been
+centred in every version, which is what lets the surface stay centred without a
+second thought. The ruler is kept so the claim can be re-checked rather than
+re-guessed when a release moves the layout again.
+
+The same measurement forced the expanded state's shape. Cover (300) stacked over
+the card (~152) is roughly 470 pt tall, and centring that puts its bottom edge
+back inside the login's strip — so expanded is **one 300 pt tile** with the words
+and controls laid over the cover, which centres to exactly the rectangle that was
+measured clear. That also repaired the interaction: only the drawn surface takes
+a click, so with the controls on the cover the cover IS the surface, where a
+separate hero above a card was a large picture that covered the login UI and
+then ignored every click aimed at it.
+
 **Reopening gate.** A macOS release that removes or renames any of the five
 symbols degrades this to "not offered" on its own — that is the designed
 behaviour, not a reopening. What WOULD reopen it: Apple shipping a public path

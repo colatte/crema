@@ -330,13 +330,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hide the full-screen cover"
+            "value": "Hide the large cover"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ocultar a capa em tela cheia"
+            "value": "Ocultar a capa grande"
           }
         }
       }
@@ -347,13 +347,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Show the cover full screen"
+            "value": "Show the cover large"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mostrar a capa em tela cheia"
+            "value": "Mostrar a capa grande"
           }
         }
       }
@@ -1486,13 +1486,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A card above your login shows the cover, the title and the controls while music plays. Click it and the cover fills the screen. It never asks for your password or reads anything you type."
+            "value": "A card above your login shows the cover, the title and the controls while music plays. Click it and the cover grows to fill the middle of the screen. It never asks for your password or reads anything you type."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Um cartão acima do seu login mostra a capa, o título e os controles enquanto há música. Clique nele e a capa preenche a tela. Ele nunca pede sua senha nem lê o que você digita."
+            "value": "Um cartão acima do seu login mostra a capa, o título e os controles enquanto a música toca. Clique nele e a capa cresce e ocupa o meio da tela. Ele nunca pede sua senha nem lê nada do que você digita."
           }
         }
       }

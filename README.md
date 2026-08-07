@@ -74,8 +74,9 @@ card, and the classic's segmented bezel:
   then tucks away. Hover to hold it open; click to reach the controls.
 - **On the lock screen, if you want it.** Turn it on and a card with the cover,
   the title and the controls sits above your login while music plays; click it
-  and the cover fills the screen. Off by default, main display only. It never
-  asks for your password and never reads anything you type.
+  and the cover grows to fill the middle of the screen. Off by default, main
+  display only. It never asks for your password and never reads anything you
+  type.
 - **Native and light.** Built with SwiftUI and AppKit, it lives in the menu bar
   with no Dock icon, and stays out of the way when you don't need it.
 - **Speaks your language.** English and Brazilian Portuguese, following the

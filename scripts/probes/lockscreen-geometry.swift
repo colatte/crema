@@ -36,10 +36,9 @@
 //     the login UI is presumed never to leave. Whether it actually stays inside
 //     is the question the corner candidates depend on.
 //   · Six candidates at the card's real collapsed size. A / B / C are CENTRED
-//     at 96 / 220 / 340 pt from the bottom — A is what ships today. E / F / G
-//     are CORNERS: bottom-left, bottom-right, top-left.
-//   · A 300 pt square outlined at screen centre: the expanded cover, drawn
-//     where the code puts it today.
+//     at 96 / 220 / 340 pt from the bottom — A is what shipped when this was
+//     written, and is the one that collided. E / F / G are CORNERS.
+//   · A 300 pt square outlined at screen centre: the expanded tile.
 //
 // WHAT TO REPORT BACK:
 //   1. The y range the avatar + name + password field occupy (read it off the
@@ -50,6 +49,21 @@
 //      this is the one that decides whether a corner is safe by construction or
 //      just safe today.
 //   5. Whether the red 300 pt square overlaps anything.
+//
+// RESULT, 2026-08-07 (macOS 26, Apple Silicon, run by the author):
+//   · The login UI NEVER leaves the orange centre column — the horizontal
+//     invariant holds, which is what made a structural rule possible at all.
+//   · Candidate A (96 pt, what shipped) lands exactly on the avatar and the
+//     password field. Confirmed on the machine, not inferred.
+//   · The red 300 pt square at screen centre touches nothing. The middle of the
+//     display is empty; the BOTTOM is what the login owns.
+//
+// So the durable rule turned out to be neither "y=N" nor "go to a corner" (the
+// author rejected corners: a now-playing card in the corner loses the point).
+// It is: the app requires macOS 14+, and Sonoma IS the release that moved the
+// login down — so across every version in range the middle band is the free
+// one. `LockWidgetMetrics.clearBandFloor` carries that reasoning, and this
+// probe is how to re-check it when a macOS moves the layout again.
 //
 // Run:  swift scripts/probes/lockscreen-geometry.swift
 // Then: lock (Control-Command-Q), read, unlock. Ctrl-C to end.
@@ -65,6 +79,7 @@ app.setActivationPolicy(.accessory)
 guard let screen = NSScreen.screens.first else {
     print("no screen"); exit(1)
 }
+
 let frame = screen.frame
 
 // MARK: - The ruler
