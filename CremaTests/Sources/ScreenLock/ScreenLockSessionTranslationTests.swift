@@ -59,7 +59,7 @@ struct ScreenLockSessionTranslationTests {
     /// The risk decision, pinned: no dictionary means "cannot tell", and cannot
     /// tell means step aside. Suppression engaged on a session nobody can read is
     /// the one state that can leave the user with nothing — the native OSD
-    /// swallowed and our own HUD impossible over the lock shield; the other
+    /// swallowed and no HUD of ours over the lock shield; the other
     /// direction costs only our HUD (docs/DECISIONS.md:
     /// unreadable-session-is-unsafe).
     @Test func anUnreadableSessionReadsAsUnsafe() {

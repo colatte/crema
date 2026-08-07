@@ -189,8 +189,9 @@ feature in silence. Anything else unreadable — no dictionary at all, or a sess
 that cannot report `kCGSSessionOnConsoleKey` — is "cannot tell", and cannot tell
 decodes as NOT safe: suppression steps aside.
 Rationale: being wrong is asymmetric. Engaged over a lock shield the user gets no
-feedback at all — native OSD swallowed, our own HUD impossible there, the NO-GO
-the whole lock-aware policy exists to prevent; disengaged on a healthy session
+feedback at all — native OSD swallowed, and no HUD of our own in its place, which
+is the outcome the whole lock-aware policy exists to prevent; disengaged on a
+healthy session
 costs only our own HUD, with the native OSD taking over. The unreadable-dictionary
 trigger is believed unreachable for a GUI app (the dictionary is there for any
 process inside an Aqua session), so this is a direction chosen for a case nobody

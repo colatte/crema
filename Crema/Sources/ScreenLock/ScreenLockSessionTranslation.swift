@@ -27,8 +27,8 @@ import Foundation
 /// Anything unreadable — no dictionary at all, or a session that cannot report
 /// on-console — is "cannot tell", and cannot tell decodes as NOT safe, so
 /// suppression steps aside. Being wrong is asymmetric: engaged over a lock shield
-/// the user gets no feedback at all (native OSD swallowed, our own HUD impossible
-/// there — the NO-GO the lock-aware policy exists to prevent), while disengaged on
+/// the user gets no feedback at all (native OSD swallowed, and no HUD of ours
+/// there — the outcome the lock-aware policy exists to prevent), while disengaged on
 /// a healthy session costs only our own HUD. Holding the last reading instead was
 /// rejected: launch has no last reading, so the same choice would still have to be
 /// made, with one more path to get wrong.

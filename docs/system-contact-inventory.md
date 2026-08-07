@@ -125,7 +125,7 @@ guard (S9); passThroughUnavailable (an absent capability is a logged no-op);
 failover on a malformed line (hides 1 tick, self-heals); MediaSourceFilter
 (documented radius + toggle); KeyOriginBrightnessGate (S3 closed; silences only
 the sensor); lock-aware suspension (**never touches the pref** — proven; a total
-radius is the correct design given the lockscreen NO-GO); degrading without
+radius is the correct design given that the app draws nothing over the lock shield); degrading without
 Accessibility (only capture falls; self-heals on grant); an orphaned style and a
 slitless notch resolve at runtime **without rewriting the pref** (proven by a
 grep for setStyle); LoginItem/Sparkle with no persistence on failure; **the only

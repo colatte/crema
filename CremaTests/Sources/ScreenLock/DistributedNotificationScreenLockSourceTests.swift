@@ -302,13 +302,13 @@ struct DistributedNotificationScreenLockSourceTests {
 
     // MARK: - The launch tail — the [launch, first edge) gap
 
-    /// The NO-GO the launch tail closes (docs/DECISIONS.md: settle-rereads): a
+    /// The failure the launch tail closes (docs/DECISIONS.md: settle-rereads): a
     /// session locks but its very first `screenIsLocked` notification is DROPPED
     /// (DistributedNotificationCenter is best-effort, no redundancy for a plain
     /// lock), so no edge ever fires. Before the tail was armed from init, the
     /// settle re-reads were edge-gated — nothing re-verified until a future
     /// edge — so `isSuppressionSafe` stayed latched true and suppression engaged
-    /// over the lock shield, the exact NO-GO the lock-aware policy exists to
+    /// over the lock shield, the exact outcome the lock-aware policy exists to
     /// prevent. Now the slow tail runs from construction (parity with the tap's
     /// health-check poll): with the clock advanced it re-reads the authoritative
     /// session, sees the lock, flips the source, and the consumer suspends — all
@@ -336,7 +336,7 @@ struct DistributedNotificationScreenLockSourceTests {
         #expect(await eventually {
             clock.advance()
             return !suppressor.isEngaged
-        }, "the launch tail never caught the first lock — the [launch, first edge) NO-GO gap")
+        }, "the launch tail never caught the first lock — the [launch, first edge) gap")
         #expect(!source.isSuppressionSafe)         // source latched to unsafe: consumer suspended
 
         controller.stop()

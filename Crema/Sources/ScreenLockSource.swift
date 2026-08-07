@@ -1,10 +1,12 @@
 /// Capability: reports whether the current moment is safe to suppress the
 /// native OSD. "Safe" means the user is actually at the machine and can see the
 /// app's own HUD — the console session is active (on-console) and the screen is
-/// unlocked. Locked or fast-user-switched away is unsafe: third-party code
-/// cannot draw over the lock shield (proven on hardware — see
-/// docs/LOCKSCREEN-INVESTIGATION.md), so suppression must step aside
-/// and let the native OSD — which does render on the lock screen — back through.
+/// unlocked. Locked or fast-user-switched away is unsafe: this app draws nothing
+/// over the lock shield, so suppression must step aside and let the native OSD —
+/// which does render on the lock screen — back through. Not a wall, a choice: no
+/// window level reaches the shield (proven on hardware), but the shield is a
+/// space and a private path over it is proven too — see
+/// docs/LOCKSCREEN-INVESTIGATION.md, "The reopening".
 ///
 /// Polarity is fixed and semantic: `true` = safe to suppress (unlocked AND
 /// on-console); `false` = suspend suppression (locked OR off-console). The read
