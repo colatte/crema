@@ -56,6 +56,9 @@
 | _From the critic:_ the adapter's Pipe fds under respawn (flapping) | low confidence; check under long flapping |
 | _Added 2026-08-01:_ desktop picture file (`NSWorkspace.desktopImageURL` for `NSScreen.main`, behind `DesktopPictureSource`) | PROTECTED (nil is an answer — the Settings tiles draw their own desk; the border is asked on every backdrop, so a wallpaper just changed is a new URL, and the bounded thumbnail decode is cached per URL with failure remembered) |
 | _Added 2026-08-01:_ Low Power Mode (`ProcessInfo.isLowPowerModeEnabled` + `NSProcessInfoPowerStateDidChange` observer) | PROTECTED (edge triggers an authoritative re-read, never a flip — the system posts it for any power-source change; seeded synchronously at init, since a Mac launched already in Low Power posts nothing; observer removed and stream finished in deinit) |
+| _Added 2026-08-07:_ **SkyLight raised space** (`SLSMainConnectionID`, `SLSSpaceCreate`, `SLSSpaceSetAbsoluteLevel`, `SLSShowSpaces`, `SLSSpaceAddWindowsAndRemoveFromSpaces`, dlopen'd behind `RaisedSpace`) | PROTECTED at the symbol layer (all five checked; any nil ⇒ `isAvailable == false`, no panel is built and Settings says "not on this macOS" — an unbuilt panel is the right failure, since building anyway puts a window on the DESKTOP). **NOT verified across display sleep / wake / hotplug** — no such edge fired during the probe run, and per `J7-estado-do-outro-lado` the process cannot audit it either: covered by unconditional idempotent re-adoption on the same four edges the tap reinstalls on |
+| _Added 2026-08-07:_ the lock surface's NSPanel (screen-sized, `canBecomeVisibleWithoutLogin`) | PROTECTED (built on the lock edge, closed on unlock and in `deinit`; re-framed on `didChangeScreenParameters` before the space is re-asserted, since a topology change can move the main screen under a window sized to the old one) |
+| _Added 2026-08-07:_ **Apple's public search endpoint** (`ArtworkLookup`, opt-in and born off) | PROTECTED by indifference — the only contact that is allowed to simply not answer: every failure (offline, 404, a decode that did not fit, a body too small to be a cover) is the same silence, and the surface is already complete with the player's own bytes. 8 s timeout; one request per track identity, never per position tick |
 
 ## D2 · Class 2 — parity by coincidence (27 items + 5 from the critic)
 
@@ -125,7 +128,10 @@ guard (S9); passThroughUnavailable (an absent capability is a logged no-op);
 failover on a malformed line (hides 1 tick, self-heals); MediaSourceFilter
 (documented radius + toggle); KeyOriginBrightnessGate (S3 closed; silences only
 the sensor); lock-aware suspension (**never touches the pref** — proven; a total
-radius is the correct design given that the app draws nothing over the lock shield); degrading without
+radius is the correct design given that the app draws no HUD over the lock
+shield — the opt-in now-playing widget added 2026-08-07 does draw there, and
+suspending suppression is what leaves the KEYS with native feedback, which the
+widget does not provide); degrading without
 Accessibility (only capture falls; self-heals on grant); an orphaned style and a
 slitless notch resolve at runtime **without rewriting the pref** (proven by a
 grep for setStyle); LoginItem/Sparkle with no persistence on failure; **the only

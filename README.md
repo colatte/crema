@@ -72,6 +72,10 @@ card, and the classic's segmented bezel:
   the style tiles in Settings › General, offered whenever a display renders Card.
 - **Shows up when it's useful.** Crema surfaces briefly when the track changes,
   then tucks away. Hover to hold it open; click to reach the controls.
+- **On the lock screen, if you want it.** Turn it on and a card with the cover,
+  the title and the controls sits above your login while music plays; click it
+  and the cover fills the screen. Off by default, main display only. It never
+  asks for your password and never reads anything you type.
 - **Native and light.** Built with SwiftUI and AppKit, it lives in the menu bar
   with no Dock icon, and stays out of the way when you don't need it.
 - **Speaks your language.** English and Brazilian Portuguese, following the
@@ -213,9 +217,17 @@ xattr -dr com.apple.quarantine /Applications/Crema.app
 
 Crema runs entirely on your Mac. It reads now-playing information locally through
 a vendored out-of-process bridge and, with your permission, watches the volume and
-brightness keys. There are no accounts and no analytics. The only network access
-is the optional update check: **Check for Updates…** in the menu bar (or automatic
-checks, if you consent when asked) fetches the release feed from GitHub Pages.
+brightness keys. There are no accounts and no analytics. There are two ways anything can
+leave your machine, both optional and both off until you say so:
+
+- **The update check.** **Check for Updates…** in the menu bar (or automatic
+  checks, if you consent when asked) fetches the release feed from GitHub Pages.
+- **The larger cover art**, for the lock screen card. Players hand over a small
+  image, which looks soft filling a screen, so Crema can ask Apple's public
+  search for a bigger one. No account and no token — but the request does carry
+  the track name, artist and album, which is why it ships off and lives under
+  the lock-screen setting rather than beside it.
+
 Nothing else leaves your machine.
 
 ## Build from source

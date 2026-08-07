@@ -2313,3 +2313,114 @@ picture of nothing.
 The residual is the seed-once deal the Settings mirrors already take (S4): the
 panes read the store when they are built, so a wallpaper changed with the window
 open shows up the next time it opens.
+
+### the-lock-screen-is-a-space
+Five window levels were swept over the lock shield — up to
+`kCGMaximumWindowLevel` — and every one of them lost. The file that recorded it
+(docs/LOCKSCREEN-INVESTIGATION.md) concluded there was no window path at all, and
+the sweep was sound. The inference was not: `NSWindow.level` orders windows
+**inside** a space, and the shield **is** a space, at absolute level 300. Holding
+the space at the default while varying only the level cannot tell "impossible"
+apart from "wrong knob" — all five readings were the same window in the same
+space, losing for a reason the sweep never varied.
+Decision: the lock-screen now-playing widget lives in a SkyLight space at
+absolute level 400, and that is the ONLY place in this app where a private
+window API is taken. Proven on hardware before a line of surface code was
+written (`scripts/probes/lockscreen-space.swift`), with the control that makes it
+mean something: two markers, one raised and one at `kCGMaximumWindowLevel`, both
+visible before the lock, only the raised one after. A second probe
+(`lockscreen-events.swift`) closed the two behaviour questions the first left
+open — clicks reach a raised-space window while locked (10 logged `LOCKED`
+against 5 unlocked as the control), and a screen-sized one behaves like the small
+one across three lock cycles.
+
+**Why this is not a precedent for the panel layer.**
+`NSPanelPresentationPanel` carries a line refusing SkyLight, and it still holds.
+The two are not the same trade: the panels draw a HUD several times a day on a
+surface the user is already looking at, and a WindowServer wedge there breaks the
+app's core function for everyone; this draws one opt-in window on a surface that
+otherwise shows nothing, and its total absence is a feature not appearing. Same
+API, different blast radius, and the refusal beside `NSPanelPresentationPanel`
+was amended in the same diff rather than left to read as forbidding the file next
+to it.
+
+**The four rules the edge follows**, each of which is why this is not a new
+category of risk for this codebase — it is the category the codebase is built on
+(DisplayServices, CoreBrightness, and now this):
+1. Behind a protocol (`RaisedSpace`) like every other system contact, so the
+   presenter and its tests never see a private symbol.
+2. **Every one of the five symbols checked** at dlsym time; any nil ⇒
+   `isAvailable == false`, the presenter refuses to build a panel, and Settings
+   says "not on this macOS" instead of offering a switch that does nothing.
+   Building anyway would put a window on the DESKTOP that the user never asked
+   for — the failure mode is not invisibility, it is a wrong window.
+3. The window's public half is load-bearing and easy to miss:
+   `canBecomeVisibleWithoutLogin = true`. Without it AppKit refuses to show the
+   window while no session is logged in, and the raised space alone does not save
+   you.
+4. Whether the space survives display sleep, wake or hotplug was NOT measured —
+   no such edge fired during the probe run, and the log says so rather than
+   guessing. Covered by action instead of by a read, per
+   `J7-estado-do-outro-lado`: the panel re-adopts its space unconditionally on
+   the same four edges the media-key tap reinstalls on (`preventive-reinstall`).
+   `adopt` is idempotent, so acting costs one cheap call; a local `isVisible`
+   read would answer "fine" either way and cost a surface that silently stopped
+   appearing.
+
+**Reopening gate.** A macOS release that removes or renames any of the five
+symbols degrades this to "not offered" on its own — that is the designed
+behaviour, not a reopening. What WOULD reopen it: Apple shipping a public path
+(the sanctioned one today is `SFAuthorizationPluginView`, an authorization
+plug-in, which is the wrong tool), or evidence that a raised space destabilises
+the WindowServer the way the panel layer's refusal anticipates. Neither is a
+reason to widen the API's use to the panels without measuring that separately.
+
+### animated-artwork-is-withheld-not-missing
+Motion covers keep being proposed for the lock surface, and the reason they
+cannot ship was recorded once as a property of the bridge — "only static art via
+MediaRemote". That framing invites the wrong fix: replace the bridge. There are
+three independent walls and any one is fatal, so this does not reopen when a new
+bridge appears.
+Decision: not implementable by a third party on this platform. Recorded so nobody
+re-researches it.
+1. **Apple withholds the data from every third party.** `editorialVideo`, where
+   motion artwork lives, is not exposed to third-party apps through the Apple
+   Music API — developer token or not. For albums the only extended attribute a
+   third party can load is `artistUrl`.
+2. **`MPMediaItemAnimatedArtwork` is a provider API** — how a music app hands
+   animation *to* the system. Crema observes whatever is playing and never
+   receives it. It is also iOS-only.
+3. **The bridge carries no such key.** The vendored adapter emits 45 fields and
+   exactly one image (`artworkData` + `artworkMimeType`): no artwork identifier,
+   no URL, no animated variant. Apple Music's motion art never crosses the
+   MediaRemote boundary.
+
+The consequence is not a gap but a shape: the expanded state's slow drift on the
+blurred backdrop is the honest form of the idea here, and it carries the app's
+two standing animation vetoes (Reduce Motion, Low Power Mode) plus a third this
+surface invents — **time**. A HUD lives 1.5 s; this can sit lit all night, so the
+drift settles after three minutes. Battery, and OLED burn-in.
+
+The same boundary explains the **cover lookup**, which is a different question
+with a different answer. `MRMediaRemoteGetNowPlayingInfo` takes no options
+dictionary — there is no size to negotiate and the dimensions received are not
+even reported — so the roughly 300–600 px a player publishes is all there is, and
+a larger cover has to come from somewhere else entirely. Apple's public search
+endpoint takes no token and no account, and rewriting the size in the returned
+artwork URL resolves (measured: 600 → 98 KB, 1200 → 391 KB, 3000 → 2.7 MB, capped
+above). It is **off by default** because it is a network request carrying what
+you are listening to — neither an account nor analytics, the two things the app
+promises it does not do, but traffic tied to listening all the same.
+
+Two invariants govern it, and each is a bug that would otherwise ship.
+**There is always something to draw**: the upgrade improves the player's own
+cover and never stands in for having one, so the surface is complete the instant
+it appears and an answer that arrives later only ever replaces a cover with a
+better one — nothing waits, nothing blanks, and every failure (no match, no
+network, a decode that did not fit) is the same silence.
+**Bytes never outlive the identity they belong to**: the fetched cover and the
+title+artist+album it answers are cleared together, because held past a track
+change they put one album's cover on the next song's surface — visible and wrong,
+where the absence would merely be absent. That identity is also why `album` was
+added to the domain: keyed on the snapshot instead, the 1 Hz position tick would
+re-ask the endpoint once a second for the same song.

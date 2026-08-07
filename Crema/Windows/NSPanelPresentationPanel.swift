@@ -106,9 +106,12 @@ final class NSPanelPresentationPanel: PresentationPanel {
         // live over the user's work, where a public level does the job and a
         // private one buys nothing worth the risk. `LockScreenPanel` does reach
         // for SkyLight, and it is not an exception to this rule so much as a
-        // different question — its whole premise is the far side of the lock
-        // shield, which is a SPACE and which no window level of any kind can
-        // cross (Crema/Sources/SkyLight/SkyLightSpace.swift).
+        // different trade — its whole premise is the far side of the lock
+        // shield, which is a SPACE that no window level of any kind can cross,
+        // and its blast radius is one opt-in window whose total absence is a
+        // feature not appearing. A WindowServer wedge HERE breaks the app's core
+        // function for everyone, several times a day (docs/DECISIONS.md:
+        // the-lock-screen-is-a-space).
         panel.level = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue + 3)
         panel.isOpaque = false
         panel.backgroundColor = .clear

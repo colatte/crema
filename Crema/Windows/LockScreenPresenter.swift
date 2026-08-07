@@ -37,8 +37,12 @@ enum LockWidgetPresence {
 /// It also does not touch `coordinator.onPresentationChange`: that is a single
 /// closure slot already claimed by `WindowManager.start()`, and a second claim
 /// would silently unhook the frame pass.
+///
+/// Not `@Observable`, deliberately: nothing reads state OFF this type. It pushes
+/// — into the window it owns and into the resolver it holds, both of which are
+/// observable in their own right. Marking it would advertise a subscription no
+/// view takes and invite the next reader to add one.
 @MainActor
-@Observable
 final class LockScreenPresenter {
     private let coordinator: Coordinator
     private let lock: LockScreenMirror

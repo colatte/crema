@@ -8,7 +8,9 @@
 > Provenance: distilled from the author's working specification, which lives in
 > `docs/internal/` (gitignored, local-only). It is published here because it is
 > the only list that says what "working" means, and a reader outside that folder
-> had no way to check the app against it. The specification stays the source; if
+> had no way to check the app against it. Items 20–21 were added on 2026-08-07
+> with the lock-screen surface; both are opt-in and both ship off, so a default
+> install satisfies them by doing nothing. The specification stays the source; if
 > the two ever disagree, this file is the one that has drifted.
 
 1. With media playing (browser media only with the toggle on — it is filtered by
@@ -108,3 +110,16 @@
     once per install. An install that already carries the Accessibility grant
     still sees it once; the menu's "Grant Accessibility Access…" button remains
     the manual path to the standalone permission window afterwards.
+20. With "Show now playing on the lock screen" on and music playing, locking the
+    screen shows the card bottom-centre over the wallpaper, on the main display
+    only; clicking it hands the cover the whole screen and clicking again puts it
+    back; unlocking removes it. With the preference off — which is how it ships —
+    the lock screen is untouched. With Reduce Motion or with Low Power Mode on,
+    the blurred backdrop does not drift; it also settles on its own after a few
+    minutes. On a macOS where the private space API does not resolve, Settings
+    says so in a sentence instead of offering a switch that would do nothing.
+21. With the cover lookup off — which is how it ships — the lock screen draws only
+    the artwork the player published, and Crema makes no network request. With it
+    on, a larger cover replaces it when one is found; when none is (no match, no
+    network), the surface is unchanged and nothing blanks. Skipping to a track
+    whose cover has not been fetched yet never shows the previous track's.

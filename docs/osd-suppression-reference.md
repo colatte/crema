@@ -328,7 +328,9 @@ Fit into the architecture (illustrative names):
   probe re-engages on recovery, without touching the preference
   (docs/DECISIONS.md: per-domain-suspension). Suppression is also
   **lock-aware**: with the screen locked it is suspended (there is no public
-  path to draw over the lock shield), re-engaging on unlock if the preference
+  path to draw over the lock shield, and the private one the lock-screen widget
+  takes has not been spent on the HUDs — docs/DECISIONS.md:
+  the-lock-screen-is-a-space), re-engaging on unlock if the preference
   is on — again without writing the preference. Graceful degradation: no
   permission ⇒ two HUDs for volume; for brightness, only the native one
   (key-origin-brightness-gate).
