@@ -8,10 +8,21 @@ import SwiftUI
 /// the bytes decodes only when they change (a new cover); @State holds a
 /// purely-visual artifact, not domain. The placeholder (♪) stands in when a
 /// track has no artwork or bytes haven't arrived yet.
+/// What the decode is keyed on. The bytes alone would be wrong the moment two
+/// slots want the same cover at different bounds: the second would keep the
+/// first's thumbnail, because `.task(id:)` saw no change.
+private struct DecodeKey: Equatable {
+    let data: [UInt8]?
+    let maxSide: Int
+}
+
 struct ArtworkView: View {
     let data: [UInt8]?
     let side: CGFloat
     let cornerRadius: CGFloat
+    /// How far the decode is allowed to go. The desktop skins take the default;
+    /// the lock screen draws the cover at 300 pt and passes its own bound.
+    var maxSide: Int = ArtworkDecoding.displayMaxSide
     @State private var image: CGImage?
 
     var body: some View {
@@ -35,7 +46,7 @@ struct ArtworkView: View {
         }
         .frame(width: side, height: side)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        .task(id: data) { [data] in
+        .task(id: DecodeKey(data: data, maxSide: maxSide)) { [data, maxSide] in
             // ImageIO decoding is a blocking synchronous call, so it goes off the
             // concurrency pools entirely rather than into a detached task — the
             // pool has one thread per core and does not overcommit, and a big
@@ -43,7 +54,7 @@ struct ArtworkView: View {
             // cancellable either way: ImageIO does not check for it, so the guard
             // below is what keeps a stale cover off the successor's slot.
             let decoded = await blockingCall {
-                ArtworkDecoding.thumbnail(from: data, maxSide: ArtworkDecoding.displayMaxSide)
+                ArtworkDecoding.thumbnail(from: data, maxSide: maxSide)
             }
             // A cancelled task means the bytes changed mid-decode: the stale
             // cover must not land over the successor's.

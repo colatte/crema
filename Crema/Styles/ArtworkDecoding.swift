@@ -12,6 +12,13 @@ enum ArtworkDecoding {
     /// the decode is bounded no matter how large the source cover is.
     static let displayMaxSide = 256
 
+    /// The lock screen's own bound. A 300 pt cover at 2× is 600 px, and the
+    /// backdrop behind it is the same decode blurred past recognition, so one
+    /// image serves both. Kept apart from `displayMaxSide` rather than raising
+    /// it: every thumbnail in the app would pay for a size only this surface
+    /// needs, and the desktop skins never show artwork above 88 pt.
+    static let lockScreenMaxSide = 1024
+
     static func thumbnail(from bytes: [UInt8]?, maxSide: Int) -> CGImage? {
         guard let bytes,
               let source = CGImageSourceCreateWithData(Data(bytes) as CFData, nil) else {
