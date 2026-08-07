@@ -106,6 +106,63 @@ def shape_of_catalog(value):
     return SPECIFIER.sub(HOLE, protected).replace(ESCAPED_PERCENT, "%")
 
 
+def unit_values(localization):
+    """Every string a localization carries, as {label: value}.
+
+    A localization is USUALLY one `stringUnit`, but the String Catalog's own
+    format — and what Xcode writes the moment a key is given a plural — is a
+    `variations` tree keyed by `plural` and/or `device`, with a `stringUnit`
+    at each leaf and NONE at the top. Reading only the top level reported such a
+    key as having no translation at all, so the gate refused a shape the Apple
+    tooling produces: adding a single plural to this app would have failed CI
+    with `NO-EN`, and the honest fix would have looked like deleting the plural.
+
+    Every leaf is returned because every leaf ships. A plural whose "other" form
+    quietly lost its `%lld` is served to exactly the users who have two of
+    something, which is the same bug this file exists to catch, one level down.
+    """
+    unit = localization.get("stringUnit")
+    if unit is not None:
+        return {"": unit.get("value")}
+
+    found = {}
+
+    def walk(node, path):
+        for axis in ("plural", "device"):
+            for category, child in (node.get(axis) or {}).items():
+                label = f"{path}{axis}.{category}"
+                leaf = child.get("stringUnit")
+                if leaf is not None:
+                    found[label] = leaf.get("value")
+                else:
+                    walk(child, f"{label}/")
+
+    walk(localization.get("variations") or {}, "")
+    return found
+
+
+def unit_states(localization):
+    """The `state` of every leaf, same traversal as `unit_values`."""
+    unit = localization.get("stringUnit")
+    if unit is not None:
+        return {"": unit.get("state")}
+
+    found = {}
+
+    def walk(node, path):
+        for axis in ("plural", "device"):
+            for category, child in (node.get(axis) or {}).items():
+                label = f"{path}{axis}.{category}"
+                leaf = child.get("stringUnit")
+                if leaf is not None:
+                    found[label] = leaf.get("state")
+                else:
+                    walk(child, f"{label}/")
+
+    walk(localization.get("variations") or {}, "")
+    return found
+
+
 def specifiers_of(value):
     """The conversions a value carries, order-insensitive.
 
@@ -172,32 +229,56 @@ def main():
             problems.append(f"EXTRACTION {key}  is {entry.get('extractionState')!r}, expected 'manual'")
 
         locs = entry.get("localizations", {})
-        en = locs.get("en", {}).get("stringUnit", {}).get("value")
-        if en is None:
+        # A dict per side, because a plural is several strings under one key and
+        # every one of them ships (see `unit_values`).
+        en_values = {k: v for k, v in unit_values(locs.get("en", {})).items() if v}
+        if not en_values:
             problems.append(f"NO-EN      {key}")
         else:
+            # The code's defaultValue must match SOME en form — not every one.
+            # For a plain key there is exactly one form and this is the old
+            # byte-for-byte rule unchanged. For a plural the source text is one
+            # string and the catalog holds several, so the default names one
+            # category (in practice "other") and the singular legitimately reads
+            # differently: requiring all of them to match would forbid the very
+            # thing a plural is for.
             for site, default in sites:
                 if default is None:
                     continue
-                if shape_of_code(unescape(default)) != shape_of_catalog(en):
-                    problems.append(
-                        f"DRIFT      {key}\n"
-                        f"             code ({site}): {unescape(default)!r}\n"
-                        f"             catalog en:      {en!r}"
-                    )
-                    break
+                wanted = shape_of_code(unescape(default))
+                if any(wanted == shape_of_catalog(value) for value in en_values.values()):
+                    continue
+                shown = ", ".join(
+                    f"{label or 'value'}={value!r}" for label, value in sorted(en_values.items())
+                )
+                problems.append(
+                    f"DRIFT      {key}\n"
+                    f"             code ({site}): {unescape(default)!r}\n"
+                    f"             catalog en:      {shown}"
+                )
+                break
 
-        pt = locs.get("pt-BR", {}).get("stringUnit", {})
-        if not pt.get("value"):
+        pt_values = {k: v for k, v in unit_values(locs.get("pt-BR", {})).items() if v}
+        if not pt_values:
             problems.append(f"NO-PT-BR   {key}")
             continue
-        if pt.get("state") not in {"translated", None}:
-            problems.append(f"PT-STATE   {key}  state={pt.get('state')!r}")
+        for label, state in sorted(unit_states(locs.get("pt-BR", {})).items()):
+            if state not in {"translated", None}:
+                where = f" [{label}]" if label else ""
+                problems.append(f"PT-STATE   {key}{where}  state={state!r}")
         # Guarded on `en`: without this the parity check raises on exactly the
         # NO-EN entry it was asked to report, and the run dies instead of listing.
-        if en is not None and specifiers_of(en) != specifiers_of(pt["value"]):
+        #
+        # Compared as SETS across the forms rather than category by category:
+        # en and pt-BR need not have the same plural categories (a language may
+        # have more, or fewer), so pairing them by name would invent a mismatch.
+        # What must hold is that no form on either side carries holes the other
+        # side never produces.
+        en_specs = {tuple(specifiers_of(v)) for v in en_values.values()}
+        pt_specs = {tuple(specifiers_of(v)) for v in pt_values.values()}
+        if en_values and en_specs != pt_specs:
             problems.append(
-                f"SPECIFIERS {key}  en {specifiers_of(en)} vs pt-BR {specifiers_of(pt['value'])}"
+                f"SPECIFIERS {key}  en {sorted(en_specs)} vs pt-BR {sorted(pt_specs)}"
             )
 
     for key in sorted(set(strings) - set(used)):

@@ -31,6 +31,25 @@ def entry(en, pt, state="manual"):
     }
 
 
+def plural_entry(en_forms, pt_forms, state="manual"):
+    """An entry whose localizations are a `variations` tree, which is what Xcode
+    writes the moment a key is given a plural — and what the checker read as
+    "no translation at all" until it learned to walk the leaves."""
+    def side(forms):
+        return {
+            "variations": {
+                "plural": {
+                    category: {"stringUnit": {"state": "translated", "value": value}}
+                    for category, value in forms.items()
+                }
+            }
+        }
+    return {
+        "extractionState": state,
+        "localizations": {"en": side(en_forms), "pt-BR": side(pt_forms)},
+    }
+
+
 def sandbox(catalog, swift):
     root = pathlib.Path(tempfile.mkdtemp())
     (root / "Crema").mkdir()
@@ -106,6 +125,38 @@ CASES = [
     # A shape the checker cannot read must SAY so. Left unhandled it matched as an
     # empty default and reported drift against every real value — a true alarm under
     # a name that sends the reader to the catalog instead of to the call site.
+    # The plural shape the Apple tooling produces. Before the checker walked the
+    # variations tree it reported NO-EN/NO-PT-BR here, which made adding a single
+    # plural to the app a CI failure with no honest fix.
+    ("a plural entry whose forms all match the code", None,
+     {"strings": {"a.b": plural_entry(
+         {"one": "%lld display", "other": "%lld displays"},
+         {"one": "%lld tela", "other": "%lld telas"})}},
+     'String(localized: "a.b", defaultValue: "\\(count) displays")'),
+
+    # A singular that legitimately reads differently from the source text is the
+    # whole point of a plural, so the code's default has to match SOME form
+    # rather than every one.
+    ("a plural whose singular differs from the code's default", None,
+     {"strings": {"a.b": plural_entry(
+         {"one": "one display", "other": "%lld displays"},
+         {"one": "uma tela", "other": "%lld telas"})}},
+     'String(localized: "a.b", defaultValue: "\\(count) displays")'),
+
+    # And the rules still bite one level down, which is the point of walking the
+    # tree rather than skipping entries that have no top-level unit.
+    ("a plural entry matching NO form of the code's default", "DRIFT",
+     {"strings": {"a.b": plural_entry(
+         {"one": "%lld screen", "other": "%lld screens"},
+         {"one": "%lld tela", "other": "%lld telas"})}},
+     'String(localized: "a.b", defaultValue: "\\(count) displays")'),
+
+    ("a plural translation that dropped a hole in one form only", "SPECIFIERS",
+     {"strings": {"a.b": plural_entry(
+         {"one": "%lld display", "other": "%lld displays"},
+         {"one": "uma tela", "other": "%lld telas"})}},
+     'String(localized: "a.b", defaultValue: "\\(count) displays")'),
+
     ("a defaultValue written as a multiline literal", "UNPARSED",
      {"strings": {"a.b": entry("Hi", "Oi")}},
      'String(localized: "a.b", defaultValue: """\n    Hi\n    """)'),

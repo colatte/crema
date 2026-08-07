@@ -36,12 +36,25 @@ protocol ArtworkLookup: Sendable {
 /// erroring. 1200 covers a 300 pt hero at 2× with room to spare, at a seventh of
 /// 3000's weight, on a surface that is decoration rather than the point.
 ///
-/// ## Why it is off by default
+/// ## Why it is off by default, and why it leaves nothing behind
 ///
 /// It is a network request carrying what you are listening to. Not an account
 /// and not analytics — the two things the app promises it does not do — but
 /// traffic tied to listening all the same, and that is the user's call to make
 /// rather than ours to make quietly.
+///
+/// Which is exactly why it does not use `URLSession.shared`. That session writes
+/// through the shared on-disk `URLCache` under `~/Library/Caches`, so both
+/// halves of every lookup — the search URL, which spells the title, artist and
+/// album in its query string, and the ~391 KB cover — would be written to disk
+/// and **survive the user switching the feature back off**. A preference that
+/// stops the traffic but leaves the history is not the promise the Settings
+/// footer makes. `.ephemeral` keeps cache, cookies and credentials in memory
+/// only, and the session dies with the process.
+///
+/// Nothing is lost by it: the resolver already caches the one cover it is
+/// showing, and a lookup happens once per track identity, so there was no
+/// second request for a disk cache to serve.
 final class ITunesArtworkLookup: ArtworkLookup {
     /// Injectable so the tests never touch the network: they hand back canned
     /// JSON and canned image bytes and assert on what was asked for.
@@ -63,12 +76,30 @@ final class ITunesArtworkLookup: ArtworkLookup {
         self.fetch = fetch
     }
 
+    /// One ephemeral session for the process, built once rather than per call —
+    /// a session per request leaks connections and re-pays TLS every time.
+    private static let session: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        // Belt to the ephemeral braces: `.ephemeral` already keeps the cache in
+        // memory, and this says the request must not be answered from one
+        // either — a cover served from a stale cache is a cover for the wrong
+        // track after the endpoint changed its art.
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        configuration.timeoutIntervalForRequest = 8
+        // Nothing waits on this, so it must never wait for a network to come
+        // back: the surface is complete with the player's own cover, and a
+        // request parked until Wi-Fi returns would fire an upgrade for a song
+        // that stopped playing an hour ago.
+        configuration.waitsForConnectivity = false
+        return URLSession(configuration: configuration)
+    }()
+
     static let urlSessionFetch: Fetch = { url in
         var request = URLRequest(url: url)
         // Short, because nothing waits on this: the surface is already drawn
         // with the player's own cover by the time an answer could arrive.
         request.timeoutInterval = 8
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, _) = try await session.data(for: request)
         return data
     }
 

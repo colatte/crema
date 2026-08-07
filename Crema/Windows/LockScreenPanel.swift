@@ -69,8 +69,15 @@ final class LockScreenPanel {
         panel.canBecomeVisibleWithoutLogin = true
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
         // Ordering within the raised space, which is a different axis from the
-        // space's own absolute level. High here so nothing of ours lands on top.
-        panel.level = NSWindow.Level(rawValue: Int(Int32.max) - 2)
+        // space's own absolute level. High here so nothing of ours lands on top
+        // — but at the DOCUMENTED ceiling, not past it. `kCGMaximumWindowLevel`
+        // is `INT32_MAX - kCGNumReservedWindowLevels` (CGWindowLevel.h), so the
+        // top 16 values are Apple's; `Int32.max - 2`, which this used to be,
+        // sits inside that band and above `kCGCursorWindowLevel` itself. Nothing
+        // enforces the ceiling, which is exactly why it is worth respecting: the
+        // window is alone in its own space, so it gains nothing from the extra
+        // 14 and would only be claiming precedence over the system's own layers.
+        panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.maximumWindow)))
 
         // Born capturing nothing. Every later value comes from the card's own
         // rendered rect, so the window can only open where something is drawn —

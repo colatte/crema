@@ -226,7 +226,9 @@ leave your machine, both optional and both off until you say so:
   image, which looks soft filling a screen, so Crema can ask Apple's public
   search for a bigger one. No account and no token — but the request does carry
   the track name, artist and album, which is why it ships off and lives under
-  the lock-screen setting rather than beside it.
+  the lock-screen setting rather than beside it. It writes nothing to disk: the
+  session is in-memory only, so turning the setting off leaves no record of what
+  was looked up.
 
 Nothing else leaves your machine.
 

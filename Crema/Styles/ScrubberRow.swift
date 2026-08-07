@@ -30,9 +30,16 @@ struct ScrubberRow: View {
     @State private var draft: Double?
     @State private var isEditing = false
 
+    /// Both labels follow the TRACK's length, so they never disagree about
+    /// their own shape. Live content reports no duration at all, and there the
+    /// elapsed time is the only number on screen — m:ss until it earns hours.
+    private var reachesAnHour: Bool {
+        TimeLabel.reachesAnHour(duration ?? position)
+    }
+
     var body: some View {
         HStack(spacing: 8) {
-            Text(timeLabel(draft ?? position))
+            Text(timeLabel(draft ?? position, reachesAnHour: reachesAnHour))
             Slider(
                 value: Binding(
                     get: { draft ?? position },
@@ -57,7 +64,7 @@ struct ScrubberRow: View {
             // degrade AFTER the release, not kill the tracking under the finger.
             .disabled((duration == nil || !enabled) && !isEditing)
             if showsDuration, let duration {
-                Text(timeLabel(duration))
+                Text(timeLabel(duration, reachesAnHour: reachesAnHour))
             }
         }
         .font(.caption2)
@@ -65,8 +72,32 @@ struct ScrubberRow: View {
         .monospacedDigit()
     }
 
-    /// Locale-aware m:ss via FormatStyle — never hand-assembled digits.
-    private func timeLabel(_ seconds: Double) -> String {
-        Duration.seconds(max(0, seconds)).formatted(.time(pattern: .minuteSecond))
+    /// Locale-aware via FormatStyle — never hand-assembled digits.
+    ///
+    /// The pattern is chosen by the TRACK's length, not by the value being
+    /// printed, so the elapsed and total labels always have the same shape: a
+    /// 1h20m recording reads `0:05:00 / 1:20:00`, never `5:00 / 1:20:00`.
+    private func timeLabel(_ seconds: Double, reachesAnHour: Bool) -> String {
+        let value = Duration.seconds(max(0, seconds))
+        return reachesAnHour
+            ? value.formatted(.time(pattern: .hourMinuteSecond))
+            : value.formatted(.time(pattern: .minuteSecond))
+    }
+}
+
+/// When a duration stops fitting in `m:ss`.
+///
+/// `.minuteSecond` does not roll over into hours — it keeps counting minutes,
+/// and past a thousand it takes the locale's grouping separator with it.
+/// Measured: 3600 s prints `60:00`, 7200 s prints `120:00`, and 86 000 s prints
+/// `1.433:20` on a pt-BR Mac. The border admits any duration under 24 h
+/// (`AdapterPayloadTranslation`), so an audiobook, a DJ set or a long stream
+/// reaches this in ordinary use — it is not an edge case, it is the whole
+/// non-music half of what people play.
+enum TimeLabel {
+    static let secondsInAnHour: Double = 3600
+
+    static func reachesAnHour(_ seconds: Double) -> Bool {
+        seconds >= secondsInAnHour
     }
 }
