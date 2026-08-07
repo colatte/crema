@@ -74,7 +74,7 @@ final class LockScreenPanel {
 
         // Born capturing nothing. Every later value comes from the card's own
         // rendered rect, so the window can only open where something is drawn —
-        // and if the routing below never runs at all, the lock screen keeps
+        // and if the routing below ever stops running, the lock screen keeps
         // every one of its clicks and the card simply is not clickable. The
         // failure is a feature that does not respond, never a login UI that
         // does not.
@@ -124,6 +124,16 @@ final class LockScreenPanel {
     /// (`NSPanelPresentationPanel.installMouseRouting`). Mouse-ups are matched
     /// because a drag emits no `mouseMoved`, so its release is the one moment
     /// the routing can resynchronize after the cursor crossed mid-drag.
+    ///
+    /// That this works AT ALL over the lock shield is measured, not assumed, and
+    /// it was worth measuring: Apple documents that a global monitor "would not
+    /// be able to detect Command-Tab or a system alert", and the lock screen is
+    /// loginwindow's UI. It does not generalize —
+    /// `scripts/probes/lockscreen-mouse-routing.swift` counted 1092 global
+    /// mouse-moved events while locked, with a window in exactly this
+    /// configuration. The same run showed `NSEvent.mouseLocation` polling alive
+    /// there too, which is the standing fallback if a macOS release ever takes
+    /// delivery away: swap the mechanism here, and nothing else moves.
     private func installMouseRouting() {
         let events: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseUp, .rightMouseUp, .otherMouseUp]
         // Assuming the MainActor rather than hopping: NSEvent monitor handlers

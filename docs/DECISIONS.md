@@ -2367,6 +2367,33 @@ category of risk for this codebase — it is the category the codebase is built 
    read would answer "fine" either way and cost a surface that silently stopped
    appearing.
 
+**The window over the shield takes no clicks it did not draw.** It is the size of
+the display, and transparency does NOT pass a click through — measured for the
+desktop panels, which carry the same machinery. So a clear window that size
+captures the password field, the avatar and the Cancel/Switch-User buttons.
+Nobody is locked out by that (keyboard delivery is unaffected and the field is
+focused by default, which is exactly why it survives a hardware test), but it is
+the worst thing this surface can do, so the panel is born `ignoresMouseEvents`
+and a cursor monitor opens it only over the card's RENDERED rect. Two rules make
+that safe rather than merely correct: the default is capture-nothing, so any
+failure of the routing costs a click on the card and never one on the login UI;
+and only the card ever captures, in BOTH states — expanded, the cover fills the
+display but stays click-through, with the card still there to collapse it, so the
+hidden login UI is never clickable-but-invisible.
+
+That the monitor is delivered over the shield at all is MEASURED
+(`scripts/probes/lockscreen-mouse-routing.swift`, 2026-08-07: 1092 global
+mouse-moved events while locked). It was worth measuring because Apple documents
+that a global monitor "would not be able to detect Command-Tab or a system
+alert" and the lock screen is loginwindow's UI — the restriction does not
+generalize. The same run found `NSEvent.mouseLocation` polling alive there, which
+is a standing fallback rather than a hypothesis: it is a question to the
+WindowServer instead of a subscription, so it survives if delivery ever stops.
+The run also carries a lesson about controls — the global monitor read ZERO
+unlocked, and an earlier verdict called the whole thing inconclusive for that
+reason. A control gives meaning to a silence; there was no silence on the side
+being measured, and a positive reading stands without one.
+
 **Reopening gate.** A macOS release that removes or renames any of the five
 symbols degrades this to "not offered" on its own — that is the designed
 behaviour, not a reopening. What WOULD reopen it: Apple shipping a public path

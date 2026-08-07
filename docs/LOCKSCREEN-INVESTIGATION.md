@@ -211,6 +211,19 @@ a broken probe.
   so the log carries no evidence either way. Left open deliberately rather than
   guessed at, and covered by action instead of by a read — see below.
 
+A third probe, `lockscreen-mouse-routing.swift`, was needed once the surface
+shipped, and its question is the mirror of the second one's: not "do clicks
+reach a window that wants them" but "can a window that deliberately REFUSES them
+still learn where the cursor is". A screen-sized clear window captures every
+click on the display, so the panel has to stay click-through and open only over
+the card — which requires tracking the cursor while capturing nothing. Apple
+documents that a global event monitor "would not be able to detect Command-Tab
+or a system alert", and the lock screen is loginwindow's UI, so this was a real
+doubt. **Measured 2026-08-07: it does not generalize.** While locked, with a
+window in exactly that configuration: 1092 global mouse-moved events, 281 local,
+and 117 live readings from `NSEvent.mouseLocation` polling — all three
+mechanisms alive, the third being a standing fallback if delivery ever stops.
+
 The probe splits into two windows on purpose, and the split is a safety property
 rather than a convenience: the screen-sized one sets `ignoresMouseEvents`, so it
 can never swallow a click meant for the password field. A screen-sized window

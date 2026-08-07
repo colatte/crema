@@ -42,6 +42,36 @@
 //                                 clicks there), and the screen-sized one stays
 //                                 click-through forever.
 //
+// RESULT, 2026-08-07 (macOS 26, Apple Silicon, run by the author). The first
+// outcome: the routing the app ships works over the shield.
+//
+//                unlocked   locked
+//     GLOBAL             0     1092   ALIVE WHILE LOCKED
+//     LOCAL            721      281   ALIVE WHILE LOCKED
+//     POLL              62      117   ALIVE WHILE LOCKED
+//
+// So Apple's "not able to detect [...] a system alert" does NOT generalize to
+// the lock shield: mouse-moved is delivered to a global monitor there, with the
+// window in exactly the configuration being diagnosed.
+//
+// TWO THINGS THE RUN TAUGHT THAT THE DESIGN DID NOT ANTICIPATE:
+//
+// 1. The global monitor was silent UNLOCKED and loud LOCKED — the reverse of
+//    what the control was built to show. It is consistent with the documented
+//    definition (a global monitor excludes events dispatched to its OWN app, and
+//    unlocked they went to ours: LOCAL 721), but the explanation is not what
+//    rescues the reading. The reading is POSITIVE on the side that matters, and
+//    a positive reading needs no control — the control exists so that a ZERO can
+//    be told apart from a broken probe. Keep this straight before quoting the
+//    table: the 0 in the unlocked column is not a failed measurement of the
+//    thing being measured.
+//
+// 2. POLL is alive too, which makes it a live fallback rather than a hypothesis.
+//    If a future macOS stops delivering to the global monitor, the panel swaps
+//    one mechanism for the other inside `installMouseRouting` and nothing else
+//    moves. That is the reason all three were measured instead of stopping at
+//    the first success.
+//
 // The window here is screen-sized and ignoresMouseEvents = true, exactly like
 // the one being diagnosed — and that flag is also what keeps this probe from
 // being one that locks you out of your Mac.
@@ -69,14 +99,23 @@ final class Tally {
     var pollUnlocked = 0, pollLocked = 0
     var lastPollPoint = CGPoint.zero
 
+    /// The locked count is asked FIRST, and the ordering is the lesson of the
+    /// 2026-08-07 run: the global monitor read 0 unlocked and 1092 locked, and
+    /// an earlier version of this function called that "inconclusive" because
+    /// the control was silent. It is not. A control exists to give meaning to a
+    /// SILENCE — and there was no silence on the side being measured. A positive
+    /// reading stands on its own; only a zero needs the control to tell "not
+    /// delivered here" apart from "probe broken".
     func line(_ name: String, _ unlocked: Int, _ locked: Int) -> String {
         let verdict: String
-        if unlocked == 0 {
-            verdict = "INCONCLUSIVE — never fired even unlocked; move the mouse more"
-        } else if locked == 0 {
-            verdict = "DEAD WHILE LOCKED"
+        if locked > 0 {
+            verdict = unlocked > 0
+                ? "ALIVE WHILE LOCKED"
+                : "ALIVE WHILE LOCKED (and silent unlocked — see the note below)"
+        } else if unlocked == 0 {
+            verdict = "NO READING AT ALL — move the mouse more, or the probe is broken"
         } else {
-            verdict = "ALIVE WHILE LOCKED"
+            verdict = "DEAD WHILE LOCKED"
         }
         return String(format: "  %-7@ unlocked %5d | locked %5d   %@",
                       name as NSString, unlocked, locked, verdict as NSString)
