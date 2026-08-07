@@ -130,4 +130,46 @@ struct LockScreenPanelTests {
 
         panel?.close()
     }
+
+    @Test func theTopologyEdgeReadoptsEvenWhenTheFrameDidNotMove() {
+        // The common hotplug leaves the MAIN screen's frame untouched — a second
+        // display appears beside it. The version that returned early there made
+        // the one edge most likely to have reconfigured the WindowServer the one
+        // edge that re-asserted nothing, while three comments said it did.
+        let harness = CoordinatorHarness()
+        let space = RecordingRaisedSpace()
+        let screen = NSScreen.screens[0]
+        let panel = LockScreenPanel(
+            screen: screen,
+            coordinator: harness.coordinator,
+            space: space,
+            lowPower: LowPowerModeMirror(),
+            artwork: LockArtworkResolver(lookup: MockArtworkLookup(), enabled: false)
+        )
+        #expect(space.adopted.count == 1)
+
+        panel?.setFrame(screen.frame)
+        #expect(space.adopted.count == 2)
+
+        panel?.close()
+    }
+
+    @Test func thePanelIsBornTakingNoClicksAtAll() {
+        // The window is the size of the display and transparency does not pass a
+        // click through (measured for the desktop panels, which carry the same
+        // machinery). Over the lock shield the pixels it covers are the password
+        // field's, so the starting value is the only safe one — and it is what
+        // the routing degrades TO if the cursor monitors never fire there.
+        let harness = CoordinatorHarness()
+        let panel = LockScreenPanel(
+            screen: NSScreen.screens[0],
+            coordinator: harness.coordinator,
+            space: RecordingRaisedSpace(),
+            lowPower: LowPowerModeMirror(),
+            artwork: LockArtworkResolver(lookup: MockArtworkLookup(), enabled: false)
+        )
+        #expect(panel?.capturesMouse == false)
+
+        panel?.close()
+    }
 }

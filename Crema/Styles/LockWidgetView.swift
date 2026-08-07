@@ -24,6 +24,16 @@ struct LockWidgetView: View {
     /// the resolver would have returned anyway.
     var artwork: LockArtworkResolver?
 
+    /// The rect that may take a click, in the hosting window's coordinate space,
+    /// reported whenever it moves — empty when there is nothing drawn.
+    ///
+    /// The view has to report it because the window cannot compute it: this
+    /// window is the size of the display and the card is a few hundred points of
+    /// it, so without this the panel would have to capture everywhere, over a
+    /// surface where "everywhere" is the password field
+    /// (`LockWidgetClickThrough`).
+    var onInteractiveRect: ((CGRect) -> Void)?
+
     /// Purely visual, purely ephemeral — the same category as a hover: which of
     /// the two states is showing is never domain and never persisted, so a
     /// relaunch or a track change starts collapsed.
@@ -53,6 +63,13 @@ struct LockWidgetView: View {
         // final rect.
         .opacity(track == nil ? 0 : 1)
         .animation(SurfaceAnimation.morph(reduceMotion: reduceMotion), value: track == nil)
+        // The card leaves the hierarchy when the media stops, taking its
+        // reporter with it — so the LAST rect it published would stay armed over
+        // bare wallpaper for the rest of the lock. Nothing else reports this
+        // edge, because the thing that would report it is the thing that left.
+        .onChange(of: track == nil) { _, empty in
+            if empty { onInteractiveRect?(.zero) }
+        }
         // Keyed on the identity rather than the snapshot: the snapshot is
         // rewritten every second by the position tick, and re-asking the
         // endpoint once a second for the same song would be a very rude client.
@@ -129,14 +146,33 @@ struct LockWidgetView: View {
         // One appearance for the whole surface, in every state — scoping it per
         // branch would flip the palette mid-transition.
         .environment(\.colorScheme, .dark)
-        .frame(maxHeight: .infinity, alignment: .bottom)
-        .padding(.bottom, LockWidgetMetrics.bottomInset)
+        // Hit region, accessibility element and reported rect all attach HERE,
+        // above the stretching frame below and never under it. Under it they
+        // would describe the card's LAYOUT frame, which is the card's width by
+        // the whole height of the display — a tap target, and a VoiceOver
+        // button, sitting over the password field.
         .contentShape(Rectangle())
         .onTapGesture { toggle() }
         .accessibilityAddTraits(.isButton)
         .accessibilityHint(Text(expanded
                 ? String(localized: "lock.collapse", defaultValue: "Hide the full-screen cover")
                 : String(localized: "lock.expand", defaultValue: "Show the cover full screen")))
+        .background { interactiveRectReporter }
+        .frame(maxHeight: .infinity, alignment: .bottom)
+        .padding(.bottom, LockWidgetMetrics.bottomInset)
+    }
+
+    /// Publishes the drawn card's rect to the window. A background rather than
+    /// an overlay so it can never sit between the card and a click, and keyed on
+    /// the rect so a body pass that moved nothing — the 1 Hz position tick,
+    /// every second, all night — reports nothing.
+    private var interactiveRectReporter: some View {
+        GeometryReader { proxy in
+            let rect = proxy.frame(in: .global)
+            Color.clear
+                .onAppear { onInteractiveRect?(rect) }
+                .onChange(of: rect) { _, new in onInteractiveRect?(new) }
+        }
     }
 
     /// The card's own material. Deliberately NOT `vibrantSurface`: that samples

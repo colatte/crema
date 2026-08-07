@@ -16,13 +16,27 @@ import SwiftUI
 /// bottom strip, but expanding hands the cover the whole display, and a window
 /// that resized between the two would be an AppKit frame change racing a
 /// SwiftUI render — the exact family of flicker the fixed-window rule was
-/// written to end (`design-reference` §1.3). The empty region is transparent
-/// and `ignoresMouseEvents` keeps it from swallowing anything.
+/// written to end (`design-reference` §1.3).
+///
+/// Being screen-sized is also this window's one real hazard, and the reason for
+/// the mouse routing below. Transparency does NOT pass a click through — this
+/// repo measured that for the desktop panels, which is why they carry the same
+/// machinery — so a clear window this size captures every click on the display.
+/// Over the lock shield those clicks belong to the password field, the avatar
+/// and the Cancel/Switch-User buttons. The window is therefore born
+/// click-through and only opens where the card is drawn.
 @MainActor
 final class LockScreenPanel {
     private let panel: NSPanel
     private let space: any RaisedSpace
     private let logger = Logger.crema("LockScreen")
+
+    /// The card's rect in AppKit global screen coordinates, republished by the
+    /// view whenever it moves. Empty means capture nothing, which is both the
+    /// starting value and the resting state whenever no media is playing.
+    private var interactiveRect: CGRect = .zero
+    private var localMouseMonitor: Any?
+    private var globalMouseMonitor: Any?
 
     /// Nil when SkyLight could not be resolved — the caller degrades instead of
     /// showing a window that would sit uselessly behind the shield.
@@ -58,9 +72,22 @@ final class LockScreenPanel {
         // space's own absolute level. High here so nothing of ours lands on top.
         panel.level = NSWindow.Level(rawValue: Int(Int32.max) - 2)
 
+        // Born capturing nothing. Every later value comes from the card's own
+        // rendered rect, so the window can only open where something is drawn —
+        // and if the routing below never runs at all, the lock screen keeps
+        // every one of its clicks and the card simply is not clickable. The
+        // failure is a feature that does not respond, never a login UI that
+        // does not.
+        panel.ignoresMouseEvents = true
+
+        let relay = LockInteractiveRectRelay()
         let hosting = NSHostingView(rootView: AnyView(
-            LockWidgetView(coordinator: coordinator, artwork: artwork)
-                .environment(\.lowPowerMode, lowPower)
+            LockWidgetView(
+                coordinator: coordinator,
+                artwork: artwork,
+                onInteractiveRect: { [weak relay] in relay?.onChange?($0) }
+            )
+            .environment(\.lowPowerMode, lowPower)
         ))
         // The default (.standardBounds) installs constraints that let SwiftUI
         // resize the window; this one is sized by the screen and nothing else.
@@ -70,7 +97,61 @@ final class LockScreenPanel {
         panel.setFrame(screen.frame, display: true)
         panel.orderFrontRegardless()
         space.adopt(panel)
+
+        // The relay exists because the root view is built before `self` is
+        // available; it gets its real target here, one line later.
+        relay.onChange = { [weak self] rect in self?.setInteractiveRect(rect) }
+        installMouseRouting()
     }
+
+    // MARK: - Mouse routing
+
+    /// Called by the view with the card's rect in the window's coordinate space.
+    private func setInteractiveRect(_ cardInWindow: CGRect) {
+        interactiveRect = LockWidgetClickThrough.screenRect(
+            cardInWindow: cardInWindow, window: panel.frame
+        )
+        // Re-route on the spot instead of waiting for the next mouse event: the
+        // card can shrink or leave under a stationary cursor (the media stops,
+        // the card collapses) and no move is emitted for that, so the window
+        // would stay open over pixels the card no longer covers.
+        routeClicks(at: NSEvent.mouseLocation)
+    }
+
+    /// The local monitor sees events while the window is capturing; the global
+    /// one sees them while it is click-through. Neither alone tracks the cursor
+    /// across that boundary, which is why the desktop panels pair them too
+    /// (`NSPanelPresentationPanel.installMouseRouting`). Mouse-ups are matched
+    /// because a drag emits no `mouseMoved`, so its release is the one moment
+    /// the routing can resynchronize after the cursor crossed mid-drag.
+    private func installMouseRouting() {
+        let events: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseUp, .rightMouseUp, .otherMouseUp]
+        // Assuming the MainActor rather than hopping: NSEvent monitor handlers
+        // are delivered on the main thread, and the citation plus the
+        // measurement that outranks it are written out once, at
+        // SurfaceHoverMonitor.install() (docs/DECISIONS.md:
+        // assumed-isolation-is-measured).
+        localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: events) { [weak self] event in
+            MainActor.assumeIsolated { self?.routeClicks(at: NSEvent.mouseLocation) }
+            return event
+        }
+        globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: events) { [weak self] _ in
+            MainActor.assumeIsolated { self?.routeClicks(at: NSEvent.mouseLocation) }
+        }
+    }
+
+    private func routeClicks(at point: CGPoint) {
+        let interactive = SurfaceClickThrough.isInteractive(point, surface: interactiveRect)
+        if panel.ignoresMouseEvents == interactive {
+            panel.ignoresMouseEvents = !interactive
+        }
+    }
+
+    /// Whether the window is currently taking clicks away from whatever is
+    /// under it. Readable because it is the one fact about this window that can
+    /// hurt somebody: on the lock screen, "captures" and "the password field
+    /// does not respond" are the same sentence.
+    var capturesMouse: Bool { !panel.ignoresMouseEvents }
 
     /// Called on every edge that can have reconfigured WindowServer state —
     /// display sleep and wake, system wake, screen-parameter changes.
@@ -86,16 +167,49 @@ final class LockScreenPanel {
         space.adopt(panel)
     }
 
+    /// Re-applies the frame and ALWAYS re-adopts, even when the frame did not
+    /// move. The early return this used to take made the topology edge a no-op
+    /// in its most common shape — plugging a second display in leaves the main
+    /// screen's frame untouched — so the one edge that most plausibly
+    /// reconfigures the WindowServer was the one edge that re-asserted nothing,
+    /// against three comments promising the opposite. The re-adopt is the whole
+    /// point of the edge; the frame is the part that is conditional.
     func setFrame(_ frame: CGRect) {
-        guard panel.frame != frame else { return }
-        panel.setFrame(frame, display: true)
-        // A resized window is a new window as far as the space is concerned on
-        // some paths; re-adopting is free and convergent.
+        if panel.frame != frame {
+            panel.setFrame(frame, display: true)
+            // The rect the view reported was measured against the old window
+            // origin, so it names the wrong place on screen now. Empty until the
+            // view republishes, which is the safe direction: capture nothing.
+            interactiveRect = .zero
+        }
         space.adopt(panel)
     }
 
     func close() {
+        removeMouseRouting()
         panel.orderOut(nil)
         panel.close()
     }
+
+    /// `close()` is the single teardown, and there is deliberately no `deinit`
+    /// backstop. Every path that drops a panel closes it first — `reconcile()`
+    /// on unlock and on the preference going off, and the presenter's own
+    /// `deinit` — so a backstop would only add a `MainActor.assumeIsolated` in a
+    /// nonisolated `deinit`, which traps if the last reference is ever released
+    /// off the main thread. A crash is a worse failure than the leak it covers.
+    private func removeMouseRouting() {
+        if let localMouseMonitor { NSEvent.removeMonitor(localMouseMonitor) }
+        if let globalMouseMonitor { NSEvent.removeMonitor(globalMouseMonitor) }
+        localMouseMonitor = nil
+        globalMouseMonitor = nil
+    }
+}
+
+/// Carries the view's reported rect to the panel. The root view is built before
+/// `self` exists, so the closure baked into it cannot capture the panel; this
+/// box is what gets its target one line later — the same shape, and the same
+/// reason, as `SurfaceSizeRelay` on the desktop side.
+@MainActor
+final class LockInteractiveRectRelay {
+    var onChange: ((CGRect) -> Void)?
 }
