@@ -61,24 +61,11 @@ private struct IndicatorTile: View {
     var body: some View {
         Button(action: select) {
             VStack(spacing: 6) {
-                // The ring goes OUTSIDE the picture, the way the Appearance and
-                // Wallpaper pickers in System Settings do it. Drawn as a border on
-                // the picture it would paint inward over the surface's own edge —
-                // and the edge is part of what is being chosen here, since the
-                // `.filled` bar meets it and the capsule does not.
+                // Outside, and here is why for this row: the surface's own edge is
+                // part of what is being chosen, since the `.filled` bar meets it and
+                // the capsule does not.
                 picture
-                    .overlay {
-                        RoundedRectangle(cornerRadius: Thumbnail.cornerRadius, style: .continuous)
-                            .strokeBorder(.separator, lineWidth: 0.5)
-                    }
-                    .padding(Thumbnail.ringInset)
-                    .overlay {
-                        RoundedRectangle(
-                            cornerRadius: Thumbnail.cornerRadius + Thumbnail.ringInset,
-                            style: .continuous
-                        )
-                        .strokeBorder(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear), lineWidth: 2.5)
-                    }
+                    .thumbnailSelectionRing(isSelected: isSelected)
                 Text(style.displayName)
                     .font(.callout)
                     .foregroundStyle(isSelected ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))

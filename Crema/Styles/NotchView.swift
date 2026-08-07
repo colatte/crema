@@ -29,17 +29,10 @@ struct NotchView: View, SurfaceStyleBody {
     @Environment(\.surfaceStateSizes) private var stateSizes
     @Environment(\.surfaceSizeReporter) private var reportSurfaceSize
 
-    /// Gates every surface morph to a dry landing (MG5) — see
-    /// `SurfaceAnimation.geometryAnimation`; the opacity fade stays regardless.
-    /// Not private: the shared motion gates (SurfaceStyleBody) read it.
+    /// Not private: SurfaceStyleBody's motion gates read it.
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
-    /// Where the surface is coming from — the FROM of the current transition and
-    /// the last VISIBLE layout the hidden surface freezes its drop AND its shape
-    /// flare to (SurfaceProvenance carries the rule and the reasons). Ephemeral,
-    /// purely visual. Advanced in `onChange` AFTER the render that reads it
-    /// (evaluation-order subtlety in the body comment) — the same mechanism as
-    /// Card/Classic.
+    /// Storage only; the rule lives in `SurfaceProvenance`.
     @State var provenance = SurfaceProvenance()
 
     var body: some View {

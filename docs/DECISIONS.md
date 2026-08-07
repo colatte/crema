@@ -436,6 +436,23 @@ was opened for. What stays per view is unchanged in kind: the visual body, the
 parameter (`surfaceSize`, `effectiveLayoutKind`, the Card's radius, the Notch's
 shape), which the per-view tests still exercise.
 
+Amendment (2026-08-07): the exposure this entry names had a second half nobody
+was watching — the PROSE. Swift cannot hoist a stored property or a property
+wrapper through a protocol, so every conforming view must redeclare
+`coordinator`, `displayPolicy`, its environment reads and the provenance
+`@State`; those declarations repeat by construction and are not residue. What
+was residue is that each of the three carried a five-line paraphrase of the
+provenance rule and a byte-identical three-line paraphrase of the Reduce Motion
+gate, both of which already live once (in `SurfaceProvenance` and in
+`SurfaceStyleBody`'s member docs) and both of which each view ALSO documents
+concretely at its own `.animation` call site. Three copies, and they had already
+drifted into three different claims about the same rule — the hidden surface
+"freezes to", "freezes its drop AND its shape flare to", and a third that called
+the surface a block. One of them was wrong and the code was the only way to tell
+which. The paraphrases are gone; each view now points at the rule in one line.
+The lesson generalises past this file: a shared rule restated beside every
+implementation is the same divergence risk as copied code, minus the compiler.
+
 ### hover-follows-the-eye
 Hover and clicks derive from the same rendered truth, on every skin. The hover
 exit region used to be a state-blind union of the compact and expanded frames

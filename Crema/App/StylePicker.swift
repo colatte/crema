@@ -66,24 +66,11 @@ private struct StyleTile: View {
     var body: some View {
         Button(action: select) {
             VStack(spacing: 6) {
-                // The ring goes OUTSIDE the picture, the way the Appearance and
-                // Wallpaper pickers in System Settings do it. Drawn as a border on
-                // the thumbnail it would paint inward over the top few points —
-                // which is where the whole difference between these skins lives —
-                // so selecting a style used to hide the thing being selected.
+                // Outside, and here is why for this row: the top few points are where
+                // the whole difference between these skins lives, so a border on the
+                // thumbnail used to hide the very thing being selected.
                 StyleThumbnail(shapes: shapes, wallpaper: wallpaper)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: Thumbnail.cornerRadius, style: .continuous)
-                            .strokeBorder(.separator, lineWidth: 0.5)
-                    }
-                    .padding(Thumbnail.ringInset)
-                    .overlay {
-                        RoundedRectangle(
-                            cornerRadius: Thumbnail.cornerRadius + Thumbnail.ringInset,
-                            style: .continuous
-                        )
-                        .strokeBorder(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear), lineWidth: 2.5)
-                    }
+                    .thumbnailSelectionRing(isSelected: isSelected)
                 // Tighter than the gap above: the caption belongs to the name, not
                 // to the picture, and equal spacing would leave it floating between
                 // two tiles' worth of words.
@@ -314,40 +301,4 @@ private struct StyleThumbnail: View {
             style: .continuous
         )
     }
-}
-
-/// Drawing constants shared by the tile and its picture, so the selection ring
-/// traces the same rounded rect the screen is clipped to. Not private because the
-/// indicator mini-tiles under this row take the same corner radius and ring inset:
-/// two rows of pictures in one Settings section have to wear one frame, and a
-/// second copy of these numbers is how they would come to wear two.
-enum Thumbnail {
-    /// Sized to the row it sits in, not to taste: three of these plus their gaps
-    /// and the "Style" label have to fit the 500 pt Settings window, whose grouped
-    /// Form row is about 440 pt wide. 128 pt tiles overflowed it.
-    static let width: CGFloat = 108
-    /// The shape of the panel the preview describes when no display is named, and
-    /// the stand-in for a screen that reports none. Read off that same measured
-    /// geometry rather than restated, so the two cannot come to disagree about
-    /// what a tile is shaped like.
-    static let referenceAspectRatio = StylePreview.notchedReference.frame.width / StylePreview.notchedReference.frame.height
-    static let cornerRadius: CGFloat = 6
-    /// Room between the picture and the selection ring.
-    static let ringInset: CGFloat = 3
-    /// Floor for the menu-bar strip and the slit that cuts it. Scenery, like the
-    /// strip itself: the tile scales its screen by `width / that screen's width`,
-    /// so the reference panel's 32 pt safe area derives to roughly 2.3 pt here,
-    /// which reads as nothing. A point value rather than a ratio because what it
-    /// defends is legibility on screen — resize the tile and the derived height
-    /// moves, this floor does not.
-    static let minMenuBar: CGFloat = 3.5
-    /// How far below the drawn menu bar a floating surface sits. Enough to be a gap
-    /// and not a seam; the true one is a fifth of a point at this size.
-    static let floatingClearance: CGFloat = 2.5
-    /// How much wider than faithful the strip surfaces are drawn, and how much
-    /// taller. Calibrated against the drawing the owner approved (surfaces at
-    /// roughly 28-37% of the tile's width, cover at ~45% of their height), not
-    /// to taste; the rationale for exaggerating at all is on `surfaceSize`.
-    static let stripSurfaceWidthBoost: CGFloat = 2.0
-    static let stripSurfaceHeightBoost: CGFloat = 1.35
 }
