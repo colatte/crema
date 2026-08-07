@@ -126,6 +126,14 @@ final class AppCore {
     /// lock screen. The presenter owns the window's whole lifetime and is nil
     /// only when SkyLight could not be resolved.
     private let lockMirror = LockScreenMirror()
+    /// Stored, not merely built: the source keeps no strong reference to itself
+    /// (weak self in both observers and in the settle task), and its only other
+    /// owner is `SuppressionLockController` — which is not built when the
+    /// brightness backends do not resolve, nor in the demo graph. Held as a
+    /// local it would deallocate at the end of `init` on exactly those paths and
+    /// the mirror would never move again, leaving the lock surface convinced the
+    /// Mac is unlocked forever.
+    private let lockSource: any ScreenLockSource
     private var lockScreenPresenter: LockScreenPresenter?
     /// Kept past the merge so the menu can report whether the neighbour's OSD
     /// integration is actually feeding us; nil on demo sources.
@@ -302,7 +310,11 @@ final class AppCore {
         // feeds is how a SECOND reader exists: `updates` is a single-consumer
         // stream the suppression controller iterates, and a second `for await`
         // would split the values between them (LockScreenMirror).
-        let lockSource = DistributedNotificationScreenLockSource(lockMirror: lockMirror)
+        //
+        // Assigned to the stored property, not a local: placing it out here made
+        // it REACHABLE on those paths without making it live, and the difference
+        // is the whole bug the property's own comment now records.
+        lockSource = DistributedNotificationScreenLockSource(lockMirror: lockMirror)
 
         if let consuming = mediaKeys as? any MediaKeyConsuming,
            let screenBackend = graph.screenBrightnessBackend,
@@ -353,8 +365,7 @@ final class AppCore {
         }
 
         lockScreenPresenter = Self.makeLockScreenPresenter(
-            coordinator: coordinator, lock: lockMirror,
-            lowPower: lowPowerMirror, preferences: preferences
+            coordinator: coordinator, lock: lockMirror, lowPower: lowPowerMirror, preferences: preferences
         )
 
         Self.presentWelcomeTourIfFirstLaunch(preferences: preferences) { self.presentWelcomeTour() }

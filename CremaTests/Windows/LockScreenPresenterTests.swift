@@ -77,14 +77,22 @@ struct LockScreenMirrorTests {
     }
 }
 
-/// The presenter's lifecycle, over a fake panel factory and a recording space —
-/// no real window, no real WindowServer.
+/// The presenter's lifecycle, over a counting panel factory and a recording
+/// space. No real WindowServer — the space is a double — but real NSPanels: the
+/// factory builds them so the panel's own constructor decisions are exercised
+/// too, and every test closes what it opened.
 @MainActor
 struct LockScreenPresenterLifecycleTests {
 
-    /// Counts what the presenter asked for. The real factory returns a
-    /// `LockScreenPanel`, which owns an NSPanel; a test that built one would be
-    /// testing AppKit.
+    /// Counts what the presenter asked for, and can refuse on demand.
+    ///
+    /// It does build a real `LockScreenPanel` — and therefore a real
+    /// screen-sized NSPanel, ordered front — because the space it is handed is a
+    /// `RecordingRaisedSpace` that reports available, so the factory's `guard`
+    /// falls through. That is deliberate: the panel's own constructor decisions
+    /// (born click-through, adopted exactly once) are worth exercising here. What
+    /// the spy buys is the COUNT and the refusal, neither of which the real
+    /// factory can report.
     @MainActor
     final class FactorySpy {
         private(set) var builds = 0
@@ -196,5 +204,68 @@ struct LockScreenPresenterLifecycleTests {
         // The presence rule refuses before the factory is ever asked — the panel
         // has its own guard, but paying for a window to throw it away is waste.
         #expect(spy.builds == 0)
+    }
+
+    @Test func aBuildThatFailedIsRetriedOnAWakeEdgeRatherThanLostForTheLock() async {
+        // The real shape of this: the lock edge lands while the displays are
+        // asleep or mid-reconfiguration, no screen answers, and the surface used
+        // to be gone for the WHOLE lock — every later edge acted on an existing
+        // panel, and the lock bit was already true so nothing re-entered the
+        // decision. Here the refusal stands in for that missing screen.
+        let mirror = LockScreenMirror()
+        mirror.report(locked: true)
+        let spy = FactorySpy()
+        spy.refuses = true
+        let (presenter, _) = makePresenter(enabled: true, mirror: mirror, spy: spy)
+        presenter.start()
+        #expect(spy.builds == 1)
+
+        spy.refuses = false
+        NSWorkspace.shared.notificationCenter.post(
+            name: NSWorkspace.screensDidWakeNotification, object: nil
+        )
+        // The observer is queued on .main, so the edge lands on a later turn.
+        #expect(await eventually { spy.builds == 2 })
+
+        // And it is convergent: a second edge with a surface already up must not
+        // build another one on top of it. Proven by a sentinel posted BEHIND it
+        // on the same ordered queue rather than by waiting — a wait can only
+        // ever show that the test was patient, and a wait long enough to mean
+        // something is a wait long enough to hurt.
+        let barrier = EdgeBarrier()
+        NSWorkspace.shared.notificationCenter.post(
+            name: NSWorkspace.screensDidWakeNotification, object: nil
+        )
+        barrier.arm()
+        #expect(await eventually { barrier.passed })
+        #expect(spy.builds == 2)
+
+        presenter.setEnabled(false)
+    }
+}
+
+/// A notification posted behind another on `NSWorkspace`'s centre, both queued
+/// on `.main` and therefore delivered in post order. When this one has landed,
+/// whatever was posted before it has already been handled — which is how a
+/// "nothing happened" assertion gets a positive signal instead of a deadline.
+@MainActor
+final class EdgeBarrier {
+    private static let name = Notification.Name("crema.test.lockPresenterBarrier")
+    /// Read only in `deinit`, after every other access has ended — the same
+    /// lifecycle bracket the app's own observer arrays document.
+    private nonisolated(unsafe) var token: NSObjectProtocol?
+    private(set) var passed = false
+
+    func arm() {
+        token = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: Self.name, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.passed = true }
+        }
+        NSWorkspace.shared.notificationCenter.post(name: Self.name, object: nil)
+    }
+
+    deinit {
+        if let token { NSWorkspace.shared.notificationCenter.removeObserver(token) }
     }
 }

@@ -35,8 +35,14 @@ struct LockWidgetView: View {
     var onInteractiveRect: ((CGRect) -> Void)?
 
     /// Purely visual, purely ephemeral — the same category as a hover: which of
-    /// the two states is showing is never domain and never persisted, so a
-    /// relaunch or a track change starts collapsed.
+    /// the two states is showing is never domain and never persisted.
+    ///
+    /// It resets when the media STOPS, not when the track changes, and the
+    /// asymmetry is deliberate. A new song is continuous listening, and yanking
+    /// a cover the user deliberately enlarged back into the card would be the
+    /// surface undoing their choice. A gap is the surface leaving; whatever
+    /// comes back after it has to come back the way it is born, or a full-display
+    /// cover appears over the lock screen with nobody having clicked anything.
     @State private var expanded = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -63,12 +69,15 @@ struct LockWidgetView: View {
         // final rect.
         .opacity(track == nil ? 0 : 1)
         .animation(SurfaceAnimation.morph(reduceMotion: reduceMotion), value: track == nil)
-        // The card leaves the hierarchy when the media stops, taking its
-        // reporter with it — so the LAST rect it published would stay armed over
-        // bare wallpaper for the rest of the lock. Nothing else reports this
-        // edge, because the thing that would report it is the thing that left.
+        // The media stopping is the one edge the surface cannot observe from
+        // inside itself: the card leaves the hierarchy and takes its reporter
+        // with it, so the LAST rect it published would stay armed over bare
+        // wallpaper, and `expanded` would survive to greet the next song
+        // full-screen. Both are settled here, while the fade is running.
         .onChange(of: track == nil) { _, empty in
-            if empty { onInteractiveRect?(.zero) }
+            guard empty else { return }
+            onInteractiveRect?(.zero)
+            expanded = false
         }
         // Keyed on the identity rather than the snapshot: the snapshot is
         // rewritten every second by the position tick, and re-asking the

@@ -133,8 +133,12 @@ final class LockScreenPresenter {
         )
         switch (wanted, panel) {
         case (true, nil):
-            guard let screen = NSScreen.main else {
-                logger.notice("no main screen to draw the lock surface on")
+            guard let screen = Self.primaryScreen() else {
+                // Not terminal any more: every WindowServer edge re-enters here,
+                // so a lock that landed while the displays were asleep or
+                // mid-reconfiguration gets its surface on the next wake instead
+                // of going without one for the rest of the lock.
+                logger.notice("no screen to draw the lock surface on yet")
                 return
             }
             panel = makePanel(screen, coordinator, space, lowPower, artwork)
@@ -147,6 +151,19 @@ final class LockScreenPresenter {
         default:
             break
         }
+    }
+
+    /// The display the user calls "main": the one carrying the menu bar, which
+    /// AppKit puts first in `screens`.
+    ///
+    /// Deliberately not `NSScreen.main`, which is the screen with the KEY WINDOW
+    /// — a question with no good answer here. Crema is an accessory app that
+    /// never takes a key window, and the screen is locked, so `.main` can name
+    /// whichever display last had focus or nothing at all. It stays as the
+    /// fallback because an empty `screens` array and a live `.main` is a state
+    /// worth surviving, not because it is the better answer.
+    private static func primaryScreen() -> NSScreen? {
+        NSScreen.screens.first ?? NSScreen.main
     }
 
     // MARK: - Inputs
@@ -164,12 +181,17 @@ final class LockScreenPresenter {
         }
     }
 
-    /// The same four edges the media-key tap reinstalls on, for the same reason:
-    /// whether a raised space survived a display sleep is state living in the
-    /// WindowServer, and this process cannot audit it (docs/DECISIONS.md:
-    /// preventive-reinstall, J7-estado-do-outro-lado). Re-adopting is idempotent
-    /// and convergent, so acting unconditionally costs one cheap call and a local
-    /// health read would cost a surface that silently stopped appearing.
+    /// The three WindowServer edges this surface can see: display wake, system
+    /// wake and a topology change. Each one may have reconfigured state living
+    /// beyond this process, which `J7-estado-do-outro-lado` says cannot be
+    /// audited from inside it — so every one acts unconditionally
+    /// (`preventive-reinstall`) rather than reading a local health bit that would
+    /// answer "fine" either way.
+    ///
+    /// Three, not the tap's four: the tap's fourth trigger is the unlock edge,
+    /// and this surface does not have one to miss — it is torn down on unlock
+    /// and rebuilt from the lock bit, which is the same reconciliation the tap
+    /// needs that trigger to fake.
     private func installEdgeObservers() {
         let workspace = NSWorkspace.shared.notificationCenter
         for name in [
@@ -178,7 +200,7 @@ final class LockScreenPresenter {
         ] {
             workspaceObservations.append(
                 workspace.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                    MainActor.assumeIsolated { self?.panel?.reassertSpace() }
+                    MainActor.assumeIsolated { self?.handleWakeEdge() }
                 }
             )
         }
@@ -191,11 +213,22 @@ final class LockScreenPresenter {
         }
     }
 
-    /// A topology change can move or resize the main screen under a window that
-    /// was sized to the old one, so the frame is re-applied before the space is
-    /// re-asserted — a correctly-spaced window at the wrong size is still wrong.
+    /// Every edge reconciles FIRST, and that is what stopped a missing screen
+    /// from being terminal: `reconcile()` is convergent — it does nothing when a
+    /// panel is already up — so re-entering it here costs nothing in the common
+    /// case and is the only retry a build that found no display ever gets.
+    private func handleWakeEdge() {
+        reconcile()
+        panel?.reassertSpace()
+    }
+
+    /// A topology change can move or resize the display under a window that was
+    /// sized to the old one, so the frame is re-applied — and `setFrame`
+    /// re-adopts the space whether or not the frame actually moved, because the
+    /// common hotplug leaves the primary display exactly where it was.
     private func handleScreenChange() {
-        guard let panel, let screen = NSScreen.main else { return }
+        reconcile()
+        guard let panel, let screen = Self.primaryScreen() else { return }
         panel.setFrame(screen.frame)
     }
 

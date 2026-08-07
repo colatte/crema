@@ -88,6 +88,9 @@ final class SkyLightSpaceBridge: RaisedSpace {
     /// published call to destroy one.
     private var space: Int32?
     private var connection: Int32?
+    /// Set once if the absolute level is ever refused, so the created-then-
+    /// abandoned space happens at most one time (see `raisedSpace`).
+    private var levelRefused = false
 
     init(resolver: SymbolResolver = SkyLightSpaceBridge.defaultResolver) {
         mainConnectionID = resolver("SLSMainConnectionID").map { unsafeBitCast($0, to: MainConnectionIDFn.self) }
@@ -128,6 +131,15 @@ final class SkyLightSpaceBridge: RaisedSpace {
     /// space — and because the space has to outlive any one window.
     private func raisedSpace() -> Int32? {
         if let space { return space }
+        // A refusal is latched, and that is what bounds the damage. The level
+        // failing is a property of this macOS, not a transient, so retrying can
+        // only fail again — and each retry calls `spaceCreate` first, which
+        // SUCCEEDS. Unlatched, every lock cycle (and every WindowServer edge
+        // behind it) would leave one more space nobody can reach. One leak on a
+        // machine where the feature is off anyway is the price; a growing count
+        // is not. Reopening gate: if a sixth symbol is ever resolved to destroy
+        // a space, this can retry instead of latch.
+        guard !levelRefused else { return nil }
         guard let mainConnectionID, let spaceCreate, let spaceSetAbsoluteLevel, let showSpaces else {
             return nil
         }
@@ -139,6 +151,7 @@ final class SkyLightSpaceBridge: RaisedSpace {
         // one that silently does nothing.
         let levelError = spaceSetAbsoluteLevel(cid, created, Self.aboveScreenLock)
         guard levelError == 0 else {
+            levelRefused = true
             logger.error("SkyLight refused the space level (\(levelError)); the lock surface is off")
             return nil
         }
