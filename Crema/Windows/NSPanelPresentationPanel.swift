@@ -101,6 +101,14 @@ final class NSPanelPresentationPanel: PresentationPanel {
         // level (.mainMenu + 3, per the design reference) — no SkyLight/private
         // window APIs (WindowServer instability on macOS 26). Shared by every
         // style; harmless for the card/classic surfaces.
+        //
+        // The line still holds HERE and the reason is unchanged: these panels
+        // live over the user's work, where a public level does the job and a
+        // private one buys nothing worth the risk. `LockScreenPanel` does reach
+        // for SkyLight, and it is not an exception to this rule so much as a
+        // different question — its whole premise is the far side of the lock
+        // shield, which is a SPACE and which no window level of any kind can
+        // cross (Crema/Sources/SkyLight/SkyLightSpace.swift).
         panel.level = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue + 3)
         panel.isOpaque = false
         panel.backgroundColor = .clear
