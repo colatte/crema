@@ -1395,6 +1395,74 @@
         }
       }
     },
+    "settings.lockScreen": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lock Screen"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tela Bloqueada"
+          }
+        }
+      }
+    },
+    "settings.lockScreen.unsupported": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This version of macOS doesn't offer a way to draw on the lock screen, so Crema leaves it alone."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta versão do macOS não oferece um caminho para desenhar na tela bloqueada, então o Crema não mexe nela."
+          }
+        }
+      }
+    },
+    "settings.lockScreen.widget": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show what's playing on the lock screen"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar o que está tocando na tela bloqueada"
+          }
+        }
+      }
+    },
+    "settings.lockScreen.widget.footer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A card above your login shows the cover, the title and the controls while music plays. Click it and the cover fills the screen. It never asks for your password or reads anything you type."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Um cartão acima do seu login mostra a capa, o título e os controles enquanto há música. Clique nele e a capa preenche a tela. Ele nunca pede sua senha nem lê o que você digita."
+          }
+        }
+      }
+    },
     "settings.nowPlaying.browsers": {
       "extractionState": "manual",
       "localizations": {

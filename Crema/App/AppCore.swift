@@ -119,6 +119,14 @@ final class AppCore {
     /// The task consuming the source, retained for the app lifetime like the wake
     /// observers.
     private var lowPowerConsumption: Task<Void, Never>?
+
+    /// The lock surface, in the two halves it needs. The mirror carries the raw
+    /// `locked` bit — never `isSuppressionSafe`, which collapses locked with
+    /// off-console and would draw this user's listening onto another account's
+    /// lock screen. The presenter owns the window's whole lifetime and is nil
+    /// only when SkyLight could not be resolved.
+    private let lockMirror = LockScreenMirror()
+    private var lockScreenPresenter: LockScreenPresenter?
     /// Kept past the merge so the menu can report whether the neighbour's OSD
     /// integration is actually feeding us; nil on demo sources.
     private let betterDisplaySource: BetterDisplayOSDSource?
@@ -287,6 +295,15 @@ final class AppCore {
         // cannot be pointed at a center nobody posts to by editing this line.
         wakeObservations = Self.wireWakeReinstall(reinstalling: tapSource)
 
+        // Built once, outside the suppressor block, and for two reasons. It is a
+        // fact about the session rather than a suppression concern; and the
+        // demo graph has no suppressor at all, which would have stranded the
+        // lock surface with no idea whether the screen is locked. The mirror it
+        // feeds is how a SECOND reader exists: `updates` is a single-consumer
+        // stream the suppression controller iterates, and a second `for await`
+        // would split the values between them (LockScreenMirror).
+        let lockSource = DistributedNotificationScreenLockSource(lockMirror: lockMirror)
+
         if let consuming = mediaKeys as? any MediaKeyConsuming,
            let screenBackend = graph.screenBrightnessBackend,
            let keyboardBackend = graph.keyboardBrightnessBackend {
@@ -311,7 +328,7 @@ final class AppCore {
             // the lock path never touches the persisted opt-in.
             let lockController = SuppressionLockController(
                 suppressor: suppressor,
-                lockSource: DistributedNotificationScreenLockSource(),
+                lockSource: lockSource,
                 preferences: preferences
             )
             // Recover the ENABLED-but-deaf tap on the unlock edge: after a
@@ -334,6 +351,11 @@ final class AppCore {
             osdSuppressor = nil
             suppressionLockController = nil
         }
+
+        lockScreenPresenter = Self.makeLockScreenPresenter(
+            coordinator: coordinator, lock: lockMirror,
+            lowPower: lowPowerMirror, preferences: preferences
+        )
 
         Self.presentWelcomeTourIfFirstLaunch(preferences: preferences) { self.presentWelcomeTour() }
 
@@ -387,6 +409,7 @@ final class AppCore {
         // state (suspended when launched while locked; off unless the opt-in is
         // set) and begins consuming lock transitions.
         suppressionLockController?.start()
+        lockScreenPresenter?.start()
 
         #if DEBUG
         startAdapterObservationIfRequested()
@@ -1472,5 +1495,52 @@ extension AppCore {
     ) {
         preferences.setShowsNowPlaying(shows, on: display)
         windowManager.refreshPresentation()
+    }
+}
+
+// MARK: - Lock screen
+
+/// An extension and not the class body, for the reason the accessibility and
+/// per-display ones already state: this is what holds the class body inside the
+/// `type_body_length` ceiling the composition root leans on with every feature
+/// wired into it. In THIS file and not another — it reads `preferences`,
+/// `lockScreenPresenter` and `raisedSpace`, all private stored properties, and
+/// SE-0169 grants that only to a same-file extension.
+extension AppCore {
+    /// Persisted, and taking effect at once rather than at the next lock.
+    /// Turning it on with the screen already locked has to put the surface up
+    /// now; waiting for the next cycle is the class of bug the "every Settings
+    /// control owes an `.onChange` calling into this core" rule exists to
+    /// prevent.
+    func setShowsLockScreenWidget(_ shows: Bool) {
+        preferences.showsLockScreenWidget = shows
+        lockScreenPresenter?.setEnabled(shows)
+    }
+
+    /// Whether the surface can work on this machine at all. False means SkyLight
+    /// did not resolve, and the Settings row says so in a sentence instead of
+    /// offering a switch that would silently do nothing.
+    var lockScreenWidgetIsSupported: Bool { lockScreenPresenter?.spaceIsAvailable ?? false }
+
+    /// A static seam rather than four lines in `init`, for the reason the other
+    /// `wire*`/`make*` statics give: it keeps the class body inside the
+    /// `type_body_length` ceiling, and it is the one wiring here where a
+    /// mistake compiles and produces a plausibly wrong app — seeding `enabled`
+    /// from anything but the persisted preference would leave the feature on
+    /// for someone who never asked, or dead for someone who did.
+    static func makeLockScreenPresenter(
+        coordinator: Coordinator,
+        lock: LockScreenMirror,
+        lowPower: LowPowerModeMirror,
+        preferences: Preferences,
+        space: any RaisedSpace = SkyLightSpaceBridge()
+    ) -> LockScreenPresenter {
+        LockScreenPresenter(
+            coordinator: coordinator,
+            lock: lock,
+            space: space,
+            lowPower: lowPower,
+            enabled: preferences.showsLockScreenWidget
+        )
     }
 }

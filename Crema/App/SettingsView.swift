@@ -334,6 +334,8 @@ private struct NowPlayingSettingsView: View {
                 ))
                 .settingsFootnote()
             }
+
+            LockScreenSettingsSection(core: core)
         }
         .formStyle(.grouped)
     }

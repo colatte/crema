@@ -196,6 +196,21 @@ struct Preferences {
         nonmutating set { defaults.set(newValue, forKey: Self.suppressesNativeOSDKey) }
     }
 
+    // MARK: - Lock screen
+
+    /// The raw key, exposed for the @AppStorage binding the Settings toggle uses.
+    static let showsLockScreenWidgetKey = "showsLockScreenWidget"
+
+    /// Now playing on the lock screen. Opt-in and born off via `bool(forKey:)`:
+    /// it draws over a security surface using a private space API, which is not
+    /// something an app should start doing on the user's behalf. Deliberately
+    /// NOT under the `style.` prefix — `clearStyleOverrides` sweeps everything
+    /// there when the declaration changes.
+    var showsLockScreenWidget: Bool {
+        get { defaults.bool(forKey: Self.showsLockScreenWidgetKey) }
+        nonmutating set { defaults.set(newValue, forKey: Self.showsLockScreenWidgetKey) }
+    }
+
     // MARK: - Now-playing behavior
 
     /// Reactive appearance: media events (track change, external play/pause)
