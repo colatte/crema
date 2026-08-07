@@ -423,7 +423,7 @@ Tag **`v1.1.1`** · Title **`Crema 1.1.1`** · Assets **`Crema.dmg`** and
 gh release create v1.1.1 Crema.dmg Crema-1.1.1.dmg \
   --target main \
   --title "Crema 1.1.1" \
-  --notes-file docs/internal/release-notes-1.1.1.md \
+  --notes-file docs/internal/release-notes-1.1.1.html \
   --latest
 ```
 
@@ -432,7 +432,9 @@ gh release create v1.1.1 Crema.dmg Crema-1.1.1.dmg \
 - **`Crema-1.1.1.dmg`** → the **enclosure** `docs/appcast.xml` references at
   `releases/download/v1.1.1/Crema-1.1.1.dmg`. Without it, auto-update 404s.
 - `--notes-file` points at a file in `docs/internal/` (gitignored working notes;
-  the template is in §8). Or use `--notes "..."`, or omit it to open the editor.
+  the template is in §8). The **same file** feeds the Sparkle panel — GitHub
+  renders the HTML subset it uses, so one file serves both. Or use
+  `--notes "..."`, or omit it to open the editor.
 
 Check with `gh release view v1.1.1`.
 
@@ -678,39 +680,49 @@ problematic on hardware. In that case the Release would carry **three** assets
 ## 8. Release notes — template
 
 Public, in English (consistent with the README). Sober tone. Save as
-`docs/internal/release-notes-<version>.md` (gitignored working notes, which is
-where `release.sh` looks for them) and pass it to `--notes-file`; or paste
+`docs/internal/release-notes-<version>.**html**` (gitignored working notes, and
+the first path `release.sh` looks for) and pass it to `--notes-file`; or paste
 straight into the description (option B). On the **first** release use the full
 overview; afterwards, summarize **what changed** (new things, fixes).
 
-```markdown
-**Crema 1.0.0 — first release**
+> **HTML, not Markdown, and the reason is a shipped bug.** `release.sh` copies an
+> `.html` source into the appcast verbatim; anything else it renders **one bullet
+> per line**, which turns prose into a list and leaves `**` and `#` showing
+> literally. 1.5.0 shipped its update panel reading `*Crema 1.5.0**` for exactly
+> that reason. A `.md` still works if it really is one bullet per line — and
+> `release.sh` now refuses a `.md` containing Markdown emphasis or headings
+> rather than mangling it. GitHub Releases render the same HTML, so the one file
+> serves the Release body and the Sparkle panel alike.
 
-A quiet companion for your Mac's notch. Native and out of the way.
+```html
+<p><strong>Crema 1.0.0 — first release</strong></p>
 
-Crema shows what's playing near the notch — album art, a touch of its color, and
+<p>A quiet companion for your Mac's notch. Native and out of the way.</p>
+
+<p>Crema shows what's playing near the notch — album art, a touch of its color, and
 the controls you reach for — and gives volume, screen brightness, and keyboard
-backlight their own HUDs that can optionally replace the system's.
+backlight their own HUDs that can optionally replace the system's.</p>
 
-**Highlights**
+<h3>Highlights</h3>
+<ul>
+  <li>Now playing at the notch: artwork, an accent color drawn from it, and
+      play/pause, previous, next, and a draggable scrubber.</li>
+  <li>Its own volume, screen-brightness, and keyboard-backlight HUDs — optionally
+      replacing the native ones.</li>
+  <li>Three styles — notch, card, and classic — one per display.</li>
+  <li>Lives in the menu bar with no Dock icon; surfaces briefly when the track
+      changes, then tucks away.</li>
+  <li>A Settings window for styles, HUD behavior, permissions, and launch at login.</li>
+</ul>
 
-- Now playing at the notch: artwork, an accent color drawn from it, and play/pause,
-  previous, next, and a draggable scrubber.
-- Its own volume, screen-brightness, and keyboard-backlight HUDs — optionally
-  replacing the native ones.
-- Three styles — notch, card, and classic — one per display.
-- Lives in the menu bar with no Dock icon; surfaces briefly when the track changes,
-  then tucks away.
-- A Settings window for styles, HUD behavior, permissions, and launch at login.
+<p><strong>Requirements:</strong> macOS 14 (Sonoma) or later · Apple Silicon or Intel.</p>
 
-**Requirements:** macOS 14 (Sonoma) or later · Apple Silicon or Intel.
+<p><strong>Install:</strong> download <code>Crema.dmg</code> below, open it, and drag
+Crema into Applications. Crema isn't notarized by Apple, so the first launch needs
+one extra step — see <a href="https://github.com/colatte/crema#first-launch">First
+launch</a> in the README.</p>
 
-**Install:** download `Crema.dmg` below, open it, and drag Crema into Applications.
-Crema isn't notarized by Apple, so the first launch needs one extra step —
-see **First launch** in the README:
-https://github.com/colatte/crema#first-launch
-
-Free and open source under GPL-3.0.
+<p>Free and open source under GPL-3.0.</p>
 ```
 
 ---

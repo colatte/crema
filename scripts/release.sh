@@ -544,19 +544,34 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     # <basename>.html sitting next to the archive as that item's <description>, so
     # the notes are staged beside the dmg under the matching name.
     #
-    # Source, in order: an explicit file (CREMA_RELEASE_NOTES, else
-    # docs/internal/release-notes-<version>.md), otherwise the commit subjects since
-    # the previous tag. The file lives under docs/internal/ because docs/ is the
-    # published Pages root — a notes file dropped there ships as a public page nobody
-    # linked, and the default used to point at docs/release-notes/, a directory that
-    # has never existed in this repository's history, so following the comment
-    # produced a file the script then ignored in silence. The fallback is not a
-    # placeholder: this repo writes subjects as sentences, so it reads as prose
-    # rather than as a changelog dump — and it can never be forgotten, which is the
-    # property a hand-written file lacks. An .html source is copied verbatim;
-    # anything else is treated as one bullet per line.
+    # Source, in order: an explicit file (CREMA_RELEASE_NOTES), else
+    # docs/internal/release-notes-<version>.html, else the same name with .md,
+    # otherwise the commit subjects since the previous tag. The file lives under
+    # docs/internal/ because docs/ is the published Pages root — a notes file
+    # dropped there ships as a public page nobody linked, and the default used to
+    # point at docs/release-notes/, a directory that has never existed in this
+    # repository's history, so following the comment produced a file the script
+    # then ignored in silence. The fallback is not a placeholder: this repo writes
+    # subjects as sentences, so it reads as prose rather than as a changelog dump —
+    # and it can never be forgotten, which is the property a hand-written file
+    # lacks.
+    #
+    # .html is looked up FIRST because it is the only source that survives prose.
+    # An .html file is copied verbatim; anything else is rendered one bullet per
+    # line, which is a fine changelog and a terrible essay — and this repo kept
+    # writing essays. 1.5.0 shipped its panel reading "*Crema 1.5.0**" with the
+    # asterisks intact, because a hand-written Markdown .md was fed to the
+    # bullet-per-line path and escaped on the way. Preferring .html removes the
+    # need to remember an environment variable; the guard below removes the need
+    # to remember anything at all.
     NOTES_HTML="$STAGING_DIR/Crema-$VERSION.html"
-    NOTES_SRC="${CREMA_RELEASE_NOTES:-$REPO_ROOT/docs/internal/release-notes-$VERSION.md}"
+    if [[ -n "${CREMA_RELEASE_NOTES:-}" ]]; then
+        NOTES_SRC="$CREMA_RELEASE_NOTES"
+    elif [[ -f "$REPO_ROOT/docs/internal/release-notes-$VERSION.html" ]]; then
+        NOTES_SRC="$REPO_ROOT/docs/internal/release-notes-$VERSION.html"
+    else
+        NOTES_SRC="$REPO_ROOT/docs/internal/release-notes-$VERSION.md"
+    fi
     escape_html() { sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
     if [[ -f "$NOTES_SRC" && "$NOTES_SRC" == *.html ]]; then
         cp "$NOTES_SRC" "$NOTES_HTML"
@@ -564,6 +579,15 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     else
         NOTES_LINES=''
         if [[ -f "$NOTES_SRC" ]]; then
+            # Markdown prose in a bullet-per-line source is the 1.5.0 defect, and it
+            # is invisible until a user opens the update panel: the build is green,
+            # the feed validates, the signature verifies, and the text is mangled.
+            # `**` and a leading `#` are the two marks that cannot be anything else;
+            # italics are left alone deliberately, since `some_symbol_name` would
+            # make that check accuse clean files.
+            if grep -qE '\*\*|^[[:space:]]*#{1,6}[[:space:]]' "$NOTES_SRC"; then
+                fail "$NOTES_SRC looks like Markdown prose, and this path renders one bullet per line — the panel would show the asterisks and hashes literally (1.5.0 shipped exactly that). Write the notes as HTML at ${NOTES_SRC%.md}.html, which is copied verbatim and is now the first thing looked up."
+            fi
             NOTES_LINES="$(grep -v '^[[:space:]]*$' "$NOTES_SRC" | sed 's/^[[:space:]]*[-*][[:space:]]*//')"
             info "Release notes: $NOTES_SRC"
         else
@@ -573,7 +597,7 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
                 info "Release notes: commit subjects since $PREV_TAG (no $NOTES_SRC)"
             fi
         fi
-        [[ -n "$NOTES_LINES" ]] || fail "No release notes and none derivable (no $NOTES_SRC, and no commits since the last tag). Sparkle would show a blank panel; write the file or set CREMA_RELEASE_NOTES."
+        [[ -n "$NOTES_LINES" ]] || fail "No release notes and none derivable (no $NOTES_SRC, and no commits since the last tag). Sparkle would show a blank panel; write ${NOTES_SRC%.md}.html (copied verbatim, and the first path looked up) or set CREMA_RELEASE_NOTES."
         {
             printf '<h2>Crema %s</h2>\n<ul>\n' "$VERSION"
             printf '%s\n' "$NOTES_LINES" | escape_html | sed 's|.*|<li>&</li>|'
