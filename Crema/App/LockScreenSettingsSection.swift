@@ -10,6 +10,7 @@ import SwiftUI
 struct LockScreenSettingsSection: View {
     let core: AppCore
     @AppStorage(Preferences.showsLockScreenWidgetKey) private var showsWidget = false
+    @AppStorage(Preferences.fetchesHighResolutionArtworkKey) private var fetchesArtwork = false
 
     var body: some View {
         Section {
@@ -25,6 +26,20 @@ struct LockScreenSettingsSection: View {
                     ))
                 }
                 .onChange(of: showsWidget) { _, new in core.setShowsLockScreenWidget(new) }
+
+                // Nested under the widget rather than beside it: it improves
+                // one surface and means nothing without it, and offering a
+                // network toggle to someone who is not using the feature is
+                // asking a question that has no consequence.
+                if showsWidget {
+                    Toggle(isOn: $fetchesArtwork) {
+                        Text(String(
+                            localized: "settings.lockScreen.artwork",
+                            defaultValue: "Fetch a larger cover"
+                        ))
+                    }
+                    .onChange(of: fetchesArtwork) { _, new in core.setFetchesHighResolutionArtwork(new) }
+                }
             } else {
                 Text(String(
                     localized: "settings.lockScreen.unsupported",
@@ -45,6 +60,18 @@ struct LockScreenSettingsSection: View {
                     defaultValue: "A card above your login shows the cover, the title and the controls while music plays. Click it and the cover fills the screen. It never asks for your password or reads anything you type."
                 ))
                 .settingsFootnote()
+
+                if showsWidget {
+                    // The cost, said plainly and before the switch is flipped:
+                    // players hand over a small cover, and the only way to a
+                    // bigger one is to ask someone who has it.
+                    Text(String(
+                        localized: "settings.lockScreen.artwork.footer",
+                        // swiftlint:disable:next line_length
+                        defaultValue: "Players hand over a small cover, which looks soft filling a screen. Crema can ask Apple's public search for a larger one — no account, but it does send the track name. Off by default."
+                    ))
+                    .settingsFootnote()
+                }
             }
         }
     }

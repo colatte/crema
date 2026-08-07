@@ -94,11 +94,15 @@ struct LockScreenPresenterLifecycleTests {
             _ screen: NSScreen,
             _ coordinator: Coordinator,
             _ space: any RaisedSpace,
-            _ lowPower: LowPowerModeMirror
+            _ lowPower: LowPowerModeMirror,
+            _ artwork: LockArtworkResolver
         ) -> LockScreenPanel? {
             builds += 1
             guard !refuses else { return nil }
-            return LockScreenPanel(screen: screen, coordinator: coordinator, space: space, lowPower: lowPower)
+            return LockScreenPanel(
+                screen: screen, coordinator: coordinator, space: space,
+                lowPower: lowPower, artwork: artwork
+            )
         }
     }
 
@@ -114,6 +118,7 @@ struct LockScreenPresenterLifecycleTests {
             lock: mirror,
             space: space,
             lowPower: LowPowerModeMirror(),
+            artwork: LockArtworkResolver(lookup: MockArtworkLookup(), enabled: false),
             enabled: enabled,
             makePanel: spy.make
         )

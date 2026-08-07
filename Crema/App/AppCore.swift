@@ -1522,25 +1522,40 @@ extension AppCore {
     /// offering a switch that would silently do nothing.
     var lockScreenWidgetIsSupported: Bool { lockScreenPresenter?.spaceIsAvailable ?? false }
 
-    /// A static seam rather than four lines in `init`, for the reason the other
+    /// A static seam rather than five lines in `init`, for the reason the other
     /// `wire*`/`make*` statics give: it keeps the class body inside the
-    /// `type_body_length` ceiling, and it is the one wiring here where a
-    /// mistake compiles and produces a plausibly wrong app — seeding `enabled`
-    /// from anything but the persisted preference would leave the feature on
-    /// for someone who never asked, or dead for someone who did.
+    /// `type_body_length` ceiling, and it is the one wiring here where a mistake
+    /// compiles and produces a plausibly wrong app.
+    ///
+    /// Two opt-in preferences are seeded here and they are not interchangeable —
+    /// crossing them would either draw an uninvited window over the lock screen
+    /// or make a network request for someone who declined one. Pinned by
+    /// `AppCoreLockScreenSeamTests`, which is the only reason a mistake of that
+    /// shape does not ship silently.
     static func makeLockScreenPresenter(
         coordinator: Coordinator,
         lock: LockScreenMirror,
         lowPower: LowPowerModeMirror,
         preferences: Preferences,
-        space: any RaisedSpace = SkyLightSpaceBridge()
+        space: any RaisedSpace = SkyLightSpaceBridge(),
+        lookup: any ArtworkLookup = ITunesArtworkLookup()
     ) -> LockScreenPresenter {
         LockScreenPresenter(
             coordinator: coordinator,
             lock: lock,
             space: space,
             lowPower: lowPower,
+            artwork: LockArtworkResolver(
+                lookup: lookup, enabled: preferences.fetchesHighResolutionArtwork
+            ),
             enabled: preferences.showsLockScreenWidget
         )
+    }
+
+    /// Persisted, and taking effect on the surface that is up rather than the
+    /// next track — turning it off is a request about now.
+    func setFetchesHighResolutionArtwork(_ fetches: Bool) {
+        preferences.fetchesHighResolutionArtwork = fetches
+        lockScreenPresenter?.setArtworkLookupEnabled(fetches)
     }
 }

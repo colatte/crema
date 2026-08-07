@@ -26,7 +26,13 @@ final class LockScreenPanel {
 
     /// Nil when SkyLight could not be resolved — the caller degrades instead of
     /// showing a window that would sit uselessly behind the shield.
-    init?(screen: NSScreen, coordinator: Coordinator, space: any RaisedSpace, lowPower: LowPowerModeMirror) {
+    init?(
+        screen: NSScreen,
+        coordinator: Coordinator,
+        space: any RaisedSpace,
+        lowPower: LowPowerModeMirror,
+        artwork: LockArtworkResolver
+    ) {
         guard space.isAvailable else { return nil }
         self.space = space
 
@@ -53,7 +59,7 @@ final class LockScreenPanel {
         panel.level = NSWindow.Level(rawValue: Int(Int32.max) - 2)
 
         let hosting = NSHostingView(rootView: AnyView(
-            LockWidgetView(coordinator: coordinator)
+            LockWidgetView(coordinator: coordinator, artwork: artwork)
                 .environment(\.lowPowerMode, lowPower)
         ))
         // The default (.standardBounds) installs constraints that let SwiftUI

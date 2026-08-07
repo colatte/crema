@@ -19,6 +19,10 @@ import SwiftUI
 @MainActor
 struct LockWidgetView: View {
     let coordinator: Coordinator
+    /// Which cover to draw. Nil where nobody wired one (previews); the surface
+    /// then simply uses whatever the player handed over, which is the fallback
+    /// the resolver would have returned anyway.
+    var artwork: LockArtworkResolver?
 
     /// Purely visual, purely ephemeral — the same category as a hover: which of
     /// the two states is showing is never domain and never persisted, so a
@@ -28,6 +32,12 @@ struct LockWidgetView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var track: NowPlaying? { coordinator.nowPlaying }
+
+    /// One place decides which bytes every layer draws, so the thumbnail, the
+    /// hero and the backdrop can never disagree about which cover is showing.
+    private func cover(_ track: NowPlaying) -> [UInt8]? {
+        artwork?.artwork(for: track) ?? track.artworkData
+    }
 
     var body: some View {
         ZStack {
@@ -43,6 +53,12 @@ struct LockWidgetView: View {
         // final rect.
         .opacity(track == nil ? 0 : 1)
         .animation(SurfaceAnimation.morph(reduceMotion: reduceMotion), value: track == nil)
+        // Keyed on the identity rather than the snapshot: the snapshot is
+        // rewritten every second by the position tick, and re-asking the
+        // endpoint once a second for the same song would be a very rude client.
+        .task(id: track.map(LockArtworkResolver.identity)) {
+            if let track { await artwork?.resolve(track) }
+        }
     }
 
     // MARK: - Layers
@@ -56,7 +72,7 @@ struct LockWidgetView: View {
             .opacity(0)
             .overlay {
                 if expanded {
-                    ArtworkBackdrop(data: track.artworkData)
+                    ArtworkBackdrop(data: cover(track))
                         .transition(.opacity)
                 }
             }
@@ -69,7 +85,7 @@ struct LockWidgetView: View {
     private func hero(_ track: NowPlaying) -> some View {
         if expanded {
             ArtworkView(
-                data: track.artworkData,
+                data: cover(track),
                 side: LockWidgetMetrics.heroSide,
                 cornerRadius: LockWidgetMetrics.heroRadius,
                 maxSide: ArtworkDecoding.lockScreenMaxSide
@@ -109,7 +125,7 @@ struct LockWidgetView: View {
                 : LockWidgetMetrics.cardWidth
         )
         .background { cardSurface }
-        .artworkAccent(from: track.artworkData)
+        .artworkAccent(from: cover(track))
         // One appearance for the whole surface, in every state — scoping it per
         // branch would flip the palette mid-transition.
         .environment(\.colorScheme, .dark)
@@ -151,7 +167,7 @@ struct LockWidgetView: View {
         HStack(spacing: LockWidgetMetrics.gap) {
             if !expanded {
                 ArtworkView(
-                    data: track.artworkData,
+                    data: cover(track),
                     side: LockWidgetMetrics.thumbnailSide,
                     cornerRadius: LockWidgetMetrics.thumbnailRadius
                 )

@@ -1412,6 +1412,40 @@
         }
       }
     },
+    "settings.lockScreen.artwork": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fetch a larger cover"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscar uma capa maior"
+          }
+        }
+      }
+    },
+    "settings.lockScreen.artwork.footer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Players hand over a small cover, which looks soft filling a screen. Crema can ask Apple's public search for a larger one — no account, but it does send the track name. Off by default."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Os players entregam uma capa pequena, que fica mole preenchendo a tela. O Crema pode pedir uma maior à busca pública da Apple — sem conta, mas envia o nome da faixa. Desligado por padrão."
+          }
+        }
+      }
+    },
     "settings.lockScreen.unsupported": {
       "extractionState": "manual",
       "localizations": {

@@ -44,7 +44,8 @@ final class LockScreenPresenter {
     private let lock: LockScreenMirror
     private let space: any RaisedSpace
     private let lowPower: LowPowerModeMirror
-    private let makePanel: @MainActor (NSScreen, Coordinator, any RaisedSpace, LowPowerModeMirror) -> LockScreenPanel?
+    private let artwork: LockArtworkResolver
+    private let makePanel: @MainActor (NSScreen, Coordinator, any RaisedSpace, LowPowerModeMirror, LockArtworkResolver) -> LockScreenPanel?
     private let logger = Logger.crema("LockScreen")
 
     private var panel: LockScreenPanel?
@@ -61,15 +62,19 @@ final class LockScreenPresenter {
         lock: LockScreenMirror,
         space: any RaisedSpace,
         lowPower: LowPowerModeMirror,
+        artwork: LockArtworkResolver,
         enabled: Bool,
-        makePanel: @escaping @MainActor (NSScreen, Coordinator, any RaisedSpace, LowPowerModeMirror) -> LockScreenPanel? = {
-            LockScreenPanel(screen: $0, coordinator: $1, space: $2, lowPower: $3)
+        makePanel: @escaping @MainActor (
+            NSScreen, Coordinator, any RaisedSpace, LowPowerModeMirror, LockArtworkResolver
+        ) -> LockScreenPanel? = {
+            LockScreenPanel(screen: $0, coordinator: $1, space: $2, lowPower: $3, artwork: $4)
         }
     ) {
         self.coordinator = coordinator
         self.lock = lock
         self.space = space
         self.lowPower = lowPower
+        self.artwork = artwork
         self.enabled = enabled
         self.makePanel = makePanel
     }
@@ -98,6 +103,22 @@ final class LockScreenPresenter {
         reconcile()
     }
 
+    /// The cover lookup's own switch, forwarded rather than reached around.
+    ///
+    /// The resolver belongs to this surface's lifetime — it exists to decide what
+    /// one window draws — so the composition root holds no second handle to it.
+    /// The live window keeps working: the resolver is `@Observable` and the view
+    /// already reads it, so flipping this repaints without rebuilding anything.
+    func setArtworkLookupEnabled(_ on: Bool) {
+        artwork.setEnabled(on)
+    }
+
+    /// The read half of the pair above. It exists because the two opt-in
+    /// preferences this surface carries are both plain `Bool`s seeded in the same
+    /// call, and swapping them compiles: without a way to ask, the crossing is
+    /// invisible until someone reports a network request they never enabled.
+    var artworkLookupIsEnabled: Bool { artwork.isEnabled }
+
     // MARK: - The decision
 
     private func reconcile() {
@@ -112,7 +133,7 @@ final class LockScreenPresenter {
                 logger.notice("no main screen to draw the lock surface on")
                 return
             }
-            panel = makePanel(screen, coordinator, space, lowPower)
+            panel = makePanel(screen, coordinator, space, lowPower, artwork)
             if panel == nil {
                 logger.notice("the raised space refused the surface; the lock widget stays off")
             }

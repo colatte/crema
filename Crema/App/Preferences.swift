@@ -211,6 +211,19 @@ struct Preferences {
         nonmutating set { defaults.set(newValue, forKey: Self.showsLockScreenWidgetKey) }
     }
 
+    /// The raw key, exposed for the @AppStorage binding the Settings toggle uses.
+    static let fetchesHighResolutionArtworkKey = "fetchesHighResolutionArtwork"
+
+    /// Ask Apple's public search endpoint for a larger cover than the player
+    /// handed over. Opt-in and born off: it is a network request carrying what
+    /// you are listening to — neither an account nor analytics, the two things
+    /// this app promises it does not do, but traffic tied to listening all the
+    /// same, and that is the user's call rather than ours to make quietly.
+    var fetchesHighResolutionArtwork: Bool {
+        get { defaults.bool(forKey: Self.fetchesHighResolutionArtworkKey) }
+        nonmutating set { defaults.set(newValue, forKey: Self.fetchesHighResolutionArtworkKey) }
+    }
+
     // MARK: - Now-playing behavior
 
     /// Reactive appearance: media events (track change, external play/pause)

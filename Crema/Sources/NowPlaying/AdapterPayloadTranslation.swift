@@ -53,6 +53,7 @@ enum AdapterPayloadTranslation {
             title: title,
             artist: payload.artist.flatMap { $0.isEmpty ? nil : $0 },
             artworkData: payload.artworkData.flatMap { Data(base64Encoded: $0).map(Array.init) },
+            album: payload.album.flatMap { $0.isEmpty ? nil : $0 },
             isPlaying: payload.playing ?? false,
             position: position(of: payload, at: now),
             duration: payload.durationSeconds,
@@ -93,6 +94,7 @@ enum AdapterPayloadTranslation {
     private struct Payload: Decodable {
         let title: String?
         let artist: String?
+        let album: String?
         let playing: Bool?
         let elapsedTime: Double?
         let elapsedTimeMicros: Double?

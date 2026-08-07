@@ -6,6 +6,11 @@ struct NowPlaying: Equatable, Sendable {
     var artist: String?
     /// Raw encoded image bytes (PNG/JPEG); decoded by the view layer.
     var artworkData: [UInt8]?
+    /// The album, when the source reports one. Carried for exactly one reader:
+    /// the optional high-resolution artwork lookup, where it turns a fuzzy
+    /// two-term search into an accurate three-term one. Nothing renders it —
+    /// the surfaces show title and artist, and a third line would crowd them.
+    var album: String?
     var isPlaying: Bool
     /// Playback position in seconds (drives scrubbing).
     var position: Double

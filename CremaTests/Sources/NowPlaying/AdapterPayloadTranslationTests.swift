@@ -28,7 +28,17 @@ struct AdapterPayloadTranslationTests {
         #expect(np.position == 42.5)
         #expect(np.duration == 169.0)
         #expect(np.artworkData == nil)
+        #expect(np.album == "The Dark Side of the Moon")
         #expect(np.sourceBundleID == "com.spotify.client")
+    }
+
+    @Test func aMissingOrEmptyAlbumIsNilRatherThanABlankSearchTerm() throws {
+        // Its only reader is the cover lookup, which joins the terms into a query
+        // — an empty string there is not a narrower search, it is a worse one.
+        let missing = #"{"type":"data","diff":false,"payload":{"title":"Solo","playing":true,"elapsedTime":0,"duration":100}}"#
+        let blank = #"{"type":"data","diff":false,"payload":{"title":"Solo","album":"","playing":true,"elapsedTime":0,"duration":100}}"#
+        #expect(try #require(translate(missing)).album == nil)
+        #expect(try #require(translate(blank)).album == nil)
     }
 
     @Test func parentBundleIdentifierWinsOverTheHelperProcess() throws {

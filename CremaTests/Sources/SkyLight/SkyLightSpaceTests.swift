@@ -96,7 +96,8 @@ struct LockScreenPanelTests {
             screen: NSScreen.screens[0],
             coordinator: harness.coordinator,
             space: space,
-            lowPower: LowPowerModeMirror()
+            lowPower: LowPowerModeMirror(),
+            artwork: LockArtworkResolver(lookup: MockArtworkLookup(), enabled: false)
         )
         #expect(panel == nil)
         #expect(space.adopted.isEmpty)
@@ -113,7 +114,8 @@ struct LockScreenPanelTests {
             screen: NSScreen.screens[0],
             coordinator: harness.coordinator,
             space: space,
-            lowPower: LowPowerModeMirror()
+            lowPower: LowPowerModeMirror(),
+            artwork: LockArtworkResolver(lookup: MockArtworkLookup(), enabled: false)
         )
         #expect(panel != nil)
         let afterInit = space.adopted.count
