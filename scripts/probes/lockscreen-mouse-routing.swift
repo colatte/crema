@@ -198,6 +198,7 @@ if let cidFn = sym("SLSMainConnectionID", MainConnectionID.self),
 NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved]) { _ in
     if screenIsLocked() { tally.globalLocked += 1 } else { tally.globalUnlocked += 1 }
 }
+
 NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved]) { event in
     if screenIsLocked() { tally.localLocked += 1 } else { tally.localUnlocked += 1 }
     return event
