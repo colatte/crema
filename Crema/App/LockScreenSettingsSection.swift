@@ -64,11 +64,11 @@ struct LockScreenSettingsSection: View {
                 if showsWidget {
                     // The cost, said plainly and before the switch is flipped:
                     // players hand over a small cover, and the only way to a
-                    // bigger one is to ask someone who has it.
+                    // bigger one is to ask an archive that has it.
                     Text(String(
                         localized: "settings.lockScreen.artwork.footer",
                         // swiftlint:disable:next line_length
-                        defaultValue: "Players hand over a small cover, which looks soft filling a screen. Crema can ask Apple’s public search for a larger one — no account, but it does send the track name. Off by default."
+                        defaultValue: "Players hand over a small cover, which looks soft filling a screen. Crema can ask the Cover Art Archive for a larger one — no account, but it does send the name of what is playing. Off by default."
                     ))
                     .settingsFootnote()
                 }

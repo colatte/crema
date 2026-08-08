@@ -1,131 +1,13 @@
-import Foundation
 import Testing
 @testable import Crema
 
-/// The lookup, over an injected fetch — no network in any of these.
+/// Whether something a cover endpoint returned is the record that is playing.
 ///
-/// What a test can own here is the two pure parts (what gets asked, and how the
-/// size is rewritten) and the failure behaviour, which is the whole contract:
-/// every failure is silence, because the surface is already complete without an
-/// answer.
-struct ArtworkLookupTests {
-
-    // MARK: - What gets asked
-
-    @Test func theQueryCarriesAllThreeTerms() throws {
-        let url = try #require(ITunesArtworkLookup.searchURL(
-            title: "Algernon", artist: "Yorushika", album: "Algernon - Single"
-        ))
-        let term = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false)?
-            .queryItems?.first { $0.name == "term" }?.value)
-        // The album is the reason `NowPlaying` grew a field: two terms match the
-        // wrong single off a compilation often enough to matter.
-        #expect(term.contains("Algernon"))
-        #expect(term.contains("Yorushika"))
-        #expect(term.contains("Single"))
-    }
-
-    @Test func missingTermsAreDroppedRatherThanSentEmpty() throws {
-        // The JXA fallback has no album and often no artist. An empty term in
-        // the query is not a narrower search, it is a worse one.
-        let url = try #require(ITunesArtworkLookup.searchURL(title: "Algernon", artist: nil, album: ""))
-        let term = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false)?
-            .queryItems?.first { $0.name == "term" }?.value)
-        #expect(term == "Algernon")
-    }
-
-    @Test func nothingToSearchForMeansNoRequestAtAll() {
-        #expect(ITunesArtworkLookup.searchURL(title: "", artist: nil, album: nil) == nil)
-    }
-
-    // MARK: - How the size is rewritten
-
-    @Test func theSizeIsSubstitutedInThePath() throws {
-        let small = "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/ba/eb/cc/x.jpg/100x100bb.jpg"
-        let large = try #require(ITunesArtworkLookup.resized(small, to: 1200))
-        #expect(large.absoluteString.hasSuffix("1200x1200bb.jpg"))
-        #expect(!large.absoluteString.contains("100x100bb"))
-    }
-
-    @Test func anUnfamiliarURLShapeIsRefusedRatherThanGuessedAt() {
-        // Guessing at a path this rewrite does not understand fetches a 404 at
-        // best; refusing costs one silent miss.
-        #expect(ITunesArtworkLookup.resized("https://example.com/cover.jpg", to: 1200) == nil)
-    }
-
-    @Test func theTargetIsOneTheEndpointActuallyServes() {
-        // Measured against the real endpoint: 600, 1200 and 3000 resolve, above
-        // 3000 is capped, and arbitrary sizes 404. 1200 covers a 300 pt hero at
-        // 2x at a seventh of 3000's weight.
-        #expect(ITunesArtworkLookup.targetPixelSize == 1200)
-    }
-
-    // MARK: - Failure is silence
-
-    private func lookup(_ fetch: @escaping ITunesArtworkLookup.Fetch) -> ITunesArtworkLookup {
-        ITunesArtworkLookup(fetch: fetch)
-    }
-
-    /// Shaped like the real endpoint's answer, which always names what it
-    /// found. The names matter now: the lookup rejects a result that does not
-    /// plausibly match the track it asked about (`ArtworkMatch`), so a fixture
-    /// without them would be testing the rejection path by accident.
-    private static let oneResult = Data("""
-    {"resultCount":1,"results":[{"artworkUrl100":"https://x/100x100bb.jpg",
-    "trackName":"Algernon","artistName":"Yorushika"}]}
-    """.utf8)
-
-    @Test func aMatchReturnsTheLargeBytes() async {
-        let cover = Data(repeating: 0xAB, count: 20_000)
-        let result = await lookup { url in
-            url.absoluteString.contains("itunes.apple.com") ? Self.oneResult : cover
-        }.highResolutionArtwork(title: "Algernon", artist: "Yorushika", album: nil)
-        #expect(result?.count == 20_000)
-    }
-
-    @Test func aThrowingFetchIsSilence() async {
-        struct Offline: Error {}
-        let result = await lookup { _ in throw Offline() }
-            .highResolutionArtwork(title: "Algernon", artist: nil, album: nil)
-        // No network is the common case on a laptop that just woke, and it must
-        // cost the widget nothing: it already has the player's own cover.
-        #expect(result == nil)
-    }
-
-    @Test func noResultsIsSilence() async {
-        let empty = Data(#"{"resultCount":0,"results":[]}"#.utf8)
-        let result = await lookup { _ in empty }
-            .highResolutionArtwork(title: "Something Unreleased", artist: nil, album: nil)
-        #expect(result == nil)
-    }
-
-    @Test func aSuspiciouslySmallAnswerIsNotACover() async {
-        // A redirect or an error page comes back as a couple of hundred bytes.
-        // Handing that to the decoder yields a blank square where a cover was.
-        let result = await lookup { url in
-            url.absoluteString.contains("itunes.apple.com")
-                ? Self.oneResult
-                : Data(repeating: 0, count: 200)
-        }.highResolutionArtwork(title: "Algernon", artist: nil, album: nil)
-        #expect(result == nil)
-    }
-
-    @Test func aResultWithoutAnArtworkURLIsSilence() async {
-        // A plausible match that simply carries no image — distinct from a
-        // result that was rejected, which the match tests cover.
-        let noArt = Data(#"{"resultCount":1,"results":[{"trackName":"Algernon"}]}"#.utf8)
-        let result = await lookup { _ in noArt }
-            .highResolutionArtwork(title: "Algernon", artist: nil, album: nil)
-        #expect(result == nil)
-    }
-}
-
-/// Whether a search result is the track that is playing.
-///
-/// The rule exists because `entity=song` guarantees every answer IS a song,
-/// so the endpoint cheerfully returns one for a podcast episode. Taking the top
-/// hit unchecked replaced correct artwork with an unrelated album cover — and
-/// wrong art is worse than none, because the fallback was already right.
+/// The rule exists because a search endpoint answers with the closest thing it
+/// has rather than with nothing, so it cheerfully returns a song for a podcast
+/// episode. Taking the top hit unchecked replaced correct artwork with an
+/// unrelated album cover — and wrong art is worse than none, because the
+/// fallback was already right.
 struct ArtworkMatchTests {
 
     @Test func aPodcastEpisodeIsNotMatchedByWhateverSongComesBack() {
@@ -149,7 +31,8 @@ struct ArtworkMatchTests {
             resultTitle: "Algernon (Remastered 2023)",
             resultArtist: "Yorushika"
         ))
-        // And in the other direction: the player carries the tail, not Apple.
+        // And in the other direction: the player carries the tail, not the
+        // endpoint.
         #expect(ArtworkMatch.plausible(
             requestedTitle: "Breathe (In the Air)",
             requestedArtist: "Pink Floyd",
@@ -192,7 +75,7 @@ struct ArtworkMatchTests {
     }
 
     @Test func anAnswerThatNamesNothingIsNoEvidence() {
-        // A result with no trackName cannot be shown to agree with anything, and
+        // A result with no title cannot be shown to agree with anything, and
         // absence must never read as assent.
         #expect(!ArtworkMatch.plausible(
             requestedTitle: "Algernon", requestedArtist: "Yorushika",
@@ -206,32 +89,19 @@ struct ArtworkMatchTests {
         ))
     }
 
-    @Test func theCheckRunsOnTheRealLookupAndNotJustInIsolation() async {
-        // Wired, not merely written: the lookup must reject the response rather
-        // than fetch its artwork.
-        let podcast = Data("""
-        {"resultCount":1,"results":[{"artworkUrl100":"https://x/100x100bb.jpg",
-        "trackName":"Crisis","artistName":"Alice Deejay"}]}
-        """.utf8)
-        let asked = AskedForArtwork()
-        let result = await ITunesArtworkLookup(fetch: { url in
-            if !url.absoluteString.contains("itunes.apple.com") { asked.note() }
-            return podcast
-        }).highResolutionArtwork(
-            title: "Ep. 412 — The Housing Crisis, Revisited", artist: "Search Engine", album: nil
-        )
-        #expect(result == nil)
-        #expect(!asked.value, "a rejected match must not cost a second request")
+    @Test func anAlbumIsJudgedByTheSameRule() {
+        // The rule judges a name against a name, which is what let the release
+        // group's title reuse it unchanged when the cover source moved off a
+        // per-track endpoint onto a per-record one.
+        #expect(ArtworkMatch.plausible(
+            requestedTitle: "The Dark Side of the Moon", requestedArtist: "Pink Floyd",
+            resultTitle: "The Dark Side of the Moon", resultArtist: "Pink Floyd"
+        ))
+        #expect(!ArtworkMatch.plausible(
+            requestedTitle: "The Dark Side of the Moon", requestedArtist: "Pink Floyd",
+            resultTitle: "The Wall", resultArtist: "Pink Floyd"
+        ))
     }
-}
-
-/// The fetch closure is `@Sendable`, so the flag it sets cannot be a captured
-/// `var`. A tiny box under a lock says the same thing and crosses the boundary.
-final class AskedForArtwork: @unchecked Sendable {
-    private let lock = NSLock()
-    private var flag = false
-    var value: Bool { lock.withLock { flag } }
-    func note() { lock.withLock { flag = true } }
 }
 
 /// The hole a mutation opened up in the first version of `agrees`.

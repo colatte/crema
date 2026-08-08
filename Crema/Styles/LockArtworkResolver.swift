@@ -29,7 +29,7 @@ final class LockArtworkResolver {
     private var upgraded: [UInt8]?
     private var resolvedIdentity: String?
 
-    init(lookup: any ArtworkLookup = ITunesArtworkLookup(), enabled: Bool) {
+    init(lookup: any ArtworkLookup = CoverArtArchiveLookup(), enabled: Bool) {
         self.lookup = lookup
         isEnabled = enabled
     }
@@ -45,9 +45,11 @@ final class LockArtworkResolver {
         }
     }
 
-    /// Title, artist and album — the same three the lookup searches on, so a
-    /// track that changes only in position (the 1 Hz tick) is the same identity
-    /// and never re-asks.
+    /// Title, artist and album — every field the lookup reads, so a track that
+    /// changes only in position (the 1 Hz tick) is the same identity and never
+    /// re-asks. All three, even though a given lookup searches on some of them:
+    /// which ones it uses is the lookup's business to change, and an identity
+    /// narrower than its inputs would serve a stale answer to a new question.
     static func identity(of track: NowPlaying) -> String {
         [track.title, track.artist ?? "", track.album ?? ""].joined(separator: "\u{1F}")
     }

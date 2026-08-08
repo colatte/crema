@@ -2475,17 +2475,49 @@ a lock screen, with no badge and no link, is precisely that fifth thing.
 Decision (2026-08-08): the use is outside what the terms grant, and the fix is
 to change SOURCE rather than to add a purchase button to a lock screen or to
 drop the feature. The **Cover Art Archive** (MusicBrainz) exists for this use
-and imposes no badge; verified the day this was written — a release query
-followed by `front-500` both answered HTTP 200. The swap is contained because
-`ArtworkLookup` was already a protocol with the endpoint behind it, and every
-failure on that path is already silence.
+and imposes no badge. The swap is contained because `ArtworkLookup` was already
+a protocol with the endpoint behind it, and every failure on that path is
+already silence.
 
 Two things worth keeping straight for whoever revisits this. The rate limit was
-never the issue — ~20 calls per minute, against one call per track identity.
-And this says nothing about the *technique*: rewriting the size in the returned
-artwork URL is still how that endpoint serves a larger image, and the
-measurements behind the 1200 px target (600 → 98 KB, 1200 → 391 KB, 3000 → 2.7 MB)
-stay useful for sizing whatever source replaces it.
+never the issue on the old endpoint — ~20 calls per minute, against one call per
+track identity. And this says nothing about the *technique*: rewriting the size
+in the returned artwork URL is how the store served a larger image, and the
+archive simply serves fixed sizes instead.
+
+**Shipped the same day (`CoverArtArchiveLookup`), and four things had to be
+measured first, because three of them are not what the obvious design assumes.**
+
+*The unit is the release GROUP, not the release.* `release/?query=…` for one
+album returns several pressings, each with its own art and no way to tell which
+carries any; `release-group/…/front-1200` is one cover per record. Measured:
+HTTP 200, 77 KB, two redirects into archive.org (500 → 18 KB). Missing art is a
+404 and a malformed identifier a 400 — both arrive as perfectly successful
+`URLSession` responses with a body, which is why the status is checked at the
+edge rather than inferred from the bytes.
+
+*Without an album there is no release-group search at all.* `recording:"…"`
+inside a release-group query returns **zero** results — the field does not exist
+there. The path in is `/ws/2/recording/`, whose answer carries the release groups
+inline, so it is still one request. This matters because the JXA fallback reports
+no album AND carries no bitmap: that path is not an upgrade there, it is the only
+cover the surface will ever get.
+
+*That path ranks bootlegs first, and one field separates them.* "Creep" by
+Radiohead returns eight live recordings ahead of *Pablo Honey* — every one a real
+release with real, wrong art. `secondary-types` is empty on exactly the studio
+record. So the guessed path demands an empty one and the album path must **not**:
+the filter exists to break a tie the app had to guess, and someone playing a live
+record asked for the live record. The asymmetry is the decision, not an oversight.
+
+*MusicBrainz is a guest relationship and it is written down.* One request per
+second per source IP, and a `User-Agent` naming the application and a way to
+reach its maintainers — without it the request is refused. Exceeding the limit
+costs a block for the shared address, so it is paid by users who never touched
+the feature; hence `RequestPacer`, whose slot is reserved in the same breath it
+is read (an actor releases isolation at every `await`, and read-then-sleep-then-
+record lets a burst leave together). The archive publishes neither requirement
+and its half goes straight out, carrying the header only out of courtesy.
 
 Reopening gate: an affiliate/partner arrangement that grants the use, or a
 surface where a purchase badge would genuinely belong. Neither is a lock screen.
@@ -2522,10 +2554,11 @@ The same boundary explains the **cover lookup**, which is a different question
 with a different answer. `MRMediaRemoteGetNowPlayingInfo` takes no options
 dictionary — there is no size to negotiate and the dimensions received are not
 even reported — so the roughly 300–600 px a player publishes is all there is, and
-a larger cover has to come from somewhere else entirely. Apple's public search
-endpoint takes no token and no account, and rewriting the size in the returned
-artwork URL resolves (measured: 600 → 98 KB, 1200 → 391 KB, 3000 → 2.7 MB, capped
-above). It is **off by default** because it is a network request carrying what
+a larger cover has to come from somewhere else entirely. The Cover Art Archive
+serves it addressed by release group, in fixed sizes, with no token and no
+account (measured: 500 → 18 KB, 1200 → 77 KB; which source, and why not the
+store, is `the-cover-comes-from-the-archive-not-the-store`). It is **off by
+default** because it is a network request carrying what
 you are listening to — neither an account nor analytics, the two things the app
 promises it does not do, but traffic tied to listening all the same.
 

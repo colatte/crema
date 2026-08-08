@@ -1559,7 +1559,7 @@ extension AppCore {
         lowPower: LowPowerModeMirror,
         preferences: Preferences,
         space: any RaisedSpace = SkyLightSpaceBridge(),
-        lookup: any ArtworkLookup = ITunesArtworkLookup()
+        lookup: any ArtworkLookup = CoverArtArchiveLookup()
     ) -> LockScreenPresenter {
         LockScreenPresenter(
             coordinator: coordinator,
