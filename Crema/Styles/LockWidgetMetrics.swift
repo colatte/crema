@@ -148,10 +148,13 @@ enum LockWidgetMetrics {
     /// 1071 pt and are ~100 pt apart on a 27-inch).
     static let backdropFadeBand: CGFloat = 180
 
-    /// How far below the PHYSICAL top of the display the clock sits — physical
-    /// because the layer that carries it ignores the safe area, without which
-    /// this would silently mean 88 or 120 depending on whether AppKit hands a
-    /// borderless screen-sized hosting view an inset.
+    /// How far below the PHYSICAL top of the display the clock sits. Measured
+    /// rather than assumed: a borderless screen-sized `NSHostingView` reports a
+    /// `safeAreaInsets` of 0 even on a notched 1512x982 panel (macOS 26.6), so
+    /// this already denotes the physical top. The `ignoresSafeArea` on the layer
+    /// that carries it is belt-and-braces for a window that someday does get an
+    /// inset — not, as this comment once claimed, the thing making the number
+    /// mean what it says.
     ///
     /// Taste, with one floor that is not: it has to clear the notch. The deepest
     /// slit this repo has measured is 32 pt (`StylePreview.notchedReference`'s

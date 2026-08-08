@@ -134,9 +134,11 @@ struct LockWidgetView<Clock: SleepClock>: View {
                         LockClockView(clock: clock)
                             .padding(.top, LockWidgetMetrics.clockTopInset)
                     }
-                    // So `clockTopInset` means the physical top of the display,
-                    // not a value contingent on whether AppKit hands a
-                    // borderless screen-sized hosting view a safe area.
+                    // Belt-and-braces, not the load-bearing part: measured, a
+                    // borderless screen-sized `NSHostingView` reports a safe area
+                    // of 0 even on a notched panel, so `clockTopInset` already
+                    // means the physical top. Kept so a future window that DOES
+                    // get an inset cannot move the clock without anyone noticing.
                     .ignoresSafeArea()
                     .transition(.opacity)
                 }
@@ -353,9 +355,13 @@ private struct LoginClearance: View {
                 stops: [
                     .init(color: .black, location: 0),
                     .init(color: .black.opacity(0.80), location: 0.60),
-                    // `.black.opacity(0)` rather than `.clear`: the same alpha,
-                    // but interpolating toward a transparent BLACK keeps the
-                    // ramp's colour fixed, where `.clear` can drag the midpoint.
+                    // `.black.opacity(0)` rather than `.clear` is style, not
+                    // correctness: measured on macOS 26.6, SwiftUI interpolates
+                    // gradients PREMULTIPLIED, so the two render byte-identically
+                    // — even across hues, where the hazard is usually stated.
+                    // Written out because the version of this comment that
+                    // claimed `.clear` drags the midpoint would send someone
+                    // "fixing" gradients elsewhere on a belief that does not hold.
                     .init(color: .black.opacity(0), location: 1),
                 ],
                 startPoint: .top,
@@ -377,17 +383,24 @@ private struct ArtworkBackdrop: View {
 
     var body: some View {
         DriftingArtworkBackground(image: image, fallbackTone: tone)
-            // Between the two on purpose, and neither side of it is arbitrary.
-            // INSIDE `DriftingArtworkBackground` the mask would make that view's
-            // own contract false — it promises to fill whatever it is given, and
-            // a login-clearance band is a lock-screen concept that has no
-            // business in a generic backdrop. OUTSIDE `ignoresSafeArea` it would
-            // lay out in the inset frame, and a mask gives alpha 0 to everything
-            // the receiver draws beyond its own frame — which would cut the
-            // backdrop's overhang and open a transparent strip across the top of
-            // a notched display, exposing the shield exactly where macOS draws
-            // its clock, beside the one this surface draws. Here, the expanded
-            // rect is proposed to the mask and the receiver alike.
+            // Here rather than inside `DriftingArtworkBackground`, which promises
+            // to fill whatever it is given: a login-clearance band is a
+            // lock-screen concept with no business in a generic backdrop.
+            //
+            // The one thing that decides whether this WORKS is not the ordering.
+            // A mask lays out at its RECEIVER's reported size and centres on it —
+            // not at the proposal, not at the screen — which is why
+            // `DriftingArtworkBackground` has to pin its own size, and why this
+            // silently drew nothing until it did (a square cover made the
+            // receiver 1512x1512 and put the band 265 pt below the display).
+            //
+            // Three things this comment used to claim, all measured false and
+            // corrected rather than deleted: the order relative to
+            // `ignoresSafeArea` is INERT (identical layout either way); there is
+            // no safe area to inset against, because a borderless screen-sized
+            // NSHostingView reports `safeAreaInsets` of 0 even on a notched
+            // panel, so both calls are belt-and-braces; and there is no overhang
+            // to cut, because the backdrop already ends in `.clipped()`.
                 .mask { LoginClearance() }
                 .ignoresSafeArea()
                 // BOTH the decode and the accent are computed off the main actor,
