@@ -12,12 +12,17 @@ import SwiftUI
 /// one has. An eighth dimension for a surface that is either up or down would
 /// cost every existing implementer and buy nothing.
 ///
-/// Screen-sized from the start, in both states. The card only occupies its
-/// bottom strip and the expanded tile is 300 pt, but expanding puts a blurred
-/// backdrop behind them that spans the display — all of it except the band the
-/// login owns — and a window that resized between the two would be an AppKit
-/// frame change racing a SwiftUI render, the exact family of flicker the
-/// fixed-window rule was written to end (`design-reference` §1.3).
+/// Screen-sized from the start, in both states, even though nothing drawn in it
+/// is ever larger than 340 pt. The window is the STAGE, not the surface: a
+/// window that resized as the card became the tile would be an AppKit frame
+/// change racing a SwiftUI render, the exact family of flicker the fixed-window
+/// rule was written to end (`design-reference` §1.3) — and the desktop skins
+/// pay the same price for the same reason.
+///
+/// It was also once genuinely full: the expanded state painted a blurred
+/// backdrop across the display. That is gone (docs/DECISIONS.md:
+/// the-lock-surface-is-a-card) and the window stayed this size on the argument
+/// above, which held on its own before the backdrop existed.
 ///
 /// Being screen-sized is also this window's one real hazard, and the reason for
 /// the mouse routing below. Transparency does NOT pass a click through — this
@@ -116,7 +121,6 @@ final class LockScreenPanel {
                 LockWidgetView(
                     coordinator: coordinator,
                     artwork: artwork,
-                    clock: ContinuousSleepClock(),
                     onInteractiveRect: report
                 )
                 .environment(\.lowPowerMode, lowPower)

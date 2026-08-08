@@ -2461,11 +2461,15 @@ so with the controls on the cover the cover IS the surface, where a separate her
 above a card was a large picture that covered the login UI and then ignored every
 click aimed at it.
 
-**The backdrop's fade, and the fraction that never existed.** The expanded
-state's blurred backdrop takes the whole display, which means it also takes the
-clock, the avatar and the password field. It now clears the band below
-`clearBandFloor` and ramps back to opaque over `backdropFadeBand` (180 pt,
-taste) above it — a hard edge there reads as a rendering bug. The anchor is that
+**The backdrop's fade, and the fraction that never existed.** ~~Superseded by
+the-lock-surface-is-a-card: there is no backdrop and no fade. Kept because the
+anchoring argument below outlived them — `clearBandFloor` is still the one
+constant, now for the card and the tile — and because the fabricated fraction is
+exactly the kind of number that gets reconstructed from memory.~~ The expanded
+state's blurred backdrop took the whole display, which meant it also took the
+clock, the avatar and the password field. It cleared the band below
+`clearBandFloor` and ramped back to opaque over `backdropFadeBand` (180 pt,
+taste) above it — a hard edge there reads as a rendering bug. The anchor was that
 constant and not a new one: "where the card may rest" and "where the backdrop
 must stop" are one fact — the login owns everything below this line — and a
 second constant would be a second answer free to drift from the first.
@@ -2612,3 +2616,68 @@ change they put one album's cover on the next song's surface — visible and wro
 where the absence would merely be absent. That identity is also why `album` was
 added to the domain: keyed on the snapshot instead, the 1 Hz position tick would
 re-ask the endpoint once a second for the same song.
+
+### the-lock-surface-is-a-card
+The lock-screen widget shipped with a full-screen blurred backdrop: the cover,
+scaled past the display, blurred at 46, drifting on a 26 s cycle, masked so its
+alpha reached zero over the bottom 300 pt the login owns. Because that layer
+also covered the system's clock, the surface drew a clock of its own. The whole
+composition existed to answer one wish — that the artwork reach all four edges.
+
+Decision: **the lock surface paints no ground.** Both states are bounded objects
+on the user's own wallpaper — the 340 pt card resting on `clearBandFloor`, and
+the 300 pt tile centred in the rectangle the ruler proved free. The backdrop,
+the clearance band, the fade and the clock are deleted rather than tuned.
+
+**What ended it was not taste, it was a chain of costs that only pointed one
+way.** The fade's boundary is a Mach band — a retinal artifact at a derivative
+discontinuity — so lengthening or softening the ramp cannot remove it and can
+isolate the two kinks instead; the accepted fixes all cost either a 15-stop
+eased table or a Metal shader, to mitigate an artifact the surface manufactures
+for itself. On a light cover the backdrop erased its own clock: The White Album
+measures 0.996 mean relative luminance, and white type over it is invisible,
+which means the clock the backdrop obliged could not be relied on to survive the
+thing that obliged it. And covering the login turns a cosmetic feature into a
+safety-critical one: a Crema wedged on the main thread leaves its window on
+screen with no code running, so any covering design owes a dead-man's mechanism,
+an idle signal proven to survive the shield, and vetoes for VoiceOver, Reduce
+Transparency, Increase Contrast, the Accessibility Keyboard and Switch Control —
+none of which the surface had.
+
+**Three independent precedents say the same thing, and all three were found
+rather than assumed.** The SkyLight level this window occupies is named
+`kSLSSpaceAbsoluteLevelNotificationCenterAtScreenLock`: Apple's own tenant there
+draws bounded cards, and Droppy, Alcove and boring.notch — the three shipping
+apps at the same level — all draw bounded cards too. Android built precisely
+this backdrop (`MediaArtworkProcessor`: downsample 6, blur 25, flooded with the
+extracted swatch at 70%), shipped it from Android 8 through 10, removed it in 11
+with a one-line justification, and has not restored it in five releases — from a
+position strictly better than ours, since their layer sat behind all system UI
+while ours sits in front of it. GNOME, Windows, elementary and Spotify each keep
+album art as a bounded image and derive the ground from something else.
+
+**The clock left with the backdrop, and that is the load-bearing consequence.**
+It only ever existed because the backdrop covered the system's. With no ground,
+the shield's clock is visible, and drawing a second one beside it is the
+two-clocks defect — the same defect that disqualified the one catalogue entry
+which tried to bloom colour over an uncovered wallpaper. One fact, one absence.
+
+**Not rejected, and available without reopening this**: the artwork reaching all
+four edges on a display that carries no credential cluster. Crema is
+main-display-only by decision and the login lives on the main display; a
+secondary display needs no clearance, no idle poll, no retreat and no
+dead-man's switch. That is a feature, not a workaround, and it is on the roadmap
+rather than in this entry because it changes what the surface is offered on, not
+what it draws.
+
+**Reopening gate, and it is a measurement rather than an argument.** Everything
+above concerns a window ABOVE the shield. Nobody has asked whether a SkyLight
+space at a level BELOW 300 composites behind it — the level was inherited from
+the widget's need to be seen, never from the backdrop's need to be a ground. If
+a lower space shows through, the system draws the login on top and the entire
+chain of costs above retires at once: no clearance, no clock, no wedge story, no
+accessibility veto. `scripts/probes/lockscreen-space.swift` already takes the
+level as a parameter; run it at 250 and 310 before anyone re-argues this from
+taste. The other reopening is the reverse of the first: a macOS that stops
+drawing a lock-screen clock, which would make ours a replacement rather than a
+duplicate.

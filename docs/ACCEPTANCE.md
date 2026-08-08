@@ -113,18 +113,15 @@
 20. With "Show now playing on the lock screen" on and music playing, locking the
     screen shows the card bottom-centre over the wallpaper, on the main display
     only; clicking it hands the cover the middle of the screen and clicking again
-    puts it back; unlocking removes it. Expanded, the blurred backdrop fades out
-    over the bottom band so the clock, the avatar and the password field stay
-    readable, and Crema draws its own time and date near the top — it appears
-    only in that state, because that is the only state that covers the system's.
-    Leave the expanded surface up on a LIT screen across a minute boundary and
-    the time advances; the surface may hold a stale minute across a machine
-    sleep, which is correct and unobservable, since the screen is dark for
-    exactly that interval. With the preference off — which is how it ships —
-    the lock screen is untouched. With Reduce Motion or with Low Power Mode on,
-    the blurred backdrop does not drift; it also settles on its own after a few
-    minutes. On a macOS where the private space API does not resolve, Settings
-    says so in a sentence instead of offering a switch that would do nothing.
+    puts it back; unlocking removes it. **Nothing else on the lock screen
+    changes in either state**: the wallpaper, the system's own clock, the avatar
+    and the password field are all exactly as macOS drew them, and Crema draws no
+    clock of its own — seeing two is the defect this criterion exists to catch.
+    Both states stay clear of the login: the card's bottom edge and the tile's
+    both sit at or above 300 pt from the bottom of the display. With the
+    preference off — which is how it ships — the lock screen is untouched. On a
+    macOS where the private space API does not resolve, Settings says so in a
+    sentence instead of offering a switch that would do nothing.
 21. With the cover lookup off — which is how it ships — the lock screen draws only
     the artwork the player published, and Crema makes no network request. With it
     on, a larger cover replaces it when one is found; when none is (no match, no

@@ -235,11 +235,19 @@ above a card is a large picture ignoring every click aimed at it. And a "72% of
 the height" that had reached CLAUDE.md turned out to be 1 − 250/900 off a test
 fixture, not a reading.
 
-The backdrop no longer erases the login. It clears the band below
-`clearBandFloor` and ramps back to opaque above it, and because that layer covers
-the system's clock, the surface draws its own — in the expanded state only, since
-that is the only state that covers anything. Not a second player competing with
-macOS: it exists exactly where, and only where, Crema hid the original.
+**And then the backdrop went, entirely** (2026-08-08, docs/DECISIONS.md:
+the-lock-surface-is-a-card). For one round it merely stopped erasing the login —
+clearing the band below `clearBandFloor`, ramping back to opaque above it, and
+drawing a clock of its own because that layer covered the system's. The round
+after deleted the layer instead of tuning it: the fade's boundary is a Mach band
+and cannot be softened away, a light cover erased the very clock the backdrop
+obliged, and covering a login turns a cosmetic feature into a safety-critical
+one. What ships is two bounded objects on the user's own wallpaper. There is no
+Crema clock any more, and there must not be one: with no ground, the shield's
+own clock is visible, and a second beside it is a defect rather than a feature.
+
+Everything below about clicks, cursor routing and the raised space still holds —
+those questions belong to the WINDOW, which is unchanged.
 
 A third probe, `lockscreen-mouse-routing.swift`, was needed once the surface
 shipped, and its question is the mirror of the second one's: not "do clicks
@@ -316,9 +324,11 @@ when a new bridge appears:
   received are not even reported. Apple Music's motion art never crosses the
   MediaRemote boundary.
 
-The consequence for what shipped: the expanded state's slow drift on the blurred
-backdrop is the honest form of the idea on this platform, not a consolation
-prize for a missing feature. And the same paragraph explains the **cover
-lookup** (`ArtworkLookup`, opt-in, off by default): the size is not negotiable
+The consequence has outlived the thing it was written for. It once justified the
+slow drift on the blurred backdrop as the honest form of the idea on this
+platform; the backdrop is gone and the finding is unaffected, because it was
+never about the backdrop — no animated artwork reaches this app by any route, so
+no future lock composition can plan on one. And the same paragraph explains the
+**cover lookup** (`ArtworkLookup`, opt-in, off by default): the size is not negotiable
 at the MediaRemote boundary either, so a larger cover has to come from somewhere
 else entirely.

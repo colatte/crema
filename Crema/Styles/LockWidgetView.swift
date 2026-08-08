@@ -3,13 +3,20 @@ import SwiftUI
 /// Now playing on the lock screen: a glass card over the user's own wallpaper
 /// that, on a click, becomes the cover itself.
 ///
+/// **Nothing here paints a ground.** Both states are bounded objects on the
+/// user's own wallpaper, and that is the decision rather than a limitation
+/// (docs/DECISIONS.md: the-lock-surface-is-a-card). A full-screen blurred
+/// backdrop shipped here for a while and was removed: it covered the system's
+/// clock, the avatar and the password field, which cost a clock of our own, a
+/// clearance band, a fade whose boundary the eye hunts, and — the part that
+/// ended it — a safety case for what a wedged app leaves over a login. The
+/// level this window occupies is named
+/// `kSLSSpaceAbsoluteLevelNotificationCenterAtScreenLock`; Apple's own tenant
+/// there draws bounded cards, and so does every shipping competitor at it.
+///
 /// Both states live inside the one rectangle the lock screen leaves free — the
 /// card rests on the floor of that band, the expanded tile is centred in it
-/// (`LockWidgetMetrics.clearBandFloor`, measured rather than chosen). The
-/// blurred backdrop takes the whole display MINUS that same band: it fades out
-/// below `clearBandFloor` so the clock, the avatar and the password field stay
-/// readable (`LoginClearance`). Covering the system's clock is what obliges this
-/// surface to draw one of its own, and only in the state that covers it.
+/// (`LockWidgetMetrics.clearBandFloor`, measured rather than chosen).
 ///
 /// It reads `coordinator.nowPlaying` rather than `coordinator.state`, and that
 /// is the whole reason it can exist. `state` is the ephemeral presentation
@@ -31,19 +38,6 @@ struct LockWidgetView: View {
     /// then simply uses whatever the player handed over, which is the fallback
     /// the resolver would have returned anyway.
     var artwork: LockArtworkResolver?
-
-    /// What paces the clock's minute hand. No default, deliberately: a clock
-    /// parameter carrying a production default is a wall clock injected at every
-    /// test site without anyone writing `Date()`, which is the trap CLAUDE.md's
-    /// TDD section names. There is exactly one production caller.
-    ///
-    /// An existential, like the other nineteen clock holders in the app. This was
-    /// briefly generic, on a diffability argument measured false — the clock's
-    /// body re-evaluates 61 times a minute either way, and what moves that number
-    /// is whether the displayed instant is `@State`, not how the clock is spelled.
-    /// The generic also forced itself: `SleepClock` does not self-conform, so a
-    /// generic here required one there too, for nothing.
-    var clock: any SleepClock
 
     /// The rect that may take a click, in the hosting window's coordinate space,
     /// reported whenever it moves — empty when there is nothing drawn.
@@ -70,14 +64,13 @@ struct LockWidgetView: View {
 
     /// ONE decode for the whole surface, at the largest bound any layer needs.
     ///
-    /// It used to be five, and two of them started ON THE CLICK: the 300 pt tile
-    /// and the backdrop each owned an `ArtworkView`-style decode at 1024 px whose
-    /// cache key only came into existence when `expanded` flipped. So a cold
-    /// expand animated a grey rectangle with a 126 pt music note for the whole
-    /// spring, and no choreography above it could mean anything. Decoding here,
-    /// keyed on the bytes, moves the work to the moment the TRACK resolves —
-    /// where nobody is watching — and the destination pixels exist before the
-    /// gesture starts.
+    /// It used to be five, and the expensive ones started ON THE CLICK: the
+    /// 300 pt tile owned an `ArtworkView`-style decode at 1024 px whose cache key
+    /// only came into existence when `expanded` flipped. So a cold expand
+    /// animated a grey rectangle with a 126 pt music note for the whole spring,
+    /// and no choreography above it could mean anything. Decoding here, keyed on
+    /// the bytes, moves the work to the moment the TRACK resolves — where nobody
+    /// is watching — and the destination pixels exist before the gesture starts.
     @State private var decoded = DecodedCover()
 
     struct DecodedCover {
@@ -87,9 +80,8 @@ struct LockWidgetView: View {
 
     private var track: NowPlaying? { coordinator.nowPlaying }
 
-    /// One place decides which bytes every layer draws, so the thumbnail, the
-    /// expanded tile and the backdrop can never disagree about which cover is
-    /// showing.
+    /// One place decides which bytes every layer draws, so the thumbnail and the
+    /// expanded tile can never disagree about which cover is showing.
     private func cover(_ track: NowPlaying) -> [UInt8]? {
         artwork?.artwork(for: track) ?? track.artworkData
     }
@@ -97,7 +89,6 @@ struct LockWidgetView: View {
     var body: some View {
         ZStack {
             if let track {
-                backdrop(track)
                 surface(track)
             }
         }
@@ -140,44 +131,6 @@ struct LockWidgetView: View {
     }
 
     // MARK: - Layers
-
-    /// Only while expanded: the cover, blurred past reading, over everything
-    /// EXCEPT the strip the login owns — this round is what stopped it being
-    /// over everything (`LoginClearance`), and it also carries the clock, since
-    /// covering the system's is the only reason to draw one. Collapsed, the
-    /// user's own wallpaper is the background and this draws nothing at all —
-    /// and NOTHING is what it costs, which it did not before.
-    ///
-    /// This used to host the transition on a real `DriftingArtworkBackground` at
-    /// `.opacity(0)`, used purely as a container. Zero opacity keeps a view in
-    /// the hierarchy: the invisible one armed its 26 s `repeatForever` transform
-    /// and its settle task on every lock, drawing nothing, all night. A plain
-    /// shape is the container now.
-    @ViewBuilder
-    private func backdrop(_ track: NowPlaying) -> some View {
-        Color.clear
-            .overlay {
-                if expanded {
-                    // The clock rides the same condition as the backdrop, and
-                    // that is the whole design rather than a convenience: the
-                    // only reason to draw a clock is that this layer covered the
-                    // system's. One fact, one `if` — a second gate could drift
-                    // into showing ours beside theirs.
-                    ZStack(alignment: .top) {
-                        ArtworkBackdrop(image: decoded.image, tone: decoded.tone)
-                        LockClockView(clock: clock)
-                            .padding(.top, LockWidgetMetrics.clockTopInset)
-                    }
-                    // Belt-and-braces, not the load-bearing part: measured, a
-                    // borderless screen-sized `NSHostingView` reports a safe area
-                    // of 0 even on a notched panel, so `clockTopInset` already
-                    // means the physical top. Kept so a future window that DOES
-                    // get an inset cannot move the clock without anyone noticing.
-                    .ignoresSafeArea()
-                    .transition(.opacity)
-                }
-            }
-    }
 
     /// One surface in both states, moved and reshaped rather than swapped.
     ///
@@ -362,88 +315,5 @@ struct LockWidgetView: View {
         withAnimation(SurfaceAnimation.morph(reduceMotion: reduceMotion)) {
             expanded.toggle()
         }
-    }
-}
-
-/// Where the backdrop stops, so the lock screen's own login keeps its strip.
-///
-/// The surface's whole cost is that a full-screen backdrop also covers the
-/// clock, the avatar and the password field. It clears the bottom band and ramps
-/// back to opaque above it — a hard edge there reads as a rendering bug, which
-/// is why the band exists at all.
-///
-/// Bands in POINTS, bottom-anchored, opaque taking the remainder: no display
-/// height enters this file, so the fraction this was nearly written as cannot be
-/// spelled here without plumbing a reviewer would see. macOS has no bottom safe
-/// area, so bottom-anchoring also costs nothing at the edge.
-///
-/// `.mask` reads ALPHA, not luminance — the black band shows, the clear one
-/// hides, and the ramp between them is one description of the fade and the only
-/// one. A `backdropAlpha(distanceFromBottom:)` helper beside it would be the
-/// same curve written twice.
-private struct LoginClearance: View {
-    var body: some View {
-        VStack(spacing: 0) {
-            Color.black
-            LinearGradient(
-                // Weighted rather than straight, for a reason that is
-                // arithmetic: the expanded tile's bottom edge lands at 341 pt on
-                // the panel this was designed against, which is INSIDE the ramp.
-                // A linear fall leaves the tile's bottom corners flanked by
-                // near-bare wallpaper (23%); this holds them at ~46%.
-                stops: [
-                    .init(color: .black, location: 0),
-                    .init(color: .black.opacity(0.80), location: 0.60),
-                    // `.black.opacity(0)` rather than `.clear` is style, not
-                    // correctness: measured on macOS 26.6, SwiftUI interpolates
-                    // gradients PREMULTIPLIED, so the two render byte-identically
-                    // — even across hues, where the hazard is usually stated.
-                    // Written out because the version of this comment that
-                    // claimed `.clear` drags the midpoint would send someone
-                    // "fixing" gradients elsewhere on a belief that does not hold.
-                    .init(color: .black.opacity(0), location: 1),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: LockWidgetMetrics.backdropFadeBand)
-            Color.clear.frame(height: LockWidgetMetrics.clearBandFloor)
-        }
-    }
-}
-
-/// The blurred cover behind an expanded widget. A thin wrapper whose only job
-/// is to own the decode, so `DriftingArtworkBackground` stays a pure function
-/// of an image and can be exercised without ImageIO.
-private struct ArtworkBackdrop: View {
-    /// Handed in, never decoded here. This view used to own a 1024 px decode AND
-    /// an accent extraction of its own, both keyed so they could only start when
-    /// the surface expanded — so the blurred ground arrived after the animation
-    /// it was supposed to be the ground for.
-    let image: CGImage?
-    let tone: ArtworkAccent.Tone?
-
-    var body: some View {
-        DriftingArtworkBackground(image: image, fallbackTone: tone)
-            // Here rather than inside `DriftingArtworkBackground`, which promises
-            // to fill whatever it is given: a login-clearance band is a
-            // lock-screen concept with no business in a generic backdrop.
-            //
-            // The one thing that decides whether this WORKS is not the ordering.
-            // A mask lays out at its RECEIVER's reported size and centres on it —
-            // not at the proposal, not at the screen — which is why
-            // `DriftingArtworkBackground` has to pin its own size, and why this
-            // silently drew nothing until it did (a square cover made the
-            // receiver 1512x1512 and put the band 265 pt below the display).
-            //
-            // Three things this comment used to claim, all measured false and
-            // corrected rather than deleted: the order relative to
-            // `ignoresSafeArea` is INERT (identical layout either way); there is
-            // no safe area to inset against, because a borderless screen-sized
-            // NSHostingView reports `safeAreaInsets` of 0 even on a notched
-            // panel, so both calls are belt-and-braces; and there is no overhang
-            // to cut, because the backdrop already ends in `.clipped()`.
-                .mask { LoginClearance() }
-                .ignoresSafeArea()
     }
 }

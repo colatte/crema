@@ -11,13 +11,11 @@ import CoreGraphics
 /// measured. The numbers below are Crema's own, derived here — none of them
 /// came from another app's screenshot.
 ///
-/// The clock (`LockClockView`) is outside that rule rather than excepted from
-/// it, and the distinction is the whole justification. The ramp exists so the
-/// skins read as siblings; the clock has no sibling in any skin, because it is
-/// not part of the family's vocabulary at all — it stands in for system UI that
-/// this surface covered, and it appears on no other. It still refuses a pt
-/// literal and takes semantic steps (`.title` over `.title3`), so it moves with
-/// the system's own type rather than freezing a size somebody liked once.
+/// This file once carried four more numbers — a blur radius, an overscan, a
+/// fade band and a clock inset — for a full-screen backdrop that no longer
+/// exists (docs/DECISIONS.md: the-lock-surface-is-a-card). They left together
+/// because they were one idea: cover the display, and then pay for having
+/// covered it. What survives is the geometry of two bounded objects.
 enum LockWidgetMetrics {
 
     // MARK: - The card, collapsed
@@ -118,48 +116,16 @@ enum LockWidgetMetrics {
     ///
     /// When to distrust it: a macOS that moves the login again. The signal is
     /// visible — re-run the ruler.
+    ///
+    /// The name now overstates what it does, and it is kept for the history the
+    /// comment above carries. There is no band to clear any more: nothing is
+    /// drawn below this line because nothing is drawn as a ground at all. What
+    /// survives is the ONE job the number always really had — the floor the two
+    /// bounded objects rest on and never cross.
     static let clearBandFloor: CGFloat = 300
 
     /// Collapsed, the surface rests on the floor of the clear band, which keeps
     /// the "card near the bottom" reading it was designed with while clearing
     /// the login by construction.
     static let bottomInset: CGFloat = clearBandFloor
-
-    /// The blurred backdrop's radius and how far past the screen it is scaled,
-    /// so a drifting image never exposes an edge.
-    static let backdropBlur: CGFloat = 46
-    static let backdropOverscan: CGFloat = 1.35
-
-    /// How tall the backdrop's fade is, sitting on top of `clearBandFloor`.
-    ///
-    /// The backdrop takes the whole display, which means it also covers the
-    /// clock, the avatar and the password field. It clears the strip the login
-    /// owns, and the boundary of that strip is `clearBandFloor` — the SAME
-    /// measured number the card refuses to cross, not a second spelling of it.
-    /// A hard edge there reads as a rendering bug, so the alpha ramps over this
-    /// band above it.
-    ///
-    /// TASTE, and the only number here that is. The author asked for the fade to
-    /// finish around half the height: 300 + 180 = 480, which on the 1512×982
-    /// panel this was designed against is 51.1% from the top. Recorded as the
-    /// arithmetic rather than as the fraction, because a fraction in the code
-    /// would be a second answer to "where does the login begin" that diverges
-    /// from the first on every display of a different height (they cross at
-    /// 1071 pt and are ~100 pt apart on a 27-inch).
-    static let backdropFadeBand: CGFloat = 180
-
-    /// How far below the PHYSICAL top of the display the clock sits. Measured
-    /// rather than assumed: a borderless screen-sized `NSHostingView` reports a
-    /// `safeAreaInsets` of 0 even on a notched 1512x982 panel (macOS 26.6), so
-    /// this already denotes the physical top. The `ignoresSafeArea` on the layer
-    /// that carries it is belt-and-braces for a window that someday does get an
-    /// inset — not, as this comment once claimed, the thing making the number
-    /// mean what it says.
-    ///
-    /// Taste, with one floor that is not: it has to clear the notch. The deepest
-    /// slit this repo has measured is 32 pt (`StylePreview.notchedReference`'s
-    /// `safeTop`, and `NSScreen.safeAreaInsets.top` on the author's 14-inch
-    /// reads the same), so anything at or under that would put the time inside
-    /// the cutout on exactly the Macs the app was written for.
-    static let clockTopInset: CGFloat = 88
 }
