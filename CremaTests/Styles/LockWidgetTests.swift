@@ -122,19 +122,42 @@ struct LockWidgetMetricsTests {
 
     // MARK: - Placement, against what the ruler measured
 
-    /// The lock screen, as measured on hardware 2026-08-07 with
-    /// `scripts/probes/lockscreen-geometry.swift` on a 1440×900 pt display: the
-    /// login (avatar, name, password field) owns the bottom strip up to about
-    /// 250 pt, and a 300 pt square centred on the display touched nothing.
+    /// The lock screen, as measured on hardware with
+    /// `scripts/probes/lockscreen-geometry.swift`, on the author's 1512×982 pt
+    /// panel. Two runs: 2026-08-07 established that a card at 96 pt lands on the
+    /// avatar and that a centred 300 pt square touches nothing; 2026-08-08
+    /// answered the question the first run asked and never recorded — where the
+    /// login's top edge is — and read candidate B clear as well.
+    ///
+    /// This table replaces one that was fiction in both operands: it put the
+    /// login's top at "about 250 pt" on an attributed 1440×900 display. Neither
+    /// number came off the ruler, and 1 − 250/900 = 72.2% is where a "72% of the
+    /// height" reached CLAUDE.md and nearly reached the code. The unit is points
+    /// off the bottom edge, and no fraction of the display height appears here or
+    /// in the surface.
     ///
     /// These are the numbers the placement has to satisfy. They are written here
     /// independently of the production constants — a table restating
     /// `bottomInset` would agree with any value it was given.
     private enum Measured {
-        static let screenHeight: CGFloat = 900
-        static let loginTop: CGFloat = 250
-        static let clearFloor: CGFloat = 300
-        static let clearCeiling: CGFloat = 600
+        static let screenHeight: CGFloat = 982
+
+        /// The login block's top edge — the avatar's top; the name and the
+        /// password field sit below it. Read AT the teal scale's floor, so the
+        /// honest reading is "at or below 180": a true edge at 160 would produce
+        /// the same answer. Only the upper bound is load-bearing, and it holds
+        /// either way.
+        static let loginTop: CGFloat = 180
+
+        /// Candidate B, read completely clear on the second run. The first run
+        /// proved only the centred square, which is the whole reason
+        /// `clearBandFloor = 300` briefly looked 41 pt short of anything.
+        static let clearFloor: CGFloat = 220
+
+        /// The centred 300 pt square's top on this panel. B (220…372) and the
+        /// square (341…641) overlap, so what the two runs prove together is one
+        /// clear interval rather than two islands.
+        static let clearCeiling: CGFloat = 641
     }
 
     @Test func theCollapsedCardSitsAboveTheLoginRatherThanOnIt() {
@@ -163,15 +186,28 @@ struct LockWidgetMetricsTests {
         #expect(side <= Measured.clearCeiling - Measured.clearFloor)
     }
 
-    @Test func aStackedCompositionWouldNotHaveFit() {
-        // Kept as the record of why the design changed rather than the metric.
-        // Cover + gap + card is the shape that was drawn first; centring it puts
-        // its bottom edge inside the login's strip.
+    @Test func aStackedCompositionWouldLeaveTheBandThatWasMeasured() {
+        // Kept as the record of why the design changed — with the reason
+        // corrected, because the original one was measured FALSE on 2026-08-08.
+        // It read "centring it puts its bottom edge inside the login's strip",
+        // arithmetic done against a 900 pt display and a login top of 250 that
+        // neither existed. On the real 982 pt panel the stack centres to
+        // 259…723: its bottom clears the login by 79 pt.
+        //
+        // What is true is the other end. 723 is outside 641, the ceiling the
+        // ruler actually proved, so the stack would have put a large picture
+        // where nobody has looked. That plus the interaction reason — a hero
+        // above a card is a big image that ignores every click aimed at it,
+        // since only the drawn surface takes one here — is what the decision
+        // rests on now.
         let stacked = LockWidgetMetrics.expandedSide
             + LockWidgetMetrics.gap
             + LockWidgetMetrics.collapsedHeight
         let bottom = (Measured.screenHeight - stacked) / 2
-        #expect(bottom < Measured.loginTop, "the stack is what the tile exists to avoid")
+        #expect(bottom + stacked > Measured.clearCeiling, "the stack leaves the measured band")
+        // And the claim that replaced it is pinned as false, so nobody restores
+        // the old sentence from memory.
+        #expect(bottom > Measured.loginTop, "the stack did NOT reach the login — that reason was wrong")
     }
 
     @Test func theInsetClearsTheCardsOwnCorner() {

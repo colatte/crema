@@ -2446,14 +2446,52 @@ centred in every version, which is what lets the surface stay centred without a
 second thought. The ruler is kept so the claim can be re-checked rather than
 re-guessed when a release moves the layout again.
 
-The same measurement forced the expanded state's shape. Cover (300) stacked over
-the card (~152) is roughly 470 pt tall, and centring that puts its bottom edge
-back inside the login's strip — so expanded is **one 300 pt tile** with the words
-and controls laid over the cover, which centres to exactly the rectangle that was
-measured clear. That also repaired the interaction: only the drawn surface takes
-a click, so with the controls on the cover the cover IS the surface, where a
-separate hero above a card was a large picture that covered the login UI and
-then ignored every click aimed at it.
+The same measurement forced the expanded state's shape: expanded is **one 300 pt
+tile** with the words and controls laid over the cover, which centres to exactly
+the rectangle that was measured clear. The reason recorded here for rejecting the
+alternative was wrong, and is corrected rather than deleted because it is the
+kind a reader reconstructs. It said cover (300) stacked over the card (152) is
+464 pt and "centring that puts its bottom edge back inside the login's strip";
+re-measured 2026-08-08, the stack centres to 259…723 on the real 1512×982 panel
+and clears the login — whose top is at or below 180 — by 79 pt. What is true is
+the other end: 723 leaves the 641 ceiling the ruler proved, putting a large
+picture where nobody has looked. And the interaction reason never depended on any
+of it, which is why it is the stronger one: only the drawn surface takes a click,
+so with the controls on the cover the cover IS the surface, where a separate hero
+above a card was a large picture that covered the login UI and then ignored every
+click aimed at it.
+
+**The backdrop's fade, and the fraction that never existed.** The expanded
+state's blurred backdrop takes the whole display, which means it also takes the
+clock, the avatar and the password field. It now clears the band below
+`clearBandFloor` and ramps back to opaque over `backdropFadeBand` (180 pt,
+taste) above it — a hard edge there reads as a rendering bug. The anchor is that
+constant and not a new one: "where the card may rest" and "where the backdrop
+must stop" are one fact — the login owns everything below this line — and a
+second constant would be a second answer free to drift from the first.
+
+The rejected alternative is worth naming because it was almost shipped. This
+design was specified as a fade "between 50% and 72% of the height", with 72%
+described as where the ruler measured the login's top. It was not: it is
+1 − 250/900, off a private test fixture whose "about 250 pt" was a guess and
+whose attributed 1440×900 panel was not the machine that ran the probe. A
+fraction would also have given the app two contradictory answers to where the
+login begins — the collapsed card is placed with a screen-free constant, and the
+two models cross at a display height of 1071 pt and sit ~100 pt apart on a
+27-inch, which is reachable in clamshell. So no fraction of the display height
+appears in the surface at all, and the guarantee is structural rather than
+stated: the file has no screen-height source, so `0.72 * height` cannot be
+written there without plumbing a reviewer would see.
+
+Because that layer covers the system's clock, the surface draws **its own** — in
+the expanded state only, on the same condition as the backdrop, since one `if`
+for one fact is what keeps ours from ever appearing beside theirs. It answers to
+none of the drift vetoes, and the third one points the opposite way:
+`settlesAfter` exists because a picture still moving on an idle desk at 4 a.m. is
+wear, whereas a clock still running at 4 a.m. is the entire point of one. It also
+cannot ride the surface's 1 Hz position tick, which is installed only while
+something is PLAYING — pause, lock, walk away, and a clock riding it shows the
+minute of the pause all night.
 
 **Reopening gate.** A macOS release that removes or renames any of the five
 symbols degrades this to "not offered" on its own — that is the designed

@@ -1,0 +1,147 @@
+import SwiftUI
+
+/// The time, for the one surface that covers the system's own.
+///
+/// Pure and separate because all three interesting things about a clock are
+/// answerable without one: how it reads in a language, when it should next
+/// change, and what it must never do to either.
+enum LockClock {
+    /// The time with no seconds, in whatever the reader's region says that
+    /// means — 12-hour with a marker, 24-hour, or the leading-zero-less forms
+    /// some locales use. Measured across four: `11:04 AM` (en_US), `19:04`
+    /// (en_GB), `15:04` (pt_BR), `3:04` (ja_JP).
+    ///
+    /// `locale` and `timeZone` are REQUIRED, and their absence would be the
+    /// bug. A `Date.FormatStyle` already carries the autoupdating pair, so a
+    /// default here would read the machine — and then a test asserting `2:04 PM`
+    /// is green only where the runner's region matches the author's. This is the
+    /// class CLAUDE.md's TDD section names: a clock parameter with a production
+    /// default is a wall clock injected without anyone writing `Date()`.
+    static func time(_ date: Date, locale: Locale, timeZone: TimeZone) -> String {
+        var style = Date.FormatStyle(date: .omitted, time: .shortened)
+        style.locale = locale
+        style.timeZone = timeZone
+        return date.formatted(style)
+    }
+
+    /// Weekday, month and day, abbreviated, in the locale's own order — never a
+    /// composed string. `Sun, Aug 9` / `dom., 9 de ago.` / `8月10日(月)`, and the
+    /// separators come from the locale rather than from us.
+    ///
+    /// Field selection, not display order: writing `.day().month().weekday()`
+    /// returns byte-identical output. And deliberately not the `.abbreviated`
+    /// date preset, which drags the year in (`Aug 9, 2026`) — nobody reading a
+    /// lock screen is unsure what year it is.
+    static func day(_ date: Date, locale: Locale, timeZone: TimeZone) -> String {
+        var style = Date.FormatStyle.dateTime.weekday(.abbreviated).month(.abbreviated).day()
+        style.locale = locale
+        style.timeZone = timeZone
+        return date.formatted(style)
+    }
+
+    /// How long until the displayed minute becomes wrong.
+    ///
+    /// Sampled from the instant the caller woke, never accumulated — the rule
+    /// `sample-dont-integrate` already governs the playback position, and it
+    /// buys the same thing here: a late wake, a resume from system sleep or an
+    /// NTP step corrects itself on the next pass instead of drifting by however
+    /// much was lost. That is also why there is no `NSSystemClockDidChange`
+    /// observer to own; the worst a jump costs is one stale minute.
+    ///
+    /// The answer is always inside (0, 60], and by construction rather than by a
+    /// guard. `truncatingRemainder` never returns the divisor, so `elapsed` is
+    /// in [0, 60) and the difference cannot reach zero — a wake landing exactly
+    /// on the boundary asks for a whole minute, not for nothing. A clamp here
+    /// looked prudent and was dead code: it survived a mutation because no input
+    /// can reach it, which is the tautology CLAUDE.md warns about.
+    static func secondsUntilNextMinute(after date: Date) -> Double {
+        let intoMinute = date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 60)
+        // Dates before the reference epoch give a NEGATIVE remainder, and this
+        // is the one branch that earns its place: without it such a date asks
+        // for a sleep longer than the interval being measured.
+        let elapsed = intoMinute < 0 ? intoMinute + 60 : intoMinute
+        return 60 - elapsed
+    }
+}
+
+/// The clock drawn over the expanded lock surface.
+///
+/// It exists because the backdrop covers the system's clock, and for no other
+/// reason: the collapsed card covers nothing, so nothing is drawn there. Two
+/// clocks on one screen is what this is arranged to avoid, not a look.
+///
+/// ## Why it answers to none of the drift vetoes
+///
+/// `ArtworkDrift` gates the backdrop on Reduce Motion, Low Power Mode and a
+/// three-minute settle. None reaches here, and the third points the opposite
+/// way. Reduce Motion has no motion to gate — a digit replacing another carries
+/// no animation, and appearing rides the surface's existing morph. Low Power's
+/// stated cost is a `repeatForever` transform; this wakes once a minute, on a
+/// surface whose body already rebuilds sixty times more often, unvetoed, while
+/// music plays. And `settlesAfter` exists because a picture still moving on an
+/// idle desk at 4 a.m. is wear — whereas a clock still running at 4 a.m. is the
+/// entire point of one. Folding it into `drifts` would ship a clock frozen at
+/// the minute of the lock, which is worse than no clock.
+///
+/// ## Why it owns a timer instead of riding the surface's 1 Hz rebuild
+///
+/// The position tick looks like a free minute hand and is not: the adapter
+/// installs it only while something is PLAYING, and pausing does not collapse
+/// this surface (it clears on the media stopping, and a paused track is still a
+/// track). Pause, lock, walk away, and a clock riding that tick shows the minute
+/// of the pause all night.
+///
+/// Generic over the clock rather than holding an `any SleepClock`: an
+/// existential stored property is not equatable, so SwiftUI would re-evaluate
+/// this body on every 1 Hz media tick — the exact cost that having its own View
+/// is meant to stop at the boundary.
+struct LockClockView<Clock: SleepClock>: View {
+    let clock: Clock
+
+    /// The wall clock is read here and nowhere else. What a test can own are the
+    /// three pure rules above; a view that shows the time has to ask the machine
+    /// what time it is.
+    @State private var now = Date()
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: LockWidgetMetrics.gap) {
+            // Two `Text`s rather than one interpolated string: `Text("\(a) \(b)")`
+            // is a `LocalizedStringKey` lookup for a key nobody wrote, invisible
+            // to the catalog checker and to the translator both.
+            Text(LockClock.time(now, locale: .autoupdatingCurrent, timeZone: .autoupdatingCurrent))
+                .font(.title.weight(.semibold))
+            Text(LockClock.day(now, locale: .autoupdatingCurrent, timeZone: .autoupdatingCurrent))
+                .font(.title3)
+                .foregroundStyle(.secondary)
+        }
+        // Digit width, not digit count: this equalises `1` against `8` so the
+        // pair does not jitter each minute. It cannot fix a 12-hour locale's
+        // `9:59` becoming `10:00`, which changes the character COUNT and
+        // re-centres the block — visible only in English, and small at this size.
+        .monospacedDigit()
+        .foregroundStyle(.white)
+        .shadow(color: .black.opacity(0.45), radius: 12, y: 2)
+        // One VoiceOver stop reading "4:04 PM, Sun, Aug 9", not two loose ones.
+        // No `.accessibilityLabel`: it would REPLACE the content and delete the
+        // time it is there to announce.
+        .accessibilityElement(children: .combine)
+        // The surface below owns every click; a clock has nothing to answer.
+        // This is about hit testing only — taking it out of the accessibility
+        // tree is a different modifier, and this one is not it.
+        .allowsHitTesting(false)
+        .task {
+            while !Task.isCancelled {
+                let wait = LockClock.secondsUntilNextMinute(after: Date())
+                do {
+                    try await clock.sleep(for: wait)
+                } catch {
+                    // Cancellation is the only way out, and swallowing it here
+                    // would turn this into a tight loop the moment the surface
+                    // collapsed.
+                    return
+                }
+                now = Date()
+            }
+        }
+    }
+}

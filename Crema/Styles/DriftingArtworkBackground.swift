@@ -25,6 +25,15 @@ enum ArtworkDrift {
     /// Callers key their `onChange` on THIS value, never on one of the inputs —
     /// keying on an input is how one veto ends up observed and the others
     /// forgotten (the lesson `WaveformGlyph.dances` already carries).
+    ///
+    /// What this predicate must NOT be extended to cover: the clock drawn over
+    /// the same surface (`LockClockView`). Two of the three vetoes simply do not
+    /// reach it — a digit replacing another is not motion, and a wake once a
+    /// minute is not the `repeatForever` transform Low Power was written for.
+    /// The third actively points the other way. `settlesAfter` exists because a
+    /// picture still moving on an idle desk at 4 a.m. is wear; a clock still
+    /// running at 4 a.m. is the entire point of one, and folding it in here
+    /// would ship a clock frozen at the minute of the lock.
     static func drifts(reduceMotion: Bool, lowPower: Bool, settled: Bool) -> Bool {
         !reduceMotion && !lowPower && !settled
     }
@@ -83,8 +92,20 @@ struct DriftingArtworkBackground: View {
                     .scaledToFill()
                     .blur(radius: LockWidgetMetrics.backdropBlur, opaque: true)
             } else {
-                // No cover: the accent's own hue, or a neutral ground when the
-                // cover was monochrome and the accent abstained.
+                // No cover: the accent's own hue over black, or a neutral ground
+                // when the cover was monochrome and the accent abstained.
+                //
+                // OPAQUE, and that is a correctness property rather than a look.
+                // This branch used to be translucent (0.35 → 0.75), which left
+                // the lock shield showing through at about 65% at the top of the
+                // display — where macOS draws its own clock, directly under the
+                // one this surface now draws. Two states reach here: a track
+                // whose player published no cover (the JXA fallback never does)
+                // while `expanded` survives from the previous track, and the
+                // first frames of EVERY expansion, before the async decode in
+                // `ArtworkBackdrop` lands. Gating the clock on "has cover bytes"
+                // would close the first and miss the second, because bytes in
+                // hand are not an image on screen.
                 LinearGradient(
                     colors: [
                         (fallbackTone?.color ?? .gray).opacity(0.35),
@@ -93,6 +114,7 @@ struct DriftingArtworkBackground: View {
                     startPoint: .top,
                     endPoint: .bottom
                 )
+                .background(Color.black)
             }
         }
         .scaleEffect(

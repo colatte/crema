@@ -220,8 +220,26 @@ labelled bands and candidate rects over the shield and the author reads it.
 horizontal invariant every version has kept), a card at 96 pt lands on the
 avatar, and a 300 pt square centred on the display touches nothing. That is why
 the collapsed card now rests at 300 pt and the expanded state is a 300 pt tile
-centred rather than a cover stacked over a card — the stack is ~470 pt and its
-bottom edge lands back on the login (docs/DECISIONS.md: the-lock-screen-is-a-space).
+centred rather than a cover stacked over a card (docs/DECISIONS.md:
+the-lock-screen-is-a-space).
+
+**Re-run 2026-08-08**, because that first run answered three of its own five
+questions and the silence read as an answer. It now records the display size
+(1512×982), puts the login's top at or below 180 pt, and reads candidate B clear
+at 220 — so 300 clears the login by at least 120 pt rather than by a margin
+nobody had measured. Two claims died with it. The stack was rejected here for
+"its bottom edge lands back on the login": on the real panel it centres to
+259…723 and clears the login by 79 pt, so the true reason is the other end — 723
+leaves the 641 ceiling the ruler proved — plus the interaction one, that a hero
+above a card is a large picture ignoring every click aimed at it. And a "72% of
+the height" that had reached CLAUDE.md turned out to be 1 − 250/900 off a test
+fixture, not a reading.
+
+The backdrop no longer erases the login. It clears the band below
+`clearBandFloor` and ramps back to opaque above it, and because that layer covers
+the system's clock, the surface draws its own — in the expanded state only, since
+that is the only state that covers anything. Not a second player competing with
+macOS: it exists exactly where, and only where, Crema hid the original.
 
 A third probe, `lockscreen-mouse-routing.swift`, was needed once the surface
 shipped, and its question is the mirror of the second one's: not "do clicks

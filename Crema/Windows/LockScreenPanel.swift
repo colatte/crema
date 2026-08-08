@@ -13,10 +13,11 @@ import SwiftUI
 /// cost every existing implementer and buy nothing.
 ///
 /// Screen-sized from the start, in both states. The card only occupies its
-/// bottom strip, but expanding hands the cover the whole display, and a window
-/// that resized between the two would be an AppKit frame change racing a
-/// SwiftUI render — the exact family of flicker the fixed-window rule was
-/// written to end (`design-reference` §1.3).
+/// bottom strip and the expanded tile is 300 pt, but expanding puts a blurred
+/// backdrop behind them that spans the display — all of it except the band the
+/// login owns — and a window that resized between the two would be an AppKit
+/// frame change racing a SwiftUI render, the exact family of flicker the
+/// fixed-window rule was written to end (`design-reference` §1.3).
 ///
 /// Being screen-sized is also this window's one real hazard, and the reason for
 /// the mouse routing below. Transparency does NOT pass a click through — this
@@ -112,8 +113,13 @@ final class LockScreenPanel {
             panel.contentView = makeContent(report)
         } else {
             let hosting = NSHostingView(rootView: AnyView(
-                LockWidgetView(coordinator: coordinator, artwork: artwork, onInteractiveRect: report)
-                    .environment(\.lowPowerMode, lowPower)
+                LockWidgetView(
+                    coordinator: coordinator,
+                    artwork: artwork,
+                    clock: ContinuousSleepClock(),
+                    onInteractiveRect: report
+                )
+                .environment(\.lowPowerMode, lowPower)
             ))
             // The default (.standardBounds) installs constraints that let
             // SwiftUI resize the window; this one is sized by the screen.

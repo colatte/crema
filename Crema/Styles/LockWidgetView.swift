@@ -6,7 +6,10 @@ import SwiftUI
 /// Both states live inside the one rectangle the lock screen leaves free — the
 /// card rests on the floor of that band, the expanded tile is centred in it
 /// (`LockWidgetMetrics.clearBandFloor`, measured rather than chosen). The
-/// blurred backdrop is the layer that does take the whole display.
+/// blurred backdrop takes the whole display MINUS that same band: it fades out
+/// below `clearBandFloor` so the clock, the avatar and the password field stay
+/// readable (`LoginClearance`). Covering the system's clock is what obliges this
+/// surface to draw one of its own, and only in the state that covers it.
 ///
 /// It reads `coordinator.nowPlaying` rather than `coordinator.state`, and that
 /// is the whole reason it can exist. `state` is the ephemeral presentation
@@ -22,12 +25,25 @@ import SwiftUI
 /// can hide, which this one cannot. Four one-line calls into the Coordinator
 /// cost less than two dead requirements.
 @MainActor
-struct LockWidgetView: View {
+struct LockWidgetView<Clock: SleepClock>: View {
     let coordinator: Coordinator
     /// Which cover to draw. Nil where nobody wired one (previews); the surface
     /// then simply uses whatever the player handed over, which is the fallback
     /// the resolver would have returned anyway.
     var artwork: LockArtworkResolver?
+
+    /// What paces the clock's minute hand. No default, deliberately: a clock
+    /// parameter carrying a production default is a wall clock injected at every
+    /// test site without anyone writing `Date()`, which is the trap CLAUDE.md's
+    /// TDD section names. There is exactly one production caller.
+    ///
+    /// Generic rather than `any SleepClock` for two reasons, one of them a
+    /// compiler fact: the protocol does not self-conform, so an existential
+    /// could not be handed to `LockClockView`. And the production clock is an
+    /// empty struct, so a concrete type keeps both views diffable where an
+    /// existential stored property would make every 1 Hz media tick re-evaluate
+    /// the clock's body.
+    var clock: Clock
 
     /// The rect that may take a click, in the hosting window's coordinate space,
     /// reported whenever it moves — empty when there is nothing drawn.
@@ -108,8 +124,21 @@ struct LockWidgetView: View {
         Color.clear
             .overlay {
                 if expanded {
-                    ArtworkBackdrop(data: cover(track))
-                        .transition(.opacity)
+                    // The clock rides the same condition as the backdrop, and
+                    // that is the whole design rather than a convenience: the
+                    // only reason to draw a clock is that this layer covered the
+                    // system's. One fact, one `if` — a second gate could drift
+                    // into showing ours beside theirs.
+                    ZStack(alignment: .top) {
+                        ArtworkBackdrop(data: cover(track))
+                        LockClockView(clock: clock)
+                            .padding(.top, LockWidgetMetrics.clockTopInset)
+                    }
+                    // So `clockTopInset` means the physical top of the display,
+                    // not a value contingent on whether AppKit hands a
+                    // borderless screen-sized hosting view a safe area.
+                    .ignoresSafeArea()
+                    .transition(.opacity)
                 }
             }
     }
@@ -295,6 +324,49 @@ struct LockWidgetView: View {
     }
 }
 
+/// Where the backdrop stops, so the lock screen's own login keeps its strip.
+///
+/// The surface's whole cost is that a full-screen backdrop also covers the
+/// clock, the avatar and the password field. It clears the bottom band and ramps
+/// back to opaque above it — a hard edge there reads as a rendering bug, which
+/// is why the band exists at all.
+///
+/// Bands in POINTS, bottom-anchored, opaque taking the remainder: no display
+/// height enters this file, so the fraction this was nearly written as cannot be
+/// spelled here without plumbing a reviewer would see. macOS has no bottom safe
+/// area, so bottom-anchoring also costs nothing at the edge.
+///
+/// `.mask` reads ALPHA, not luminance — the black band shows, the clear one
+/// hides, and the ramp between them is one description of the fade and the only
+/// one. A `backdropAlpha(distanceFromBottom:)` helper beside it would be the
+/// same curve written twice.
+private struct LoginClearance: View {
+    var body: some View {
+        VStack(spacing: 0) {
+            Color.black
+            LinearGradient(
+                // Weighted rather than straight, for a reason that is
+                // arithmetic: the expanded tile's bottom edge lands at 341 pt on
+                // the panel this was designed against, which is INSIDE the ramp.
+                // A linear fall leaves the tile's bottom corners flanked by
+                // near-bare wallpaper (23%); this holds them at ~46%.
+                stops: [
+                    .init(color: .black, location: 0),
+                    .init(color: .black.opacity(0.80), location: 0.60),
+                    // `.black.opacity(0)` rather than `.clear`: the same alpha,
+                    // but interpolating toward a transparent BLACK keeps the
+                    // ramp's colour fixed, where `.clear` can drag the midpoint.
+                    .init(color: .black.opacity(0), location: 1),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: LockWidgetMetrics.backdropFadeBand)
+            Color.clear.frame(height: LockWidgetMetrics.clearBandFloor)
+        }
+    }
+}
+
 /// The blurred cover behind an expanded widget. A thin wrapper whose only job
 /// is to own the decode, so `DriftingArtworkBackground` stays a pure function
 /// of an image and can be exercised without ImageIO.
@@ -305,28 +377,40 @@ private struct ArtworkBackdrop: View {
 
     var body: some View {
         DriftingArtworkBackground(image: image, fallbackTone: tone)
-            .ignoresSafeArea()
-            // BOTH the decode and the accent are computed off the main actor,
-            // in one task. The accent used to be called inline in this body —
-            // `ArtworkAccent.extract(from:)` is a full ImageIO decode, and with
-            // the cover upgrade on those are 1200 px, ~391 KB bytes. A body
-            // re-runs whenever SwiftUI decides to, so that put a blocking decode
-            // on the main thread during the expand animation, and it was dead
-            // work on every pass after the first: the image below it had already
-            // landed, so the tone was only ever the fallback for the frames
-            // before it. Every other decode in the app already goes through
-            // `blockingCall` for exactly this reason (ArtworkView, ArtworkAccent,
-            // the line below it).
-            .task(id: data) { [data] in
-                let decoded = await blockingCall {
-                    (
-                        ArtworkDecoding.thumbnail(from: data, maxSide: ArtworkDecoding.lockScreenMaxSide),
-                        ArtworkAccent.extract(from: data)
-                    )
+            // Between the two on purpose, and neither side of it is arbitrary.
+            // INSIDE `DriftingArtworkBackground` the mask would make that view's
+            // own contract false — it promises to fill whatever it is given, and
+            // a login-clearance band is a lock-screen concept that has no
+            // business in a generic backdrop. OUTSIDE `ignoresSafeArea` it would
+            // lay out in the inset frame, and a mask gives alpha 0 to everything
+            // the receiver draws beyond its own frame — which would cut the
+            // backdrop's overhang and open a transparent strip across the top of
+            // a notched display, exposing the shield exactly where macOS draws
+            // its clock, beside the one this surface draws. Here, the expanded
+            // rect is proposed to the mask and the receiver alike.
+                .mask { LoginClearance() }
+                .ignoresSafeArea()
+                // BOTH the decode and the accent are computed off the main actor,
+                // in one task. The accent used to be called inline in this body —
+                // `ArtworkAccent.extract(from:)` is a full ImageIO decode, and with
+                // the cover upgrade on those are 1200 px, ~77 KB bytes. A body
+                // re-runs whenever SwiftUI decides to, so that put a blocking decode
+                // on the main thread during the expand animation, and it was dead
+                // work on every pass after the first: the image below it had already
+                // landed, so the tone was only ever the fallback for the frames
+                // before it. Every other decode in the app already goes through
+                // `blockingCall` for exactly this reason (ArtworkView, ArtworkAccent,
+                // the line below it).
+                .task(id: data) { [data] in
+                    let decoded = await blockingCall {
+                        (
+                            ArtworkDecoding.thumbnail(from: data, maxSide: ArtworkDecoding.lockScreenMaxSide),
+                            ArtworkAccent.extract(from: data)
+                        )
+                    }
+                    guard !Task.isCancelled else { return }
+                    image = decoded.0
+                    tone = decoded.1
                 }
-                guard !Task.isCancelled else { return }
-                image = decoded.0
-                tone = decoded.1
-            }
     }
 }

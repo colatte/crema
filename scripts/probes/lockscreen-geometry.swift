@@ -75,6 +75,34 @@
 // not. That 93 pt window cannot be read off a 5% grid (49 pt on this panel),
 // which is why the teal scale exists.
 //
+// SECOND RUN, 2026-08-08 (macOS 26, Apple Silicon, run by the author), which
+// answers what the first left open:
+//   · Display: 1512×982 pt. Recorded this time, so every reading below has a
+//     denominator.
+//   · Q1 — the login block's TOP edge (the avatar's top; the name and the
+//     password field are below it) reads at the teal scale's FLOOR, 180 pt.
+//     Read as "at or below 180": the scale starts there, so a top edge at 160
+//     would produce the same answer. The bound that matters is the upper one
+//     and it holds either way.
+//   · Q3 — candidates B (220) and C (340) are both completely clear; A (96) is
+//     not, which reproduces the first run on the one candidate it reported.
+//   · Q5 — the red 300 pt square touches nothing, reproducing the first run.
+//   · Q2 — the clock's range was not read. Still open, and it stays open
+//     rather than being inferred: nothing depends on it today.
+//
+// WHAT THAT SETTLES. The clear band's floor is proven down to 220 (candidate B),
+// and the login's top is at most 180 — so `clearBandFloor = 300` is not 41 pt
+// short of anything; it clears the login by at least 120 pt. The 41 pt worry
+// above was an artefact of the centred square being the only proven-clear
+// rectangle in the first run, and B retires it.
+//
+// It also kills a number that had been circulating: a private test fixture put
+// the login's top at "about 250 pt" on an attributed 1440×900 panel, and 1 − 250
+// /900 = 72.2% is where CLAUDE.md's "72% of the height" came from. Both operands
+// are wrong — the panel is 1512×982 and the edge is at most 180 — which is why
+// the backdrop's fade is anchored to `clearBandFloor` in POINTS and no fraction
+// of the display height appears anywhere in the surface.
+//
 // So the durable rule turned out to be neither "y=N" nor "go to a corner" (the
 // author rejected corners: a now-playing card in the corner loses the point).
 // It is: the app requires macOS 14+, and Sonoma IS the release that moved the
