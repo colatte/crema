@@ -58,6 +58,23 @@
 //   · The red 300 pt square at screen centre touches nothing. The middle of the
 //     display is empty; the BOTTOM is what the login owns.
 //
+// WHAT THAT RUN DID NOT ANSWER, discovered 2026-08-08 while anchoring the
+// backdrop's fade — and recorded here because silence in a RESULT block reads as
+// an answer:
+//   · Questions 1 and 2 have NO line above. Where the login's top edge sits was
+//     asked and never written down, so every later claim about it (including a
+//     "72%" that reached CLAUDE.md) was reconstructed rather than read.
+//   · The display size is absent, so the readings that DO exist have no
+//     denominator. This probe prints it and draws it; the block never kept it.
+//   · Of question 3 only candidate A was reported. B, C and the corners were
+//     dropped on taste, not on a reading.
+// Consequence measured on the author's Mac (1512×982): a centred 300 pt square
+// spans 341…641, so `LockWidgetMetrics.clearBandFloor = 300` sits 41 pt BELOW
+// the only band this probe proved clear, and the login's top is bounded only to
+// [248, 341] — candidate A spans 96…248 and collided, the square from 341 did
+// not. That 93 pt window cannot be read off a 5% grid (49 pt on this panel),
+// which is why the teal scale exists.
+//
 // So the durable rule turned out to be neither "y=N" nor "go to a corner" (the
 // author rejected corners: a now-playing card in the corner loses the point).
 // It is: the app requires macOS 14+, and Sonoma IS the release that moved the
@@ -96,6 +113,12 @@ final class RulerView: NSView {
         ("A", 96), ("B", 220), ("C", 340),
     ]
 
+    /// Where the fine scale is drawn, in points off the bottom. It brackets the
+    /// only interval the first run left open for the login's top edge, with room
+    /// on both sides so a reading that falls outside is still readable rather
+    /// than merely off the end of the scale.
+    static let fineBand: ClosedRange<CGFloat> = 180...420
+
     override var isFlipped: Bool { false }
 
     override func draw(_ dirty: NSRect) {
@@ -103,6 +126,27 @@ final class RulerView: NSView {
 
         NSColor.black.withAlphaComponent(0.28).setFill()
         bounds.fill()
+
+        // A FINE scale across the band where the answer lives, because the 5%
+        // grid below could not resolve the question this probe was built to ask.
+        // 5% of a 982 pt panel is 49 pt, and the open question — where the
+        // login's top edge is — is bounded to roughly [248, 341]: a 93 pt window
+        // read off 49 pt gradations is a guess wearing a number. Ticks every
+        // 10 pt, labelled every 20, drawn UNDER the candidates so a card outline
+        // never hides the edge being read.
+        for tick in stride(from: Self.fineBand.lowerBound, through: Self.fineBand.upperBound, by: 10) {
+            let labelled = Int(tick) % 20 == 0
+            NSColor.systemTeal.withAlphaComponent(labelled ? 0.85 : 0.35).setStroke()
+            let line = NSBezierPath()
+            line.lineWidth = labelled ? 1.2 : 0.6
+            line.move(to: CGPoint(x: 0, y: tick))
+            line.line(to: CGPoint(x: w, y: tick))
+            line.stroke()
+            if labelled {
+                draw("\(Int(tick))", at: CGPoint(x: w * 0.5 + 170, y: tick + 2), size: 11, color: .systemTeal)
+                draw("\(Int(tick))", at: CGPoint(x: w * 0.5 - 210, y: tick + 2), size: 11, color: .systemTeal)
+            }
+        }
 
         // Every 5% of the height, labelled on both sides.
         for step in 0...20 {
@@ -189,7 +233,7 @@ final class RulerView: NSView {
         draw("expanded cover, 300 pt, screen centre — WHERE IT IS TODAY",
              at: CGPoint(x: hero.minX - 40, y: hero.maxY + 10), size: 15, color: .systemRed)
 
-        draw("screen \(Int(w))×\(Int(h)) pt   ·   report: y range of avatar/password, y range of clock, which of A-C / E-G are clear, and whether the login UI leaves the orange column",
+        draw("screen \(Int(w))×\(Int(h)) pt   ·   READ THE TEAL SCALE: the y of the login block's TOP edge   ·   then the clock's range, which of A-C / E-G are clear, and whether the login leaves the orange column",
              at: CGPoint(x: 12, y: h - 28), size: 13, color: .white)
     }
 
@@ -266,11 +310,17 @@ if let cidFn = sym("SLSMainConnectionID", MainConnectionID.self),
 
 print("""
 Lock the screen (Control-Command-Q) and read the ruler. Report:
-  1. the y range the avatar + name + password field occupy
+  1. the y of the login block's TOP edge — the highest pixel of the avatar, or
+     of whatever sits above it. Read it off the TEAL scale (ticks every 10 pt,
+     labelled every 20), not the yellow one; this is the number the first run
+     never recorded and the one the fade is anchored to.
   2. the y range of the clock at the top
   3. which of A / B / C (centred) and E / F / G (corners) are completely clear
   4. whether the login UI stays inside the dashed orange centre column
   5. whether the red 300 pt square overlaps anything
+Screen: \(Int(frame.width))×\(Int(frame.height)) pt — report this too. The first
+run did not, so its readings have no denominator and every fraction derived from
+them since has been a reconstruction.
 Ctrl-C to end.
 """)
 app.run()
