@@ -97,7 +97,12 @@ struct LockWidgetView: View {
         // desktop skins keep: appearing and vanishing are opacity, at the
         // final rect.
         .opacity(track == nil ? 0 : 1)
-        .animation(SurfaceAnimation.morph(reduceMotion: reduceMotion), value: track == nil)
+        // NOT gated on Reduce Motion, and that is the contract rather than an
+        // oversight — a cross-fade is what the preference asks for in place of
+        // motion, so suppressing it makes the card pop in and out in one frame.
+        // This used to call `morph(reduceMotion:)` and inherited a gate that
+        // belongs to geometry; the desktop skins never had it.
+        .animation(SurfaceAnimation.appearFade(vanishing: track == nil), value: track == nil)
         // The media stopping is the one edge the surface cannot observe from
         // inside itself: the card leaves the hierarchy and takes its reporter
         // with it, so the LAST rect it published would stay armed over bare
@@ -311,8 +316,14 @@ struct LockWidgetView: View {
         .frame(height: expanded ? LockWidgetMetrics.textBlockHeight : LockWidgetMetrics.headHeight)
     }
 
+    /// `expanded` still holds the CURRENT state here, so the destination is its
+    /// negation — and the destination is what picks the spring, the same rule the
+    /// desktop skins get from provenance. Both directions shared the open spring
+    /// until this round, which meant collapsing overshot: the card sprang past
+    /// its resting size and grew back into it, a bounce on a surface whose whole
+    /// gesture is putting itself away.
     private func toggle() {
-        withAnimation(SurfaceAnimation.morph(reduceMotion: reduceMotion)) {
+        withAnimation(SurfaceAnimation.morph(expanding: !expanded, reduceMotion: reduceMotion)) {
             expanded.toggle()
         }
     }

@@ -81,8 +81,50 @@ enum SurfaceAnimation {
     /// resize, the card's width hug) — no provenance branch, but the same Reduce
     /// Motion gate as the geometry/content springs: nil under the preference so
     /// the resize lands dry while its opacity/content still fades.
+    ///
+    /// Directionless ON PURPOSE, and only for morphs that genuinely have no
+    /// direction. A surface that grows one way and shrinks back the other wants
+    /// the overload below — this one hands it the open spring both ways, whose
+    /// damping is deliberately under critical.
     static func morph(reduceMotion: Bool) -> Animation? {
         reduceMotion ? nil : open
+    }
+
+    /// The same visible↔visible morph, with the direction the caller already
+    /// knows: the DESTINATION picks the spring, which is the rule the whole
+    /// surface family follows (`geometryAnimation` does it from provenance,
+    /// through `SurfaceStyleCore`).
+    ///
+    /// It exists because the lock surface cannot reach that path — it refuses
+    /// `SurfaceStyleBody` deliberately, so it has no provenance to branch on —
+    /// and animating both directions with `open` is not a cosmetic slip. Closing
+    /// under a spring damped at 0.8 overshoots, so a card putting itself away
+    /// springs SMALLER than its final size and grows back into it. The rule the
+    /// contract states is one sentence, and it is the same one here: never
+    /// overshoot on close.
+    static func morph(expanding: Bool, reduceMotion: Bool) -> Animation? {
+        guard !reduceMotion else { return nil }
+        return expanding ? open : close
+    }
+
+    /// The appearance/disappearance fade — the one animation in this type that
+    /// Reduce Motion does NOT suppress, which is why it takes no `reduceMotion`
+    /// parameter and returns a non-optional: the absence of the gate is the
+    /// contract, expressed where it cannot be forgotten rather than in a comment
+    /// beside each caller.
+    ///
+    /// A cross-fade IS what the preference asks for in place of motion, so gating
+    /// it inverts the rule: the surface stops fading and starts popping in and
+    /// out in a single frame, which is the thing the preference exists to avoid.
+    /// The desktop skins have always done this correctly and say so inline; the
+    /// lock surface reached for `morph(reduceMotion:)` instead and inherited a
+    /// gate that belongs to geometry.
+    ///
+    /// Directional like the morphs, and it only ever fires on empty↔visible —
+    /// opacity is 1 across every visible transition — so its spring never touches
+    /// a visible→visible morph.
+    static func appearFade(vanishing: Bool) -> Animation {
+        vanishing ? close : open
     }
 
     /// HUD level-indicator spring (HUDLevelSlider): a fast glide with a barely
