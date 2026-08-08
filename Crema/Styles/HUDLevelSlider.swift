@@ -67,16 +67,11 @@ struct HUDLevelSlider: View {
     // hud-capsule-track). The 16 pt hit row is the measured height of the
     // stock Slider this body replaced — the drag target must not regress and
     // no surrounding layout may move.
-    static let trackHitHeight: CGFloat = 16
-    static let trackThickness: CGFloat = 4
-    // The recess is anchored — a black base under the white wash — so the
-    // fill/track separation holds over whatever the behind-window material lets
-    // through, instead of riding the wallpaper's luminance.
-    private static let trackBase = Color.black.opacity(0.25)
-    private static let trackWash = Color.white.opacity(0.15)
-    private static let fillColor = Color.white
-    private static let knobSize = CGSize(width: 17.5, height: 14)
-    private static let knobColor = Color(white: 0.91)
+    // The capsule's numbers and its drawing live in `CapsuleTrack`, shared with
+    // the now-playing scrubber so the two bars in one card cannot drift again.
+    // Forwarded rather than re-declared: a second copy is how they drifted.
+    static var trackHitHeight: CGFloat { CapsuleTrack.trackHitHeight }
+    static var trackThickness: CGFloat { CapsuleTrack.trackThickness }
 
     // The Classic bezel's segments (design-reference §4.4): 16 with 2 pt gaps;
     // filled ~70% white, empty ~20%. 7.5×7.5 squares — §4.4 records the
@@ -163,20 +158,15 @@ struct HUDLevelSlider: View {
     /// cropping it). The width floor (capsuleFillWidth) keeps a low value a
     /// round nub, never a squashed vertical oval.
     private func capsule(width: CGFloat, height: CGFloat) -> some View {
-        ZStack(alignment: .leading) {
-            Capsule().fill(Self.trackBase)
-            Capsule().fill(Self.trackWash)
-            Capsule()
-                .fill(Self.fillColor)
-                .frame(width: Self.capsuleFillWidth(for: value, trackWidth: width))
-        }
-        .frame(width: width)
-        .clipShape(Capsule())
-        .frame(height: Self.trackThickness)
-        .frame(maxHeight: .infinity)
-        .overlay {
-            knob(trackWidth: width, rowHeight: height)
-        }
+        CapsuleTrack(
+            value: value,
+            showsKnob: Self.showsKnob(
+                appearance: appearance, isHovered: isHovered, isEditing: isEditing
+            ),
+            reduceMotion: reduceMotion,
+            layoutDirection: layoutDirection
+        )
+        .frame(width: width, height: height)
     }
 
     /// The measured Control Center affordance: no knob at rest, an oval fading
@@ -186,20 +176,6 @@ struct HUDLevelSlider: View {
     /// introduced with the knob so its premise is real: a hovered HUD is not
     /// transient, which is exactly when a drag affordance earns its place
     /// (docs/DECISIONS.md: hud-capsule-track).
-    @ViewBuilder private func knob(trackWidth: CGFloat, rowHeight: CGFloat) -> some View {
-        let visible = Self.showsKnob(appearance: appearance, isHovered: isHovered, isEditing: isEditing)
-        Capsule()
-            .fill(Self.knobColor)
-            .shadow(color: .black.opacity(0.25), radius: 1, y: 0.5)
-            .frame(width: Self.knobSize.width, height: Self.knobSize.height)
-            .position(
-                x: Self.knobCenterX(for: value, trackWidth: trackWidth, layoutDirection: layoutDirection),
-                y: rowHeight / 2
-            )
-            .opacity(visible ? 1 : 0)
-            .animation(Self.knobReveal(reduceMotion: reduceMotion), value: visible)
-            .allowsHitTesting(false)
-    }
 
     private var segments: some View {
         HStack(spacing: Self.segmentSpacing) {
@@ -229,7 +205,7 @@ struct HUDLevelSlider: View {
             Rectangle().fill(CardMetrics.hudFilledEmpty)
             Rectangle()
                 .fill(CardMetrics.hudFilledFill)
-                .frame(width: Self.fillWidth(for: value, trackWidth: width))
+                .frame(width: CapsuleTrack.fillWidth(for: value, trackWidth: width))
         }
     }
 
@@ -261,45 +237,8 @@ struct HUDLevelSlider: View {
         return layoutDirection == .rightToLeft ? 1 - fraction : fraction
     }
 
-    nonisolated static func fillWidth(for value: Double, trackWidth: CGFloat) -> CGFloat {
-        max(0, min(value, 1)) * trackWidth
-    }
-
-    /// The curved fill's width: the proportional width floored at the track
-    /// thickness, so the smallest visible fill is a circle-capped nub — a fill
-    /// narrower than it is tall would draw as a squashed vertical oval. Exactly
-    /// zero stays empty: 0% shows the bare track, never a phantom dot. (The
-    /// spring can still interpolate through sub-floor widths on a glide out of
-    /// zero — one brief frame, accepted.)
-    nonisolated static func capsuleFillWidth(for value: Double, trackWidth: CGFloat) -> CGFloat {
-        let fill = fillWidth(for: value, trackWidth: trackWidth)
-        guard fill > 0 else { return 0 }
-        return max(fill, trackThickness)
-    }
-
     nonisolated static func animatesLevel(isEditing: Bool, reduceMotion: Bool) -> Bool {
         !isEditing && !reduceMotion
-    }
-
-    /// The knob travels the inset track [halfKnob, width − halfKnob] linearly
-    /// with the value — the native thumb mapping on the OUTPUT side only: the
-    /// pointer→value mapping (`fraction`) deliberately stays over the full
-    /// width, so tap-to-set still reaches 0/1 at the row's very ends and the
-    /// FILL boundary (not the knob center) is what follows the finger; do not
-    /// inset `fraction` to match. The knob never exits the row AND never
-    /// stops responding: the previous boundary-clamp mapping froze it for the
-    /// last ~halfKnob of travel at each extreme while the value (and the
-    /// fill) kept following the pointer — the visual jam reported from
-    /// hardware at 0/100%. The fill boundary never escapes the knob's body:
-    /// |boundary − center| = halfKnob·|2·value − 1| — zero at mid-scale, the
-    /// halfKnob bound touched exactly at 0/1 — independent of trackWidth.
-    /// `.position` is physical coordinates, so it mirrors by hand like the
-    /// fraction above.
-    nonisolated static func knobCenterX(for value: Double, trackWidth: CGFloat, layoutDirection: LayoutDirection) -> CGFloat {
-        let halfKnob = knobSize.width / 2
-        let travel = max(trackWidth - knobSize.width, 0)
-        let x = halfKnob + CGFloat(min(max(value, 0), 1)) * travel
-        return layoutDirection == .rightToLeft ? trackWidth - x : x
     }
 
     /// Capsule-only, shown under the pointer or during a drag — the affordance

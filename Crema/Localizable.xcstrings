@@ -2414,6 +2414,23 @@
           }
         }
       }
+    },
+    "scrubber.position": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playback position"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posição da reprodução"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

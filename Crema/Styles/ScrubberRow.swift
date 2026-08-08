@@ -26,9 +26,11 @@ struct ScrubberRow: View {
     var showsDuration = false
     let onScrub: (Double) -> Void
 
-    @Environment(\.artworkAccent) private var accent
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.layoutDirection) private var layoutDirection
     @State private var draft: Double?
     @State private var isEditing = false
+    @State private var isHovered = false
 
     /// Both labels follow the TRACK's length, so they never disagree about
     /// their own shape. Live content reports no duration at all, and there the
@@ -40,29 +42,7 @@ struct ScrubberRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Text(timeLabel(draft ?? position, reachesAnHour: reachesAnHour))
-            Slider(
-                value: Binding(
-                    get: { draft ?? position },
-                    set: { value in
-                        if isEditing { draft = value } else { onScrub(value) }
-                    }
-                ),
-                in: 0...(duration ?? max(position, 1)),
-                onEditingChanged: { editing in
-                    isEditing = editing
-                    guard !editing else { return }
-                    if let draft { onScrub(draft) }
-                    draft = nil
-                }
-            )
-            .controlSize(.mini)
-            // The elapsed fill takes the cover's tone; nil keeps the system
-            // default. Labels stay neutral — the tint is a suggestion.
-            .tint(accent?.color)
-            // A live gesture is never yanked away: a command failure flipping
-            // `enabled` (or a payload dropping the duration) mid-drag must
-            // degrade AFTER the release, not kill the tracking under the finger.
-            .disabled((duration == nil || !enabled) && !isEditing)
+            track
             if showsDuration, let duration {
                 Text(timeLabel(duration, reachesAnHour: reachesAnHour))
             }
@@ -70,6 +50,90 @@ struct ScrubberRow: View {
         .font(.caption2)
         .foregroundStyle(.secondary)
         .monospacedDigit()
+    }
+
+    /// The same bar the HUD draws, and that is the point of it being shared.
+    ///
+    /// It used to be a stock `Slider` tinted with the artwork accent: a thumb
+    /// always visible, a coloured fill. Two rows above it in the lock card sits
+    /// the HUD's own bar, which had already been measured off the Tahoe banner
+    /// and Control Center and decided — thumbless at rest, knob only under the
+    /// pointer, fill WHITE (`docs/DECISIONS.md: hud-capsule-track`). The
+    /// scrubber never adopted it, so one card carried two bars obeying opposite
+    /// rules, and the one with a written decision behind it was the other one.
+    ///
+    /// The accent is gone with the thumb. The tone still reaches the surface
+    /// through `artworkAccent`; the bar itself is a control, and the decision
+    /// this now follows says a control reads white.
+    ///
+    /// Hover is LOCAL rather than the HUD's per-surface pointer signal: the HUD
+    /// reveals its knob when the pointer is anywhere on a surface that hovering
+    /// holds open, while a scrubber sitting inside a bigger card should answer
+    /// to the pointer being on the BAR — which is also what Control Center does.
+    @ViewBuilder private var track: some View {
+        let span = duration ?? max(position, 1)
+        let shown = draft ?? position
+        GeometryReader { geometry in
+            CapsuleTrack(
+                value: span > 0 ? min(max(shown / span, 0), 1) : 0,
+                showsKnob: (isHovered || isEditing) && interactive,
+                reduceMotion: reduceMotion,
+                layoutDirection: layoutDirection
+            )
+            // The whole row is the target, as the stock slider's track was: a
+            // drag anywhere scrubs, and a tap (minimumDistance 0) seeks at the
+            // touch point.
+            .contentShape(Rectangle())
+                .gesture(scrub(width: geometry.size.width, span: span))
+        }
+        .frame(height: CapsuleTrack.trackHitHeight)
+        .onHover { isHovered = $0 }
+        // A live gesture is never yanked away: a command failure flipping
+        // `enabled` (or a payload dropping the duration) mid-drag must degrade
+        // AFTER the release, not kill the tracking under the finger.
+        .allowsHitTesting(interactive || isEditing)
+        .accessibilityRepresentation {
+            Slider(
+                value: Binding(get: { shown }, set: { onScrub($0) }),
+                in: 0...span
+            )
+        }
+        .accessibilityLabel(Text(String(
+            localized: "scrubber.position", defaultValue: "Playback position"
+        )))
+    }
+
+    private var interactive: Bool { duration != nil && enabled }
+
+    /// One seek on release, never a storm of per-pixel subprocess commands —
+    /// the reason the draft exists. A tap has no drag phase, so `onEnded` alone
+    /// carries it, and `isEditing` is what tells the 1 Hz position tick to stop
+    /// pulling the fill against the finger.
+    private func scrub(width: CGFloat, span: Double) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { gesture in
+                isEditing = true
+                draft = Self.position(atX: gesture.location.x, width: width, span: span,
+                                      layoutDirection: layoutDirection)
+            }
+            .onEnded { gesture in
+                let target = Self.position(atX: gesture.location.x, width: width, span: span,
+                                           layoutDirection: layoutDirection)
+                isEditing = false
+                draft = nil
+                onScrub(target)
+            }
+    }
+
+    /// Pointer → seconds, over the FULL width: the ends of the row must reach 0
+    /// and the duration, which is why this is not inset by the knob's half-width
+    /// the way the knob's own travel is (`CapsuleTrack.knobCenterX`).
+    static func position(
+        atX x: CGFloat, width: CGFloat, span: Double, layoutDirection: LayoutDirection
+    ) -> Double {
+        guard width > 0, span > 0 else { return 0 }
+        let physical = layoutDirection == .rightToLeft ? width - x : x
+        return min(max(Double(physical / width), 0), 1) * span
     }
 
     /// Locale-aware via FormatStyle — never hand-assembled digits.

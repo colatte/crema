@@ -25,9 +25,9 @@ struct HUDLevelSliderTests {
     }
 
     @Test func fillWidthClampsTheValue() {
-        #expect(HUDLevelSlider.fillWidth(for: -0.5, trackWidth: 100) == 0)
-        #expect(HUDLevelSlider.fillWidth(for: 1.5, trackWidth: 100) == 100)
-        #expect(HUDLevelSlider.fillWidth(for: 0.5, trackWidth: 100) == 50)
+        #expect(CapsuleTrack.fillWidth(for: -0.5, trackWidth: 100) == 0)
+        #expect(CapsuleTrack.fillWidth(for: 1.5, trackWidth: 100) == 100)
+        #expect(CapsuleTrack.fillWidth(for: 0.5, trackWidth: 100) == 50)
     }
 
     @Test func curvedFillFloorsAtTheTrackThicknessButKeepsZeroEmpty() {
@@ -35,12 +35,12 @@ struct HUDLevelSliderTests {
         // docs/DECISIONS.md: hud-capsule-track): a sub-thickness width would
         // draw a squashed vertical oval, so the floor is the 4 pt thickness (a
         // circle-capped nub); exactly 0% stays empty — no phantom dot.
-        #expect(HUDLevelSlider.capsuleFillWidth(for: 0, trackWidth: 100) == 0)
-        #expect(HUDLevelSlider.capsuleFillWidth(for: 0.01, trackWidth: 100) == HUDLevelSlider.trackThickness)
-        #expect(HUDLevelSlider.capsuleFillWidth(for: 0.5, trackWidth: 100) == 50)
-        #expect(HUDLevelSlider.capsuleFillWidth(for: 1, trackWidth: 100) == 100)
+        #expect(CapsuleTrack.capsuleFillWidth(for: 0, trackWidth: 100) == 0)
+        #expect(CapsuleTrack.capsuleFillWidth(for: 0.01, trackWidth: 100) == HUDLevelSlider.trackThickness)
+        #expect(CapsuleTrack.capsuleFillWidth(for: 0.5, trackWidth: 100) == 50)
+        #expect(CapsuleTrack.capsuleFillWidth(for: 1, trackWidth: 100) == 100)
         // Above the floor the curved width IS the proportional width.
-        #expect(HUDLevelSlider.capsuleFillWidth(for: 0.1, trackWidth: 100) == HUDLevelSlider.fillWidth(for: 0.1, trackWidth: 100))
+        #expect(CapsuleTrack.capsuleFillWidth(for: 0.1, trackWidth: 100) == CapsuleTrack.fillWidth(for: 0.1, trackWidth: 100))
     }
 
     @Test func springSuspendsWhileEditingAndUnderReduceMotion() {
@@ -53,17 +53,17 @@ struct HUDLevelSliderTests {
         // The native thumb mapping: halfKnob + value × (width − knob). At ½ it
         // sits exactly on the fill boundary; off-center it deviates by at most
         // halfKnob, always over its own body (pinned below), mirrored under RTL.
-        #expect(HUDLevelSlider.knobCenterX(for: 0.5, trackWidth: 100, layoutDirection: .leftToRight) == 50)
-        #expect(HUDLevelSlider.knobCenterX(for: 0.25, trackWidth: 100, layoutDirection: .leftToRight) == 29.375)
-        #expect(HUDLevelSlider.knobCenterX(for: 0.25, trackWidth: 100, layoutDirection: .rightToLeft) == 70.625)
+        #expect(CapsuleTrack.knobCenterX(for: 0.5, trackWidth: 100, layoutDirection: .leftToRight) == 50)
+        #expect(CapsuleTrack.knobCenterX(for: 0.25, trackWidth: 100, layoutDirection: .leftToRight) == 29.375)
+        #expect(CapsuleTrack.knobCenterX(for: 0.25, trackWidth: 100, layoutDirection: .rightToLeft) == 70.625)
     }
 
     @Test func knobStaysInsideTheRowAtTheExtremes() {
         // Half the 17.5 pt knob: it must never exit the row (a slider knob,
         // not a floating pill), mirrored under RTL.
-        #expect(HUDLevelSlider.knobCenterX(for: 0, trackWidth: 100, layoutDirection: .leftToRight) == 8.75)
-        #expect(HUDLevelSlider.knobCenterX(for: 1, trackWidth: 100, layoutDirection: .leftToRight) == 91.25)
-        #expect(HUDLevelSlider.knobCenterX(for: 0, trackWidth: 100, layoutDirection: .rightToLeft) == 91.25)
+        #expect(CapsuleTrack.knobCenterX(for: 0, trackWidth: 100, layoutDirection: .leftToRight) == 8.75)
+        #expect(CapsuleTrack.knobCenterX(for: 1, trackWidth: 100, layoutDirection: .leftToRight) == 91.25)
+        #expect(CapsuleTrack.knobCenterX(for: 0, trackWidth: 100, layoutDirection: .rightToLeft) == 91.25)
     }
 
     @Test func knobNeverFreezesNearTheExtremes() {
@@ -74,7 +74,7 @@ struct HUDLevelSliderTests {
         // strictly monotonic across the entire scale.
         let values: [Double] = [0, 0.02, 0.05, 0.08, 0.5, 0.92, 0.95, 0.98, 1]
         let centers = values.map {
-            HUDLevelSlider.knobCenterX(for: $0, trackWidth: 100, layoutDirection: .leftToRight)
+            CapsuleTrack.knobCenterX(for: $0, trackWidth: 100, layoutDirection: .leftToRight)
         }
         #expect(centers == centers.sorted())
         #expect(Set(centers).count == centers.count, "equal centers = a dead zone the drag can feel")
@@ -86,13 +86,13 @@ struct HUDLevelSliderTests {
         // floored capsuleFillWidth, the edge the eye actually sees — never
         // escapes the knob's own 17.5 pt body (|boundary − center| ≤ halfKnob).
         for value in stride(from: 0.0, through: 1.0, by: 0.05) {
-            let center = HUDLevelSlider.knobCenterX(for: value, trackWidth: 100, layoutDirection: .leftToRight)
-            let boundary = HUDLevelSlider.capsuleFillWidth(for: value, trackWidth: 100)
+            let center = CapsuleTrack.knobCenterX(for: value, trackWidth: 100, layoutDirection: .leftToRight)
+            let boundary = CapsuleTrack.capsuleFillWidth(for: value, trackWidth: 100)
             #expect(abs(boundary - center) <= 8.75 + 0.0001, "value \(value)")
         }
         // A sub-floor value (the nub drawn at the 4 pt floor) stays covered too.
-        let subFloorCenter = HUDLevelSlider.knobCenterX(for: 0.01, trackWidth: 100, layoutDirection: .leftToRight)
-        #expect(abs(HUDLevelSlider.capsuleFillWidth(for: 0.01, trackWidth: 100) - subFloorCenter) <= 8.75)
+        let subFloorCenter = CapsuleTrack.knobCenterX(for: 0.01, trackWidth: 100, layoutDirection: .leftToRight)
+        #expect(abs(CapsuleTrack.capsuleFillWidth(for: 0.01, trackWidth: 100) - subFloorCenter) <= 8.75)
     }
 
     @Test func knobFollowsThePointerOrAnActiveDragAndOnlyOnTheCapsule() {
@@ -107,8 +107,8 @@ struct HUDLevelSliderTests {
     }
 
     @Test func knobRevealFadesOnlyWithoutReduceMotion() {
-        #expect(HUDLevelSlider.knobReveal(reduceMotion: true) == nil)
-        #expect(HUDLevelSlider.knobReveal(reduceMotion: false) != nil)
+        #expect(CapsuleTrack.knobReveal(reduceMotion: true) == nil)
+        #expect(CapsuleTrack.knobReveal(reduceMotion: false) != nil)
     }
 
     @Test func cardPickerChoiceMapsToTheRightBody() {

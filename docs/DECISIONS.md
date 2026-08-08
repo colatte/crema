@@ -362,8 +362,9 @@ affordance-on-demand. The knob signal is per display
 and an active drag keeps it. Scope: the knob belongs to the capsule
 (Notch/Card); Classic renders the pre-Tahoe bezel's
 16-segment bar filled by width (design-reference §4.4 — its documented
-identity) and stays bare; the now-playing scrubber deliberately keeps the stock
-Slider (precision gesture, wants a permanent grab handle).
+identity) and stays bare; the now-playing scrubber kept the stock Slider
+(precision gesture, wants a permanent grab handle) — **retired 2026-08-07, see
+the third amendment below**.
 Two amendments from the hardware follow-up (2026-07-28): (1) the fill's end is
 now CURVED — a capsule, not the native flat cut — a deliberate deviation by
 author taste (the iOS Music/players language); the fill width floors at the
@@ -375,6 +376,28 @@ pointer — the jam reported from hardware at 0/100%. It now travels the inset
 track [halfKnob, width − halfKnob] linearly with the value (the native thumb
 mapping); the fill boundary never escapes the knob's own body
 (|boundary − center| ≤ halfKnob), so the capsule still reads as one piece.
+
+Third amendment (2026-08-07): **the now-playing scrubber joins the capsule.**
+The earlier scope line kept it on the stock `Slider`, reasoning that a precision
+gesture wants a permanent grab handle. Two rows apart in the lock card, the two
+bars read as a mistake rather than as two decisions: the HUD thumbless and
+white, the scrubber carrying a always-visible thumb and a fill tinted with the
+artwork accent. The author spotted it from the lock screen and described the
+right behaviour unprompted — no tip at rest, one on hover, white — which is this
+entry's own rule.
+
+So the drawing moved to `CapsuleTrack`, shared by both, and the reasoning
+inverts rather than disappears: the grab handle is still wanted *during the
+gesture*, and hover plus drag is exactly when it is there. What the scrubber
+gives up is a handle at REST, which was never precision — it was clutter on a
+surface that spends its life not being dragged.
+
+One difference stays, and it is not drift. The HUD's knob follows the
+per-surface pointer signal (`SurfaceDisplayPolicy.pointerInside`), because
+hovering a HUD holds it open and the affordance belongs to the whole surface.
+The scrubber's is LOCAL to the row: it sits inside a bigger card that hover does
+not hold, so the honest question there is whether the pointer is on the BAR —
+which is also what Control Center does.
 
 ### hud-fixed-dark-palette
 Every skin surface commits to one fixed dark palette, in every state and under

@@ -11,7 +11,7 @@ import SwiftUI
 /// (the directional morph springs, appear/dismiss, the level glide calibrated
 /// against the HUD revert); a component's private affordance timing lives in
 /// the component (WaveformGlyph.freezeDuration, ArtworkAccent.toneFadeDuration,
-/// HUDLevelSlider.knobReveal).
+/// CapsuleTrack.knobReveal).
 enum SurfaceAnimation {
     /// Spring parameters. Open is livelier; close is critically damped — never
     /// overshoot on close, or the bounce against the static menu bar reads as
