@@ -2463,6 +2463,33 @@ plug-in, which is the wrong tool), or evidence that a raised space destabilises
 the WindowServer the way the panel layer's refusal anticipates. Neither is a
 reason to widen the API's use to the panels without measuring that separately.
 
+### the-cover-comes-from-the-archive-not-the-store
+The high-resolution cover lookup shipped against Apple's iTunes Search API,
+chosen because it needs no token, no account and no developer program — all
+true, and none of it the question that mattered. The Search API's terms grant
+the use of promotional content, *album art* named explicitly, only **(i)** on
+pages promoting that content, **(ii)** proximate to a "Download on iTunes"
+badge acting as a link to the purchase page, and **(v)** never "for independent
+entertainment value apart from its promotional purpose". A large cover filling
+a lock screen, with no badge and no link, is precisely that fifth thing.
+Decision (2026-08-08): the use is outside what the terms grant, and the fix is
+to change SOURCE rather than to add a purchase button to a lock screen or to
+drop the feature. The **Cover Art Archive** (MusicBrainz) exists for this use
+and imposes no badge; verified the day this was written — a release query
+followed by `front-500` both answered HTTP 200. The swap is contained because
+`ArtworkLookup` was already a protocol with the endpoint behind it, and every
+failure on that path is already silence.
+
+Two things worth keeping straight for whoever revisits this. The rate limit was
+never the issue — ~20 calls per minute, against one call per track identity.
+And this says nothing about the *technique*: rewriting the size in the returned
+artwork URL is still how that endpoint serves a larger image, and the
+measurements behind the 1200 px target (600 → 98 KB, 1200 → 391 KB, 3000 → 2.7 MB)
+stay useful for sizing whatever source replaces it.
+
+Reopening gate: an affiliate/partner arrangement that grants the use, or a
+surface where a purchase badge would genuinely belong. Neither is a lock screen.
+
 ### animated-artwork-is-withheld-not-missing
 Motion covers keep being proposed for the lock surface, and the reason they
 cannot ship was recorded once as a property of the bridge — "only static art via

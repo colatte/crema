@@ -21,6 +21,15 @@ protocol ArtworkLookup: Sendable {
 /// The iTunes Search API, which is public and takes no token, no account and no
 /// developer program — verified against the endpoint before this was written.
 ///
+/// **On the way out, and the reason is the terms rather than the technique.**
+/// The Search API grants the use of album art only on a page promoting that
+/// content, next to a "Download on iTunes" badge, and never "for independent
+/// entertainment value apart from its promotional purpose" — which is exactly
+/// what a cover filling a lock screen is. The replacement is the Cover Art
+/// Archive (MusicBrainz), which exists for this use and asks for no badge;
+/// `ArtworkLookup` is a protocol precisely so the swap costs one conformer
+/// (docs/DECISIONS.md: the-cover-comes-from-the-archive-not-the-store).
+///
 /// ## Why this endpoint and not the Apple Music API
 ///
 /// The catalog API needs a MusicKit developer token signed with a key from the
