@@ -147,3 +147,23 @@ private struct LoginClearanceProbe: View {
         }
     }
 }
+
+// A suite for `ArtworkAccent.extract(from: CGImage)` was written here and then
+// deleted, because two mutations proved it could not fail.
+//
+// The first asserted that the image path AGREES with the bytes path. It cannot
+// disagree: the bytes path now delegates to the image path after thumbnailing,
+// so they are one implementation and the assertion is a tautology by
+// construction — shifting the hue inside the overload left it green, because
+// both sides shifted together.
+//
+// The second asserted that the overload DOWNSAMPLES, comparing a 1024 px source
+// against a 128 px one. Mutating `sampleSide` to `image.width` also left it
+// green, and the rule explains why: the tone is a weighted mean over hue
+// buckets, so it is robust to sample density. Reading a million pixels is a
+// COST, not a wrong answer.
+//
+// What remains is a two-line delegation of a picker `ArtworkAccentTests` already
+// covers in eleven cases, including one over a real encoded image. There is no
+// failure mode left for a test here to catch, and a test that cannot die is the
+// tautology this house refuses (the lesson `FixedWindowFrameTests` carries).

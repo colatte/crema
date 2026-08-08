@@ -68,6 +68,23 @@ struct LockWidgetView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// ONE decode for the whole surface, at the largest bound any layer needs.
+    ///
+    /// It used to be five, and two of them started ON THE CLICK: the 300 pt tile
+    /// and the backdrop each owned an `ArtworkView`-style decode at 1024 px whose
+    /// cache key only came into existence when `expanded` flipped. So a cold
+    /// expand animated a grey rectangle with a 126 pt music note for the whole
+    /// spring, and no choreography above it could mean anything. Decoding here,
+    /// keyed on the bytes, moves the work to the moment the TRACK resolves —
+    /// where nobody is watching — and the destination pixels exist before the
+    /// gesture starts.
+    @State private var decoded = DecodedCover()
+
+    struct DecodedCover {
+        var image: CGImage?
+        var tone: ArtworkAccent.Tone?
+    }
+
     private var track: NowPlaying? { coordinator.nowPlaying }
 
     /// One place decides which bytes every layer draws, so the thumbnail, the
@@ -106,6 +123,20 @@ struct LockWidgetView: View {
         .task(id: track.map(LockArtworkResolver.identity)) {
             if let track { await artwork?.resolve(track) }
         }
+        // Keyed on the BYTES, not the track: the archive upgrade lands after the
+        // track resolves, and when it does every layer has to move to the larger
+        // cover together.
+        .task(id: track.flatMap { cover($0) }) { [bytes = track.flatMap { cover($0) }] in
+            // ImageIO is blocking and uncancellable, so it goes off the
+            // concurrency pools entirely — the same exit `ArtworkView` takes, and
+            // for the same reason.
+            let fresh = await blockingCall { () -> DecodedCover in
+                let image = ArtworkDecoding.thumbnail(from: bytes, maxSide: ArtworkDecoding.lockScreenMaxSide)
+                return DecodedCover(image: image, tone: image.flatMap(ArtworkAccent.extract))
+            }
+            guard !Task.isCancelled else { return }
+            decoded = fresh
+        }
     }
 
     // MARK: - Layers
@@ -133,7 +164,7 @@ struct LockWidgetView: View {
                     // system's. One fact, one `if` — a second gate could drift
                     // into showing ours beside theirs.
                     ZStack(alignment: .top) {
-                        ArtworkBackdrop(data: cover(track))
+                        ArtworkBackdrop(image: decoded.image, tone: decoded.tone)
                         LockClockView(clock: clock)
                             .padding(.top, LockWidgetMetrics.clockTopInset)
                     }
@@ -169,8 +200,11 @@ struct LockWidgetView: View {
     /// artwork — the JXA fallback carries none — the big state would be a glass
     /// square with the same words already on screen, and a control whose hint
     /// says "show the cover" would be promising something that does not exist.
-    private func canExpand(_ track: NowPlaying) -> Bool {
-        cover(track) != nil
+    private var canExpand: Bool {
+        // The DECODED image, not the bytes. Bytes in hand are not a picture on
+        // screen, and offering a growth into a placeholder is what the single
+        // decode exists to stop.
+        decoded.image != nil
     }
 
     private func card(_ track: NowPlaying) -> some View {
@@ -204,7 +238,10 @@ struct LockWidgetView: View {
             height: expanded ? LockWidgetMetrics.expandedSide : nil
         )
         .background { background(track) }
-        .artworkAccent(from: cover(track))
+        // Injected from the surface's own decode rather than derived again by
+        // `.artworkAccent(from:)`, which would open a second ImageIO path over
+        // the same bytes.
+        .environment(\.artworkAccent, decoded.tone)
         // One appearance for the whole surface, in every state — scoping it per
         // branch would flip the palette mid-transition.
         .environment(\.colorScheme, .dark)
@@ -214,8 +251,8 @@ struct LockWidgetView: View {
         // whole height of the display — a tap target, and a VoiceOver button,
         // sitting over the password field.
         .contentShape(Rectangle())
-        .onTapGesture { if canExpand(track) || expanded { toggle() } }
-        .accessibilityAddTraits(canExpand(track) || expanded ? .isButton : [])
+        .onTapGesture { if canExpand || expanded { toggle() } }
+        .accessibilityAddTraits(canExpand || expanded ? .isButton : [])
         .accessibilityHint(Text(expanded
                 ? String(localized: "lock.collapse", defaultValue: "Hide the large cover")
                 : String(localized: "lock.expand", defaultValue: "Show the cover large")))
@@ -230,15 +267,14 @@ struct LockWidgetView: View {
     /// glyph blown up to 300 pt.
     @ViewBuilder
     private func background(_ track: NowPlaying) -> some View {
-        if expanded, let data = cover(track) {
+        if expanded, let image = decoded.image {
             let shape = RoundedRectangle(
                 cornerRadius: LockWidgetMetrics.expandedRadius, style: .continuous
             )
-            ArtworkView(
-                data: data,
+            ArtworkFrame(
+                image: image,
                 side: LockWidgetMetrics.expandedSide,
-                cornerRadius: LockWidgetMetrics.expandedRadius,
-                maxSide: ArtworkDecoding.lockScreenMaxSide
+                cornerRadius: LockWidgetMetrics.expandedRadius
             )
             .overlay {
                 LinearGradient(
@@ -301,8 +337,8 @@ struct LockWidgetView: View {
     private func head(_ track: NowPlaying) -> some View {
         HStack(spacing: LockWidgetMetrics.gap) {
             if !expanded {
-                ArtworkView(
-                    data: cover(track),
+                ArtworkFrame(
+                    image: decoded.image,
                     side: LockWidgetMetrics.thumbnailSide,
                     cornerRadius: LockWidgetMetrics.thumbnailRadius
                 )
@@ -380,9 +416,12 @@ private struct LoginClearance: View {
 /// is to own the decode, so `DriftingArtworkBackground` stays a pure function
 /// of an image and can be exercised without ImageIO.
 private struct ArtworkBackdrop: View {
-    let data: [UInt8]?
-    @State private var image: CGImage?
-    @State private var tone: ArtworkAccent.Tone?
+    /// Handed in, never decoded here. This view used to own a 1024 px decode AND
+    /// an accent extraction of its own, both keyed so they could only start when
+    /// the surface expanded — so the blurred ground arrived after the animation
+    /// it was supposed to be the ground for.
+    let image: CGImage?
+    let tone: ArtworkAccent.Tone?
 
     var body: some View {
         DriftingArtworkBackground(image: image, fallbackTone: tone)
@@ -406,27 +445,5 @@ private struct ArtworkBackdrop: View {
             // to cut, because the backdrop already ends in `.clipped()`.
                 .mask { LoginClearance() }
                 .ignoresSafeArea()
-                // BOTH the decode and the accent are computed off the main actor,
-                // in one task. The accent used to be called inline in this body —
-                // `ArtworkAccent.extract(from:)` is a full ImageIO decode, and with
-                // the cover upgrade on those are 1200 px, ~77 KB bytes. A body
-                // re-runs whenever SwiftUI decides to, so that put a blocking decode
-                // on the main thread during the expand animation, and it was dead
-                // work on every pass after the first: the image below it had already
-                // landed, so the tone was only ever the fallback for the frames
-                // before it. Every other decode in the app already goes through
-                // `blockingCall` for exactly this reason (ArtworkView, ArtworkAccent,
-                // the line below it).
-                .task(id: data) { [data] in
-                    let decoded = await blockingCall {
-                        (
-                            ArtworkDecoding.thumbnail(from: data, maxSide: ArtworkDecoding.lockScreenMaxSide),
-                            ArtworkAccent.extract(from: data)
-                        )
-                    }
-                    guard !Task.isCancelled else { return }
-                    image = decoded.0
-                    tone = decoded.1
-                }
     }
 }

@@ -55,10 +55,19 @@ enum ArtworkAccent {
     /// thumbnail path the ArtworkView uses), downsample, pick. Nil anywhere
     /// (no bytes, undecodable, monochrome) means neutral.
     static func extract(from data: [UInt8]?) -> Tone? {
-        guard let image = ArtworkDecoding.thumbnail(from: data, maxSide: sampleSide),
-              let pixels = rgbaPixels(from: image, side: sampleSide) else {
+        guard let image = ArtworkDecoding.thumbnail(from: data, maxSide: sampleSide) else {
             return nil
         }
+        return extract(from: image)
+    }
+
+    /// The same pipeline from a cover somebody has ALREADY decoded. It exists so
+    /// a surface drawing one cover in several slots can pay for one decode
+    /// instead of a decode per slot — `rgbaPixels` redraws into a
+    /// `sampleSide` box either way, so a 1024 px source gives the same answer as
+    /// a freshly thumbnailed one.
+    static func extract(from image: CGImage) -> Tone? {
+        guard let pixels = rgbaPixels(from: image, side: sampleSide) else { return nil }
         return tone(fromRGBA: pixels)
     }
 

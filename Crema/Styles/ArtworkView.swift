@@ -16,14 +16,13 @@ private struct DecodeKey: Equatable {
     let maxSide: Int
 }
 
-struct ArtworkView: View {
-    let data: [UInt8]?
+/// What a cover slot LOOKS like, with no opinion about who decoded it. Shared
+/// so the view that owns a decode and the view that is handed one cannot drift
+/// apart on the placeholder, the clip or the fill rule.
+struct ArtworkFrame: View {
+    let image: CGImage?
     let side: CGFloat
     let cornerRadius: CGFloat
-    /// How far the decode is allowed to go. The desktop skins take the default;
-    /// the lock screen draws the cover at 300 pt and passes its own bound.
-    var maxSide: Int = ArtworkDecoding.displayMaxSide
-    @State private var image: CGImage?
 
     var body: some View {
         Group {
@@ -46,20 +45,34 @@ struct ArtworkView: View {
         }
         .frame(width: side, height: side)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        .task(id: DecodeKey(data: data, maxSide: maxSide)) { [data, maxSide] in
-            // ImageIO decoding is a blocking synchronous call, so it goes off the
-            // concurrency pools entirely rather than into a detached task — the
-            // pool has one thread per core and does not overcommit, and a big
-            // cover on a slow path would hold one (see `blockingCall`). It is not
-            // cancellable either way: ImageIO does not check for it, so the guard
-            // below is what keeps a stale cover off the successor's slot.
-            let decoded = await blockingCall {
-                ArtworkDecoding.thumbnail(from: data, maxSide: maxSide)
+    }
+}
+
+struct ArtworkView: View {
+    let data: [UInt8]?
+    let side: CGFloat
+    let cornerRadius: CGFloat
+    /// How far the decode is allowed to go. The desktop skins take the default;
+    /// the lock screen draws the cover at 300 pt and passes its own bound.
+    var maxSide: Int = ArtworkDecoding.displayMaxSide
+    @State private var image: CGImage?
+
+    var body: some View {
+        ArtworkFrame(image: image, side: side, cornerRadius: cornerRadius)
+            .task(id: DecodeKey(data: data, maxSide: maxSide)) { [data, maxSide] in
+                // ImageIO decoding is a blocking synchronous call, so it goes off the
+                // concurrency pools entirely rather than into a detached task — the
+                // pool has one thread per core and does not overcommit, and a big
+                // cover on a slow path would hold one (see `blockingCall`). It is not
+                // cancellable either way: ImageIO does not check for it, so the guard
+                // below is what keeps a stale cover off the successor's slot.
+                let decoded = await blockingCall {
+                    ArtworkDecoding.thumbnail(from: data, maxSide: maxSide)
+                }
+                // A cancelled task means the bytes changed mid-decode: the stale
+                // cover must not land over the successor's.
+                guard !Task.isCancelled else { return }
+                image = decoded
             }
-            // A cancelled task means the bytes changed mid-decode: the stale
-            // cover must not land over the successor's.
-            guard !Task.isCancelled else { return }
-            image = decoded
-        }
     }
 }
