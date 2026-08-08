@@ -483,10 +483,23 @@ sleep 5
 if kill -0 "$SMOKE_PID" 2>/dev/null; then
     kill "$SMOKE_PID" 2>/dev/null || true
     wait "$SMOKE_PID" 2>/dev/null || true
+    # Killing the app is not killing what the app started. Crema spawns the
+    # mediaremote-adapter as a long-lived perl child; it does NOT die with its
+    # parent, launchd adopts it, and `rm -rf` below then deletes the bundle out
+    # from under a process that keeps running until the machine reboots.
+    # MEASURED on the release machine 2026-08-08: a smoke run from three minutes
+    # earlier still had its adapter alive, streaming, against a bundle path that
+    # no longer existed.
+    #
+    # Matched on the SMOKE_DIR path, which is a mktemp name and therefore cannot
+    # collide with the adapter belonging to the author's real installed copy —
+    # killing that one would take down the app they are using to test.
+    pkill -f "${SMOKE_DIR}/${APP_NAME}/Contents/Resources/mediaremote-adapter" 2>/dev/null || true
     rm -rf "$SMOKE_DIR"
     info "Launch smoke passed: the installed app survived 5 s."
 else
     SMOKE_STATUS=0; wait "$SMOKE_PID" 2>/dev/null || SMOKE_STATUS=$?
+    pkill -f "${SMOKE_DIR}/${APP_NAME}/Contents/Resources/mediaremote-adapter" 2>/dev/null || true
     printf '%s\n' "----- launch.log (tail) -----" >&2
     tail -n 12 "$SMOKE_DIR/launch.log" >&2 || true
     fail "launch smoke FAILED: the app from $DMG_NAME died within 5 s (exit $SMOKE_STATUS).
