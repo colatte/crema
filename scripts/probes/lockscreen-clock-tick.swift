@@ -43,10 +43,29 @@
 //     repaint. That is a rendering problem on the raised space, and no timer
 //     change fixes it.
 //
-// RESULT: not yet run. This header gets the reading the way
-// lockscreen-geometry.swift now does — with the display size, the duration, and
-// each counter — and an unanswered question stays visibly unanswered rather than
-// silently absent.
+// RESULT, 2026-08-08 (macOS 26, Apple Silicon, 1512×982, run by the author),
+// and it is a FINDING rather than a clean bill:
+//
+//   ran 369s — each mechanism owed 6 fires
+//     A  Task.sleep   2
+//     B  Dispatch     2
+//     R  redraws     93
+//
+// A and B agree, so this is not Swift concurrency: the whole process is being
+// held. R stopping near 93 puts the freeze at roughly 90 seconds in, which is
+// about when a locked Mac's display sleeps. The clock as designed would show a
+// stale minute on the lock screen — the exact failure this surface called worse
+// than having no clock at all.
+//
+// WHAT THIS RUN CANNOT ANSWER, and it is the question that decides the fix:
+// whether the clock corrects itself PROMPTLY when the display wakes. If the
+// pending sleep fires on wake, nobody ever sees a wrong time, because nobody
+// reads a dark screen. Counters cannot tell "stopped and never resumed" from
+// "resumed once, just before Ctrl-C" — that needs the timestamp of every fire
+// and the display's own sleep/wake edges beside them. Sharpening this probe to
+// record both, and to carry two candidate fixes (a scoped
+// `ProcessInfo.beginActivity` and a refresh on `screensDidWake`), is the next
+// step; until it runs, the mechanism is UNPROVEN and this comment says so.
 //
 // Run:  swift scripts/probes/lockscreen-clock-tick.swift
 // Then: lock (Control-Command-Q), wait, read, unlock. Ctrl-C for the summary.
