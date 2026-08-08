@@ -211,6 +211,18 @@ a broken probe.
   so the log carries no evidence either way. Left open deliberately rather than
   guessed at, and covered by action instead of by a read — see below.
 
+A FOURTH probe, `lockscreen-geometry.swift`, answered where the surface may sit.
+The card had been placed 96 pt off the bottom from a mock, with a comment
+claiming that cleared the avatar and the password field; on hardware the
+opposite was true, because Sonoma moved the login UI DOWN. The ruler draws
+labelled bands and candidate rects over the shield and the author reads it.
+**Measured 2026-08-07:** the login never leaves the centre column (the
+horizontal invariant every version has kept), a card at 96 pt lands on the
+avatar, and a 300 pt square centred on the display touches nothing. That is why
+the collapsed card now rests at 300 pt and the expanded state is a 300 pt tile
+centred rather than a cover stacked over a card — the stack is ~470 pt and its
+bottom edge lands back on the login (docs/DECISIONS.md: the-lock-screen-is-a-space).
+
 A third probe, `lockscreen-mouse-routing.swift`, was needed once the surface
 shipped, and its question is the mirror of the second one's: not "do clicks
 reach a window that wants them" but "can a window that deliberately REFUSES them
