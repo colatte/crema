@@ -107,7 +107,22 @@ final class ITunesArtworkLookup: ArtworkLookup {
         guard let query = Self.searchURL(title: title, artist: artist, album: album) else { return nil }
         do {
             let response = try await JSONDecoder().decode(ITunesSearchResponse.self, from: fetch(query))
-            guard let small = response.results.first?.artworkUrl100,
+            // The endpoint always answers with SOMETHING, and it is pinned to
+            // `entity=song`, so every answer is a song whether or not a song was
+            // playing. Taking the top hit unchecked meant a podcast episode, an
+            // audiobook or a live stream — all of which carry correct artwork of
+            // their own — could have it replaced by an unrelated album cover.
+            // Wrong art is worse than none: the fallback was already right.
+            guard let match = response.results.first(where: {
+                ArtworkMatch.plausible(
+                    requestedTitle: title, requestedArtist: artist,
+                    resultTitle: $0.trackName, resultArtist: $0.artistName
+                )
+            }) else {
+                logger.info("artwork lookup found no plausible match")
+                return nil
+            }
+            guard let small = match.artworkUrl100,
                   let large = Self.resized(small, to: Self.targetPixelSize) else { return nil }
             let bytes = try await fetch(large)
             guard bytes.count >= Self.minimumPlausibleBytes else {
@@ -135,7 +150,11 @@ final class ITunesArtworkLookup: ArtworkLookup {
         components?.queryItems = [
             URLQueryItem(name: "term", value: terms.joined(separator: " ")),
             URLQueryItem(name: "entity", value: "song"),
-            URLQueryItem(name: "limit", value: "1"),
+            // More than one, now that the answers are checked: the top hit is
+            // often a remaster or a live version of the right song, and a
+            // slightly-off first result should not cost the whole lookup. Still
+            // one request.
+            URLQueryItem(name: "limit", value: "5"),
         ]
         return components?.url
     }
@@ -162,5 +181,74 @@ private struct ITunesSearchResponse: Decodable {
         /// Optional because a match without artwork is a legitimate answer, and
         /// a decode that threw on it would turn "no cover" into "no result".
         let artworkUrl100: String?
+        /// What the endpoint thinks it found. Read only to reject it
+        /// (`ArtworkMatch`) — never rendered, so nothing the endpoint says
+        /// reaches the screen as text.
+        let trackName: String?
+        let artistName: String?
+    }
+}
+
+/// Whether a search result is plausibly the track that is playing.
+///
+/// Pure and separate because it is the whole judgement, and because the
+/// alternative — trusting the endpoint's top hit — has a specific victim:
+/// `entity=song` guarantees every answer is a song, so a podcast episode, an
+/// audiobook chapter or a live stream would have its own correct artwork
+/// replaced by an unrelated album cover. The bar is deliberately generous, not
+/// exact: the goal is to reject the unrelated, not to demand the identical.
+enum ArtworkMatch {
+    /// Case, accents, punctuation and the parenthetical tail all removed —
+    /// "Algernon (Remastered 2023)" and "algernon" have to meet. The tail is
+    /// where remasters, live versions and feature credits live, and they are
+    /// the same recording's cover often enough to keep.
+    static func normalized(_ value: String) -> String {
+        let withoutTail = value.replacingOccurrences(
+            of: #"[\(\[].*?[\)\]]"#, with: " ", options: .regularExpression
+        )
+        let folded = withoutTail.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil)
+        let letters = folded.map { $0.isLetter || $0.isNumber ? $0 : " " }
+        return String(letters).split(separator: " ").joined(separator: " ")
+    }
+
+    /// Equal after normalizing, or one a PREFIX of the other at a word boundary.
+    ///
+    /// Prefix rather than containment anywhere, and the difference is not
+    /// theoretical — a mutation found it. Plain containment accepted "Crisis"
+    /// for a podcast episode called "Ep. 412 — The Housing Crisis, Revisited",
+    /// because the long title happens to contain the short one. Only the artist
+    /// check was refusing that result, so a podcast reporting no artist would
+    /// have taken a stranger's album cover.
+    ///
+    /// Prefix keeps every case containment was there for: what the two sides
+    /// disagree about is a TAIL — " feat. X", " - Remastered", " - Single" — and
+    /// a tail is exactly what a prefix tolerates. Empty on either side is no
+    /// evidence, so it can never be the thing that accepts a result.
+    static func agrees(_ requested: String, _ found: String?) -> Bool {
+        let want = normalized(requested)
+        guard let found, !want.isEmpty else { return false }
+        let got = normalized(found)
+        guard !got.isEmpty else { return false }
+        if want == got { return true }
+        let (shorter, longer) = want.count < got.count ? (want, got) : (got, want)
+        // The boundary matters: without it "Love" would be a prefix of
+        // "Lovesong", which is a different record with different art.
+        return longer.hasPrefix(shorter + " ")
+    }
+
+    /// The title must agree. The artist only has to agree when BOTH sides named
+    /// one — the JXA fallback often reports no artist, and refusing every lookup
+    /// for those tracks would turn a missing field into a missing feature.
+    static func plausible(
+        requestedTitle: String,
+        requestedArtist: String?,
+        resultTitle: String?,
+        resultArtist: String?
+    ) -> Bool {
+        guard agrees(requestedTitle, resultTitle) else { return false }
+        guard let requestedArtist, !requestedArtist.isEmpty, resultArtist?.isEmpty == false else {
+            return true
+        }
+        return agrees(requestedArtist, resultArtist)
     }
 }

@@ -53,8 +53,11 @@ final class LockScreenPresenter {
     private let logger = Logger.crema("LockScreen")
 
     private var panel: LockScreenPanel?
-    private var observation: NSObjectProtocol?
-    private var workspaceObservations: [NSObjectProtocol] = []
+    /// Read from the nonisolated `deinit`, so they carry the same lifecycle
+    /// bracket the lock source documents: written only during
+    /// `installEdgeObservers`, read once after every other access has ended.
+    private nonisolated(unsafe) var observation: NSObjectProtocol?
+    private nonisolated(unsafe) var workspaceObservations: [NSObjectProtocol] = []
 
     /// Written only by `setEnabled`, which is the Settings path. No failure here
     /// ever writes it back — the preference is the user's intent and only the
@@ -233,15 +236,22 @@ final class LockScreenPresenter {
     }
 
     deinit {
-        // nonisolated deinit: the observer arrays are only mutated during
-        // `installEdgeObservers` and read here, after every other access has
-        // ended — the same lifecycle bracket the lock source documents.
-        MainActor.assumeIsolated {
-            for observer in workspaceObservations {
-                NSWorkspace.shared.notificationCenter.removeObserver(observer)
-            }
-            if let observation { NotificationCenter.default.removeObserver(observation) }
-            panel?.close()
+        // No `MainActor.assumeIsolated` here, and that is deliberate — the same
+        // call in `LockScreenPanel` was removed for the same reason. It TRAPS if
+        // the last reference is ever released off the main thread, and a crash
+        // is a worse failure than whatever it was covering. A `deinit` cannot
+        // choose its thread, so the fix is to need no actor rather than to argue
+        // that this one is safe.
+        //
+        // `removeObserver` is thread-safe on both centres, which is what makes
+        // that possible. The panel is NOT closed here: `reconcile()` already
+        // closes it on every path that drops one — unlock, and the preference
+        // going off — and the only case left is the presenter outliving the app,
+        // where process exit does it. Closing it from here would need the actor
+        // back for a case that cannot be observed.
+        for observer in workspaceObservations {
+            NSWorkspace.shared.notificationCenter.removeObserver(observer)
         }
+        if let observation { NotificationCenter.default.removeObserver(observation) }
     }
 }

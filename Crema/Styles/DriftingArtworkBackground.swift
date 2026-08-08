@@ -37,6 +37,11 @@ enum ArtworkDrift {
     static let travelledScale: CGFloat = 1.10
     static let travel: CGFloat = 0.025
     static let cycle: Double = 26
+
+    /// How long the drift takes to come to rest when a veto engages or the
+    /// settle timer fires. Short enough to read as "it stopped", long enough not
+    /// to be the jump it replaced.
+    static let settleDuration: Double = 0.6
 }
 
 /// The cover, blurred past recognition and drifting, filling whatever it is
@@ -98,10 +103,18 @@ struct DriftingArtworkBackground: View {
             x: travelled ? ArtworkDrift.travel * 100 : -ArtworkDrift.travel * 100,
             y: travelled ? ArtworkDrift.travel * 100 : -ArtworkDrift.travel * 100
         )
+        // Two animations, because stopping is not the reverse of starting. While
+        // drifting it is the endless cycle; when a veto engages — or the settle
+        // timer fires — `travelled` flips with the cycle already gone, and a nil
+        // animation there made the full-screen image JUMP to its resting scale
+        // and offset in one frame. Reduce Motion is the one preference that must
+        // never be answered with a teleport, and it was the likeliest way to
+        // reach this. So the stop is a plain ease to rest, itself suppressed
+        // under Reduce Motion (a settle with no travel is already dry).
         .animation(
             drifts
                 ? .easeInOut(duration: ArtworkDrift.cycle).repeatForever(autoreverses: true)
-                : nil,
+                : (reduceMotion ? nil : .easeOut(duration: ArtworkDrift.settleDuration)),
             value: travelled
         )
         .clipped()

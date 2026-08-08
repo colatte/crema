@@ -96,11 +96,16 @@ struct LockWidgetView: View {
 
     /// Only while expanded: the cover, blurred past reading, over everything.
     /// Collapsed, the user's own wallpaper is the background and this draws
-    /// nothing at all.
+    /// nothing at all — and NOTHING is what it costs, which it did not before.
+    ///
+    /// This used to host the transition on a real `DriftingArtworkBackground` at
+    /// `.opacity(0)`, used purely as a container. Zero opacity keeps a view in
+    /// the hierarchy: the invisible one armed its 26 s `repeatForever` transform
+    /// and its settle task on every lock, drawing nothing, all night. A plain
+    /// shape is the container now.
     @ViewBuilder
     private func backdrop(_ track: NowPlaying) -> some View {
-        DriftingArtworkBackground(image: nil, fallbackTone: nil)
-            .opacity(0)
+        Color.clear
             .overlay {
                 if expanded {
                     ArtworkBackdrop(data: cover(track))
@@ -296,19 +301,32 @@ struct LockWidgetView: View {
 private struct ArtworkBackdrop: View {
     let data: [UInt8]?
     @State private var image: CGImage?
+    @State private var tone: ArtworkAccent.Tone?
 
     var body: some View {
-        DriftingArtworkBackground(
-            image: image,
-            fallbackTone: ArtworkAccent.extract(from: data)
-        )
-        .ignoresSafeArea()
-        .task(id: data) { [data] in
-            let decoded = await blockingCall {
-                ArtworkDecoding.thumbnail(from: data, maxSide: ArtworkDecoding.lockScreenMaxSide)
+        DriftingArtworkBackground(image: image, fallbackTone: tone)
+            .ignoresSafeArea()
+            // BOTH the decode and the accent are computed off the main actor,
+            // in one task. The accent used to be called inline in this body —
+            // `ArtworkAccent.extract(from:)` is a full ImageIO decode, and with
+            // the cover upgrade on those are 1200 px, ~391 KB bytes. A body
+            // re-runs whenever SwiftUI decides to, so that put a blocking decode
+            // on the main thread during the expand animation, and it was dead
+            // work on every pass after the first: the image below it had already
+            // landed, so the tone was only ever the fallback for the frames
+            // before it. Every other decode in the app already goes through
+            // `blockingCall` for exactly this reason (ArtworkView, ArtworkAccent,
+            // the line below it).
+            .task(id: data) { [data] in
+                let decoded = await blockingCall {
+                    (
+                        ArtworkDecoding.thumbnail(from: data, maxSide: ArtworkDecoding.lockScreenMaxSide),
+                        ArtworkAccent.extract(from: data)
+                    )
+                }
+                guard !Task.isCancelled else { return }
+                image = decoded.0
+                tone = decoded.1
             }
-            guard !Task.isCancelled else { return }
-            image = decoded
-        }
     }
 }
