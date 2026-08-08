@@ -116,7 +116,11 @@
     puts it back; unlocking removes it. Expanded, the blurred backdrop fades out
     over the bottom band so the clock, the avatar and the password field stay
     readable, and Crema draws its own time and date near the top — it appears
-    only in that state, because that is the only state that covers the system's. With the preference off — which is how it ships —
+    only in that state, because that is the only state that covers the system's.
+    Leave the expanded surface up on a LIT screen across a minute boundary and
+    the time advances; the surface may hold a stale minute across a machine
+    sleep, which is correct and unobservable, since the screen is dark for
+    exactly that interval. With the preference off — which is how it ships —
     the lock screen is untouched. With Reduce Motion or with Low Power Mode on,
     the blurred backdrop does not drift; it also settles on its own after a few
     minutes. On a macOS where the private space API does not resolve, Settings

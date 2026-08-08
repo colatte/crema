@@ -176,9 +176,11 @@ struct LockWidgetMetricsTests {
     @Test func theExpandedSquareIsExactlyTheRectangleThatWasMeasuredClear() {
         // Centring the tile on the display is what makes the measurement
         // transferable: the ruler proved a 300 pt square at the centre, so the
-        // tile must be that square and no larger. A stack of cover + card would
-        // be ~470 pt and its bottom edge would land back on the login, which is
-        // the version this replaced.
+        // tile must be that square and no larger. The version this replaced was
+        // a stack of cover + card — 464 pt, and it leaves the band at the TOP
+        // (723 > 641), not at the bottom: measured, it clears the login by 79 pt.
+        // The test twenty lines below pins that correction; this comment used to
+        // contradict it.
         let side = LockWidgetMetrics.expandedSide
         let bottom = (Measured.screenHeight - side) / 2
         #expect(bottom >= Measured.clearFloor)

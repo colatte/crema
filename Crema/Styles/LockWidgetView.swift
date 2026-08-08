@@ -25,7 +25,7 @@ import SwiftUI
 /// can hide, which this one cannot. Four one-line calls into the Coordinator
 /// cost less than two dead requirements.
 @MainActor
-struct LockWidgetView<Clock: SleepClock>: View {
+struct LockWidgetView: View {
     let coordinator: Coordinator
     /// Which cover to draw. Nil where nobody wired one (previews); the surface
     /// then simply uses whatever the player handed over, which is the fallback
@@ -37,13 +37,13 @@ struct LockWidgetView<Clock: SleepClock>: View {
     /// test site without anyone writing `Date()`, which is the trap CLAUDE.md's
     /// TDD section names. There is exactly one production caller.
     ///
-    /// Generic rather than `any SleepClock` for two reasons, one of them a
-    /// compiler fact: the protocol does not self-conform, so an existential
-    /// could not be handed to `LockClockView`. And the production clock is an
-    /// empty struct, so a concrete type keeps both views diffable where an
-    /// existential stored property would make every 1 Hz media tick re-evaluate
-    /// the clock's body.
-    var clock: Clock
+    /// An existential, like the other nineteen clock holders in the app. This was
+    /// briefly generic, on a diffability argument measured false — the clock's
+    /// body re-evaluates 61 times a minute either way, and what moves that number
+    /// is whether the displayed instant is `@State`, not how the clock is spelled.
+    /// The generic also forced itself: `SleepClock` does not self-conform, so a
+    /// generic here required one there too, for nothing.
+    var clock: any SleepClock
 
     /// The rect that may take a click, in the hosting window's coordinate space,
     /// reported whenever it moves — empty when there is nothing drawn.
@@ -110,9 +110,12 @@ struct LockWidgetView<Clock: SleepClock>: View {
 
     // MARK: - Layers
 
-    /// Only while expanded: the cover, blurred past reading, over everything.
-    /// Collapsed, the user's own wallpaper is the background and this draws
-    /// nothing at all — and NOTHING is what it costs, which it did not before.
+    /// Only while expanded: the cover, blurred past reading, over everything
+    /// EXCEPT the strip the login owns — this round is what stopped it being
+    /// over everything (`LoginClearance`), and it also carries the clock, since
+    /// covering the system's is the only reason to draw one. Collapsed, the
+    /// user's own wallpaper is the background and this draws nothing at all —
+    /// and NOTHING is what it costs, which it did not before.
     ///
     /// This used to host the transition on a real `DriftingArtworkBackground` at
     /// `.opacity(0)`, used purely as a container. Zero opacity keeps a view in

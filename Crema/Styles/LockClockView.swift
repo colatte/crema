@@ -42,11 +42,31 @@ enum LockClock {
     /// How long until the displayed minute becomes wrong.
     ///
     /// Sampled from the instant the caller woke, never accumulated — the rule
-    /// `sample-dont-integrate` already governs the playback position, and it
-    /// buys the same thing here: a late wake, a resume from system sleep or an
-    /// NTP step corrects itself on the next pass instead of drifting by however
-    /// much was lost. That is also why there is no `NSSystemClockDidChange`
-    /// observer to own; the worst a jump costs is one stale minute.
+    /// `sample-dont-integrate` already governs the playback position, and here it
+    /// is the whole reason a lock-screen clock can be correct at all.
+    ///
+    /// MEASURED, and worth carrying because the raw number reads like a failure.
+    /// `scripts/probes/lockscreen-clock-tick.swift`, 2026-08-08, 369 s over the
+    /// shield: the loop delivered 2 of 6 owed wakes. That is the MACHINE
+    /// SLEEPING, not the timer failing — `pmset -g log` dates it exactly (idle
+    /// sleep entered 09:53:58 for 282 s, wake 09:58:40, on a Mac set to sleep
+    /// after 1 minute). `Task.sleep` waits on an absolute `ContinuousClock`
+    /// deadline and that clock counts THROUGH suspension, so the deadline is
+    /// already past on resume and the next wake carries the current minute:
+    /// reproduced with SIGSTOP across five boundaries, the pending sleep returned
+    /// 2 ms after SIGCONT with the right time and the five missed boundaries
+    /// collapsed into one. The field run proves it too — the loop is sequential
+    /// and only one boundary fell inside the awake window, so a count of 2 is
+    /// unreachable without the resume fire.
+    ///
+    /// So the honest bound is not "one stale minute": the surface can hold a
+    /// minute as old as the machine's sleep. What it can never do is show a stale
+    /// minute to anyone, because the screen is dark for exactly the interval that
+    /// staleness lasts. This is also why no `NSSystemClockDidChange` observer is
+    /// owed, and why a dispatch timer would be the wrong fallback — it schedules
+    /// on the same suspended machine and buys nothing this does not already have.
+    /// When to distrust it: a wake that leaves the time visibly behind. Re-run
+    /// the probe.
     ///
     /// The answer is always inside (0, 60], and by construction rather than by a
     /// guard. `truncatingRemainder` never returns the divisor, so `elapsed` is
@@ -91,12 +111,16 @@ enum LockClock {
 /// track). Pause, lock, walk away, and a clock riding that tick shows the minute
 /// of the pause all night.
 ///
-/// Generic over the clock rather than holding an `any SleepClock`: an
-/// existential stored property is not equatable, so SwiftUI would re-evaluate
-/// this body on every 1 Hz media tick — the exact cost that having its own View
-/// is meant to stop at the boundary.
-struct LockClockView<Clock: SleepClock>: View {
-    let clock: Clock
+/// It holds `any SleepClock`, like the other nineteen clock holders in the app.
+/// An earlier version was generic over it, justified by diffability — measured
+/// false: the body re-evaluates 61 times a minute either way (generic 61,
+/// existential 61), and the only lever that moves it is whether the displayed
+/// instant is `@State` at all (1-2 without). 61 evaluations of two `Text`s is not
+/// a cost worth a type parameter, and the real reason this is its own View
+/// stands untouched: a MINUTE tick invalidates one line of text instead of the
+/// whole card.
+struct LockClockView: View {
+    let clock: any SleepClock
 
     /// The wall clock is read here and nowhere else. What a test can own are the
     /// three pure rules above; a view that shows the time has to ask the machine
@@ -130,18 +154,47 @@ struct LockClockView<Clock: SleepClock>: View {
         // tree is a different modifier, and this one is not it.
         .allowsHitTesting(false)
         .task {
-            while !Task.isCancelled {
-                let wait = LockClock.secondsUntilNextMinute(after: Date())
-                do {
-                    try await clock.sleep(for: wait)
-                } catch {
-                    // Cancellation is the only way out, and swallowing it here
-                    // would turn this into a tight loop the moment the surface
-                    // collapsed.
-                    return
-                }
-                now = Date()
+            await LockClockTicker(clock: clock, now: { Date() }).run { now = $0 }
+        }
+    }
+}
+
+/// The loop, extracted from the view so the property everything rests on is a
+/// test instead of a sentence.
+///
+/// That property is the RE-ASK: the wait is recomputed from the instant each
+/// wake actually happened, never reused. It is what makes a resume from system
+/// sleep show the current minute rather than the one the deadline was set for —
+/// and while it lived inline, hardcoding the wait to 60 left the whole suite
+/// green. Two more become provable with it: that cancellation ends the loop, and
+/// that any other error does not.
+struct LockClockTicker {
+    let clock: any SleepClock
+    /// Reads the wall clock. Injected so a test can move time between wakes and
+    /// watch the next wait be asked afresh — with a real `Date()` inside the loop
+    /// there is nothing to observe.
+    let now: @Sendable () -> Date
+
+    @MainActor
+    func run(_ tick: @MainActor (Date) -> Void) async {
+        while !Task.isCancelled {
+            let wait = LockClock.secondsUntilNextMinute(after: now())
+            do {
+                try await clock.sleep(for: wait)
+            } catch {
+                // Every error takes the same exit, and the single branch is the
+                // point. A refused wait means THIS wait did not complete, not
+                // that time stopped — retiring here would freeze the displayed
+                // minute for the rest of the lock, which an earlier version did
+                // behind a comment claiming cancellation was the only way out.
+                // Cancellation needs no case of its own: it lands here too, and
+                // the `isCancelled` check above ends the loop on the next pass.
+                // A separate `catch is CancellationError { return }` was written
+                // first and removed — no test could tell the two apart, because
+                // there is no behaviour between them, only one wasted call.
+                continue
             }
+            tick(now())
         }
     }
 }

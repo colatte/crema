@@ -11,9 +11,10 @@
 // The shipped mechanism is a `Task.sleep` loop over `SleepClock`, chosen over
 // `TimelineView(.everyMinute)` because SwiftUI ties timeline schedules to
 // whether it believes a view is visible, and that judgement is least trustworthy
-// here. But `Task.sleep` is not proven either: App Nap, the timer coalescing
-// macOS applies to background processes, and display sleep all sit between the
-// intent and the wake.
+// here. App Nap, timer coalescing and display sleep all sit between the intent
+// and the wake, so it was written to test the shipped path rather than to
+// confirm it — and the one run so far cleared it, for a reason nobody predicted
+// (RESULT, below).
 //
 // THE CONTROLS, which is what makes a negative result mean anything. Three
 // counters, not one:
@@ -34,14 +35,16 @@
 // read the summary printed on Ctrl-C, which states how long the run lasted and
 // how many times each mechanism should have fired against how many times it did.
 //
-//   · A and B both track the elapsed minutes → the mechanism is sound; ship it.
-//   · A behind, B on track → `Task.sleep` is being held. The clock should move
-//     to the dispatch timer, and `LockClockView`'s injected `SleepClock` is the
-//     seam that makes that a one-type change.
-//   · Both behind but R climbing → the window repaints and nothing schedules.
+//   · A and B both track the elapsed minutes → the mechanism is sound.
+//   · A and B BOTH behind by the same amount → the MACHINE slept. Check
+//     `pmset -g log | grep -E "Sleep|Wake"` before concluding anything else;
+//     two unrelated schedulers do not fail identically. This is what the one
+//     run so far found, and it is not a defect (see RESULT).
+//   · A behind, B on track → `Task.sleep` specifically is being held. Only THIS
+//     case argues for another mechanism, and `LockClockView`'s injected
+//     `SleepClock` is the seam that makes it a one-type change.
 //   · R frozen while A and B climb → the timers run and the surface does not
-//     repaint. That is a rendering problem on the raised space, and no timer
-//     change fixes it.
+//     repaint. A rendering problem on the raised space; no timer change fixes it.
 //
 // RESULT, 2026-08-08 (macOS 26, Apple Silicon, 1512×982, run by the author),
 // and it is a FINDING rather than a clean bill:
@@ -51,21 +54,35 @@
 //     B  Dispatch     2
 //     R  redraws     93
 //
-// A and B agree, so this is not Swift concurrency: the whole process is being
-// held. R stopping near 93 puts the freeze at roughly 90 seconds in, which is
-// about when a locked Mac's display sleeps. The clock as designed would show a
-// stale minute on the lock screen — the exact failure this surface called worse
-// than having no clock at all.
+// READ IT THE OTHER WAY ROUND. This looks like the timer failing and it is the
+// MACHINE SLEEPING. `pmset -g log` dates the same run exactly: display off
+// 09:52:51, "Entering Sleep state due to 'Idle Sleep' … 282 secs" at 09:53:58,
+// wake 09:58:40 — on a Mac configured to sleep after 1 minute. A and B agreeing
+// is the giveaway: two unrelated schedulers do not fail identically, but both
+// stop when the machine does. R stopping near 93 dates the SYSTEM sleep
+// (predicted 87), not the display sleep at 20 s, so the process went on
+// compositing for 67 s in the dark and display sleep alone never held it.
 //
-// WHAT THIS RUN CANNOT ANSWER, and it is the question that decides the fix:
-// whether the clock corrects itself PROMPTLY when the display wakes. If the
-// pending sleep fires on wake, nobody ever sees a wrong time, because nobody
-// reads a dark screen. Counters cannot tell "stopped and never resumed" from
-// "resumed once, just before Ctrl-C" — that needs the timestamp of every fire
-// and the display's own sleep/wake edges beside them. Sharpening this probe to
-// record both, and to carry two candidate fixes (a scoped
-// `ProcessInfo.beginActivity` and a refresh on `screensDidWake`), is the next
-// step; until it runs, the mechanism is UNPROVEN and this comment says so.
+// AND THE MECHANISM IS CORRECT. `Task.sleep` waits on an absolute
+// `ContinuousClock` deadline, and that clock counts THROUGH suspension, so on
+// resume the deadline is already past and the wake carries the current minute.
+// Reproduced with SIGSTOP across five boundaries: the pending sleep returned
+// 2 ms after SIGCONT with the right time, and the five missed boundaries
+// collapsed into a single wake rather than a burst. The field run proves it too
+// — the loop is sequential and exactly one boundary fell inside the awake
+// window, so a count of 2 is unreachable WITHOUT the resume fire.
+//
+// So the honest statement is not "the clock stops". It is: the surface can hold
+// a minute as old as the machine's sleep, and can never show one, because the
+// screen is dark for exactly that interval. Two fixes were designed against the
+// misreading and both were rejected — a scoped `ProcessInfo.beginActivity` buys
+// a scheduling hint for a condition the machine was not in, and a
+// `screensDidWake` observer is a second cover over suspenders already measured
+// to work.
+//
+// STILL NEVER OBSERVED, and it is the cheapest thing here: a LIT locked screen
+// crossing a minute boundary. Nothing in the diagnosis depends on it; it is the
+// missing step in ACCEPTANCE criterion 20 either way.
 //
 // Run:  swift scripts/probes/lockscreen-clock-tick.swift
 // Then: lock (Control-Command-Q), wait, read, unlock. Ctrl-C for the summary.

@@ -171,3 +171,93 @@ struct LockBackdropFadeTests {
         #expect(LockWidgetMetrics.clockTopInset > StylePreview.notchedReference.safeTop)
     }
 }
+
+/// The loop, which used to live inline in the view and therefore could not be
+/// tested at all. Its central property is the RE-ASK — the wait is recomputed
+/// from the instant each wake actually happened — and while it was inline,
+/// hardcoding that wait to 60 left the entire suite green.
+@MainActor
+struct LockClockTickerTests {
+
+    /// Hands back a fixed instant that the test moves by hand, so a wait can be
+    /// seen to be asked afresh rather than reused.
+    private final class Hand: @unchecked Sendable {
+        private let lock = NSLock()
+        private var date: Date
+        init(_ start: Date) { date = start }
+        var now: Date { lock.withLock { date } }
+        func set(_ new: Date) { lock.withLock { date = new } }
+    }
+
+    @Test func theWaitIsAskedAfreshAtEveryWake() async {
+        // The mutation this exists for: replacing the computed wait with a
+        // constant 60 passes every other test in the suite. Here the hand moves
+        // between wakes, so a reused wait and a re-asked one differ.
+        let clock = TestSleepClock()
+        let hand = Hand(Date(timeIntervalSince1970: 1_786_302_240))   // exactly on a minute
+        let ticker = LockClockTicker(clock: clock, now: { hand.now })
+        var seen: [Date] = []
+        let loop = Task { await ticker.run { seen.append($0) } }
+
+        await clock.waitForSleep()
+        #expect(clock.delays == [60], "on the boundary, a whole minute")
+
+        // The machine slept through four boundaries; the wake lands at :17 past.
+        hand.set(Date(timeIntervalSince1970: 1_786_302_240 + 257))
+        clock.advance()
+        await clock.waitForSleep(delay: 43)
+        // 257 s later is 17 s into a minute, so 43 remain — NOT another 60.
+        #expect(clock.delays == [60, 43])
+        #expect(seen.count == 1, "one wake, carrying the instant it actually happened")
+
+        loop.cancel()
+        clock.advance()
+        _ = await loop.value
+    }
+
+    @Test func cancellationEndsTheLoop() async {
+        let clock = TestSleepClock()
+        let hand = Hand(Date(timeIntervalSince1970: 1_786_302_240))
+        let ticker = LockClockTicker(clock: clock, now: { hand.now })
+        let loop = Task { await ticker.run { _ in } }
+        await clock.waitForSleep()
+        loop.cancel()
+        // Returns rather than spinning: the value arriving at all is the
+        // assertion, and the bounded helper is what fails loudly if it does not.
+        _ = await loop.value
+        #expect(clock.delays == [60])
+    }
+
+    @Test func anErrorThatIsNotCancellationDoesNotRetireTheClock() async {
+        // The failure this forbids: one refused wait freezing the displayed
+        // minute for the rest of the lock, behind a comment claiming
+        // cancellation was the only way out.
+        struct Refused: Error {}
+        let clock = ThrowingOnceClock(error: Refused())
+        let hand = Hand(Date(timeIntervalSince1970: 1_786_302_240))
+        let ticker = LockClockTicker(clock: clock, now: { hand.now })
+        let loop = Task { await ticker.run { _ in } }
+        await eventually { clock.attempts >= 2 }
+        #expect(clock.attempts >= 2, "the loop asked again after the refusal")
+        loop.cancel()
+        _ = await loop.value
+    }
+}
+
+/// Throws on its first wait and parks forever after, so a loop that retires on a
+/// non-cancellation error never reaches the second attempt.
+private final class ThrowingOnceClock: SleepClock, @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    private let error: any Error
+
+    init(error: any Error) { self.error = error }
+
+    var attempts: Int { lock.withLock { count } }
+
+    func sleep(for _: Double) async throws {
+        let attempt = lock.withLock { count += 1; return count }
+        if attempt == 1 { throw error }
+        try await Task.sleep(for: .seconds(3600))
+    }
+}
