@@ -598,7 +598,21 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         guard let after = try await readWithDeadline({ [channel] in channel.read() }) else {
             throw ApplyFailure.currentValueUnreadable
         }
-        guard OSDApplyVerification.verified(before: before, target: target, after: after) else {
+        var settled = after
+        // One more look, and only when the reading is AMBIGUOUS rather than
+        // wrong. Nothing moved is the signature of a write the HAL took and has
+        // not published yet, which Apple documents as the general case
+        // (`mayBeAsynchronous`) — so the healthy path never pays for this, and
+        // the path that does was previously suspending the domain and telling
+        // the user Crema could not change a volume it had just changed.
+        if !OSDApplyVerification.verified(before: before, target: target, after: settled),
+           OSDApplyVerification.mayBeAsynchronous(before: before, target: target, after: settled) {
+            guard let second = try await readWithDeadline({ [channel] in channel.read() }) else {
+                throw ApplyFailure.currentValueUnreadable
+            }
+            settled = second
+        }
+        guard OSDApplyVerification.verified(before: before, target: target, after: settled) else {
             throw ApplyFailure.verificationFailed
         }
     }
