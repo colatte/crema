@@ -398,13 +398,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "BetterDisplay receives the brightness keys.\nTurn on its OSD notification integration and\nCrema can show the indicator."
+            "value": "BetterDisplay receives the brightness keys.\nTurn on its OSD notification integration\nand Crema can show the indicator."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O BetterDisplay recebe as teclas de brilho.\nAtive a integração de notificação de OSD dele e\no Crema mostra o indicador."
+            "value": "O BetterDisplay recebe as teclas de brilho.\nAtive nele a integração de notificação de OSD\ne o Crema mostra o indicador."
           }
         }
       }
@@ -591,7 +591,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tocando Agora está indisponível —\nnenhuma fonte de mídia está reportando."
+            "value": "Tocando Agora está indisponível —\nnenhuma fonte de mídia está respondendo."
           }
         }
       }
@@ -1135,7 +1135,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aplica-se a todas as telas. Numa tela sem notch, o estilo Notch volta para o Card."
+            "value": "Aplica-se a todas as telas. Em uma tela sem notch, o estilo Notch volta para o Card."
           }
         }
       }

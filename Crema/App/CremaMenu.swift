@@ -177,7 +177,7 @@ struct CremaMenu: View {
         case .betterDisplayAheadAndSilent:
             String(
                 localized: "menu.betterDisplay.silent",
-                defaultValue: "BetterDisplay receives the brightness keys.\nTurn on its OSD notification integration and\nCrema can show the indicator."
+                defaultValue: "BetterDisplay receives the brightness keys.\nTurn on its OSD notification integration\nand Crema can show the indicator."
             )
         case .anotherAppAhead(let app):
             // Stated as the fact it is — a position in the chain, not a
