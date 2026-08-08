@@ -272,11 +272,26 @@ private struct GeneralSettingsView: View {
                 }
             } footer: {
                 if loginNeedsApproval {
+                    // The sentence names no PATH, and that is the fix rather
+                    // than a shorter sentence. It used to read "System Settings
+                    // › General › Login Items", which macOS 15 renamed to "Login
+                    // Items & Extensions" (Apple: "Change Login Items &
+                    // Extensions settings on Mac"). The app supports 14+, so any
+                    // written path is wrong on one of them — and a button that
+                    // opens the pane cannot be wrong on either.
                     Text(String(
                         localized: "settings.general.launchAtLogin.needsApproval",
-                        defaultValue: "Approve Crema in System Settings › General › Login Items to finish enabling this."
+                        defaultValue: "Approve Crema in System Settings to finish enabling this."
                     ))
                     .foregroundStyle(.orange)
+                    .settingsFootnote()
+                    Button(String(
+                        localized: "settings.general.launchAtLogin.openSettings",
+                        defaultValue: "Open Login Items settings…"
+                    )) {
+                        core.openLoginItemsSettings()
+                    }
+                    .buttonStyle(.link)
                     .settingsFootnote()
                 }
             }

@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import os
+import ServiceManagement
 import SwiftUI
 
 // The composition root wires every source, actuator, observer, and cross-object
@@ -928,10 +929,19 @@ extension AppCore {
     }
 
     /// Deep-links to the pane that owns the approval macOS is waiting for.
+    /// `SMAppService.openSystemSettingsLoginItems()` — the API for exactly this,
+    /// available since macOS 13 and therefore unconditionally on this app's 14+
+    /// target.
+    ///
+    /// It replaces a hand-built `x-apple.systempreferences:` URL naming
+    /// `com.apple.LoginItems-Settings.extension`. That identifier is an
+    /// undocumented internal pane ID, of the kind Apple has already renamed once
+    /// across the Preferences→Settings transition, and the old call discarded
+    /// `NSWorkspace.open`'s Bool: when the name eventually changes, the button
+    /// would do nothing at all and say nothing about it. Nothing here is worth
+    /// guessing a private string for.
     func openLoginItemsSettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension") {
-            NSWorkspace.shared.open(url)
-        }
+        SMAppService.openSystemSettingsLoginItems()
     }
 
     /// The build the app is running as — the generation stamp for the intent.

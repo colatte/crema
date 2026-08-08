@@ -1346,12 +1346,20 @@ same as the user opening the menu, so a status block with more inputs means more
 rebuilds and, unbounded, more of those reads. `MediaKeyChainNotice.Cache` bounds
 them with a one-second **coalescing window**: a burst of rebuilds costs one
 reading, and the answer is never more than a window old. A window and not a set of
-invalidation edges, deliberately — the edges that change the answer are not
-enumerable from in here (a neighbour can install or drop a tap while already
-running, which is exactly what toggling its key handling does, with no notification
-behind it), so an edge list would serve a stale line for an unbounded time, and the
-stale line here is an ACCUSATION against a named neighbour — the direction
-`media-key-chain-contention` says to err away from. The neighbour's delivered
+invalidation edges, deliberately — **and the reason recorded here until 2026-08-07
+was false.** It claimed the edges are not enumerable from in here, that a
+neighbour installing or dropping a tap has no notification behind it. It does:
+CoreGraphics posts `kCGNotifyEventTapAdded` and `kCGNotifyEventTapRemoved`
+through notify(3) (`CGEventTypes.h`). The design is unchanged and the corrected
+reason is stronger: the cost is in the READ, not in the trigger. `CGGetEventTapList`
+zeroes the min/max latencies of every tap in the system on each call, so the
+reading must stay rare and tied to someone actually looking — subscribing to the
+edges would invert that, making a neighbour's toggle force a re-read (and reset
+every other app's counters) while nobody has the menu open. The window keeps the
+read where the question is asked and bounds staleness at one window; the stale
+line here is an ACCUSATION against a named neighbour — the direction
+`media-key-chain-contention` says to err away from. Reopening gate: if the read
+ever stops being destructive, the edges exist and are named. The neighbour's delivered
 payload is a different kind of input, a free local flag that can flip with no
 notification at all, so it is part of the memo KEY rather than of its age.
 Two things the window deliberately does not buy: freshness within the window, and

@@ -1095,13 +1095,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Approve Crema in System Settings › General › Login Items to finish enabling this."
+            "value": "Approve Crema in System Settings to finish enabling this."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aprove o Crema em Ajustes do Sistema › Geral › Itens de Início de Sessão para concluir a ativação."
+            "value": "Aprove o Crema nos Ajustes do Sistema para concluir."
           }
         }
       }
@@ -2428,6 +2428,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Posição da reprodução"
+          }
+        }
+      }
+    },
+    "settings.general.launchAtLogin.openSettings": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Login Items settings…"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir ajustes de Itens de Início de Sessão…"
           }
         }
       }

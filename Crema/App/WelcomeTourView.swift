@@ -368,12 +368,26 @@ struct WelcomeTourView: View {
             .toggleStyle(.switch)
 
             if loginNeedsApproval {
+                // No written path, and a button instead — the tour's own rule
+                // (the-tour-configures-instead-of-pointing) applied to the one
+                // step that was still pointing. The path it used to spell,
+                // "System Settings › General › Login Items", macOS 15 renamed to
+                // "Login Items & Extensions"; the app supports 14+, so any
+                // written path is wrong on one of them.
                 Text(String(
                     localized: "settings.general.launchAtLogin.needsApproval",
-                    defaultValue: "Approve Crema in System Settings › General › Login Items to finish enabling this."
+                    defaultValue: "Approve Crema in System Settings to finish enabling this."
                 ))
                 .font(.footnote)
                 .foregroundStyle(.orange)
+                Button(String(
+                    localized: "settings.general.launchAtLogin.openSettings",
+                    defaultValue: "Open Login Items settings…"
+                )) {
+                    core.openLoginItemsSettings()
+                }
+                .buttonStyle(.link)
+                .font(.footnote)
             }
 
             // Where everything in this window lives afterwards, said in words: the
