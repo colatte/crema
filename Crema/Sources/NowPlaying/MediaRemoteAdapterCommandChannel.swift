@@ -57,7 +57,7 @@ struct MediaRemoteAdapterCommandChannel: NowPlayingCommandChannel {
 
     private func run(_ command: [String]) async throws {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
+        process.executableURL = URL(fileURLWithPath: MediaRemoteAdapterProcess.perlPath)
         process.arguments = [paths.script, paths.framework] + command
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice

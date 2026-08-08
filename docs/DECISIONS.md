@@ -2477,7 +2477,9 @@ re-researches it.
    third party can load is `artistUrl`.
 2. **`MPMediaItemAnimatedArtwork` is a provider API** — how a music app hands
    animation *to* the system. Crema observes whatever is playing and never
-   receives it. It is also iOS-only.
+   receives it. (This entry first added "and it is iOS-only", which is false:
+   Apple lists it on macOS 26 alongside every other platform. The provider half
+   is what makes it fatal for an observer, and it needed no help.)
 3. **The bridge carries no such key.** The vendored adapter emits 45 fields and
    exactly one image (`artworkData` + `artworkMimeType`): no artwork identifier,
    no URL, no animated variant. Apple Music's motion art never crosses the

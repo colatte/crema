@@ -296,8 +296,10 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// previously ordered-out window waits for the render commit — it still
     /// holds the previous state's contents and would flash them for a frame.
     /// Render context into the view's policy box. Each flag is written only when
-    /// it changes: the box is @Observable, and an unchanged write would still
-    /// invalidate every view reading it, once per frame pass.
+    /// it changes — a habit rather than a necessity now: the @Observable macro's
+    /// setter short-circuits on an equal value since Swift 6.2, so the runtime
+    /// already suppresses what this guard was written to suppress. Kept because
+    /// it says the intent at the call site and costs a comparison.
     private func updateDisplayPolicy(
         showsNowPlaying: Bool,
         showsHUD: Bool,

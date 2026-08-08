@@ -132,9 +132,21 @@ struct PermissionsSettingsView: View {
         .onDisappear { core.watchAutomationPermission(false) }
     }
 
-    /// The apps the backup reader scripts, from their single source, joined by the
-    /// locale's own "or" list format. Brand names, so they are not translated —
-    /// what is localized is the sentence around them.
+    /// The apps the backup reader scripts, from their single source, joined by
+    /// the locale's own "or" list format, and NOT translated.
+    ///
+    /// Checked rather than assumed, because the obvious objection is that Apple
+    /// localizes its own app names — `Music.app`'s `InfoPlist.loctable` really
+    /// does map `pt` → "Música". Measured on a Mac with `AppleLanguages =
+    /// ("pt-BR")` (2026-08-07): `FileManager.displayName` and the bundle's
+    /// `localizedInfoDictionary` both return **"Music"**, which is also what the
+    /// Dock shows. The table has `pt` and `pt_PT` and no `pt-BR`, and macOS does
+    /// not fall back for this.
+    ///
+    /// So resolving the installed bundle's name would cost a LaunchServices
+    /// lookup on every body pass and produce the same three letters. If a
+    /// future macOS starts showing "Música" here, that lookup is the fix and
+    /// this paragraph is the reason it was not done sooner.
     private var musicApps: String {
         JXAPlayerScript.players.map(\.name).formatted(.list(type: .or))
     }

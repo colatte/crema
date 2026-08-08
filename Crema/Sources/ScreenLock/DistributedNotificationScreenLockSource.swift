@@ -89,7 +89,6 @@ final class DistributedNotificationScreenLockSource: ScreenLockSource {
     // lifecycle brackets rule out the concurrent access the attribute waives;
     // a nonisolated deinit can't see that bracket, and removeObserver itself
     // is thread-safe.
-    private nonisolated(unsafe) var distributedObservers: [NSObjectProtocol] = []
     private nonisolated(unsafe) var workspaceObservers: [NSObjectProtocol] = []
     /// The authoritative session read, injectable so a test can drive it
     /// (and the edges, via `handleEdge`) deterministically without the real
@@ -147,27 +146,56 @@ final class DistributedNotificationScreenLockSource: ScreenLockSource {
 
     deinit {
         settleTask?.cancel()
-        for observer in distributedObservers {
-            DistributedNotificationCenter.default().removeObserver(observer)
-        }
+        // Self-registered now (the selector method is the only one that takes a
+        // suspension behaviour), so the token list has nothing in it and the
+        // removal has to name the observer instead. Leaving the old token loop
+        // here would have quietly leaked both registrations.
+        DistributedNotificationCenter.default().removeObserver(self)
         for observer in workspaceObservers {
             NSWorkspace.shared.notificationCenter.removeObserver(observer)
         }
         continuation.finish()
     }
 
+    /// The selector half of the registration above. Distributed notifications
+    /// are delivered on the main thread for a main-thread registrant, which is
+    /// the same assumption the workspace observers below make.
+    @objc private func distributedEdgeArrived() {
+        MainActor.assumeIsolated { handleEdge() }
+    }
+
     private func installObservers() {
         // Lock/unlock arrive on DistributedNotificationCenter; fast-user-switch
         // (off-console) arrives on the workspace center. Every edge funnels into
         // the same handler — the notification is only a trigger.
+        // Registered through the SELECTOR method, and only because it is the one
+        // that takes a suspension behaviour.
+        //
+        // Every block-based cover is documented as defaulting to
+        // `NSNotificationSuspensionBehaviorCoalesce`
+        // (`NSDistributedNotificationCenter.h`: "All other registration methods
+        // are covers of this one, with the default for suspensionBehavior =
+        // NSNotificationSuspensionBehaviorCoalesce"), and coalesced delivery is
+        // held while the centre is suspended — which AppKit does on its own
+        // "when the application is not active". Crema is an LSUIElement
+        // accessory: it is essentially NEVER active, and it is certainly not
+        // active at the instant the screen locks. So the app was asking for the
+        // one delivery mode that waits for a moment that may never come.
+        //
+        // `.deliverImmediately` is the documented opt-out — the server delivers
+        // "irrespective of whether setSuspended:YES has been called", flushing
+        // the queue as it goes. The settle re-reads and the periodic tail stay
+        // exactly as they were: they exist because distnoted is best-effort even
+        // when it IS delivering, and this changes nothing about that.
         let distributed = DistributedNotificationCenter.default()
         for name in [Self.screenIsLockedName, Self.screenIsUnlockedName] {
-            let observer = distributed.addObserver(forName: Notification.Name(name), object: nil, queue: .main) { [weak self] _ in
-                // Delivered on the main queue, so the MainActor is the current
-                // executor — assume it rather than hop (avoids reordering edges).
-                MainActor.assumeIsolated { self?.handleEdge() }
-            }
-            distributedObservers.append(observer)
+            distributed.addObserver(
+                self,
+                selector: #selector(distributedEdgeArrived),
+                name: Notification.Name(name),
+                object: nil,
+                suspensionBehavior: .deliverImmediately
+            )
         }
 
         let workspace = NSWorkspace.shared.notificationCenter
