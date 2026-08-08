@@ -40,12 +40,26 @@ final class LockScreenPanel {
 
     /// Nil when SkyLight could not be resolved — the caller degrades instead of
     /// showing a window that would sit uselessly behind the shield.
+    /// `makeContent` exists for one reason and it is worth the parameter: it is
+    /// the only way to observe THE WIRE THE VIEW WAS HANDED.
+    ///
+    /// That wire broke for two commits and the symptom was silent — the card
+    /// drew perfectly and answered no click, nothing logged, nothing crashed.
+    /// The cause was a relay box held by a local `let` and captured `[weak]`, so
+    /// it died the instant `init` returned. Two tests written against it passed,
+    /// both because they called the panel's own copy of the closure instead of
+    /// the one baked into the hosting view; from outside, those are
+    /// indistinguishable. A seam that hands the closure to the caller is what
+    /// makes the difference observable, and `AppCoreWiringSeamTests` is the
+    /// precedent: pin the joins where a mis-wire compiles, runs, and produces a
+    /// wrong-but-plausible app.
     init?(
         screen: NSScreen,
         coordinator: Coordinator,
         space: any RaisedSpace,
         lowPower: LowPowerModeMirror,
-        artwork: LockArtworkResolver
+        artwork: LockArtworkResolver,
+        makeContent: ((@escaping (CGRect) -> Void) -> NSView)? = nil
     ) {
         guard space.isAvailable else { return nil }
         self.space = space
@@ -87,33 +101,37 @@ final class LockScreenPanel {
         // does not.
         panel.ignoresMouseEvents = true
 
-        let relay = LockInteractiveRectRelay()
-        let hosting = NSHostingView(rootView: AnyView(
-            LockWidgetView(
-                coordinator: coordinator,
-                artwork: artwork,
-                onInteractiveRect: { [weak relay] in relay?.onChange?($0) }
-            )
-            .environment(\.lowPowerMode, lowPower)
-        ))
-        // The default (.standardBounds) installs constraints that let SwiftUI
-        // resize the window; this one is sized by the screen and nothing else.
-        hosting.sizingOptions = []
-        panel.contentView = hosting
+        // Built before the content and handed to it verbatim — one closure, no
+        // box in between. Creating it afterwards would also miss the first
+        // report: the reporter fires from `onAppear` on the first layout pass,
+        // which SwiftUI may run the moment the hosting view is installed, and
+        // the rect does not change again.
+        let report: (CGRect) -> Void = { [weak self] rect in self?.setInteractiveRect(rect) }
+
+        if let makeContent {
+            panel.contentView = makeContent(report)
+        } else {
+            let hosting = NSHostingView(rootView: AnyView(
+                LockWidgetView(coordinator: coordinator, artwork: artwork, onInteractiveRect: report)
+                    .environment(\.lowPowerMode, lowPower)
+            ))
+            // The default (.standardBounds) installs constraints that let
+            // SwiftUI resize the window; this one is sized by the screen.
+            hosting.sizingOptions = []
+            panel.contentView = hosting
+        }
 
         panel.setFrame(screen.frame, display: true)
         panel.orderFrontRegardless()
         space.adopt(panel)
 
-        // The relay exists because the root view is built before `self` is
-        // available; it gets its real target here, one line later.
-        relay.onChange = { [weak self] rect in self?.setInteractiveRect(rect) }
         installMouseRouting()
     }
 
     // MARK: - Mouse routing
 
-    /// Called by the view with the card's rect in the window's coordinate space.
+    /// Called by the content view, through the closure it was handed at init,
+    /// with the card's rect in the window's coordinate space.
     private func setInteractiveRect(_ cardInWindow: CGRect) {
         interactiveRect = LockWidgetClickThrough.screenRect(
             cardInWindow: cardInWindow, window: panel.frame
@@ -220,13 +238,4 @@ final class LockScreenPanel {
         localMouseMonitor = nil
         globalMouseMonitor = nil
     }
-}
-
-/// Carries the view's reported rect to the panel. The root view is built before
-/// `self` exists, so the closure baked into it cannot capture the panel; this
-/// box is what gets its target one line later — the same shape, and the same
-/// reason, as `SurfaceSizeRelay` on the desktop side.
-@MainActor
-final class LockInteractiveRectRelay {
-    var onChange: ((CGRect) -> Void)?
 }

@@ -172,4 +172,59 @@ struct LockScreenPanelTests {
 
         panel?.close()
     }
+
+    @Test func theWireTheContentViewWasHandedIsStillLiveAfterInit() throws {
+        // The bug this exists for shipped, and its symptom was silence: the card
+        // drew perfectly and answered no click. The closure the view held went
+        // through a relay box owned by a local `let` and captured `[weak]`, so
+        // it died the instant `init` returned.
+        //
+        // Two earlier attempts at this test passed AGAINST that bug, both
+        // because they invoked the panel's own copy of the closure rather than
+        // the one the view received — from outside, those look identical. The
+        // only honest observer is whoever the panel hands the wire to, which is
+        // why `makeContent` exists.
+        let harness = CoordinatorHarness()
+        let screen = NSScreen.screens[0]
+        let held = HeldReporter()
+        let panel = try #require(LockScreenPanel(
+            screen: screen,
+            coordinator: harness.coordinator,
+            space: RecordingRaisedSpace(),
+            lowPower: LowPowerModeMirror(),
+            artwork: LockArtworkResolver(lookup: MockArtworkLookup(), enabled: false),
+            makeContent: { report in
+                held.report = report
+                return NSView(frame: screen.frame)
+            }
+        ))
+        #expect(panel.capturesMouse == false)
+
+        // A rect that certainly contains the cursor, wherever it happens to be:
+        // the window only opens when the pointer is inside what the view drew.
+        let mouse = NSEvent.mouseLocation
+        let inWindow = CGRect(
+            x: mouse.x - screen.frame.minX - 200,
+            y: screen.frame.maxY - mouse.y - 200,
+            width: 400,
+            height: 400
+        )
+        let report = try #require(held.report, "the panel handed its content view no reporter")
+        report(inWindow)
+        #expect(panel.capturesMouse, "the view reported where it drew and the window stayed shut")
+
+        // And it closes again when the surface reports it left — the media
+        // stopping, which publishes an empty rect.
+        held.report?(.zero)
+        #expect(panel.capturesMouse == false)
+
+        panel.close()
+    }
+}
+
+/// Stands in for the hosting view, keeping the closure the panel handed it so
+/// the test can call the same one the real view would.
+@MainActor
+final class HeldReporter {
+    var report: ((CGRect) -> Void)?
 }
