@@ -455,7 +455,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "A abertura ao iniciar sessão aguarda sua aprovação."
+            "value": "A abertura no início da sessão aguarda sua aprovação."
           }
         }
       }
@@ -506,7 +506,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "A abertura ao iniciar sessão foi desativada\nporque o app mudou desde que você ativou."
+            "value": "A abertura no início da sessão foi desativada\nporque o app mudou desde que você a ativou."
           }
         }
       }
