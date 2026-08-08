@@ -43,9 +43,24 @@ extension View {
     /// override, unlike this material's `state = .active`. To switch back to real
     /// (if flatter) glass, replace the background with
     /// `glassEffect(.regular, in: shape)` under `#available(macOS 26, *)`.
-    func vibrantSurface(in shape: some InsettableShape) -> some View {
+    /// `material` defaults to what the desktop skins have always used. The lock
+    /// card passes `.underWindowBackground` instead, and the difference is not
+    /// taste: measured, `.hudWindow` tints white 0.1569 at alpha 0.40 while
+    /// `.underWindowBackground` does it at 0.80, so the ground under the ink is
+    /// twice as certain over an arbitrary wallpaper. Apple's abstract for that
+    /// material is the only one in the catalogue carrying a discussion, and it
+    /// describes this case — "use this material on a visual effect view with a
+    /// blendingMode of behindWindow to create a sense of peeking through the
+    /// back of the window."
+    ///
+    /// The parameter is the material and NOTHING ELSE. The rim and the specular
+    /// stay shared, because those are the numbers a surface must not drift on.
+    func vibrantSurface(
+        in shape: some InsettableShape,
+        material: NSVisualEffectView.Material = .hudWindow
+    ) -> some View {
         background {
-            VibrancyMaterial()
+            VibrancyMaterial(material: material)
                 .clipShape(shape)
         }
         .clipShape(shape)
@@ -123,6 +138,8 @@ enum SurfaceChrome {
 /// `.behindWindow` is the system's own HUD/overlay recipe; the panel is already
 /// clear + non-opaque, which behind-window blending requires.
 private struct VibrancyMaterial: NSViewRepresentable {
+    var material: NSVisualEffectView.Material = .hudWindow
+
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
         // Pinned dark by contract, belt-and-braces with the colorScheme the
@@ -130,13 +147,14 @@ private struct VibrancyMaterial: NSViewRepresentable {
         // appearance the ink no longer follows (docs/DECISIONS.md:
         // hud-fixed-dark-palette).
         view.appearance = NSAppearance(named: .darkAqua)
-        view.material = .hudWindow
+        view.material = material
         view.blendingMode = .behindWindow
         view.state = .active
         return view
     }
 
     func updateNSView(_ view: NSVisualEffectView, context: Context) {
+        view.material = material
         view.state = .active
     }
 }

@@ -2738,3 +2738,75 @@ second is a consequence of the first, and it is the one a future round might
 want back — with an anchored geometry rather than a centred one, and with the
 lookup's cost re-argued from scratch rather than restored because it used to be
 there.
+
+### the-card-takes-the-material-it-was-refusing
+An amendment to the-lock-surface-is-a-card, recorded because the reversal looks
+like a reversal and is not one.
+
+The lock card drew itself with SwiftUI's `.ultraThinMaterial` over a black fill,
+under a comment refusing `vibrantSurface` for a stated reason: it samples what
+is behind the WINDOW, and the window is the size of the display, so it would
+sample the card's own backdrop and go flat. That was true. Then the backdrop was
+deleted, and the reason expired without anybody noticing — a comment that had
+been correct for its whole life became a claim about a world that no longer
+existed, which is the exact failure mode the anti-recurrence contract is written
+against.
+
+Measured on hardware 2026-08-08 (`scripts/probes/lockscreen-card-material.swift`,
+four swatches over a known colour pattern): a real `NSVisualEffectView` with
+`.behindWindow` blending DOES sample content on a raised SkyLight space at level
+400, the `.withinWindow` control behaved so the reading means something, and
+`.ultraThinMaterial` and a flat fill were plainly distinguishable so the shipped
+material was doing real work rather than approximating.
+
+Decision: the card takes `vibrantSurface`, with the material as the ONE new
+parameter — `.underWindowBackground` here against the desktop skins'
+`.hudWindow`. The difference is a contrast floor rather than a look: the tints
+are white 0.1569 at alpha 0.80 and 0.40 respectively, and this is the only
+surface in the app whose ground is a picture the app did not choose. Adopting
+the shared modifier also restores the SPECULAR the card was missing — it had
+taken only the black rim, under a `SurfaceChrome` comment stating that the pair
+splits the work and the specular is the half that carries a boundary over a dark
+backdrop, which is what a lock screen is made of. The fill drops 0.52 → 0.42,
+because the point of a heavier material is to spend less alpha hiding the
+wallpaper behind flat black.
+
+**The parameter is the material and nothing else.** The rim and the specular
+stay shared, because those are the numbers a surface must not drift on.
+
+**Two accessibility settings became this surface's problem specifically**, and
+both are the app's own code because measured, Increase Contrast changes an
+`NSVisualEffectView` by nothing. Reduce Transparency swaps the material for an
+opaque ground at `Color(white: 0.1176)` — `windowBackgroundColor` under darkAqua,
+read from the system rather than chosen. Increase Contrast promotes the artist
+from `.secondary` to `.primary`, and that one lives in `TrackTextStack` rather
+than at the call site: a secondary label going primary is what the preference
+asks for on every surface, and scattering the check would leave three skins
+honouring it and one forgetting.
+
+**The digits left the scrubber** and the waveform stayed, which is the opposite
+of what the design that supplied the material proposed. At two metres a 10 pt
+cap subtends about 2.5 arcminutes, under the 5 a 20/20 eye needs to resolve a
+letter it already expects — the digits were not being read. The waveform is the
+only remaining signal that something is PLAYING rather than paused, and the bar's
+fill moves at 1/60 the rate of a second hand, so deleting both would have left
+the card with no perceptible transport state at distance. It runs continuously
+and is gated only by the two app-wide vetoes; the 180 s settle that seven
+proposals leaned on was measured to be a 3-minutes-on / 30-seconds-off pulse
+rather than stillness, because the average track re-arms it.
+
+**The cover's corner radius is now derived, not chosen.** `inner = outer −
+padding` is Apple's concentric rule and its published worked example is this
+composition — "nested containers, like artwork in a card". It shipped at 9
+against a derived 6, and the reason 3 pt matters at the distance this surface is
+read from is that concentricity is a SILHOUETTE property: it holds the gap
+between cover and card edge optically constant as it turns the corner, and that
+survives after the text has stopped resolving. `ConcentricRectangle` is macOS 26
+and out of reach; the arithmetic is not.
+
+**And the privacy position is now written on screen rather than assumed.** A
+now-playing card on a lock screen tells whoever walks past what is playing, by
+name, and the round that made the type more legible made that more true. iOS
+hides notification previews by default; Crema does not, and Settings says so in
+a sentence placed BEFORE the switch, because the person it affects cannot undo
+it after the fact.

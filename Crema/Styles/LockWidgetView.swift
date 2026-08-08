@@ -49,6 +49,15 @@ struct LockWidgetView: View {
     var onInteractiveRect: ((CGRect) -> Void)?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Two accessibility settings this surface owes an answer to, because it is
+    /// the one surface in the app whose ground is a picture the app did not
+    /// choose. Apple's instruction is not optional: "if your app doesn't provide
+    /// this minimum contrast by default, ensure it at least provides a higher
+    /// contrast color scheme when the system setting Increase Contrast is turned
+    /// on" — and measured, Increase Contrast changes an `NSVisualEffectView` by
+    /// nothing, so every hardening here is the app's own code.
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
 
     /// ONE decode for the whole surface.
     ///
@@ -127,7 +136,11 @@ struct LockWidgetView: View {
                 position: coordinator.nowPlaying?.position ?? 0,
                 duration: coordinator.nowPlaying?.duration,
                 enabled: coordinator.commandsAvailable,
-                showsDuration: true,
+                // No digits. At two metres a 10 pt cap subtends about 2.5
+                // arcminutes, under the 5 a 20/20 eye needs to resolve a letter
+                // it already expects — they were not being read, they were
+                // occupying the row. The bar keeps the position.
+                showsDuration: false,
                 onScrub: { coordinator.scrub(to: $0) }
             )
             .frame(height: LockWidgetMetrics.scrubberHeight)
@@ -174,30 +187,40 @@ struct LockWidgetView: View {
         }
     }
 
-    /// The card's own material.
+    /// The card's own material — real vibrancy, and the family's own border with
+    /// it, after two rounds of neither.
     ///
-    /// It refuses `vibrantSurface` under a reason that is no longer true and is
-    /// kept here as a marker rather than a justification: "it would sample its
-    /// own backdrop and go flat" was correct while this surface painted one.
-    /// Measured on hardware 2026-08-08 with `scripts/probes/lockscreen-card-material.swift`
-    /// — a real `NSVisualEffectView` with `.behindWindow` blending DOES sample
-    /// the shield from a raised space, and the control swatch behaved, so the
-    /// reading means something. Adopting it is now a design decision with a
-    /// measurement behind it rather than a possibility nobody had checked.
+    /// It refused `vibrantSurface` on a reason that expired: "it would sample its
+    /// own backdrop and go flat" was true while this surface painted one, and the
+    /// backdrop is gone. Measured on hardware 2026-08-08
+    /// (`scripts/probes/lockscreen-card-material.swift`): a real
+    /// `NSVisualEffectView` with `.behindWindow` blending DOES sample the shield
+    /// from a raised space at level 400, and the `.withinWindow` control swatch
+    /// behaved, so the reading means something.
+    ///
+    /// Adopting the shared modifier also restores the SPECULAR the card was
+    /// missing. It took only the black rim, under a `SurfaceChrome` comment
+    /// saying the pair splits the work — the rim carries the boundary over a
+    /// light backdrop, the specular carries it over a dark one — which is the
+    /// half a lock screen is made of.
+    ///
+    /// `.underWindowBackground` rather than the skins' `.hudWindow`: the ground
+    /// has to be certain over a wallpaper the app does not choose, and 0.80 of
+    /// tint against 0.40 is where that certainty comes from. The fill above it is
+    /// 0.42 rather than the 0.52 that shipped — the material is doing more of the
+    /// work now, and the point of a heavier material is to spend less alpha
+    /// hiding the wallpaper behind flat black.
     private var cardSurface: some View {
         let shape = RoundedRectangle(cornerRadius: LockWidgetMetrics.cornerRadius, style: .continuous)
         return shape
-            .fill(.black.opacity(0.52))
-            .background(.ultraThinMaterial, in: shape)
-            .overlay {
-                // The family's edge, from the one place that owns those numbers,
-                // so this surface cannot drift from its siblings.
-                shape.strokeBorder(
-                    Color(white: SurfaceChrome.outerHairlineWhite)
-                        .opacity(SurfaceChrome.outerHairlineOpacity),
-                    lineWidth: SurfaceChrome.outerHairlineWidth
-                )
-            }
+            .fill(.black.opacity(reduceTransparency ? 1 : 0.42))
+            .vibrantSurface(in: shape, material: .underWindowBackground)
+            // The preference means "do not put a translucent layer over content",
+            // and a card whose ground is the user's wallpaper is exactly that.
+            // The substitute is a measured system value rather than a guess:
+            // `windowBackgroundColor` under darkAqua is white 0.1176, which is
+            // where AppKit itself puts an opaque dark surface.
+            .background(reduceTransparency ? Color(white: 0.1176) : .clear, in: shape)
     }
 
     private func head(_ track: NowPlaying) -> some View {
@@ -210,7 +233,12 @@ struct LockWidgetView: View {
             TrackTextStack(
                 title: track.title,
                 artist: track.artist,
-                alignment: .leading
+                alignment: .leading,
+                // The one place the family's ramp bends, and it bends on weight
+                // rather than size — the sizes stay shared. Apple's Live
+                // Activities guidance asks for "a medium weight or higher" on a
+                // glanceable surface, and this is the app's only one.
+                artistWeight: .medium
             )
             .frame(maxWidth: .infinity, alignment: .leading)
             WaveformGlyph(animating: track.isPlaying)

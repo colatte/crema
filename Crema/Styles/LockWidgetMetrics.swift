@@ -28,7 +28,23 @@ enum LockWidgetMetrics {
     static let gap: CGFloat = 12
 
     static let thumbnailSide: CGFloat = 50
-    static let thumbnailRadius: CGFloat = 9
+
+    /// CONCENTRIC, not chosen: `inner = outer − padding`, which is 22 − 16.
+    ///
+    /// Apple states the rule and its worked example is literally this card —
+    /// "one place this often shows up in is nested containers, like artwork in a
+    /// card" (WWDC25 session 356). The API that computes it (`ConcentricRectangle`,
+    /// `.containerConcentric`) is macOS 26, but the arithmetic needs no API.
+    ///
+    /// It shipped at 9 for a week, which is 3 pt over-round, and the reason it
+    /// matters at the distance this surface is read from is that concentricity is
+    /// a SILHOUETTE property: it keeps the gap between cover and card edge
+    /// optically constant as it turns the corner, and a non-concentric pair makes
+    /// that gap pinch — a misalignment the eye registers and cannot name, and one
+    /// of the few cues still legible after the text has stopped resolving.
+    ///
+    /// If either number above moves, this one moves with it.
+    static let thumbnailRadius: CGFloat = cornerRadius - padding
 
     /// `TrackTextStack`'s two lines at the family ramp — `.subheadline` over
     /// `.caption`, 2 pt apart. A reserved height rather than a measured one, so

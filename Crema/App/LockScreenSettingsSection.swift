@@ -31,6 +31,21 @@ struct LockScreenSettingsSection: View {
                     ))
                 }
                 .onChange(of: showsWidget) { _, new in core.setShowsLockScreenWidget(new) }
+
+                // Said BEFORE the switch is flipped, and said plainly, because
+                // the thing it describes is not reversible by the person it
+                // affects: whoever walks past the machine has already read it.
+                // iOS hides notification previews on the lock screen by default;
+                // Crema does not hide these, so the honest move is to name it
+                // rather than to let the user discover it from a colleague.
+                if showsWidget {
+                    Text(String(
+                        localized: "settings.lockScreen.privacy",
+                        // swiftlint:disable:next line_length
+                        defaultValue: "The card shows the track and artist while your Mac is locked, so anyone nearby can read them. It stays on the main display and never shows your desktop."
+                    ))
+                    .settingsFootnote()
+                }
             } else {
                 Text(String(
                     localized: "settings.lockScreen.unsupported",

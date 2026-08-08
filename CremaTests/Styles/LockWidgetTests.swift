@@ -134,3 +134,32 @@ struct ArtworkDecodeBoundTests {
         #expect(Double(ArtworkDecoding.displayMaxSide) < LockWidgetMetrics.thumbnailSide * 6)
     }
 }
+
+/// The card's own numbers, after the round that made it the whole surface.
+struct LockCardDesignTests {
+
+    @Test func theCoverRadiusIsConcentricWithTheCard() {
+        // Apple's rule, and its worked example is this exact composition: the
+        // inner radius of a nested container is the outer minus the padding.
+        // Written as the arithmetic rather than the answer, so moving either
+        // parent number cannot leave the child behind — which is how it drifted
+        // to 9 against a 6 in the first place.
+        #expect(
+            LockWidgetMetrics.thumbnailRadius
+                == LockWidgetMetrics.cornerRadius - LockWidgetMetrics.padding
+        )
+        // And the pair has to stay physically possible: a negative or zero inner
+        // radius would mean the padding had swallowed the corner.
+        #expect(LockWidgetMetrics.thumbnailRadius > 0)
+        #expect(LockWidgetMetrics.thumbnailRadius < LockWidgetMetrics.cornerRadius)
+    }
+
+    @Test func theCardStillFitsInsideTheMeasuredBand() {
+        // The sum-of-parts discipline, re-asserted after the rows changed: the
+        // digits left the scrubber and the head kept its height, so the card's
+        // height must not have moved.
+        let top = LockWidgetMetrics.bottomInset + LockWidgetMetrics.collapsedHeight
+        #expect(top <= 641, "the ceiling the ruler proved on the author's panel")
+        #expect(LockWidgetMetrics.collapsedHeight == 152)
+    }
+}

@@ -117,8 +117,17 @@
     changes in either state**: the wallpaper, the system's own clock, the avatar
     and the password field are all exactly as macOS drew them, and Crema draws no
     clock of its own — seeing two is the defect this criterion exists to catch.
-    Both states stay clear of the login: the card's bottom edge and the tile's
-    both sit at or above 300 pt from the bottom of the display. With the
+    The card rests at 300 pt from the bottom on every display, because its
+    placement is a constant rather than a function of the panel's height. It
+    reads the track and artist beside a small cover, with a progress bar and no
+    digits; the four bars beside the words move while something is playing and
+    settle when it pauses. Clicking the card does nothing — only its transport
+    buttons and its bar respond.
+
+    With **Reduce Transparency** on, the card's ground goes opaque instead of
+    showing the wallpaper through it. With **Increase Contrast** on, the artist
+    line goes as bright as the title. With **Reduce Motion** on, the bars stop
+    and the card still FADES in and out rather than appearing in one frame. With the
     preference off — which is how it ships — the lock screen is untouched. On a
     macOS where the private space API does not resolve, Settings says so in a
     sentence instead of offering a switch that would do nothing.
