@@ -21,20 +21,6 @@ enum ArtworkDecoding {
     /// the decode is bounded no matter how large the source cover is.
     static let displayMaxSide = 256
 
-    /// The lock screen's own bound. A 300 pt cover at 2× is 600 px; the headroom
-    /// above that is for the Cover Art Archive upgrade, which lands at 1200 px
-    /// and would otherwise be thrown away by the decode that is meant to show it.
-    ///
-    /// Kept apart from `displayMaxSide` rather than raising it: every thumbnail
-    /// in the app would pay for a size only this surface needs, and the desktop
-    /// skins never show artwork above 88 pt.
-    ///
-    /// It was 1024 for a second reason that no longer exists — a full-screen
-    /// blurred backdrop drew the same decode across the whole display. That
-    /// surface is gone (docs/DECISIONS.md: the-lock-surface-is-a-card) and the
-    /// number stayed, because the remaining reason justifies it on its own.
-    static let lockScreenMaxSide = 1024
-
     static func thumbnail(from bytes: [UInt8]?, maxSide: Int) -> CGImage? {
         guard let bytes,
               let source = CGImageSourceCreateWithData(Data(bytes) as CFData, nil) else {

@@ -64,7 +64,6 @@ final class LockScreenPanel {
         coordinator: Coordinator,
         space: any RaisedSpace,
         lowPower: LowPowerModeMirror,
-        artwork: LockArtworkResolver,
         makeContent: ((@escaping (CGRect) -> Void) -> NSView)? = nil
     ) {
         guard space.isAvailable else { return nil }
@@ -120,7 +119,6 @@ final class LockScreenPanel {
             let hosting = NSHostingView(rootView: AnyView(
                 LockWidgetView(
                     coordinator: coordinator,
-                    artwork: artwork,
                     onInteractiveRect: report
                 )
                 .environment(\.lowPowerMode, lowPower)

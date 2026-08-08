@@ -1558,25 +1558,14 @@ extension AppCore {
         lock: LockScreenMirror,
         lowPower: LowPowerModeMirror,
         preferences: Preferences,
-        space: any RaisedSpace = SkyLightSpaceBridge(),
-        lookup: any ArtworkLookup = CoverArtArchiveLookup()
+        space: any RaisedSpace = SkyLightSpaceBridge()
     ) -> LockScreenPresenter {
         LockScreenPresenter(
             coordinator: coordinator,
             lock: lock,
             space: space,
             lowPower: lowPower,
-            artwork: LockArtworkResolver(
-                lookup: lookup, enabled: preferences.fetchesHighResolutionArtwork
-            ),
             enabled: preferences.showsLockScreenWidget
         )
-    }
-
-    /// Persisted, and taking effect on the surface that is up rather than the
-    /// next track — turning it off is a request about now.
-    func setFetchesHighResolutionArtwork(_ fetches: Bool) {
-        preferences.fetchesHighResolutionArtwork = fetches
-        lockScreenPresenter?.setArtworkLookupEnabled(fetches)
     }
 }

@@ -21,18 +21,6 @@ struct LockWidgetMetricsTests {
         #expect(LockWidgetMetrics.collapsedSize.width == LockWidgetMetrics.cardWidth)
     }
 
-    @Test func theRowsFitInsideTheExpandedSquareWithCoverLeftOver() {
-        // Expanded, the rows are laid OVER a 300 pt square rather than stacked
-        // under a cover. If they ever grow past the tile they stop being a scrim
-        // on artwork and become the artwork's replacement — and the fix would be
-        // to shrink the rows, never to grow the tile, which is pinned to the
-        // measured band.
-        #expect(LockWidgetMetrics.expandedControlsHeight < LockWidgetMetrics.expandedSide)
-        // At least half the square stays picture, or the point of expanding is
-        // gone.
-        #expect(LockWidgetMetrics.expandedControlsHeight < LockWidgetMetrics.expandedSide / 2)
-    }
-
     @Test func theHeadIsTallEnoughForBothThingsItCanHold() {
         #expect(LockWidgetMetrics.headHeight >= LockWidgetMetrics.thumbnailSide)
         #expect(LockWidgetMetrics.headHeight >= LockWidgetMetrics.textBlockHeight)
@@ -91,43 +79,34 @@ struct LockWidgetMetricsTests {
         #expect(bottom + LockWidgetMetrics.collapsedHeight <= Measured.clearCeiling)
     }
 
-    @Test func theExpandedSquareIsExactlyTheRectangleThatWasMeasuredClear() {
-        // Centring the tile on the display is what makes the measurement
-        // transferable: the ruler proved a 300 pt square at the centre, so the
-        // tile must be that square and no larger. The version this replaced was
-        // a stack of cover + card — 464 pt, and it leaves the band at the TOP
-        // (723 > 641), not at the bottom: measured, it clears the login by 79 pt.
-        // The test twenty lines below pins that correction; this comment used to
-        // contradict it.
-        let side = LockWidgetMetrics.expandedSide
-        let bottom = (Measured.screenHeight - side) / 2
-        #expect(bottom >= Measured.clearFloor)
-        #expect(bottom + side <= Measured.clearCeiling)
-        #expect(side <= Measured.clearCeiling - Measured.clearFloor)
-    }
-
-    @Test func aStackedCompositionWouldLeaveTheBandThatWasMeasured() {
-        // Kept as the record of why the design changed — with the reason
-        // corrected, because the original one was measured FALSE on 2026-08-08.
-        // It read "centring it puts its bottom edge inside the login's strip",
-        // arithmetic done against a 900 pt display and a login top of 250 that
-        // neither existed. On the real 982 pt panel the stack centres to
-        // 259…723: its bottom clears the login by 79 pt.
+    @Test func aCentredPlacementWouldReachTheLoginOnAShorterPanel() {
+        // The record of why the expanded state went, kept as arithmetic because
+        // the arithmetic is the whole finding. The tile was 300 pt centred, so
+        // its bottom edge was `(H - 300) / 2` — a function of a display height
+        // the surface never read. On the author's 982 pt panel that is 341 and
+        // everything clears; the measurement was then written down as if it
+        // described the design rather than one panel.
         //
-        // What is true is the other end. 723 is outside 641, the ceiling the
-        // ruler actually proved, so the stack would have put a large picture
-        // where nobody has looked. That plus the interaction reason — a hero
-        // above a card is a big image that ignores every click aimed at it,
-        // since only the drawn surface takes one here — is what the decision
-        // rests on now.
-        let stacked = LockWidgetMetrics.expandedSide
-            + LockWidgetMetrics.gap
-            + LockWidgetMetrics.collapsedHeight
-        let bottom = (Measured.screenHeight - stacked) / 2
-        #expect(bottom + stacked > Measured.clearCeiling, "the stack leaves the measured band")
-        // And the claim that replaced it is pinned as false, so nobody restores
-        // the old sentence from memory.
-        #expect(bottom > Measured.loginTop, "the stack did NOT reach the login — that reason was wrong")
+        // Two thresholds, both reachable. A 13-inch Air at its most-zoomed
+        // scaled setting is 1024x640.
+        func centredBottom(_ height: CGFloat) -> CGFloat { (height - 300) / 2 }
+
+        // Three thresholds against three DIFFERENT numbers, and keeping them
+        // apart is the point: `clearBandFloor` (300) is the app's own promise,
+        // `Measured.clearFloor` (220) is what the ruler actually proved clear,
+        // and `loginTop` (180) is where the login begins. Collapsing them is how
+        // the original comment ended up describing a panel instead of a design.
+        #expect(centredBottom(Measured.screenHeight) >= LockWidgetMetrics.clearBandFloor,
+                "the panel it was designed on is exactly the one where it looked fine")
+        #expect(centredBottom(880) < LockWidgetMetrics.clearBandFloor,
+                "below 900 pt a centred tile crosses the floor the app promises")
+        #expect(centredBottom(700) < Measured.clearFloor,
+                "below 740 pt it leaves the band the ruler actually proved")
+        #expect(centredBottom(640) < Measured.loginTop,
+                "and below 660 pt it lands on the login itself")
+
+        // What ships instead is not a function of the height at all.
+        #expect(LockWidgetMetrics.bottomInset == LockWidgetMetrics.clearBandFloor)
     }
 
     @Test func theInsetClearsTheCardsOwnCorner() {
@@ -135,21 +114,23 @@ struct LockWidgetMetricsTests {
     }
 }
 
-/// The lock screen's decode bound is its own, and the reason is a cost the rest
-/// of the app must not pay.
-struct LockScreenArtworkBoundTests {
+/// The decode bound, after the lock screen stopped needing one of its own.
+struct ArtworkDecodeBoundTests {
 
-    @Test func theLockScreenDecodesLargerThanEveryDesktopSlot() {
-        // A 300 pt cover at 2× is 600 px; the shared bound is 256, sized for an
-        // 88 pt thumbnail. Raising the shared one instead would make every
-        // thumbnail in every skin pay for a size only this surface shows.
-        #expect(ArtworkDecoding.lockScreenMaxSide > ArtworkDecoding.displayMaxSide)
-        #expect(Double(ArtworkDecoding.lockScreenMaxSide) >= LockWidgetMetrics.expandedSide * 2)
+    @Test func theSharedBoundCoversEveryArtworkTheAppDraws() {
+        // The largest slot in the app is Classic's 88 pt cover; the lock card's
+        // thumbnail is 50. At 2x those are 176 px and 100 px, and the shared
+        // bound has to clear the larger.
+        #expect(ArtworkDecoding.displayMaxSide >= 176)
+        #expect(Double(ArtworkDecoding.displayMaxSide) >= LockWidgetMetrics.thumbnailSide * 2)
     }
 
-    @Test func theSharedBoundStillFitsTheLargestDesktopSlot() {
-        // 88 pt is the biggest artwork any desktop skin draws (Classic,
-        // expanded); at 2× that is 176 px and the bound must stay above it.
-        #expect(ArtworkDecoding.displayMaxSide >= 176)
+    @Test func theLockScreenNoLongerNeedsABoundOfItsOwn() {
+        // `lockScreenMaxSide` was 1024, sized for a 300 pt tile at 2x plus the
+        // headroom a 1200 px archive cover wanted. Both are gone, and a bound
+        // four times the largest slot is not caution, it is decode cost nobody
+        // reads. Written as the relationship rather than the number so it fails
+        // if a second bound is reintroduced without a slot to justify it.
+        #expect(Double(ArtworkDecoding.displayMaxSide) < LockWidgetMetrics.thumbnailSide * 6)
     }
 }

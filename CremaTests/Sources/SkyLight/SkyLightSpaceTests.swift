@@ -96,8 +96,7 @@ struct LockScreenPanelTests {
             screen: NSScreen.screens[0],
             coordinator: harness.coordinator,
             space: space,
-            lowPower: LowPowerModeMirror(),
-            artwork: LockArtworkResolver(lookup: MockArtworkLookup(), enabled: false)
+            lowPower: LowPowerModeMirror()
         )
         #expect(panel == nil)
         #expect(space.adopted.isEmpty)
@@ -114,8 +113,7 @@ struct LockScreenPanelTests {
             screen: NSScreen.screens[0],
             coordinator: harness.coordinator,
             space: space,
-            lowPower: LowPowerModeMirror(),
-            artwork: LockArtworkResolver(lookup: MockArtworkLookup(), enabled: false)
+            lowPower: LowPowerModeMirror()
         )
         #expect(panel != nil)
         let afterInit = space.adopted.count
@@ -143,8 +141,7 @@ struct LockScreenPanelTests {
             screen: screen,
             coordinator: harness.coordinator,
             space: space,
-            lowPower: LowPowerModeMirror(),
-            artwork: LockArtworkResolver(lookup: MockArtworkLookup(), enabled: false)
+            lowPower: LowPowerModeMirror()
         )
         #expect(space.adopted.count == 1)
 
@@ -165,8 +162,7 @@ struct LockScreenPanelTests {
             screen: NSScreen.screens[0],
             coordinator: harness.coordinator,
             space: RecordingRaisedSpace(),
-            lowPower: LowPowerModeMirror(),
-            artwork: LockArtworkResolver(lookup: MockArtworkLookup(), enabled: false)
+            lowPower: LowPowerModeMirror()
         )
         #expect(panel?.capturesMouse == false)
 
@@ -192,7 +188,6 @@ struct LockScreenPanelTests {
             coordinator: harness.coordinator,
             space: RecordingRaisedSpace(),
             lowPower: LowPowerModeMirror(),
-            artwork: LockArtworkResolver(lookup: MockArtworkLookup(), enabled: false),
             makeContent: { report in
                 held.report = report
                 return NSView(frame: screen.frame)

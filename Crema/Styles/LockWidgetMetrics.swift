@@ -11,11 +11,12 @@ import CoreGraphics
 /// measured. The numbers below are Crema's own, derived here — none of them
 /// came from another app's screenshot.
 ///
-/// This file once carried four more numbers — a blur radius, an overscan, a
-/// fade band and a clock inset — for a full-screen backdrop that no longer
-/// exists (docs/DECISIONS.md: the-lock-surface-is-a-card). They left together
-/// because they were one idea: cover the display, and then pay for having
-/// covered it. What survives is the geometry of two bounded objects.
+/// This file once carried a backdrop's four numbers and an expanded tile's
+/// four more (docs/DECISIONS.md: the-lock-surface-is-a-card). They left in two
+/// rounds for one reason: each was a way of making the surface larger, and each
+/// bought its size with a cost somewhere else — a clock the backdrop obliged, a
+/// centred geometry that reached the login on a short panel. What survives is
+/// the geometry of ONE bounded object.
 enum LockWidgetMetrics {
 
     // MARK: - The card, collapsed
@@ -49,43 +50,6 @@ enum LockWidgetMetrics {
 
     static var collapsedSize: CGSize {
         CGSize(width: cardWidth, height: collapsedHeight)
-    }
-
-    // MARK: - Expanded: one tile, not a stack
-
-    /// Expanded, the surface is a SQUARE the size of the cover, with the words
-    /// and the controls laid over its lower part — not the cover with a card
-    /// beneath it.
-    ///
-    /// That was the first design. Cover (300) + gap + card (152) is 464 pt tall
-    /// and, centred on the author's 982 pt panel, spans 259…723 — so its TOP
-    /// leaves 641, the ceiling the ruler proved, and puts a large picture where
-    /// nobody has looked. One tile is 300 and centres to 341…641, which is
-    /// exactly the rectangle that was measured clear.
-    ///
-    /// This paragraph used to say the stack's BOTTOM landed back on the login,
-    /// and that was arithmetic on a 900 pt display and a login top of 250 that
-    /// the ruler never produced. Measured 2026-08-08: the login's top is at or
-    /// below 180, so the stack cleared it by 79 pt. The sentence is corrected
-    /// rather than deleted because the wrong version is the kind a reader
-    /// reconstructs from memory.
-    ///
-    /// The interaction reason never depended on any of that, and it is the
-    /// stronger one. Only the drawn surface takes a click here
-    /// (`LockWidgetClickThrough`), so with the controls on the cover the cover IS
-    /// the surface — where a separate hero above a card was a large picture that
-    /// deliberately ignored every click aimed at it.
-    static let expandedSide: CGFloat = 300
-    static let expandedRadius: CGFloat = 24
-
-    static var expandedSize: CGSize {
-        CGSize(width: expandedSide, height: expandedSide)
-    }
-
-    /// The scrim's share of the tile: enough for the two text lines, the
-    /// scrubber and the transport row, plus the padding around them.
-    static var expandedControlsHeight: CGFloat {
-        textBlockHeight + gap + scrubberHeight + gap + transportSide + padding
     }
 
     // MARK: - Placement

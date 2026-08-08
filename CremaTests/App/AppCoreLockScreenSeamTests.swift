@@ -6,10 +6,19 @@ import Testing
 /// siblings in `AppCoreWiringSeamTests`: pin the wiring where a mistake COMPILES,
 /// RUNS, and produces a wrong-but-plausible app.
 ///
-/// This seam seeds two opt-in preferences from one call, both `Bool`, neither
-/// mentioned in the other's type. Crossing them draws an uninvited window over
-/// somebody's lock screen, or makes a network request for somebody who declined
-/// one — and every test in the suite stays green.
+/// This suite used to guard TWO opt-in preferences seeded from one call, both
+/// `Bool` and neither mentioned in the other's type — the pairing existed
+/// because crossing them drew an uninvited window over somebody's lock screen,
+/// or made a network request for somebody who declined one. The second
+/// preference is gone with the surface that justified it
+/// (docs/DECISIONS.md: the-lock-surface-is-a-card), so what remains is the one
+/// join that still decides whether a window appears over a lock screen.
+///
+/// The crossing test could not simply lose its partner: with one boolean there
+/// is nothing to cross, and a single-preference assertion is weaker by
+/// construction. What replaces it is the state that used to be implicit — a
+/// preference OFF must leave the space untouched even while everything else
+/// about the surface is ready to build.
 @MainActor
 struct AppCoreLockScreenSeamTests {
 
@@ -18,13 +27,11 @@ struct AppCoreLockScreenSeamTests {
     /// only lands on the next turn.
     private func lockedPresenter(
         widget: Bool,
-        artwork: Bool,
         space: RecordingRaisedSpace
     ) -> (LockScreenPresenter, CoordinatorHarness) {
         let defaults = EphemeralDefaults()
         let preferences = Preferences(defaults: defaults.defaults)
         preferences.showsLockScreenWidget = widget
-        preferences.fetchesHighResolutionArtwork = artwork
 
         let harness = CoordinatorHarness()
         let mirror = LockScreenMirror()
@@ -34,11 +41,7 @@ struct AppCoreLockScreenSeamTests {
             lock: mirror,
             lowPower: LowPowerModeMirror(),
             preferences: preferences,
-            space: space,
-            // Injected even though nothing here resolves a cover: the production
-            // default is a live URLSession client, and a constructor default left
-            // blank at a test site is a real network border wired in silently.
-            lookup: MockArtworkLookup()
+            space: space
         )
         built.start()
         // The harness is returned so the Coordinator outlives the panel reading it.
@@ -49,32 +52,33 @@ struct AppCoreLockScreenSeamTests {
         // Observed through the space rather than a factory spy, because it is the
         // real `makePanel` the seam installs that has to be reached.
         let onSpace = RecordingRaisedSpace()
-        let on = lockedPresenter(widget: true, artwork: false, space: onSpace)
+        let on = lockedPresenter(widget: true, space: onSpace)
         withExtendedLifetime(on) { #expect(!onSpace.adopted.isEmpty) }
 
         let offSpace = RecordingRaisedSpace()
-        let off = lockedPresenter(widget: false, artwork: true, space: offSpace)
-        // The pairing is deliberate: this case has the OTHER preference on, so a
-        // seam that read the wrong one would build a window here.
+        let off = lockedPresenter(widget: false, space: offSpace)
         withExtendedLifetime(off) { #expect(offSpace.adopted.isEmpty) }
     }
 
-    @Test func theArtworkPreferenceDecidesWhetherCoversAreFetched() {
-        let fetching = lockedPresenter(widget: false, artwork: true, space: RecordingRaisedSpace())
-        #expect(fetching.0.artworkLookupIsEnabled)
-
-        let quiet = lockedPresenter(widget: true, artwork: false, space: RecordingRaisedSpace())
-        // Same pairing, the other way round. Both halves are needed: a seam that
-        // seeded both from `showsLockScreenWidget` passes either one alone.
-        #expect(!quiet.0.artworkLookupIsEnabled)
+    @Test func theSurfaceStaysAwayWhileLockedAndUnwanted() {
+        // The half that carries the weight now that there is no second preference
+        // to cross against: everything the surface needs is present — the session
+        // is locked, the space is available, the coordinator is live — and the
+        // ONLY thing withholding a window over somebody's lock screen is the
+        // preference. A seam that ignored it would pass the pairing above only by
+        // accident of ordering; here there is no other candidate cause.
+        let space = RecordingRaisedSpace()
+        let built = lockedPresenter(widget: false, space: space)
+        withExtendedLifetime(built) {
+            #expect(space.isAvailable, "the space would have accepted a window")
+            #expect(space.adopted.isEmpty, "and none was offered")
+        }
     }
 
-    @Test func bothPreferencesAreBornOff() {
-        // The surface is a window over a lock screen and the lookup is a network
-        // request naming what you listen to. Neither may arrive by upgrade.
+    @Test func theWidgetPreferenceIsBornOff() {
+        // The surface is a window over a lock screen. It may not arrive by upgrade.
         let defaults = EphemeralDefaults()
         let preferences = Preferences(defaults: defaults.defaults)
         #expect(!preferences.showsLockScreenWidget)
-        #expect(!preferences.fetchesHighResolutionArtwork)
     }
 }

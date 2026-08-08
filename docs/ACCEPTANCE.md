@@ -122,8 +122,10 @@
     preference off — which is how it ships — the lock screen is untouched. On a
     macOS where the private space API does not resolve, Settings says so in a
     sentence instead of offering a switch that would do nothing.
-21. With the cover lookup off — which is how it ships — the lock screen draws only
-    the artwork the player published, and Crema makes no network request. With it
-    on, a larger cover replaces it when one is found; when none is (no match, no
-    network), the surface is unchanged and nothing blanks. Skipping to a track
-    whose cover has not been fetched yet never shows the previous track's.
+21. ~~The cover lookup.~~ **Retired 2026-08-08 with the expanded state it fed**
+    (docs/DECISIONS.md: the-lock-surface-is-a-card). It existed so a 300 pt tile
+    would not show a soft 400 px image; with the largest slot on that surface
+    now a 50 pt thumbnail, a network request naming what you are listening to
+    could not justify itself. The criterion is struck rather than renumbered —
+    the twenty that remain keep the numbers they were verified under, and a
+    criterion that quietly became a different criterion is worse than a gap.

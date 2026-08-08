@@ -2506,6 +2506,15 @@ the WindowServer the way the panel layer's refusal anticipates. Neither is a
 reason to widen the API's use to the panels without measuring that separately.
 
 ### the-cover-comes-from-the-archive-not-the-store
+~~**Superseded 2026-08-08: there is no cover lookup.** It fed the 300 pt expanded
+tile, that state was removed, and the largest artwork slot on the lock screen is
+now a 50 pt thumbnail — 100 px at 2x against the 300-600 px the player already
+hands over. A network request naming what somebody is listening to cannot be
+justified by a slot that was already oversupplied (see the-lock-surface-is-a-card).
+The entry stays because the reasoning that chose the source is the durable part
+and would otherwise be re-derived: Apple's terms are the reason the obvious
+endpoint is the wrong one, and that has not changed.~~
+
 The high-resolution cover lookup shipped against Apple's iTunes Search API,
 chosen because it needs no token, no account and no developer program — all
 true, and none of it the question that mattered. The Search API's terms grant
@@ -2681,3 +2690,51 @@ level as a parameter; run it at 250 and 310 before anyone re-argues this from
 taste. The other reopening is the reverse of the first: a macOS that stops
 drawing a lock-screen clock, which would make ours a replacement rather than a
 duplicate.
+
+
+### the-click-was-the-last-thing-holding-the-lookup-up
+An amendment to the-lock-surface-is-a-card rather than a new decision, recorded
+separately because the chain it describes is the kind nobody reconstructs.
+
+The lock surface lost its backdrop first, and kept its two states. Then the
+design round that followed measured what the expanded state actually cost, and
+the costs turned out to compound rather than sit side by side. **The tile was
+300 pt CENTRED**, so its bottom edge was `(H - 300) / 2` — a function of a
+display height the surface never read. On the author's 982 pt panel that is 341
+and everything clears, which is exactly why the measurement was written down as
+if it described the design. Below 900 pt the tile crosses `clearBandFloor`;
+below 660 pt it lands on the login. A 13-inch Air at its most-zoomed scaled
+setting is 1024x640. Not one of eleven proposed designs noticed, and the ruler
+that "proved 341..641 clear" proved it for one panel.
+
+Decision: **the surface has one state.** The click, the tile, the morph and the
+tap gesture are gone; the card rests on `bottomInset` and its placement is not a
+function of any height.
+
+**And the click was load-bearing for something two directories away.** The
+high-resolution cover lookup — `ArtworkLookup`, `CoverArtArchiveLookup`,
+`RequestPacer`, `LockArtworkResolver`, an opt-in preference, a Settings row and
+four test suites — existed to keep a 300 pt tile from showing a soft 400 px
+image. Nothing else in the app used it. With the largest slot on that surface
+back to a 50 pt thumbnail, the feature was fetching 1200 px over the network,
+paced against MusicBrainz's 1 req/s, to feed 100 px. Retiring it was not
+tidiness: keeping it would have been a network request tied to what somebody is
+listening to, carried by an app whose SPEC promises no accounts and no
+analytics, in exchange for nothing visible. `ArtworkDecoding.lockScreenMaxSide`
+went with it — a decode bound four times the largest remaining slot is cost
+nobody reads.
+
+**Two orphans were removed in the same diff rather than left waiting for a
+caller**, and both are worth naming because both were young.
+`SurfaceAnimation.morph(expanding:reduceMotion:)` was added one commit earlier,
+for this exact toggle; the rule it expressed (the destination picks the spring)
+survives in `geometryAnimation` and in the comment where the overload used to
+be. `MockArtworkLookup` went with its protocol.
+
+**What this does NOT settle**, and the distinction matters because the two are
+easy to merge: the surface no longer expands, and the surface no longer shows a
+large cover. The first is a placement decision with arithmetic behind it. The
+second is a consequence of the first, and it is the one a future round might
+want back — with an anchored geometry rather than a centred one, and with the
+lookup's cost re-argued from scratch rather than restored because it used to be
+there.

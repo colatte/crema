@@ -1,6 +1,12 @@
 import SwiftUI
 
-/// The lock-screen surface's one control, in its own file because
+/// The lock-screen surface's one control — and it is one again, not by
+/// simplification but because the second one lost its subject: the high-resolution
+/// cover lookup fed a 300 pt expanded tile that no longer exists, and a network
+/// request tied to what you are listening to cannot justify itself against a
+/// 50 pt thumbnail (docs/DECISIONS.md: the-lock-surface-is-a-card).
+///
+/// In its own file because
 /// `SettingsView.swift` sits against the 500-line ceiling it already broke
 /// once — the bigger tabs and the per-display row moved out for the same reason.
 ///
@@ -10,7 +16,6 @@ import SwiftUI
 struct LockScreenSettingsSection: View {
     let core: AppCore
     @AppStorage(Preferences.showsLockScreenWidgetKey) private var showsWidget = false
-    @AppStorage(Preferences.fetchesHighResolutionArtworkKey) private var fetchesArtwork = false
 
     var body: some View {
         Section {
@@ -26,20 +31,6 @@ struct LockScreenSettingsSection: View {
                     ))
                 }
                 .onChange(of: showsWidget) { _, new in core.setShowsLockScreenWidget(new) }
-
-                // Nested under the widget rather than beside it: it improves
-                // one surface and means nothing without it, and offering a
-                // network toggle to someone who is not using the feature is
-                // asking a question that has no consequence.
-                if showsWidget {
-                    Toggle(isOn: $fetchesArtwork) {
-                        Text(String(
-                            localized: "settings.lockScreen.artwork",
-                            defaultValue: "Fetch a larger cover"
-                        ))
-                    }
-                    .onChange(of: fetchesArtwork) { _, new in core.setFetchesHighResolutionArtwork(new) }
-                }
             } else {
                 Text(String(
                     localized: "settings.lockScreen.unsupported",
@@ -60,18 +51,6 @@ struct LockScreenSettingsSection: View {
                     defaultValue: "A card above your login shows the cover, the title and the controls while music plays. Click it and the cover grows to fill the middle of the screen. It never asks for your password or reads anything you type."
                 ))
                 .settingsFootnote()
-
-                if showsWidget {
-                    // The cost, said plainly and before the switch is flipped:
-                    // players hand over a small cover, and the only way to a
-                    // bigger one is to ask an archive that has it.
-                    Text(String(
-                        localized: "settings.lockScreen.artwork.footer",
-                        // swiftlint:disable:next line_length
-                        defaultValue: "Players hand over a small cover, which looks soft filling a screen. Crema can ask the Cover Art Archive for a larger one — no account, but it does send the name of what is playing. Off by default."
-                    ))
-                    .settingsFootnote()
-                }
             }
         }
     }

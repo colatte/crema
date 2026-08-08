@@ -99,20 +99,12 @@ struct SurfaceAnimationTests {
         #expect(SurfaceAnimation.morph(reduceMotion: false) == SurfaceAnimation.open)
     }
 
-    @Test func theDirectionalMorphClosesOnTheCloseSpring() {
-        // The defect this pins: both directions used to resolve to `open`, so a
-        // surface collapsing ran a spring damped at 0.8 and overshot its resting
-        // size. Asserting the pair is what kills the mutation — checking only the
-        // expanding case stays green when `close` is swapped back to `open`.
-        #expect(SurfaceAnimation.morph(expanding: true, reduceMotion: false) == SurfaceAnimation.open)
-        #expect(SurfaceAnimation.morph(expanding: false, reduceMotion: false) == SurfaceAnimation.close)
-    }
-
     @Test func theTwoSpringsAreActuallyDifferentAnimations() {
-        // Without this the assertion above is a tautology: if open and close ever
-        // became the same value, "closes on close" would pass while the bounce
-        // came back. The property that matters is not the identity but the
-        // damping — only a critically damped spring cannot overshoot.
+        // The property the whole directional rule rests on, kept after the
+        // helper that motivated it was retired: only a critically damped spring
+        // cannot overshoot, so a surface that closes on `open` bounces. Every
+        // caller that picks a spring by direction depends on these two staying
+        // different animations with that difference in the damping.
         #expect(SurfaceAnimation.open != SurfaceAnimation.close)
         #expect(SurfaceAnimation.closeDamping >= 1.0)
         #expect(SurfaceAnimation.openDamping < 1.0)
@@ -137,12 +129,5 @@ struct SurfaceAnimationTests {
         #expect(arriving != leaving)
         #expect([SurfaceAnimation.open, SurfaceAnimation.close].contains(arriving))
         #expect([SurfaceAnimation.open, SurfaceAnimation.close].contains(leaving))
-    }
-
-    @Test func reduceMotionSuppressesTheDirectionalMorphBothWays() {
-        // Keyed on the predicate rather than on one input: a gate written per
-        // input is how one direction ends up observed and the other forgotten.
-        #expect(SurfaceAnimation.morph(expanding: true, reduceMotion: true) == nil)
-        #expect(SurfaceAnimation.morph(expanding: false, reduceMotion: true) == nil)
     }
 }

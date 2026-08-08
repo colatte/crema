@@ -83,28 +83,15 @@ enum SurfaceAnimation {
     /// the resize lands dry while its opacity/content still fades.
     ///
     /// Directionless ON PURPOSE, and only for morphs that genuinely have no
-    /// direction. A surface that grows one way and shrinks back the other wants
-    /// the overload below — this one hands it the open spring both ways, whose
-    /// damping is deliberately under critical.
+    /// direction. A surface that grows one way and shrinks back the other must
+    /// NOT use it — the open spring's damping is deliberately under critical, so
+    /// the return overshoots. A directional overload lived here for one commit,
+    /// for the lock card's expand/collapse; that state was removed and the
+    /// overload went with it rather than waiting in the file for a caller. The
+    /// rule survives its implementation: the destination picks the spring, which
+    /// is what `geometryAnimation` does from provenance.
     static func morph(reduceMotion: Bool) -> Animation? {
         reduceMotion ? nil : open
-    }
-
-    /// The same visible↔visible morph, with the direction the caller already
-    /// knows: the DESTINATION picks the spring, which is the rule the whole
-    /// surface family follows (`geometryAnimation` does it from provenance,
-    /// through `SurfaceStyleCore`).
-    ///
-    /// It exists because the lock surface cannot reach that path — it refuses
-    /// `SurfaceStyleBody` deliberately, so it has no provenance to branch on —
-    /// and animating both directions with `open` is not a cosmetic slip. Closing
-    /// under a spring damped at 0.8 overshoots, so a card putting itself away
-    /// springs SMALLER than its final size and grows back into it. The rule the
-    /// contract states is one sentence, and it is the same one here: never
-    /// overshoot on close.
-    static func morph(expanding: Bool, reduceMotion: Bool) -> Animation? {
-        guard !reduceMotion else { return nil }
-        return expanding ? open : close
     }
 
     /// The appearance/disappearance fade — the one animation in this type that

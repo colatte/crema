@@ -219,19 +219,10 @@ xattr -dr com.apple.quarantine /Applications/Crema.app
 Crema runs entirely on your Mac. It reads now-playing information locally through
 a vendored out-of-process bridge and, with your permission, watches the volume and
 brightness keys. There are no accounts and no analytics. There are two ways anything can
-leave your machine, both optional and both off until you say so:
+leave your machine, and it is optional and off until you say so:
 
 - **The update check.** **Check for Updates…** in the menu bar (or automatic
   checks, if you consent when asked) fetches the release feed from GitHub Pages.
-- **The larger cover art**, for the lock screen card. Players hand over a small
-  image, which looks soft filling a screen, so Crema can ask the
-  [Cover Art Archive](https://coverartarchive.org) for a bigger one. No account
-  and no token — but the request does carry the album and artist (or the track
-  name, when the player names no album), which is why it ships off and lives
-  under the lock-screen setting rather than beside it. It writes nothing to disk: the
-  session is in-memory only, so turning the setting off leaves no record of what
-  was looked up.
-
 Nothing else leaves your machine.
 
 ## Build from source

@@ -324,40 +324,6 @@
         }
       }
     },
-    "lock.collapse": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hide the large cover"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ocultar a capa grande"
-          }
-        }
-      }
-    },
-    "lock.expand": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Show the cover large"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mostrar a capa grande"
-          }
-        }
-      }
-    },
     "menu.accessibilityWarning": {
       "extractionState": "manual",
       "localizations": {
@@ -1408,40 +1374,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tela Bloqueada"
-          }
-        }
-      }
-    },
-    "settings.lockScreen.artwork": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fetch a larger cover"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Buscar uma capa maior"
-          }
-        }
-      }
-    },
-    "settings.lockScreen.artwork.footer": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Players hand over a small cover, which looks soft filling a screen. Crema can ask the Cover Art Archive for a larger one — no account, but it does send the name of what is playing. Off by default."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Os players entregam uma capa pequena, que perde definição ao preencher a tela. O Crema pode pedir uma maior ao Cover Art Archive — sem conta, mas envia o nome do que está tocando. Desativado por padrão."
           }
         }
       }
