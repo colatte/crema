@@ -19,7 +19,10 @@ struct LocalizationTests {
         }
 
         #expect(try value("menu.quit", in: "en") == "Quit Crema")
-        #expect(try value("menu.quit", in: "pt-BR") == "Encerrar o Crema")
+        // No article, which is Apple's own shape for this menu item: Music.app
+        // ships "Encerrar Música" and TV.app "Encerrar TV". Pinned so it is not
+        // put back.
+        #expect(try value("menu.quit", in: "pt-BR") == "Encerrar Crema")
 
         // The sample has to be a key whose two values DIFFER, or it stops
         // testing the thing it is named for. `style.card` used to sit here and

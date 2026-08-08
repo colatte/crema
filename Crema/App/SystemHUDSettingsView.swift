@@ -41,7 +41,7 @@ struct SystemHUDSettingsView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(String(
                         localized: "settings.hud.suppress.footer",
-                        defaultValue: "Hides the system volume and brightness indicators and shows Crema's instead."
+                        defaultValue: "Hides the system volume and brightness indicators and shows Crema’s instead."
                     ))
                     // Unconditional, and deliberately not routed through
                     // `brightnessKeyTargetNotice`: that answer needs a
@@ -61,7 +61,7 @@ struct SystemHUDSettingsView: View {
                     if !canSuppress {
                         Text(String(
                             localized: "settings.hud.suppress.needsPermission",
-                            defaultValue: "Needs Accessibility access — until then the system's own indicators stay."
+                            defaultValue: "Needs Accessibility access — until then the system’s own indicators stay."
                         ))
                         .foregroundStyle(.orange)
                     }

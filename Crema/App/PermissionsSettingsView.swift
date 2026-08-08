@@ -62,7 +62,7 @@ struct PermissionsSettingsView: View {
                 Text(String(
                     localized: "settings.permissions.footer",
                     // swiftlint:disable:next line_length
-                    defaultValue: "Crema needs Accessibility access to capture the media keys — for its volume and brightness indicators and to replace the system's. Without it the app still runs; it just can't react to those keys. Granting is picked up automatically, no relaunch needed."
+                    defaultValue: "Crema needs Accessibility access to capture the media keys — for its volume and brightness indicators and to replace the system’s. Without it the app still runs; it just can’t react to those keys. Granting is picked up automatically, no relaunch needed."
                 ))
                 .settingsFootnote()
             }
@@ -115,7 +115,7 @@ struct PermissionsSettingsView: View {
                     Text(String(
                         localized: "settings.permissions.automation.footer",
                         // swiftlint:disable:next line_length
-                        defaultValue: "Only Crema's backup reader needs this — it asks \(musicApps) what is playing. The usual reader needs no permission, so Now Playing works either way."
+                        defaultValue: "Only Crema’s backup reader needs this — it asks \(musicApps) what is playing. The usual reader needs no permission, so Now Playing works either way."
                     ))
                     automationDetail
                 }
@@ -181,7 +181,7 @@ struct PermissionsSettingsView: View {
         case .undecided:
             Text(String(
                 localized: "settings.permissions.automation.undecided",
-                defaultValue: "macOS hasn't asked you about this yet. Request it and macOS shows its own dialog."
+                defaultValue: "macOS hasn’t asked you about this yet. Request it and macOS shows its own dialog."
             ))
         case .targetNotRunning:
             Text(String(
@@ -191,7 +191,7 @@ struct PermissionsSettingsView: View {
         case .unknown:
             Text(String(
                 localized: "settings.permissions.automation.unknown",
-                defaultValue: "macOS didn't answer. Crema checks again while this tab is open."
+                defaultValue: "macOS didn’t answer. Crema checks again while this tab is open."
             ))
         case nil, .granted:
             EmptyView()

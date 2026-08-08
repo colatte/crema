@@ -160,7 +160,7 @@ struct CremaMenu: View {
             // (docs/DECISIONS.md: brightness-key-target-in-the-menu).
             String(
                 localized: "menu.status.brightnessNoBuiltIn",
-                defaultValue: "Crema can't control screen brightness —\nit works only with the built-in display, and none is in use."
+                defaultValue: "Crema can’t control screen brightness —\nit works only with the built-in display, and none is in use."
             )
         }
     }
@@ -170,7 +170,7 @@ struct CremaMenu: View {
         case .accessibilityMissing:
             String(
                 localized: "menu.accessibilityWarning",
-                defaultValue: "Accessibility access is missing —\nCrema can't react to the volume or brightness keys."
+                defaultValue: "Accessibility access is missing —\nCrema can’t react to the volume or brightness keys."
             )
         case .suppressionSuspended(let domains):
             suspendedText(domains)
@@ -186,7 +186,7 @@ struct CremaMenu: View {
             // unaided (docs/DECISIONS.md: media-key-chain-contention).
             String(
                 localized: "menu.mediaKeysPrecededBy",
-                defaultValue: "\(app) receives the media keys before Crema —\nsome of Crema's indicators may not appear."
+                defaultValue: "\(app) receives the media keys before Crema —\nsome of Crema’s indicators may not appear."
             )
         case .nowPlayingUnavailable:
             String(
@@ -196,7 +196,7 @@ struct CremaMenu: View {
         case .mediaControlsBlocked:
             String(
                 localized: "menu.mediaControlsBlocked",
-                defaultValue: "The last playback command didn't get through —\nthe player stays view-only."
+                defaultValue: "The last playback command didn’t get through —\nthe player stays view-only."
             )
         case .loginItemRevoked:
             String(
@@ -221,7 +221,7 @@ struct CremaMenu: View {
         case .automationForBackupReader:
             String(
                 localized: "menu.nowPlayingUnavailable.fallbackHint",
-                defaultValue: "Crema's backup reader needs Automation access."
+                defaultValue: "Crema’s backup reader needs Automation access."
             )
         }
     }
@@ -234,18 +234,18 @@ struct CremaMenu: View {
         let names = domains.map(localizedDomainName).formatted(.list(type: .and))
         return String(
             localized: "menu.osdSuspended.warning",
-            defaultValue: "The system indicator is back for \(names) —\nCrema couldn't apply the change."
+            defaultValue: "The system indicator is back for \(names) —\nCrema couldn’t apply the change."
         )
     }
 
     private func localizedDomainName(_ domain: OSDSuppressionDomain) -> String {
         switch domain {
         case .volume:
-            String(localized: "osd.domain.volume", defaultValue: "Volume")
+            String(localized: "osd.domain.volume", defaultValue: "volume")
         case .screenBrightness:
-            String(localized: "osd.domain.screenBrightness", defaultValue: "Screen brightness")
+            String(localized: "osd.domain.screenBrightness", defaultValue: "screen brightness")
         case .keyboardBrightness:
-            String(localized: "osd.domain.keyboardBrightness", defaultValue: "Keyboard brightness")
+            String(localized: "osd.domain.keyboardBrightness", defaultValue: "keyboard brightness")
         }
     }
 

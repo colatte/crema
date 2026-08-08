@@ -29,14 +29,14 @@ struct AccessibilityOnboardingView: View {
             Text(String(
                 localized: "onboarding.body",
                 // swiftlint:disable:next line_length
-                defaultValue: "Crema uses the Accessibility permission to capture the volume and brightness keys so it can show its own indicators. Without it the app keeps working — it just can't react to those keys."
+                defaultValue: "Crema uses the Accessibility permission to capture the volume and brightness keys so it can show its own indicators. Without it the app keeps working — it just can’t react to those keys."
             ))
             .multilineTextAlignment(.center)
             .foregroundStyle(.secondary)
 
             Text(String(
                 localized: "onboarding.grantDetection",
-                defaultValue: "Granting is picked up automatically — no relaunch needed. If capture still doesn't start, relaunch Crema."
+                defaultValue: "Granting is picked up automatically — no relaunch needed. If capture still doesn’t start, relaunch Crema."
             ))
             .font(.footnote)
             .foregroundStyle(.tertiary)

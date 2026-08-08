@@ -192,7 +192,7 @@ struct WelcomeTourView: View {
             Text(String(
                 localized: "onboarding.body",
                 // swiftlint:disable:next line_length
-                defaultValue: "Crema uses the Accessibility permission to capture the volume and brightness keys so it can show its own indicators. Without it the app keeps working — it just can't react to those keys."
+                defaultValue: "Crema uses the Accessibility permission to capture the volume and brightness keys so it can show its own indicators. Without it the app keeps working — it just can’t react to those keys."
             ))
             .foregroundStyle(.secondary)
             // The grant lands while this window is open — the monitor polls, so the
@@ -207,7 +207,7 @@ struct WelcomeTourView: View {
             } else {
                 Text(String(
                     localized: "onboarding.grantDetection",
-                    defaultValue: "Granting is picked up automatically — no relaunch needed. If capture still doesn't start, relaunch Crema."
+                    defaultValue: "Granting is picked up automatically — no relaunch needed. If capture still doesn’t start, relaunch Crema."
                 ))
                 .font(.footnote)
                 .foregroundStyle(.tertiary)
@@ -267,7 +267,7 @@ struct WelcomeTourView: View {
                 }
                 Text(String(
                     localized: "tour.step.style.body",
-                    defaultValue: "You can give a single display its own style later, in Settings › General."
+                    defaultValue: "You can give a single display its own style later, in Settings → General."
                 ))
             }
             .font(.footnote)
@@ -317,7 +317,7 @@ struct WelcomeTourView: View {
             VStack(spacing: 6) {
                 Text(String(
                     localized: "settings.hud.suppress.footer",
-                    defaultValue: "Hides the system volume and brightness indicators and shows Crema's instead."
+                    defaultValue: "Hides the system volume and brightness indicators and shows Crema’s instead."
                 ))
                 Text(String(
                     localized: "settings.hud.suppress.footer.brightnessScope",
@@ -327,7 +327,7 @@ struct WelcomeTourView: View {
                 if !canSuppress {
                     Text(String(
                         localized: "settings.hud.suppress.needsPermission",
-                        defaultValue: "Needs Accessibility access — until then the system's own indicators stay."
+                        defaultValue: "Needs Accessibility access — until then the system’s own indicators stay."
                     ))
                     .foregroundStyle(.orange)
                 }

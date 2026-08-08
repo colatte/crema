@@ -81,7 +81,11 @@ struct SparkleUpdaterTests {
 
     @Test func checkForUpdatesStringResolvesPerLanguage() throws {
         #expect(try value("menu.checkForUpdates", in: "en") == "Check for Updates…")
-        #expect(try value("menu.checkForUpdates", in: "pt-BR") == "Verificar Atualizações…")
+        // "Buscar", not "Verificar", and the pin exists so it is not helpfully
+        // corrected back: across 10,130 pt-BR strings extracted from macOS,
+        // "buscar atualizações" appears 6 times and "verificar atualizações"
+        // zero (2026-08-07).
+        #expect(try value("menu.checkForUpdates", in: "pt-BR") == "Buscar Atualizações…")
     }
 
     /// The pending-update line and its button. Release-only on screen, but the

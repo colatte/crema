@@ -22,7 +22,7 @@ struct LockScreenSettingsSection: View {
                 Toggle(isOn: $showsWidget) {
                     Text(String(
                         localized: "settings.lockScreen.widget",
-                        defaultValue: "Show what's playing on the lock screen"
+                        defaultValue: "Show what’s playing on the lock screen"
                     ))
                 }
                 .onChange(of: showsWidget) { _, new in core.setShowsLockScreenWidget(new) }
@@ -43,7 +43,7 @@ struct LockScreenSettingsSection: View {
             } else {
                 Text(String(
                     localized: "settings.lockScreen.unsupported",
-                    defaultValue: "This version of macOS doesn't offer a way to draw on the lock screen, so Crema leaves it alone."
+                    defaultValue: "This version of macOS doesn’t offer a way to draw on the lock screen, so Crema leaves it alone."
                 ))
                 .settingsFootnote()
             }
@@ -68,7 +68,7 @@ struct LockScreenSettingsSection: View {
                     Text(String(
                         localized: "settings.lockScreen.artwork.footer",
                         // swiftlint:disable:next line_length
-                        defaultValue: "Players hand over a small cover, which looks soft filling a screen. Crema can ask Apple's public search for a larger one — no account, but it does send the track name. Off by default."
+                        defaultValue: "Players hand over a small cover, which looks soft filling a screen. Crema can ask Apple’s public search for a larger one — no account, but it does send the track name. Off by default."
                     ))
                     .settingsFootnote()
                 }
