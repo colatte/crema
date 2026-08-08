@@ -727,7 +727,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nenhuma tela conectada tem notch, então todas mostram o Cartão."
+            "value": "Nenhuma tela conectada tem notch, então todas mostram o Card."
           }
         }
       }
@@ -1033,7 +1033,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Esta tela não tem notch, então o Notch aparece como Cartão aqui."
+            "value": "Esta tela não tem notch, então o Notch aparece como Card aqui."
           }
         }
       }
@@ -1135,7 +1135,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aplica-se a todas as telas. Numa tela sem notch, o estilo Notch volta para o Cartão."
+            "value": "Aplica-se a todas as telas. Numa tela sem notch, o estilo Notch volta para o Card."
           }
         }
       }
@@ -1152,7 +1152,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aplica-se a todas as telas. Nenhuma tela conectada tem notch, então todas mostram o Cartão."
+            "value": "Aplica-se a todas as telas. Nenhuma tela conectada tem notch, então todas mostram o Card."
           }
         }
       }
@@ -1288,7 +1288,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Indicador do Cartão"
+            "value": "Indicador do estilo Card"
           }
         }
       }
@@ -1441,7 +1441,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Os players entregam uma capa pequena, que fica mole preenchendo a tela. O Crema pode pedir uma maior à busca pública da Apple — sem conta, mas envia o nome da faixa. Desligado por padrão."
+            "value": "Os players entregam uma capa pequena, que perde definição ao preencher a tela. O Crema pode pedir uma maior à busca pública da Apple — sem conta, mas envia o nome da faixa. Desligado por padrão."
           }
         }
       }
@@ -2019,7 +2019,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cartão"
+            "value": "Card"
           }
         }
       }
@@ -2036,7 +2036,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Flutua sob a barra de menus"
+            "value": "Flutua abaixo da barra de menus"
           }
         }
       }
@@ -2053,7 +2053,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Clássico"
+            "value": "Classic"
           }
         }
       }
@@ -2223,7 +2223,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Crema mora na barra de menus — o ícone dele abre o menu, e os Ajustes estão lá também, ou pressione Comando-vírgula."
+            "value": "O Crema mora na barra de menus — o ícone dele abre o menu, e os Ajustes estão lá também, ou pressione ⌘ + vírgula."
           }
         }
       }
