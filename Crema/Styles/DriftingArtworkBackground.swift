@@ -85,37 +85,25 @@ struct DriftingArtworkBackground: View {
     }
 
     var body: some View {
-        Group {
-            if let image {
-                Image(decorative: image, scale: 1)
-                    .resizable()
-                    .scaledToFill()
-                    .blur(radius: LockWidgetMetrics.backdropBlur, opaque: true)
-            } else {
-                // No cover: the accent's own hue over black, or a neutral ground
-                // when the cover was monochrome and the accent abstained.
-                //
-                // OPAQUE, and that is a correctness property rather than a look.
-                // This branch used to be translucent (0.35 → 0.75), which left
-                // the lock shield showing through at about 65% at the top of the
-                // display — where macOS draws its own clock, directly under the
-                // one this surface now draws. Two states reach here: a track
-                // whose player published no cover (the JXA fallback never does)
-                // while `expanded` survives from the previous track, and the
-                // first frames of EVERY expansion, before the async decode in
-                // `ArtworkBackdrop` lands. Gating the clock on "has cover bytes"
-                // would close the first and miss the second, because bytes in
-                // hand are not an image on screen.
-                LinearGradient(
-                    colors: [
-                        (fallbackTone?.color ?? .gray).opacity(0.35),
-                        .black.opacity(0.75),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .background(Color.black)
-            }
+        // The container is load-bearing, and it took a measurement to learn it.
+        // `Image.resizable().scaledToFill()` reports a LAYOUT size larger than
+        // the proposal — a square cover on a 1512x982 panel makes this view
+        // 1512x1512 — and everything downstream inherits that lie. Measured on a
+        // real screen-sized panel: the login-clearance mask, which lays out at
+        // its RECEIVER's size and centres, landed 265 pt below the display, so
+        // the band that keeps the password field readable never appeared; and
+        // the ZStack that carries the clock grew with it, putting the clock at
+        // y = -177, off screen entirely. Both failed ONLY when there was a
+        // cover, which is the normal case — album art is square.
+        //
+        // `Color.clear.overlay { }` pins the size, the same way `ArtworkView`
+        // already does it. A flexible `.frame(maxWidth:.infinity,
+        // maxHeight:.infinity)` does NOT: measured, the receiver still reported
+        // 1512x1512, because a flexible frame lets an oversized child overflow.
+        // `.clipped()` below does not help either — it clips pixels and leaves
+        // the reported size alone.
+        Color.clear.overlay {
+            picture
         }
         .scaleEffect(
             LockWidgetMetrics.backdropOverscan
@@ -148,6 +136,40 @@ struct DriftingArtworkBackground: View {
             travelled = drifts
             try? await Task.sleep(for: ArtworkDrift.settlesAfter)
             settled = true
+        }
+    }
+
+    @ViewBuilder
+    private var picture: some View {
+        if let image {
+            Image(decorative: image, scale: 1)
+                .resizable()
+                .scaledToFill()
+                .blur(radius: LockWidgetMetrics.backdropBlur, opaque: true)
+        } else {
+            // No cover: the accent's own hue over black, or a neutral ground
+            // when the cover was monochrome and the accent abstained.
+            //
+            // OPAQUE, and that is a correctness property rather than a look.
+            // This branch used to be translucent (0.35 → 0.75), which left
+            // the lock shield showing through at about 65% at the top of the
+            // display — where macOS draws its own clock, directly under the
+            // one this surface now draws. Two states reach here: a track
+            // whose player published no cover (the JXA fallback never does)
+            // while `expanded` survives from the previous track, and the
+            // first frames of EVERY expansion, before the async decode in
+            // `ArtworkBackdrop` lands. Gating the clock on "has cover bytes"
+            // would close the first and miss the second, because bytes in
+            // hand are not an image on screen.
+            LinearGradient(
+                colors: [
+                    (fallbackTone?.color ?? .gray).opacity(0.35),
+                    .black.opacity(0.75),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .background(Color.black)
         }
     }
 }
