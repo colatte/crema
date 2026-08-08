@@ -420,9 +420,12 @@ counting from the pre-seek anchor and pulled the thumb back until the
 player's echo landed, and PositionReconciliation ate deliberate
 sub-tolerance backward seeks as anchor jitter (J4 — the brightness drag's
 cousin). Decision (2026-07-28): the drag owns the gesture — a view-local
-draft shows under the finger, ONE seek fires on release, and a value set
-outside an edit session seeks immediately so tap-to-seek never depends on
-the stock Slider's callback order. On release the user's value takes
+draft shows under the finger, ONE seek fires on release, and a tap seeks
+immediately. (Until 2026-08-07 that last part was phrased against the stock
+Slider's callback order; the row now draws its own `CapsuleTrack` and a tap is
+simply a drag with no movement, so `onEnded` carries it and there is no
+callback order left to be independent of — see hud-capsule-track's third
+amendment.) On release the user's value takes
 authority: optimistic position write (S7-safe, position-only), the source
 re-anchors its ticker (`noteSeek`, a no-op default for sources with no
 local extrapolation), and a grace window holds stale echoes off until the

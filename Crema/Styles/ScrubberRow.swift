@@ -1,24 +1,21 @@
 import SwiftUI
 
-/// Shared thin progress row: elapsed time, mini slider and (optionally) the
+/// Shared thin progress row: elapsed time, the track bar and (optionally) the
 /// duration at the trailing end. The reference layout shows both times at the
 /// bar's ends; narrow skins keep only the elapsed label to protect the drag
 /// range. Position and duration come from the caller's live `nowPlaying` read;
 /// the scrub intent flows back through the caller into the Coordinator.
 ///
-/// The drag owns the shown position: while editing, the slider reads and
-/// writes `draft` (ephemeral, purely visual — the gesture's in-flight value),
-/// so the 1 Hz position tick re-rendering underneath cannot pull the thumb
-/// against the finger — and no intent fires per delta, so a drag is ONE seek
-/// on release, never a storm of per-pixel subprocess commands. `isEditing`
-/// (HUDLevelSlider's shape) is the gesture sentinel: a value written OUTSIDE
-/// an edit session (a click on the track whose callbacks skip the edit pair,
-/// a keyboard/accessibility adjustment) seeks immediately — tap-to-seek stays
-/// guaranteed by construction, independent of the stock Slider's callback
-/// order — and can never latch a stale draft. The release hands the draft to
-/// `onScrub` before clearing it; the Coordinator writes the target
-/// optimistically in the same MainActor turn, so the post-release render
-/// reads the same value and the thumb never blinks.
+/// The drag owns the shown position: while editing, the row reads and writes
+/// `draft` (ephemeral, purely visual — the gesture's in-flight value), so the
+/// 1 Hz position tick re-rendering underneath cannot pull the fill against the
+/// finger — and no intent fires per delta, so a drag is ONE seek on release,
+/// never a storm of per-pixel subprocess commands. A tap has no drag phase, so
+/// `onEnded` carries it alone: tap-to-seek is guaranteed by the gesture's own
+/// shape rather than by any callback ordering, which is what it used to depend
+/// on. The release hands the position to `onScrub` before clearing the draft;
+/// the Coordinator writes the target optimistically in the same MainActor turn,
+/// so the post-release render reads the same value and the fill never blinks.
 struct ScrubberRow: View {
     let position: Double
     let duration: Double?
@@ -91,7 +88,11 @@ struct ScrubberRow: View {
         // A live gesture is never yanked away: a command failure flipping
         // `enabled` (or a payload dropping the duration) mid-drag must degrade
         // AFTER the release, not kill the tracking under the finger.
-        .allowsHitTesting(interactive || isEditing)
+        //
+        // `disabled` rather than `allowsHitTesting`: it stops the gesture AND
+        // takes the accessibility element out of adjustability. Hit testing
+        // alone left VoiceOver able to scrub a row with no duration to scrub.
+        .disabled(!interactive && !isEditing)
         .accessibilityRepresentation {
             Slider(
                 value: Binding(get: { shown }, set: { onScrub($0) }),

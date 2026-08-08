@@ -60,13 +60,6 @@ struct HUDLevelSlider: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.layoutDirection) private var layoutDirection
 
-    // The capsule cites the live-measured Tahoe banner (macOS 26.5.2): 4 pt
-    // track with semicircular caps, a subtle recess, and a 17.5×14 pt knob
-    // only under the pointer. The banner's fill ends flat — Crema's
-    // deliberately does not (see capsule() and docs/DECISIONS.md:
-    // hud-capsule-track). The 16 pt hit row is the measured height of the
-    // stock Slider this body replaced — the drag target must not regress and
-    // no surrounding layout may move.
     // The capsule's numbers and its drawing live in `CapsuleTrack`, shared with
     // the now-playing scrubber so the two bars in one card cannot drift again.
     // Forwarded rather than re-declared: a second copy is how they drifted.

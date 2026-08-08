@@ -118,7 +118,7 @@ enum CardMetrics {
     static let expandedArtworkSide: CGFloat = 44
     static let expandedArtworkRadius: CGFloat = 10
     /// Fixed row heights so the section sum above is honest: the scrubber row
-    /// centers the mini slider + time labels; the controls row is the transport
+    /// centers the track bar + time labels; the controls row is the transport
     /// block's hit target.
     static let scrubberRowHeight: CGFloat = 16
     static let controlsHeight: CGFloat = 28
