@@ -202,7 +202,7 @@ Permanent. An outdated comment is a **doc bug**, not a minor detail — it lies 
 
 ### A claim about somebody else's API carries its source
 
-The sibling of the rule below, and the same discipline pointed outward: **an
+The same discipline as the measured-constant rule below, pointed outward: **an
 assertion about how an Apple or neighbour-app API behaves does not enter code, a
 comment or a document until it has been read from a primary source** — the SDK
 header (`xcrun --show-sdk-path`), the current documentation, a Swift Evolution
@@ -214,10 +214,16 @@ default is the opposite of what the comment beside it claimed — each found onl
 when somebody went and looked.
 
 **Two questions, not one, and they have different answers.** What a symbol
-requires is availability; what the app *gets* is linkage. `MACOSX_DEPLOYMENT_TARGET`
-answers the first, `xcrun --sdk macosx --show-sdk-version` the second, and an
-appearance claim needs both — a build can be handed a new system look it never
-opted into, because the platform granted it on SDK linkage alone.
+requires is availability; what the app *gets* is linkage.
+`MACOSX_DEPLOYMENT_TARGET` answers the first,
+`xcrun --sdk macosx --show-sdk-version` the second, and an appearance claim
+needs both. Measured here and still true: this project targets macOS 14 and
+builds against the macOS 26 SDK, and the platform's current design is granted on
+LINKAGE — *"absence of the key, or `NO`, is the default value for apps linking
+against the latest SDKs"* (`UIDesignRequiresCompatibility`, which macOS 27
+ignores outright). So the app already renders standard components differently on
+Tahoe than on Sonoma, from one binary, with nobody having chosen it — and
+nobody has compared the two side by side.
 
 **And the fetch fails silently, which is why the mechanics are written down.**
 `developer.apple.com` renders client-side, so an ordinary request returns the
