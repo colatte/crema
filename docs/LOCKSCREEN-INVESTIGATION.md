@@ -1,5 +1,22 @@
 # HUDs on the lock screen — reopened investigation
 
+> **STATUS, 2026-08-08 — READ THIS FIRST.** Everything below was proven, and
+> then built, and then removed. The app draws nothing over the lock shield
+> today; there is no SkyLight space, no panel, no preference and no probe left
+> in the tree (docs/DECISIONS.md: the-lock-screen-was-built-and-taken-out).
+>
+> This file is kept because the KNOWLEDGE is not recoverable from the code, and
+> because it is the file that stops the same sweep being run a third time. What
+> it records and what still holds: no window LEVEL reaches the shield; the
+> shield is a SPACE at absolute level 300; a private SkyLight space at 400
+> composites over it; clicks reach a window there; a screen-sized window
+> behaves; the login's top edge sits at or below 180 pt on a 1512×982 panel.
+>
+> What it does NOT record, and what a future attempt owes: whether a space
+> BELOW 300 composites behind the shield, which would let the system draw the
+> login on top and retire most of the difficulty at once. Nobody ran that.
+
+
 > **STATUS: REOPENED AND PARTLY SHIPPED, 2026-08-07 — the mechanism this file
 > left unexplained has been found, proven on hardware, and taken.** Everything
 > below still holds as written: no window LEVEL composites over the shield, and

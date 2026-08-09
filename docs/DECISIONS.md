@@ -2945,3 +2945,67 @@ was measured under darkAqua, and the light side has not been. It is the reason
 the fill sits at white 0.55 rather than lower — headroom taken on purpose while
 the number is unknown. `scripts/probes/lockscreen-card-material.swift` answers
 it with a one-line change to the swatches' appearance.
+
+### the-lock-screen-was-built-and-taken-out
+The whole lock-screen surface was designed, proven on hardware, built, shipped
+into a signed build, redesigned four times and then removed in the same session.
+This entry exists so the removal reads as a decision rather than as a gap
+somebody should fill.
+
+**What was removed:** the surface (`LockWidgetView`, `LockWidgetMetrics`,
+`SourceBadge`), its window (`LockScreenPanel`, `LockScreenPresenter`), its
+click-through rule, the SkyLight bridge and the `RaisedSpace` protocol behind
+it, the `LockScreenMirror` second reader on the lock source, the preference and
+its Settings section, five hardware probes, and roughly fourteen test suites.
+The app now has **no private window API at all**, which it had exactly one of.
+
+**The reason is the author's and it is about return, not about correctness.**
+Everything in it worked. The surface drew, the clicks routed, the geometry was
+measured rather than guessed, the suite was green at every step. What did not
+hold was the ratio: four rounds of design research — 130, 123 and 156 findings,
+three adversarial critics, three artifacts — converged on a card that still read
+as thin, and each round's fix exposed the next round's problem. "Não está
+compensando" is a complete argument for stopping and it does not require the
+work to have been wrong.
+
+**Removed surgically rather than by reverting the range**, and the distinction
+matters if anyone reads the history. The forty commits touching this feature
+also carried i18n corrections, an audit queue, the progress bar joining the
+HUD bar's decision, and three SDK claims that were wrong — a blanket revert
+would have taken all of it. One commit removes the feature from the tree
+instead.
+
+**What the shared files gave back.** `TrackTextStack` returns to one type ramp:
+the `.glance` scale existed for a surface read at two or three metres and went
+with it, rather than waiting in the file for a caller. `SurfaceChrome` loses the
+light palette for the same reason, and `vibrantSurface` loses the material and
+palette parameters it grew — the desktop skins never passed either. This is the
+same discipline the round applied to `SurfaceAnimation.morph(expanding:)` a day
+earlier: an API with no caller is removed in the diff that orphans it.
+
+**What is kept, deliberately.** `docs/LOCKSCREEN-INVESTIGATION.md`, with a
+status banner at the top so nobody reads it as current. The knowledge in it is
+expensive and is not recoverable from a codebase that no longer contains the
+feature: no window LEVEL reaches the shield; the shield is a SPACE at absolute
+level 300; a private SkyLight space at 400 composites over it; clicks reach; a
+screen-sized window behaves; the login's top edge sits at or below 180 pt on a
+1512×982 panel. The anchors that recorded design findings stay too — the
+concentric radius rule, the Mach band diagnosis, the measured contrast
+arithmetic — because none of them are about the lock screen specifically.
+
+**What a future attempt owes before writing any code**, and it is the one
+question four rounds never asked: whether a SkyLight space BELOW level 300
+composites BEHIND the shield. Every design assumed level 400 because that is
+what the widget needed to be seen; nothing needed the artwork to be above the
+login, only behind it. If a lower space shows through, the system draws the
+login on top and the entire chain of difficulty — the clearance band, the clock
+the backdrop obliged, the wedge story, the accessibility vetoes, the panel-height
+arithmetic — retires at once. `lockscreen-space.swift` took the level as a
+parameter and it was never run at 250.
+
+**The reopening gate is not a measurement, it is a scope.** The thing that made
+this expensive was not the private API and not the geometry: it was that the
+surface had to be beautiful, legible at three metres, safe over a credential
+field, and correct on every panel size, all at once, on a display the app does
+not own. Anyone proposing it again should say which of those four they are
+dropping.

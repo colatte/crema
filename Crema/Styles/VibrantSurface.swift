@@ -43,35 +43,16 @@ extension View {
     /// override, unlike this material's `state = .active`. To switch back to real
     /// (if flatter) glass, replace the background with
     /// `glassEffect(.regular, in: shape)` under `#available(macOS 26, *)`.
-    /// `material` defaults to what the desktop skins have always used. The lock
-    /// card passes `.underWindowBackground` instead, and the difference is not
-    /// taste: measured, `.hudWindow` tints white 0.1569 at alpha 0.40 while
-    /// `.underWindowBackground` does it at 0.80, so the ground under the ink is
-    /// twice as certain over an arbitrary wallpaper. Apple's abstract for that
-    /// material is the only one in the catalogue carrying a discussion, and it
-    /// describes this case — "use this material on a visual effect view with a
-    /// blendingMode of behindWindow to create a sense of peeking through the
-    /// back of the window."
-    ///
-    /// The parameter is the material and NOTHING ELSE. The rim and the specular
-    /// stay shared, because those are the numbers a surface must not drift on.
-    func vibrantSurface(
-        in shape: some InsettableShape,
-        material: NSVisualEffectView.Material = .hudWindow,
-        palette: SurfaceChrome.Palette = .dark
-    ) -> some View {
+    func vibrantSurface(in shape: some InsettableShape) -> some View {
         background {
-            VibrancyMaterial(material: material)
+            VibrancyMaterial()
                 .clipShape(shape)
         }
         .clipShape(shape)
-        .overlay(shape.strokeBorder(palette.specular, lineWidth: SurfaceChrome.specularWidth))
+        .overlay(shape.strokeBorder(SurfaceChrome.specularGradient, lineWidth: SurfaceChrome.specularWidth))
         // Last, so the boundary is never dimmed by the highlight that touches
         // it: the two strokes are adjacent by half a point each.
-        .overlay(shape.stroke(
-            Color(white: SurfaceChrome.outerHairlineWhite).opacity(palette.hairlineOpacity),
-            lineWidth: SurfaceChrome.outerHairlineWidth
-        ))
+        .overlay(shape.stroke(SurfaceChrome.outerHairlineColor, lineWidth: SurfaceChrome.outerHairlineWidth))
     }
 }
 
@@ -86,28 +67,6 @@ extension View {
 /// not any single number (docs/DECISIONS.md: surface-border-2026).
 enum SurfaceChrome {
 
-    /// Which of the two calibrated sets a surface wears. A closed pair rather
-    /// than free numbers, so a third look has to be argued into this file
-    /// instead of appearing at a call site.
-    enum Palette {
-        case dark
-        case light
-
-        var specular: LinearGradient {
-            switch self {
-            case .dark: SurfaceChrome.specularGradient
-            case .light: SurfaceChrome.lightSpecularGradient
-            }
-        }
-
-        var hairlineOpacity: Double {
-            switch self {
-            case .dark: SurfaceChrome.outerHairlineOpacity
-            case .light: SurfaceChrome.lightOuterHairlineOpacity
-            }
-        }
-    }
-
     /// The rim as a white component (0 is black) plus its opacity — one number
     /// for how dark, one for how present. It reads as a shadow of an edge
     /// rather than an edge: over a bright desktop that is the only thing that
@@ -115,36 +74,6 @@ enum SurfaceChrome {
     static let outerHairlineWhite: Double = 0
     static let outerHairlineOpacity: Double = 0.35
     static let outerHairlineWidth: CGFloat = 0.5
-
-    /// THE LIGHT SET, beside the dark one and never in another file, for the
-    /// same reason the two type ramps share a file: a surface that spelled its
-    /// own would drift the first time somebody retuned the other.
-    ///
-    /// The numbers invert rather than scale, because the two jobs swap. On a
-    /// dark surface the BLACK rim carries the boundary against a light backdrop
-    /// and the white specular carries it against a dark one. On a light surface
-    /// the bright rim is what the eye reads as glass catching light — it is the
-    /// most visible thing in the reference this card was designed against — and
-    /// a black hairline underneath keeps the boundary from dissolving into a
-    /// pale wallpaper. So light gets a STRONGER specular and a WEAKER rim.
-    static let lightSpecularTopOpacity: Double = 0.85
-    static let lightSpecularStops: [(location: Double, opacity: Double)] = [
-        (0, lightSpecularTopOpacity),
-        (0.30, 0.30),
-        (0.65, 0.10),
-        (1, 0.22),   // a faint return at the foot: real glass catches light twice
-    ]
-    static let lightOuterHairlineOpacity: Double = 0.14
-
-    static var lightSpecularGradient: LinearGradient {
-        LinearGradient(
-            stops: lightSpecularStops.map {
-                .init(color: .white.opacity($0.opacity), location: $0.location)
-            },
-            startPoint: specularStart,
-            endPoint: specularEnd
-        )
-    }
 
     /// The specular's opacity at the very top of the surface.
     static let specularTopOpacity: Double = 0.35
@@ -195,8 +124,6 @@ enum SurfaceChrome {
 /// `.behindWindow` is the system's own HUD/overlay recipe; the panel is already
 /// clear + non-opaque, which behind-window blending requires.
 private struct VibrancyMaterial: NSViewRepresentable {
-    var material: NSVisualEffectView.Material = .hudWindow
-
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
         // Pinned dark by contract, belt-and-braces with the colorScheme the
@@ -204,14 +131,14 @@ private struct VibrancyMaterial: NSViewRepresentable {
         // appearance the ink no longer follows (docs/DECISIONS.md:
         // hud-fixed-dark-palette).
         view.appearance = NSAppearance(named: .darkAqua)
-        view.material = material
+        view.material = .hudWindow
         view.blendingMode = .behindWindow
         view.state = .active
         return view
     }
 
     func updateNSView(_ view: NSVisualEffectView, context: Context) {
-        view.material = material
+        view.material = .hudWindow
         view.state = .active
     }
 }

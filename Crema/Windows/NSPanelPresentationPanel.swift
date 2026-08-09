@@ -102,15 +102,15 @@ final class NSPanelPresentationPanel: PresentationPanel {
         // window APIs (WindowServer instability on macOS 26). Shared by every
         // style; harmless for the card/classic surfaces.
         //
-        // The line still holds HERE and the reason is unchanged: these panels
-        // live over the user's work, where a public level does the job and a
-        // private one buys nothing worth the risk. `LockScreenPanel` does reach
-        // for SkyLight, and it is not an exception to this rule so much as a
-        // different trade — its whole premise is the far side of the lock
-        // shield, which is a SPACE that no window level of any kind can cross,
-        // and its blast radius is one opt-in window whose total absence is a
-        // feature not appearing. A WindowServer wedge HERE breaks the app's core
-        // function for everyone, several times a day (docs/DECISIONS.md:
+        // The line holds and nothing in the app crosses it any more. A lock
+        // surface did for a while, on a different trade — its premise was the
+        // far side of the lock shield, which is a SPACE no window level can
+        // cross, and its blast radius was one opt-in window whose total absence
+        // is a feature not appearing. That surface is gone, so the app has no
+        // private window API at all again. The reason THIS panel would still
+        // refuse one is unchanged: it lives over the user's work, a public level
+        // does the job, and a WindowServer wedge here breaks the app's core
+        // function for everyone several times a day (docs/DECISIONS.md:
         // the-lock-screen-is-a-space).
         panel.level = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue + 3)
         panel.isOpaque = false

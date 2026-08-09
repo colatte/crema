@@ -99,22 +99,15 @@ final class DistributedNotificationScreenLockSource: ScreenLockSource {
     /// The in-flight settle re-read chain; at most one, restarted per edge.
     private var settleTask: Task<Void, Never>?
 
-    /// A second reader's view of the raw `locked` bit. Nil when nobody asked —
-    /// the suppression path never needs it, and a mirror nothing observes is a
-    /// write per poll for no one (`LockScreenMirror`).
-    private let lockMirror: LockScreenMirror?
-
     // Static because `readSession` is: the production reader runs inside `init`,
     // before `self` exists, so instance and border share this one logger.
     private static let logger = Logger.crema("ScreenLock")
 
     init(
         clock: any SleepClock = ContinuousSleepClock(),
-        sessionReader: (@MainActor () -> (locked: Bool, onConsole: Bool))? = nil,
-        lockMirror: LockScreenMirror? = nil
+        sessionReader: (@MainActor () -> (locked: Bool, onConsole: Bool))? = nil
     ) {
         self.clock = clock
-        self.lockMirror = lockMirror
         // A custom reader means a test drives the session read and injects edges
         // through `handleEdge` directly; the real DistributedNotificationCenter /
         // NSWorkspace observers would only add non-deterministic noise (a stray
@@ -127,7 +120,6 @@ final class DistributedNotificationScreenLockSource: ScreenLockSource {
         let session = reader()
         reconciler = ScreenLockReconciler(locked: session.locked, onConsole: session.onConsole)
         isSuppressionSafe = ScreenLockReconciler.isSuppressionSafe(locked: session.locked, onConsole: session.onConsole)
-        lockMirror?.report(locked: session.locked)
 
         var cont: AsyncStream<Bool>.Continuation!
         updates = AsyncStream { cont = $0 }
@@ -251,13 +243,6 @@ final class DistributedNotificationScreenLockSource: ScreenLockSource {
 
     private func reconcileFromPoll(caughtBySettle: Bool = false) {
         let session = sessionReader()
-        // Before the reconciler, deliberately. It deduplicates on `safe`, which
-        // is `!locked && onConsole` — so locking or unlocking while off-console
-        // moves `locked` and leaves `safe` false both times, and the guard below
-        // returns early. A mirror written after it would never see that pair of
-        // transitions. This one has its own guarded write, so reporting on every
-        // poll costs nothing when nothing changed.
-        lockMirror?.report(locked: session.locked)
         guard let safe = reconciler.reconcile(locked: session.locked, onConsole: session.onConsole) else { return }
         isSuppressionSafe = safe
         if caughtBySettle {

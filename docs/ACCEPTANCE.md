@@ -110,31 +110,10 @@
     once per install. An install that already carries the Accessibility grant
     still sees it once; the menu's "Grant Accessibility Access…" button remains
     the manual path to the standalone permission window afterwards.
-20. With "Show now playing on the lock screen" on and music playing, locking the
-    screen shows the card bottom-centre over the wallpaper, on the main display
-    only; clicking it hands the cover the middle of the screen and clicking again
-    puts it back; unlocking removes it. **Nothing else on the lock screen
-    changes in either state**: the wallpaper, the system's own clock, the avatar
-    and the password field are all exactly as macOS drew them, and Crema draws no
-    clock of its own — seeing two is the defect this criterion exists to catch.
-    The card rests at 300 pt from the bottom on every display, because its
-    placement is a constant rather than a function of the panel's height. It
-    reads the track and artist beside a small cover, with a progress bar and no
-    digits; the four bars beside the words move while something is playing and
-    settle when it pauses. Clicking the card does nothing — only its transport
-    buttons and its bar respond.
-
-    With **Reduce Transparency** on, the card's ground goes opaque instead of
-    showing the wallpaper through it. With **Increase Contrast** on, the artist
-    line goes as bright as the title. With **Reduce Motion** on, the bars stop
-    and the card still FADES in and out rather than appearing in one frame. With the
-    preference off — which is how it ships — the lock screen is untouched. On a
-    macOS where the private space API does not resolve, Settings says so in a
-    sentence instead of offering a switch that would do nothing.
-21. ~~The cover lookup.~~ **Retired 2026-08-08 with the expanded state it fed**
-    (docs/DECISIONS.md: the-lock-surface-is-a-card). It existed so a 300 pt tile
-    would not show a soft 400 px image; with the largest slot on that surface
-    now a 50 pt thumbnail, a network request naming what you are listening to
-    could not justify itself. The criterion is struck rather than renumbered —
-    the twenty that remain keep the numbers they were verified under, and a
-    criterion that quietly became a different criterion is worse than a gap.
+20. ~~The lock-screen card.~~ **Retired 2026-08-08 with the whole surface**
+    (docs/DECISIONS.md: the-lock-screen-was-built-and-taken-out). The app draws
+    nothing over the lock shield; with music playing and the screen locked,
+    macOS looks exactly as it does without Crema installed. That is the only
+    thing left to check here, and it is checked by there being nothing to see.
+21. ~~The cover lookup.~~ **Retired the same day, with the expanded state it
+    fed.** Crema makes no artwork request of any kind.
