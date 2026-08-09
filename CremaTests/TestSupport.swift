@@ -134,18 +134,52 @@ func settle() async {
     for _ in 0..<50 { await Task.yield() }
 }
 
-/// Isolated UserDefaults for one test instance; wipes its persistent domain on
-/// deinit so test runs don't accumulate plists in ~/Library/Preferences.
+/// Isolated UserDefaults for one test instance; deinit empties the persistent
+/// domain and unlinks its plist, and the first init of a process reaps the
+/// residue earlier runs left in ~/Library/Preferences.
 final class EphemeralDefaults: @unchecked Sendable {
     let suiteName = "CremaTests.\(UUID().uuidString)"
     let defaults: UserDefaults
 
+    // cfprefsd can re-materialize an emptied domain's plist MINUTES after the
+    // deinit's unlink, client long dead (measured 2026-08-08: empty probe
+    // plists with mtimes 2-7 min past process death — the probe's own 3-5 s
+    // windows had said "absent"). Past runs' files are therefore reaped once
+    // per process instead of trusted gone. Any CremaTests.* file is fair
+    // game: names are per-instance UUIDs no run ever reuses, and unlinking a
+    // LIVE domain's file loses nothing — reads go through cfprefsd's cache —
+    // so even a concurrent suite run (isolated DerivedData) is unharmed.
+    private static let reapStaleSuites: Void = {
+        let dir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Preferences")
+        let files = (try? FileManager.default.contentsOfDirectory(
+            at: dir, includingPropertiesForKeys: nil
+        )) ?? []
+        for url in files
+            where url.lastPathComponent.hasPrefix("CremaTests.") && url.pathExtension == "plist" {
+            try? FileManager.default.removeItem(at: url)
+        }
+    }()
+
     init() {
+        _ = Self.reapStaleSuites
         defaults = UserDefaults(suiteName: suiteName)!
     }
 
     deinit {
         defaults.removePersistentDomain(forName: suiteName)
+        // removePersistentDomain is documented over keys and values only and
+        // leaves the plist file behind (measured 2026-08-08: 7,607 empty
+        // CremaTests.*.plist accumulated with this deinit running; probe with
+        // control in scripts/probes/remove-persistent-domain.swift). The
+        // unlink kills the file in the common case; the late-reflush residue
+        // it cannot reach is what reapStaleSuites exists for. Never add
+        // synchronize() here: it schedules a flush of the emptied domain that
+        // races the unlink and brings the empty file back sooner (probe C).
+        // A test that never wrote has no file; try? covers that resting case.
+        let plist = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Preferences/\(suiteName).plist")
+        try? FileManager.default.removeItem(at: plist)
     }
 }
 
