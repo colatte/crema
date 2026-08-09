@@ -37,7 +37,7 @@ final class BetterDisplayCommandChannel: BetterDisplayCommanding {
     /// is optional on purpose: nil is the deadline (nobody answered), and a
     /// wrapped Bool is BetterDisplay's own yes or no — collapsing the two would
     /// report a refusal as a timeout and hide which side failed.
-    private var pending: [String: SingleResumeRace<Bool?>] = [:]
+    private var pending: [String: SingleResumeRace<Bool?, Never>] = [:]
     // nonisolated(unsafe): written only while `init` runs (installObserver) and
     // read only in `deinit`, after every other access has ended — the lifecycle
     // brackets rule out the concurrent access the attribute waives; a nonisolated
@@ -82,7 +82,7 @@ final class BetterDisplayCommandChannel: BetterDisplayCommanding {
             uuid: uuid, value: value, displayID: displayID
         ) else { throw CommandError.refused }
 
-        let race = SingleResumeRace<Bool?>()
+        let race = SingleResumeRace<Bool?, Never>()
         pending[uuid] = race
         defer { pending[uuid] = nil }
 

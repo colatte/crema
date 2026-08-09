@@ -20,7 +20,9 @@ import Sparkle
 @MainActor
 final class UpdaterModel: NSObject, ObservableObject {
     /// Whether this build ships the updater (menu item + Sparkle controller).
-    /// True only in Release; the compile-time source of truth the menu mirrors.
+    /// True only in Release; the build-configuration contract
+    /// `SparkleUpdaterTests` pins (the menu gates itself on `#if !DEBUG` and
+    /// `canCheckForUpdates`, never on this flag).
     static var isSupported: Bool {
         #if DEBUG
         false

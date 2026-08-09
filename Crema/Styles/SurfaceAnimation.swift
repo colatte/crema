@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Calibratable animation values for the presentation surfaces, isolated in
-/// one place (design-reference §2.2/§2.3). Every value is a starting point to
+/// one place. Every value is a starting point to
 /// tune on hardware, not an absolute.
 ///
 /// All visible motion is SwiftUI's: the view morphs a sized surface inside a
@@ -24,7 +24,12 @@ enum SurfaceAnimation {
     static let closeDamping: Double = 1.0
 
     /// Surface morph springs, chosen by direction: the destination state selects
-    /// the spring (see the views).
+    /// the spring (see the views). The appearance/disappearance opacity fade uses
+    /// the same pair, picked inline by each view from the destination state (open
+    /// when expanding, close otherwise) — and that fade is the one animation
+    /// Reduce Motion does NOT suppress: a cross-fade IS what the preference asks
+    /// for in place of motion, so gating it would swap the fade for a
+    /// single-frame pop, the thing the preference exists to avoid.
     static let open: Animation = .spring(response: openResponse, dampingFraction: openDamping)
     static let close: Animation = .spring(response: closeResponse, dampingFraction: closeDamping)
 
@@ -92,26 +97,6 @@ enum SurfaceAnimation {
     /// is what `geometryAnimation` does from provenance.
     static func morph(reduceMotion: Bool) -> Animation? {
         reduceMotion ? nil : open
-    }
-
-    /// The appearance/disappearance fade — the one animation in this type that
-    /// Reduce Motion does NOT suppress, which is why it takes no `reduceMotion`
-    /// parameter and returns a non-optional: the absence of the gate is the
-    /// contract, expressed where it cannot be forgotten rather than in a comment
-    /// beside each caller.
-    ///
-    /// A cross-fade IS what the preference asks for in place of motion, so gating
-    /// it inverts the rule: the surface stops fading and starts popping in and
-    /// out in a single frame, which is the thing the preference exists to avoid.
-    /// The desktop skins have always done this correctly and say so inline; the
-    /// lock surface reached for `morph(reduceMotion:)` instead and inherited a
-    /// gate that belongs to geometry.
-    ///
-    /// Directional like the morphs, and it only ever fires on empty↔visible —
-    /// opacity is 1 across every visible transition — so its spring never touches
-    /// a visible→visible morph.
-    static func appearFade(vanishing: Bool) -> Animation {
-        vanishing ? close : open
     }
 
     /// HUD level-indicator spring (HUDLevelSlider): a fast glide with a barely

@@ -70,7 +70,7 @@ func raceReadDeadline<T: Sendable>(
     clock: any SleepClock,
     _ read: @escaping @Sendable () -> T
 ) async throws -> T {
-    let race = DeadlineRace<T>()
+    let race = SingleResumeRace<T, any Error>()
     DispatchQueue.global().async { race.finish(.success(read())) }
     return try await race.awaitDeadline(seconds: seconds, clock: clock)
 }
@@ -80,24 +80,19 @@ private func raceDeadline<T: Sendable>(
     clock: any SleepClock,
     _ produce: @escaping @Sendable () async -> Result<T, Error>
 ) async throws -> T {
-    let race = DeadlineRace<T>()
+    let race = SingleResumeRace<T, any Error>()
     let operation = Task.detached { await race.finish(produce()) }
     return try await race.awaitDeadline(seconds: seconds, clock: clock) { operation.cancel() }
 }
 
-/// Single-resume guard for the operation/deadline race: `T == Void` for a write,
-/// the read's value for a read. The abandoned operation can land on any thread,
-/// so the guard is lock-based rather than actor-bound; whichever racer finishes
-/// first resumes the continuation and the rest no-op. If a racer finishes before
-/// `begin` installs the continuation, the first result is stashed and delivered
-/// on `begin` — so the continuation is resumed exactly once, never lost, never
-/// twice.
-private final class DeadlineRace<T: Sendable>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var continuation: CheckedContinuation<T, Error>?
-    private var pendingResult: Result<T, Error>?
-    private var resumed = false
-
+/// The deadline leg the suppressor's races share, over the generic single-resume
+/// guard (`SingleResumeRace`, Sources root — the guard's contract and the
+/// commit-before-unwind lesson live on the type). File-local because the
+/// `onError` semantics are this file's; note the ordering: the tidy-up runs only
+/// AFTER the continuation has resumed with the failure, so the commit precedes
+/// the unwind by construction and a finish from the dying operation can never
+/// win the resume.
+private extension SingleResumeRace where Failure == any Error {
     /// Installs the timeout leg on `clock` and suspends until whichever leg
     /// resolves first: the operation (launched by the caller and reporting
     /// through `finish`) or the deadline. `onError` tidies up a cancellable
@@ -126,34 +121,6 @@ private final class DeadlineRace<T: Sendable>: @unchecked Sendable {
             onError()
             deadline.cancel()
             throw error
-        }
-    }
-
-    func begin(_ continuation: CheckedContinuation<T, Error>) {
-        lock.lock()
-        if let result = pendingResult {
-            resumed = true
-            lock.unlock()
-            continuation.resume(with: result)
-        } else {
-            self.continuation = continuation
-            lock.unlock()
-        }
-    }
-
-    func finish(_ result: Result<T, Error>) {
-        lock.lock()
-        guard !resumed else { lock.unlock(); return }
-        if let continuation {
-            resumed = true
-            self.continuation = nil
-            lock.unlock()
-            continuation.resume(with: result)
-        } else if pendingResult == nil {
-            pendingResult = result
-            lock.unlock()
-        } else {
-            lock.unlock()
         }
     }
 }

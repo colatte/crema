@@ -104,7 +104,7 @@ struct NotchStyle: PresentationStyle {
 }
 
 /// The notch's measurements — one place, to calibrate on hardware. All values
-/// are design-reference starting points, not absolutes.
+/// are research starting points, not absolutes.
 enum NotchMetrics {
     /// How far each lateral edge of the animated surface tucks inside the
     /// physical slit. 0 = flush with the cutout — validated on hardware with
@@ -181,7 +181,7 @@ enum NotchMetrics {
     /// plus the gap above it — the band shrinks to the visible sections.
     static let controlsSectionHeight: CGFloat = expandedSectionGap + controlsHeight
 
-    /// Corner radii of the surface outline (design-reference §4.1): the base
+    /// Corner radii of the surface outline: the base
     /// flares more than the top ("dripping from the notch"), and the surface
     /// opens into wider radii. Top/bottom, in points.
     static let compactTopRadius: CGFloat = 6

@@ -9,7 +9,7 @@ import SwiftUI
 /// now-playing scrubber kept a stock `Slider`: a thumb always visible, tinted
 /// with the artwork accent. Two bars in the same card obeying opposite rules,
 /// one of them with a written decision behind it. Reported from the lock screen,
-/// where they sit two rows apart.
+/// where they sat two rows apart, on a surface since removed.
 ///
 /// What is shared is the DRAWING and the numbers behind it. Each caller keeps
 /// its own gesture, because the two mean different things: the HUD writes a

@@ -196,7 +196,7 @@ struct CremaMenu: View {
         case .mediaControlsBlocked:
             String(
                 localized: "menu.mediaControlsBlocked",
-                defaultValue: "The last playback command didn’t get through —\nthe player stays view-only."
+                defaultValue: "The last playback command didn’t get through —\nthe player isn’t accepting controls right now."
             )
         case .loginItemRevoked:
             String(
@@ -260,7 +260,7 @@ struct CremaMenu: View {
         case .reactivateLoginItem:
             String(localized: "menu.loginItem.reactivate", defaultValue: "Turn it back on")
         case .openLoginItemsSettings:
-            String(localized: "menu.loginItem.openSettings", defaultValue: "Open Login Items settings…")
+            String(localized: "menu.loginItem.openSettings", defaultValue: "Open Login Items Settings…")
         }
     }
 

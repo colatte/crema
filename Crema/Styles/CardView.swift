@@ -250,8 +250,8 @@ struct CardView: View, SurfaceStyleBody {
     }
 
     private func expandedContent(_ track: NowPlaying) -> some View {
-        // The family's reference layout (design-reference §4.1, the Dynamic
-        // Island/Live Activities pattern): artwork anchors the top-left with
+        // The family's reference layout (the Dynamic Island/Live Activities
+        // pattern): artwork anchors the top-left with
         // the stacked title/artist beside it, the thin scrubber spans the
         // width, and the transport block sits grouped at the base. Every row
         // has a fixed height and the expanded frame is their exact sum

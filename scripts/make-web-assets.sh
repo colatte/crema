@@ -46,6 +46,11 @@ done
 # 188 KB master that was being scaled down by up to 23x.
 cwebp -quiet -q 90 -m 6 -resize 256 0 "$src/icon.png" -o "$out/icon.webp"
 
+# The favicon stays PNG (broadest <link rel="icon"> support) but never the
+# 188 KB master: 128 covers every browser-tab size at 2x. sips is macOS-native,
+# so this step adds no dependency beyond the cwebp the rest already needs.
+sips -s format png -Z 128 "$src/icon.png" --out "$out/favicon.png" >/dev/null
+
 printf '%s\n' "--- docs/assets/web ---"
 du -sh "$out"
 ls -l "$out" | awk 'NR>1 {printf "  %6d KB  %s\n", $5/1024, $9}'

@@ -30,9 +30,12 @@ struct BetterDisplayCommandChannelTests {
 
         let call = Task { try await channel.setBrightness(0.75, displayID: 2) }
         await clock.waitForSleep()                      // the deadline is armed
+        // #expect does not halt the test, so the subscript needs its own guard —
+        // a trap here would kill the host and every in-flight sibling.
+        let request = try #require(wire.posted.first)
         #expect(wire.posted.count == 1)
-        #expect(wire.posted[0].contains("\"brightness\":\"0.75\""))
-        #expect(wire.posted[0].contains("\"displayID\":\"2\""))
+        #expect(request.contains("\"brightness\":\"0.75\""))
+        #expect(request.contains("\"displayID\":\"2\""))
 
         channel.handle(response: #"{"uuid":"REQ-1","result":true}"#)
         try await call.value

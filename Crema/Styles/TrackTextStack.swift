@@ -19,7 +19,8 @@ struct TrackTextStack: View {
     var alignment: HorizontalAlignment = .leading
     var spacing: CGFloat = 2
     /// Regular for the desktop skins, which are read at desk distance. The lock
-    /// card asks for `.medium`.
+    /// card asked for `.medium`; the surface went, the knob stays for the
+    /// reason the header gives.
     var artistWeight: Font.Weight = .regular
 
     /// Read here rather than at each call site, because the promotion below is

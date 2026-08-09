@@ -127,8 +127,8 @@ struct HUDLevelSliderTests {
 
     @Test func segmentsFillByWidthWithAPartialBoundary() {
         // 50% = 8 of 16 segments: indices 0-7 full, 8-15 empty; a value half
-        // into the ninth segment fills it halfway BY WIDTH (design-reference
-        // §4.4 — the pre-Tahoe bezel's partial-segment behavior).
+        // into the ninth segment fills it halfway BY WIDTH (the pre-Tahoe
+        // bezel's partial-segment behavior).
         #expect(HUDLevelSlider.segmentFill(index: 7, value: 0.5) == 1)
         #expect(HUDLevelSlider.segmentFill(index: 8, value: 0.5) == 0)
         #expect(HUDLevelSlider.segmentFill(index: 8, value: 8.5 / 16) == 0.5)

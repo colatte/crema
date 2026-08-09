@@ -17,19 +17,17 @@
 > login on top and retire most of the difficulty at once. Nobody ran that.
 
 
-> **STATUS: REOPENED AND PARTLY SHIPPED, 2026-08-07 — the mechanism this file
-> left unexplained has been found, proven on hardware, and taken.** Everything
-> below still holds as written: no window LEVEL composites over the shield, and
-> there is still no PUBLIC path. What was wrong was the framing, not a fact —
-> the barrier is not the level axis at all. Read "The reopening", "The second
-> round" and "What shipped" at the end before acting on anything here.
->
-> **What changed and what did not.** The opt-in now-playing widget (item b)
-> ships on a raised SkyLight space. The **HUDs** over the lock (item a2) do
-> not: that stays a product decision nobody has made, and the lock-aware
-> suppression policy this file argued for is unchanged. Its justification is
-> the part that changed — it was "we cannot draw there", and it is now "we have
-> not chosen to draw the HUDs there".
+> **STATUS AS IT STOOD ON 2026-08-07 — superseded by the banner above.** For one
+> day this file read: reopened and partly shipped — the mechanism this file left
+> unexplained had been found, proven on hardware, and taken. Everything below
+> still held as written: no window LEVEL composites over the shield, and there
+> was still no PUBLIC path; what was wrong was the framing, not a fact — the
+> barrier is not the level axis at all. The opt-in now-playing widget (item b)
+> shipped on a raised SkyLight space; the **HUDs** over the lock (item a2) did
+> not, and the lock-aware suppression policy this file argued for was unchanged —
+> its justification moved from "we cannot draw there" to "we have not chosen to
+> draw the HUDs there". "The reopening", "The second round" and "What shipped"
+> at the end record that day; the banner at the top says where it ended.
 
 > Investigation concluded on 2026-07-10, with both probes run by the author on
 > real hardware (macOS 26.5.2, Apple Silicon). Every decisive claim below is

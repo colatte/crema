@@ -59,7 +59,7 @@
 | _Added 2026-08-07, ~~RETIRED~~ 2026-08-08:_ **SkyLight raised space** | GONE — the app dlopens nothing and holds no private symbol. The five calls (`SLSMainConnectionID`, `SLSSpaceCreate`, `SLSSpaceSetAbsoluteLevel`, `SLSShowSpaces`, `SLSSpaceAddWindowsAndRemoveFromSpaces`) left with the surface that used them (docs/DECISIONS.md: the-lock-screen-was-built-and-taken-out). The row stays as the record that the app once had exactly one private window API and now has none, and that the degradation shape was the right one: every lookup checked, nil meaning the feature is not offered rather than a crash |
 | _Added 2026-08-07:_ the lock surface's NSPanel (screen-sized, `canBecomeVisibleWithoutLogin`) | PROTECTED (built on the lock edge, closed on unlock and in `deinit`; re-framed on `didChangeScreenParameters` before the space is re-asserted, since a topology change can move the main screen under a window sized to the old one) |
 | _Added 2026-08-07:_ **distributed notification DELIVERY for the lock edges** (`com.apple.screenIsLocked`/`Unlocked`) | PROTECTED, and it was not before. Every block-based registration defaults to `NSNotificationSuspensionBehaviorCoalesce` (`NSDistributedNotificationCenter.h`), which is HELD while the centre is suspended — and AppKit suspends it on its own "when the application is not active". Crema is an LSUIElement accessory: never active, and certainly not at the instant the screen locks. Now registered with `.deliverImmediately`, the documented opt-out. The settle re-reads and the periodic tail are unchanged; they cover distnoted being best-effort even while it IS delivering |
-| _Added 2026-08-07, ~~RETIRED~~ 2026-08-08:_ **MusicBrainz + the Cover Art Archive** | GONE — the app makes no such request any more. The contact existed to fill a 300 pt expanded tile; that state was removed and the largest artwork slot on the lock screen is now a 50 pt thumbnail, which the player's own bytes already oversupply (docs/DECISIONS.md: the-lock-surface-is-a-card). Kept as a row because the guest-relationship discipline it recorded is the reusable part: MusicBrainz publishes 1 request per second per IP and asks for a descriptive User-Agent, and `RequestPacer` reserved its slot BEFORE any await because actors are reentrant and a pacer that awaits first paces nothing. Whoever adds the next rate-limited guest inherits both |
+| _Added 2026-08-07, ~~RETIRED~~ 2026-08-08:_ **MusicBrainz + the Cover Art Archive** | GONE — the app makes no such request any more. The contact existed to fill a 300 pt expanded tile; that state was removed with the rest of the lock surface, and the largest artwork slots left — the desktop skins' — are thumbnails the player's own bytes already oversupply (docs/DECISIONS.md: the-lock-screen-was-built-and-taken-out). Kept as a row because the guest-relationship discipline it recorded is the reusable part: MusicBrainz publishes 1 request per second per IP and asks for a descriptive User-Agent, and `RequestPacer` reserved its slot BEFORE any await because actors are reentrant and a pacer that awaits first paces nothing. Whoever adds the next rate-limited guest inherits both |
 | _Added 2026-08-08, ~~RETIRED~~ the same day:_ **the wall clock, for the lock surface's own time** | GONE — the contact left with the surface that needed it. The lock widget no longer paints a ground (docs/DECISIONS.md: the-lock-surface-is-a-card), so it no longer covers the system's clock, so it draws no clock and reads no wall time. The row is kept rather than deleted because the measurement behind it is the kind someone re-does: `Task.sleep` waits on an absolute `ContinuousClock` deadline, which counts THROUGH system suspension, so a missed boundary collapses into one wake carrying the current minute rather than a burst — verified over the shield with a dispatch-timer control that delivered the same count, which is what ruled out a scheduler-specific fault, and reproduced with SIGSTOP across five boundaries. Whoever adds a clock back to any surface inherits that and owes no observer |
 
 ## D2 · Class 2 — parity by coincidence (27 items + 5 from the critic)
@@ -105,7 +105,7 @@ discard is quit-only** (B1).
 ## D4 · Class 4 — timeouts (24 items + 4 from the critic)
 
 REAL-DEADLINE (with proof): the write's withDeadline (detached +
-single-resume DeadlineRace — all 4 interleavings traced); the Coordinator's
+single-resume SingleResumeRace, since unified at the Sources root — all 4 interleavings traced); the Coordinator's
 timers (revert/linger/hover — cancel + stale-fire guard correct under a burst);
 the tap poll and the 1 Hz ticker (a generation invalidates stale ticks); the
 adapter's stream (EOF finishes, teardown does not wait); the clickable region's
@@ -130,10 +130,10 @@ guard (S9); passThroughUnavailable (an absent capability is a logged no-op);
 failover on a malformed line (hides 1 tick, self-heals); MediaSourceFilter
 (documented radius + toggle); KeyOriginBrightnessGate (S3 closed; silences only
 the sensor); lock-aware suspension (**never touches the pref** — proven; a total
-radius is the correct design given that the app draws no HUD over the lock
-shield — the opt-in now-playing widget added 2026-08-07 does draw there, and
-suspending suppression is what leaves the KEYS with native feedback, which the
-widget does not provide); degrading without
+radius is the correct design precisely because the app draws nothing over the
+lock shield — the opt-in now-playing widget that did was removed whole
+(docs/DECISIONS.md: the-lock-screen-was-built-and-taken-out) — and suspending
+suppression is what leaves the KEYS with native feedback); degrading without
 Accessibility (only capture falls; self-heals on grant); an orphaned style and a
 slitless notch resolve at runtime **without rewriting the pref** (proven by a
 grep for setStyle); LoginItem/Sparkle with no persistence on failure; **the only

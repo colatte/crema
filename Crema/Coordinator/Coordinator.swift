@@ -7,11 +7,12 @@ import os
 // swiftlint:disable file_length
 
 /// The app's single @Observable for PRESENTATION STATE — the qualifier is load-
-/// bearing, because there are seven others (the Accessibility and Automation
+/// bearing, because there are nine others (the Accessibility and Automation
 /// permission monitors, the suppression and now-playing monitors, the per-panel
-/// `SurfaceDisplayPolicy`, `SettingsNavigation`, and `BetterDisplayOSDSource`,
-/// whose `hasReported` is the one observable living in a Source — evidence the
-/// Settings line reads live). Those are read-mirrors for
+/// `SurfaceDisplayPolicy` and `LowPowerModeMirror`, `SettingsNavigation`, the
+/// `DisplayRoster`, and `BetterDisplayOSDSource`, whose `hasReported` is the one
+/// observable living in a Source — evidence the Settings line reads live). Those
+/// are read-mirrors for
 /// views and hold no domain; this one decides what is on screen (`state`), owns
 /// HUD priority and display timers, and routes view intents to actuators. Sources
 /// and actuators are injected by protocol — never a concrete implementation.
@@ -40,7 +41,7 @@ final class Coordinator {
     /// into the expanded form) before tucking.
     static let defaultInvokedLinger: Double = 5.0
 
-    /// Hover-intent timing (design-reference §2.3). A skin that sits on the
+    /// Hover-intent timing. A skin that sits on the
     /// screen's top edge (the notch) expands only after the pointer lingers for
     /// `defaultHoverIntentDelay`, and collapses only after it has left for
     /// `defaultHoverOutDebounce` — the delay rejects accidental grazes, the
@@ -332,7 +333,8 @@ final class Coordinator {
     /// builds `updates` once at init, so a cancelled iteration is not resubscribable
     /// either: whoever called it would get a permanently media-less app and no error
     /// anywhere. The Coordinator lives for the process; a teardown seam that cannot
-    /// be honoured is better absent than available.
+    /// be honoured is better absent than available
+    /// (docs/DECISIONS.md: teardown-seam-that-cannot-be-honoured).
     func start() {
         guard consumptionTasks.isEmpty else { return }
 
@@ -396,7 +398,7 @@ final class Coordinator {
         commitHover(hovering)
     }
 
-    /// Debounced hover for the notch (design-reference §2.3): expansion waits
+    /// Debounced hover for the notch: expansion waits
     /// `hoverIntentDelay`, collapse waits `hoverOutDebounce`; the newest event
     /// cancels the pending one, and the fired task rechecks the pointer before
     /// committing (the pointer may have moved during the wait).
@@ -418,6 +420,15 @@ final class Coordinator {
         hoverIntentTask?.cancel()
         let delay = hovering ? hoverIntentDelay : hoverOutDebounce
         hoverIntentTask = scheduleTimer(after: delay) { [weak self] in
+            // A fired task is spent: the retained field must mean "gesture in
+            // flight", because `hover(_:)` routes hover-out through the intent
+            // path whenever it is non-nil — a dead task left retained would
+            // debounce a collapse the immediate styles promise at once. Nulling
+            // here is safe against cancel/replace: a superseded task never
+            // reaches this closure (cancellation is checked after the sleep,
+            // with no suspension between that check and this fire), so only
+            // the task the field currently holds can clear it.
+            self?.hoverIntentTask = nil
             self?.applyHoverIntent(expanded: hovering)
         }
     }
@@ -1001,10 +1012,86 @@ final class Coordinator {
         }
 
         Task { @MainActor in
-            if await write(value, on: hud, through: external, as: hud.authority, "BetterDisplay") { return }
-            externalBrightnessReachable = false
-            if await write(value, on: hud, through: screenBrightnessController, as: .system, "fallback") { return }
-            noteScreenBarUnconfirmed()
+            switch await writeThroughNeighbour(value, on: hud, through: external) {
+            case .honoured:
+                return
+            case let .failed(newest, display):
+                externalBrightnessReachable = false
+                // The fallback writes the NEWEST level the neighbour left
+                // unwritten, on the display that level was aimed at — never this
+                // call's own argument, which by the time a drain fails is frames
+                // behind the finger ("nobody wants the level a finger passed
+                // through, only the one it stopped at").
+                if display == hud.commandDisplay {
+                    if await write(newest, on: hud, through: screenBrightnessController, as: .system, "fallback") {
+                        return
+                    }
+                } else {
+                    // An orphan aimed at another bar's display: write it where it
+                    // was aimed, and never echo it here — an echo belongs to the
+                    // display the call named, and this bar named a different one.
+                    do {
+                        _ = try await screenBrightnessController.setBrightness(newest, on: display)
+                    } catch {
+                        logger.error("setBrightness(screen) via fallback failed: \(error, privacy: .public)")
+                    }
+                }
+                noteScreenBarUnconfirmed()
+            }
+        }
+    }
+
+    /// What the neighbour-path caller has to decide on: either the drag is
+    /// honoured (written, or echoed with a driver still owing the write), or it
+    /// failed carrying the newest level nobody will write — the level the
+    /// fallback must take up.
+    private enum NeighbourWrite {
+        case honoured
+        case failed(newest: Double, display: DisplayUUID?)
+    }
+
+    /// One write attempt through the neighbour's actuator, with the echo kept
+    /// apart from the evidence. A coalescing writer answers a queued frame
+    /// IMMEDIATELY, before anything reaches the wire — that echo is what keeps
+    /// the bar level with the finger, but recording it as a confirmed write let
+    /// the rollback settle the bar on a level no display ever went to. Only a
+    /// `.written` answer (or a plain conformer's return, which always follows a
+    /// real write) becomes evidence; a failure surfaces the orphaned frame so the
+    /// fallback writes the finger's newest level instead of a stale argument.
+    private func writeThroughNeighbour(
+        _ value: Double,
+        on hud: SystemHUD,
+        through external: any ScreenBrightnessController
+    ) async -> NeighbourWrite {
+        guard let coalescing = external as? any CoalescingScreenBrightnessWriting else {
+            return await write(value, on: hud, through: external, as: hud.authority, "BetterDisplay")
+                ? .honoured
+                : .failed(newest: value, display: hud.commandDisplay)
+        }
+        do {
+            switch try await coalescing.applyBrightness(value, on: hud.commandDisplay) {
+            case .written(let written):
+                confirmedScreenBrightness = written
+                screenBarUnconfirmed = false
+                onBrightnessApplied?(hud.at(written).by(hud.authority))
+            case .coalesced(let echoed):
+                // For the bar only: the driver still owes this level a write (or
+                // will surface it with its error), so it is no evidence and must
+                // not clear the unconfirmed mark.
+                onBrightnessApplied?(hud.at(echoed).by(hud.authority))
+            }
+            return .honoured
+        } catch let failure as BrightnessWriteFailure {
+            logger.error(
+                "setBrightness(screen) via BetterDisplay failed: \(failure.underlying, privacy: .public)"
+            )
+            guard let orphan = failure.orphan else {
+                return .failed(newest: value, display: hud.commandDisplay)
+            }
+            return .failed(newest: orphan.value, display: orphan.display)
+        } catch {
+            logger.error("setBrightness(screen) via BetterDisplay failed: \(error, privacy: .public)")
+            return .failed(newest: value, display: hud.commandDisplay)
         }
     }
 
@@ -1013,11 +1100,12 @@ final class Coordinator {
     /// admitting the bar is unbacked.
     ///
     /// The echo carries what the actuator actually WROTE, not what this frame
-    /// asked for. The neighbour's writer coalesces latest-wins, so the call that
-    /// drives stays inside its drain loop putting newer values on the wire and
-    /// returns holding an argument several frames old; echoing that argument yanks
-    /// the bar backwards mid-gesture before the next frame pulls it forward — the
-    /// flick a fast drag showed on the bar drawn on the external monitor itself.
+    /// asked for: an actuator that coalesces returns holding an argument several
+    /// frames old, and echoing that argument yanks the bar backwards mid-gesture —
+    /// the flick a fast drag showed on the bar drawn on the external monitor
+    /// itself. A conformer that can answer WITHOUT writing goes through
+    /// `writeThroughNeighbour` instead, where its echo is kept apart from
+    /// evidence; here, a successful return always follows a real write.
     private func write(
         _ value: Double,
         on hud: SystemHUD,

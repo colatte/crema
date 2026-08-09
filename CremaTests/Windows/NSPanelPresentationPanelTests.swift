@@ -8,8 +8,8 @@ import Testing
 /// pinned, and everything this class *binds* was invisible: two mutations, one
 /// handing SwiftUI the power to size the window and one dropping the fixed frame
 /// altogether, both left all 729 tests green. Those are the same two invariants
-/// CLAUDE.md names in "Never do" and design-reference §1.3 calls the cure for
-/// a whole family of intermittent blinks, so they get a witness here.
+/// CLAUDE.md names in "Never do" as the cure for a whole family of
+/// intermittent blinks, so they get a witness here.
 @MainActor
 struct NSPanelPresentationPanelTests {
 
@@ -126,6 +126,59 @@ struct NSPanelPresentationPanelTests {
         #expect(expanded.contains(panel.currentInteractiveRect), "the drawn surface lives inside its state's rule frame")
 
         withExtendedLifetime(harness) {}
+    }
+
+    @Test func anApplyOverAStaleSilhouetteClampsClicksToTheStatesRuleFrame() throws {
+        // The trace this pins: expanded card visible → hidden freezes the
+        // silhouette (the view keeps reporting the last-visible size) → a HUD
+        // keypress applies a much smaller frame. The apply-time refresh derives
+        // the click region from that FROZEN report, and before the clamp it
+        // captured clicks ~90 pt taller and ~70 pt wider than the drawn HUD,
+        // over the apps below, until the first fresh report. The rule is the
+        // hover retarget's: err tight, silhouette ∩ the state's rule frame.
+        let (panel, screen, harness) = self.panel()
+        let track = CoordinatorHarness.playingTrack()
+        let expanded = Style.card.frame(for: .nowPlaying(track, expanded: true), on: screen.geometry)
+
+        apply(panel, expanded)
+        // A fresh report at the expanded size — the silhouette that freezes.
+        panel.surfaceSizeChanged(expanded.size)
+        apply(panel, Style.card.frame(for: .hidden, on: screen.geometry))
+        #expect(panel.currentInteractiveRect == .zero, "a hidden ghost must never capture clicks")
+
+        let hud = Style.card.frame(for: .hud(SystemHUD(kind: .volume, value: 0.5)), on: screen.geometry)
+        apply(panel, hud)
+        #expect(!panel.currentInteractiveRect.isEmpty, "a consumed key still owes a clickable surface")
+        #expect(
+            hud.contains(panel.currentInteractiveRect),
+            "the stale silhouette leaked past the state's tight frame"
+        )
+
+        // A fresh report then retargets to the rendered truth, unclamped —
+        // click keeps following the surface as drawn (hover-follows-the-eye).
+        panel.surfaceSizeChanged(hud.size)
+        let rendered = try SurfaceClickThrough.surfaceRect(
+            size: hud.size,
+            window: #require(Style.card.windowFrame(on: screen.geometry)),
+            anchor: Style.card.surfaceVerticalAnchor
+        )
+        #expect(panel.currentInteractiveRect == rendered)
+
+        withExtendedLifetime(harness) {}
+    }
+
+    @Test func theStaleReportClickRuleIsTheIntersectionNormalizedToZero() {
+        // The pure half of the clamp above: intersection where the rects
+        // agree, .zero (never CGRect.null) when they do not.
+        let rule = CGRect(x: 100, y: 100, width: 210, height: 42)
+        let stale = CGRect(x: 65, y: 30, width: 280, height: 154)
+        #expect(
+            NSPanelPresentationPanel.staleReportClickRect(rendered: stale, ruleFrame: rule)
+                == CGRect(x: 100, y: 100, width: 210, height: 42)
+        )
+        let disjoint = CGRect(x: 900, y: 900, width: 10, height: 10)
+        #expect(NSPanelPresentationPanel.staleReportClickRect(rendered: disjoint, ruleFrame: rule) == .zero)
+        #expect(NSPanelPresentationPanel.staleReportClickRect(rendered: stale, ruleFrame: .zero) == .zero)
     }
 
     @Test func theFixedWindowIsTheStylesOwnMaximum() {

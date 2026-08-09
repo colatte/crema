@@ -125,6 +125,16 @@ the chain again. A per-domain chain would be the honest shape (the stated reason
 for the global order is per domain to begin with: volume and brightness never
 share a base value), and is not worth tripling the pending/generation state for a
 bounded 2 s worst case that already ends in a suspension the menu names.
+Amended (2026-08-08): a suspended domain is the THIRD reason this app hands a
+key back, and it carries the same feedback duty the other two
+(`brightness-key-follows-the-pointer`, `absent-capability-hands-the-key-back`)
+already pay — one press, one indicator, whoever drew it. The handback fires the
+same stand-down seam (`onHandedBackToTheSystem`): the tap keeps OBSERVING the
+key it passed, so without the seam the router's key-time poll reads the value
+macOS just moved and the app draws a second bar over the native indicator — on
+the very press whose feedback the suspension exists to return to the system.
+The press still kicks the recovery probe; suspension changes who recovers,
+never who owes the feedback.
 
 ### pref-sacred
 The only writer of the persisted `suppressesNativeOSD` preference is explicit
@@ -361,8 +371,8 @@ affordance-on-demand. The knob signal is per display
 (`SurfaceDisplayPolicy.pointerInside`): only the hovered surface reveals it,
 and an active drag keeps it. Scope: the knob belongs to the capsule
 (Notch/Card); Classic renders the pre-Tahoe bezel's
-16-segment bar filled by width (design-reference §4.4 — its documented
-identity) and stays bare; the now-playing scrubber kept the stock Slider
+16-segment bar filled by width (its reverse-engineered identity — measured in design-reference.md, deleted 2026-08-08, in the git history)
+and stays bare; the now-playing scrubber kept the stock Slider
 (precision gesture, wants a permanent grab handle) — **retired 2026-08-07, see
 the third amendment below**.
 Two amendments from the hardware follow-up (2026-07-28): (1) the fill's end is
@@ -512,6 +522,14 @@ tightened 0.45→0.35. Two
 hypotheses stay deliberately unimplemented pending a hardware probe: the
 multi-display pointer mirror and mouseMoved delivery to an inactive accessory.
 
+Amended 2026-08-08: the CLICKABLE region now shares the apply-time rule. It
+used to take the frozen silhouette bare, so a hidden→HUD apply routed clicks
+across the dead margin of the last visible surface for about a frame —
+captured and swallowed where the contract promises pass-through. At apply time
+both hover and clicks err tight (silhouette ∩ the state's rule frame); a
+fresh size report still retargets both to the rendered truth. Pinned in
+`NSPanelPresentationPanelTests`.
+
 A last contract of the monitor itself, invisible until it had a suite of its own:
 disarming reports a PENDING exit. The Coordinator mirrors the pointer from these
 reports, so a display that stops being armed with the cursor on it must say so once
@@ -590,8 +608,9 @@ harder building the backend.
 
 ### login-item-intent
 The launch-at-login registration lives beyond the Background Task Management
-boundary, and macOS revokes it whenever the bundle's code identity changes — a
-rebuild, a reinstall, and, in one stroke for every installed user, the eventual
+boundary, and macOS revoked it when the bundle's code identity changed —
+observed on hardware; Apple does not document the rule — a rebuild, a
+reinstall, and, in one stroke for every installed user, the eventual
 move to Developer ID. Diagnosed on hardware: a boot where the app simply never
 launched, the system logged nothing at all, and a ghost record lingered until
 System Settings pruned it. With the system status as the ONLY source of truth,
@@ -825,6 +844,32 @@ external's id, and the driving call must not echo it. The display-blind
 `lastWrittenValue` accessor went with the fix — nothing read it, and a "last written"
 with no screen attached is the same blindness under a friendlier name; the flick it
 documented lives on in the comment over the return value.
+
+**Amendment: the echo is not evidence, and an orphaned frame travels with the
+error.** Adversarial tracing found three ways the coalescing writer could break
+the "every level put on screen will be honoured" promise, all closed in one
+round. First, the drain's exit check and the in-flight reset were separate
+critical sections, so a frame slipping between them was queued, echoed as
+success, and drained by nobody — the decision to stop draining and the release
+of the in-flight flag now share ONE critical section, so no frame can sit queued
+without a driver and without an error. Second, a coalesced call echoed its value
+as a bare success BEFORE anything reached the wire, and the Coordinator recorded
+that echo as a confirmed write — so a failed gesture could roll the bar back to a
+level no display ever went to. The echo stays (contract 1: publish before the
+write, or the bar freezes under the finger) but is now marked for what it is
+(`BrightnessWriteEcho.coalesced` against `.written`), and only a level that
+actually reached the wire becomes rollback evidence. Third, when the channel
+threw, the newest queued frame died silently and the fallback wrote the DRIVING
+call's stale argument — the level a finger passed through, not the one it
+stopped at. Now the failure extracts that frame under the same lock that
+releases the drain and carries it out (`BrightnessWriteFailure.orphan`, value
+and display together), and the Coordinator's fallback writes THAT level on the
+display it was aimed at; if the fallback also refuses, the bar is marked
+unconfirmed and settles on the last real evidence. This is how the failure path
+honours the promise the happy path made. Pinned in
+`BetterDisplayScreenBrightnessControllerTests` (the exit race, the orphan in the
+error) and `CoordinatorNeighbourBrightnessTests` (the fallback writes the
+orphan; a coalesced echo alone never decides the settle).
 
 ### hud-belongs-to-its-display
 The app has ONE state and one panel per screen, so every panel drew every HUD.
@@ -1694,9 +1739,13 @@ stated as one rule.
 What is NOT here: applying on the external display, and any identity for it. The
 write half exists (`BetterDisplayScreenBrightnessController`, used by drags), but a
 stepped key also needs a LEVEL to step from and verify against, and the neighbour's
-brightness read (`neighbour-features-are-not-identifiers`) has no caller yet. Until
-it does, `.anotherDisplay` carries no UUID — a field nobody reads is a field that
-goes stale, and adding it back is one stored property.
+brightness read has none: the seam built for it never gained a caller and was
+removed in the 2026-08-08 pruning round. What the probing measured stays in
+`neighbour-features-are-not-identifiers` — identifier is the metadata door only; a
+feature is asked for by its own name as a valueless key — and whoever rebuilds the
+seam recovers its shape from the git history. Until then, `.anotherDisplay` carries
+no UUID — a field nobody reads is a field that goes stale, and adding it back is
+one stored property.
 What this does NOT fix, stated plainly so nobody reads more into it: with no
 neighbour behind us, the key handed back goes to macOS, which dims the built-in
 panel anyway and shows its own indicator. Crema stops being the one that dims the
@@ -2349,6 +2398,15 @@ panes read the store when they are built, so a wallpaper changed with the window
 open shows up the next time it opens.
 
 ### the-lock-screen-is-a-space
+~~**Superseded 2026-08-08: the widget this decision placed no longer exists.**
+The lock-screen surface shipped for one session and was removed whole, and with
+it went the app's only private window API (see
+the-lock-screen-was-built-and-taken-out). The entry stays because the hardware
+knowledge is the durable part and is not re-derivable from the code: no window
+LEVEL reaches the shield, the shield is a SPACE at absolute level 300, a
+private SkyLight space at 400 composites over it, and clicks reach it — all
+proven by probe before a line of surface code was written.~~
+
 Five window levels were swept over the lock shield — up to
 `kCGMaximumWindowLevel` — and every one of them lost. The file that recorded it
 (docs/LOCKSCREEN-INVESTIGATION.md) concluded there was no window path at all, and
@@ -2608,12 +2666,19 @@ even reported — so the roughly 300–600 px a player publishes is all there is
 a larger cover has to come from somewhere else entirely. The Cover Art Archive
 serves it addressed by release group, in fixed sizes, with no token and no
 account (measured: 500 → 18 KB, 1200 → 77 KB; which source, and why not the
-store, is `the-cover-comes-from-the-archive-not-the-store`). It is **off by
+store, is `the-cover-comes-from-the-archive-not-the-store`).
+
+~~**Superseded 2026-08-08 for the cover-lookup half only: there is no lookup any
+more.** The lock surface it fed shipped for one session and was removed whole
+(the-lock-screen-was-built-and-taken-out), and the app makes no artwork request.
+The three walls above are untouched by the removal and still close the motion
+question; what follows described the lookup's opt-in gate and invariants and is
+kept as the reasoning a future lookup would need again.~~ It was **off by
 default** because it is a network request carrying what
 you are listening to — neither an account nor analytics, the two things the app
 promises it does not do, but traffic tied to listening all the same.
 
-Two invariants govern it, and each is a bug that would otherwise ship.
+Two invariants governed it, and each is a bug that would otherwise ship.
 **There is always something to draw**: the upgrade improves the player's own
 cover and never stands in for having one, so the surface is complete the instant
 it appears and an answer that arrives later only ever replaces a cover with a
@@ -2627,6 +2692,13 @@ added to the domain: keyed on the snapshot instead, the 1 Hz position tick would
 re-ask the endpoint once a second for the same song.
 
 ### the-lock-surface-is-a-card
+~~**Superseded 2026-08-08: the surface this decision shaped no longer exists.**
+The lock-screen card shipped for one session and was removed whole
+(the-lock-screen-was-built-and-taken-out). The entry stays because the chain of
+costs that ended the backdrop — the Mach band, the self-erasing clock, the
+safety obligations of covering the login — is the reasoning anyone proposing a
+lock-screen ground would otherwise re-derive.~~
+
 The lock-screen widget shipped with a full-screen blurred backdrop: the cover,
 scaled past the display, blurred at 46, drifting on a 26 s cycle, masked so its
 alpha reached zero over the bottom 300 pt the login owns. Because that layer
@@ -2685,9 +2757,11 @@ space at a level BELOW 300 composites behind it — the level was inherited from
 the widget's need to be seen, never from the backdrop's need to be a ground. If
 a lower space shows through, the system draws the login on top and the entire
 chain of costs above retires at once: no clearance, no clock, no wedge story, no
-accessibility veto. `scripts/probes/lockscreen-space.swift` already takes the
-level as a parameter; run it at 250 and 310 before anyone re-argues this from
-taste. The other reopening is the reverse of the first: a macOS that stops
+accessibility veto. The probe that would answer it,
+`scripts/probes/lockscreen-space.swift`, took the level as a parameter and was
+removed with the surface — it lives only in git history (`bb7bb73^`), so
+reopening starts by recovering it from there and running it at 250 and 310
+before anyone re-argues this from taste. The other reopening is the reverse of the first: a macOS that stops
 drawing a lock-screen clock, which would make ours a replacement rather than a
 duplicate.
 
@@ -2740,6 +2814,14 @@ lookup's cost re-argued from scratch rather than restored because it used to be
 there.
 
 ### the-card-takes-the-material-it-was-refusing
+~~**Superseded 2026-08-08: the card and the material parameter it added are
+gone.** The lock surface was removed whole and `vibrantSurface` lost its
+material parameter with it (the-lock-screen-was-built-and-taken-out). What that
+final entry declares kept — the expired-comment lesson, the probe's finding
+that `.behindWindow` blending does sample on a raised SkyLight space — stays
+here as its record; the Increase Contrast promotion in `TrackTextStack` outlived
+the surface and still ships.~~
+
 An amendment to the-lock-surface-is-a-card, recorded because the reversal looks
 like a reversal and is not one.
 
@@ -2813,6 +2895,11 @@ it after the fact.
 
 
 ### the-card-was-thin-because-it-was-small
+~~**Superseded 2026-08-08: the card this round enlarged no longer exists** (the
+surface was removed whole — the-lock-screen-was-built-and-taken-out). The
+measurements against the siblings, the refusal to grow the shared scrubber, and
+the `clearBandFloor` reading stay as the record of what was learned.~~
+
 An amendment to the-card-takes-the-material-it-was-refusing. That round shipped
 the design research's CORRECTIONS — material, concentric radius, accessibility —
 and none of its craft, so the card came back measurably more correct and looked
@@ -2873,6 +2960,12 @@ unexamined contradiction between a constant and every use of it is how the
 constant eventually gets ignored.
 
 ### the-lock-card-is-light-and-lives-on-a-module
+~~**Superseded 2026-08-08: the card, `SourceBadge` and `SurfaceChrome`'s light
+palette are all gone** — the surface was removed whole in the same session
+(the-lock-screen-was-built-and-taken-out). The module discipline, the
+light-glass-with-dark-ink reasoning and the concentric arithmetic stay as the
+record of what was learned.~~
+
 Two changes in one round, and they came from one report: the card "parece
 pobre" and "nada parece conversar de fato". The second is the substantial half.
 
@@ -2943,8 +3036,10 @@ missing about a fact nobody asked for.
 of `.popover` under the AQUA appearance. Every material number this repo holds
 was measured under darkAqua, and the light side has not been. It is the reason
 the fill sits at white 0.55 rather than lower — headroom taken on purpose while
-the number is unknown. `scripts/probes/lockscreen-card-material.swift` answers
-it with a one-line change to the swatches' appearance.
+the number is unknown. The probe that would answer it,
+`scripts/probes/lockscreen-card-material.swift`, was removed with the surface
+and lives only in git history (`bb7bb73^`); recovered from there, a one-line
+change to the swatches' appearance settles it.
 
 ### the-lock-screen-was-built-and-taken-out
 The whole lock-screen surface was designed, proven on hardware, built, shipped

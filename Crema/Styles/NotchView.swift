@@ -130,7 +130,7 @@ struct NotchView: View, SurfaceStyleBody {
     }
 
     /// The morphing outline: bottom corners flare more than the top, and the
-    /// radii open up when expanded (design-reference §4.1). Keyed on the EFFECTIVE
+    /// radii open up when expanded. Keyed on the EFFECTIVE
     /// layout so a hidden surface keeps the flare it faded out with.
     private var shape: NotchShape { Self.shape(for: effectiveLayoutKind) }
 

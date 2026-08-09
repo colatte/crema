@@ -119,12 +119,15 @@ private struct GeneralSettingsView: View {
 
     init(core: AppCore) {
         self.core = core
-        _style = State(initialValue: core.declaredStyle())
-        _rendersCard = State(initialValue: core.rendersAnywhere(.card))
-        _rendersNotch = State(initialValue: core.rendersAnywhere(.notch))
-        _wallpaper = State(initialValue: core.tileWallpaper())
-        _launchesAtLogin = State(initialValue: core.loginItem.isEnabled || core.loginItem.requiresApproval)
-        _loginNeedsApproval = State(initialValue: core.loginItem.requiresApproval)
+        // One seed rule for both windows that carry this section — the reads and
+        // their why live in StyleSectionSeed, never respelled here.
+        let seed = StyleSectionSeed(core: core)
+        _style = State(initialValue: seed.style)
+        _rendersCard = State(initialValue: seed.rendersCard)
+        _rendersNotch = State(initialValue: seed.rendersNotch)
+        _wallpaper = State(initialValue: seed.wallpaper)
+        _launchesAtLogin = State(initialValue: seed.launchesAtLogin)
+        _loginNeedsApproval = State(initialValue: seed.loginNeedsApproval)
     }
 
     /// Notch is what the user declared, and nothing on screen is honouring it.
@@ -287,7 +290,7 @@ private struct GeneralSettingsView: View {
                     .settingsFootnote()
                     Button(String(
                         localized: "settings.general.launchAtLogin.openSettings",
-                        defaultValue: "Open Login Items settings…"
+                        defaultValue: "Open Login Items Settings…"
                     )) {
                         core.openLoginItemsSettings()
                     }

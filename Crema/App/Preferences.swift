@@ -196,8 +196,6 @@ struct Preferences {
         nonmutating set { defaults.set(newValue, forKey: Self.suppressesNativeOSDKey) }
     }
 
-    // MARK: - Lock screen
-
     // MARK: - Now-playing behavior
 
     /// Reactive appearance: media events (track change, external play/pause)

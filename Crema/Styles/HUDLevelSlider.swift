@@ -21,8 +21,8 @@ import SwiftUI
 ///   Music/players language), not the native flat cut (docs/DECISIONS.md:
 ///   hud-capsule-track). A knob fades in under the pointer, the measured
 ///   Control Center affordance-on-demand.
-/// - `.segmented` — the Classic bezel's 16-segment bar filled by width
-///   (design-reference §4.4): Classic is deliberate pre-Tahoe nostalgia, so it
+/// - `.segmented` — the Classic bezel's 16-segment bar filled by
+///   width: Classic is deliberate pre-Tahoe nostalgia, so it
 ///   keeps the bezel's own indicator and shows no hover knob.
 /// - `.filled` — the iOS-style full-bleed bar the Card can opt into: the whole
 ///   proposed frame is the indicator; the card's own clip rounds it. Its
@@ -66,9 +66,9 @@ struct HUDLevelSlider: View {
     static var trackHitHeight: CGFloat { CapsuleTrack.trackHitHeight }
     static var trackThickness: CGFloat { CapsuleTrack.trackThickness }
 
-    // The Classic bezel's segments (design-reference §4.4): 16 with 2 pt gaps;
-    // filled ~70% white, empty ~20%. 7.5×7.5 squares — §4.4 records the
-    // original's wider-than-tall segments; squares are the recreation's metric
+    // The Classic bezel's segments, from the reverse-engineered original: 16
+    // with 2 pt gaps; filled ~70% white, empty ~20%. 7.5×7.5 squares — the
+    // original's segments were wider than tall; squares are the recreation's metric
     // and read better at this scale. The 150 pt run fits Classic's 152 pt
     // inner budget with 2 pt slack (pinned by test).
     private static let segmentCount = 16
@@ -262,7 +262,7 @@ struct HUDLevelSlider: View {
     }
 
     /// How much of segment `index` is filled at `value` — by width, the
-    /// boundary segment partially (design-reference §4.4).
+    /// boundary segment partially (the pre-Tahoe bezel's own rule).
     nonisolated static func segmentFill(index: Int, value: Double) -> Double {
         min(max(value * Double(segmentCount) - Double(index), 0), 1)
     }

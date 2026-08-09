@@ -145,7 +145,7 @@ enum StylePreview {
         let screen = geometry.frame
         // The safe area stands in for the bar wherever there is one: it is the
         // number the rules already agree on, and the 0.35 pt it differs from this
-        // panel's real 37 pt bar (docs/design-reference.md — the classic gotcha of
+        // panel's real 37 pt bar (menu bar ≠ slit — the classic gotcha of
         // this hardware) does not buy a second constant in the file whose whole
         // argument is derive, don't declare. A slitless panel reports no safe area
         // and still has a bar, and that one has to be declared or the tile for

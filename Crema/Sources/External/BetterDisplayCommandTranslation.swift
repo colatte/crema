@@ -44,29 +44,6 @@ enum BetterDisplayCommandTranslation {
         ))
     }
 
-    /// A read of one METADATA identifier — UUID, name, serial, vendor, model,
-    /// productName. No production caller yet; kept because it is the seam a reader
-    /// of the neighbour needs, and because the shape is now measured.
-    ///
-    /// `identifier` is the metadata door and ONLY that. A feature is asked for by
-    /// its own name as the parameter key with no value — `parameters: ["displayID":
-    /// "2", "brightness": ""]` answers `result=true, payload=0.063` — and a relative
-    /// write uses the documented `offset` parameter rather than a sign on the value,
-    /// which is read as an absolute.
-    ///
-    /// Worth stating because the mistake was expensive: five spellings of brightness
-    /// were probed through `identifier`, all refused, and that became a written
-    /// claim that the neighbour could be written but never read — which retired the
-    /// feature that needed the read. It was the wrong door, not a missing one
-    /// (docs/DECISIONS.md: neighbour-features-are-not-identifiers).
-    static func identifierRequest(uuid: String, identifier: String, displayID: Int) -> String? {
-        encode(Request(
-            uuid: uuid,
-            commands: ["get"],
-            parameters: ["displayID": String(displayID), "identifier": identifier]
-        ))
-    }
-
     /// Nil for anything that is not a verdict we can act on — a malformed body, or
     /// one with no uuid to match a request against.
     static func verdict(fromJSON json: String) -> Verdict? {

@@ -79,7 +79,7 @@ extension PresentationStyle {
     /// sideways and down only; the top edge stays pinned so the top-anchored
     /// surface sits exactly where the rule puts it. The window never resizes
     /// after creation; states animate as content inside it, so there is no
-    /// window-vs-render race to coordinate (design-reference §1.3).
+    /// window-vs-render race to coordinate.
     func windowFrame(on geometry: ScreenGeometry) -> CGRect {
         var rect = frame(for: .nowPlaying(referenceTrack, expanded: true), on: geometry)
             .union(frame(for: .nowPlaying(referenceTrack, expanded: false), on: geometry))

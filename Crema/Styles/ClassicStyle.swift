@@ -2,8 +2,8 @@ import CoreGraphics
 import SwiftUI
 
 /// Classic skin: the pre-Tahoe macOS HUD block, modernized — a rounded square
-/// centered near the bottom of the screen (where the native OSD always lived;
-/// design-reference §4.4), deliberately contrasting the top-edge styles. All
+/// centered near the bottom of the screen (where the native OSD always
+/// lived), deliberately contrasting the top-edge styles. All
 /// states share the bottom line and grow upward.
 struct ClassicStyle: PresentationStyle {
     func frame(for state: PresentationState, on geometry: ScreenGeometry) -> CGRect {
@@ -48,8 +48,8 @@ struct ClassicStyle: PresentationStyle {
 }
 
 /// The classic block's measurements — one place, calibrated from the native
-/// OSD's reverse-engineered values (design-reference §4.4: 200×200 at 140 pt
-/// from the bottom, radius 16–19).
+/// OSD's reverse-engineered values (200×200 at 140 pt from the bottom,
+/// radius 16–19).
 enum ClassicMetrics {
     static let bottomMargin: CGFloat = 140
     static let compact = CGSize(width: 170, height: 170)

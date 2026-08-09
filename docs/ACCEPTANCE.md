@@ -9,8 +9,8 @@
 > `docs/internal/` (gitignored, local-only). It is published here because it is
 > the only list that says what "working" means, and a reader outside that folder
 > had no way to check the app against it. Items 20–21 were added on 2026-08-07
-> with the lock-screen surface; both are opt-in and both ship off, so a default
-> install satisfies them by doing nothing. The specification stays the source; if
+> with the lock-screen surface and retired 2026-08-08 with it; while they stood,
+> a default install satisfied them by doing nothing. The specification stays the source; if
 > the two ever disagree, this file is the one that has drifted.
 
 1. With media playing (browser media only with the toggle on — it is filtered by

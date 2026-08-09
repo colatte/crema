@@ -1,47 +1,5 @@
 import Foundation
 
-/// Single-resume guard for a value-producing race between an operation and a
-/// deadline. Either racer may finish on any thread (the operation on a detached
-/// task, the deadline on the injected clock); the first result wins and the
-/// rest no-op. A result arriving before `begin` installs the continuation is
-/// stashed and delivered on begin, so the continuation resumes exactly once —
-/// never lost, never twice. The value-returning sibling of the OSD suppressor's
-/// throwing DeadlineRace.
-final class SingleResumeRace<T: Sendable>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var continuation: CheckedContinuation<T, Never>?
-    private var pending: T?
-    private var resumed = false
-
-    func begin(_ continuation: CheckedContinuation<T, Never>) {
-        lock.lock()
-        if let pending {
-            resumed = true
-            lock.unlock()
-            continuation.resume(returning: pending)
-        } else {
-            self.continuation = continuation
-            lock.unlock()
-        }
-    }
-
-    func finish(_ value: T) {
-        lock.lock()
-        guard !resumed else { lock.unlock(); return }
-        if let continuation {
-            resumed = true
-            self.continuation = nil
-            lock.unlock()
-            continuation.resume(returning: value)
-        } else if pending == nil {
-            pending = value
-            lock.unlock()
-        } else {
-            lock.unlock()
-        }
-    }
-}
-
 /// Races `operation` against a `timeout` on the injected clock. If the operation
 /// completes first, its value is returned and the deadline is cancelled. If the
 /// deadline fires first, `timedOutValue` is committed and `onDeadline` runs.
@@ -60,7 +18,7 @@ func raceAgainstDeadline<T: Sendable>(
     timedOutValue: T,
     onDeadline: @escaping @Sendable () -> Void
 ) async -> T {
-    let race = SingleResumeRace<T>()
+    let race = SingleResumeRace<T, Never>()
     let work = Task.detached {
         let value = await operation()
         race.finish(value)

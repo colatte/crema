@@ -5,10 +5,11 @@
 /// over the lock shield, so suppression must step aside and let the native OSD —
 /// which does render on the lock screen — back through. Not a wall, a choice: no
 /// window level reaches the shield (proven on hardware), but the shield is a
-/// SPACE, and the private path over it not only exists — the app already takes
-/// it, for the opt-in now-playing widget and for nothing else. Spending it on
-/// the HUDs is a separate decision nobody has made (docs/DECISIONS.md:
-/// the-lock-screen-is-a-space; docs/LOCKSCREEN-INVESTIGATION.md).
+/// SPACE, and the private path over it exists — proven on hardware, taken for
+/// one session by an opt-in now-playing widget, and removed whole; the app has
+/// no private window API at all. Spending that path on the HUDs is a separate
+/// decision nobody has made (docs/DECISIONS.md:
+/// the-lock-screen-was-built-and-taken-out; docs/LOCKSCREEN-INVESTIGATION.md).
 ///
 /// Polarity is fixed and semantic: `true` = safe to suppress (unlocked AND
 /// on-console); `false` = suspend suppression (locked OR off-console). The read

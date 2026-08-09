@@ -1,13 +1,15 @@
 // Decides: does a SwiftUI `Picker` in `.menu` style honour `.disabled(true)` on
-// one of its options — i.e. can the per-display style popup (Fase 23, Form A)
-// grey out "Notch" on a slitless display, or must the popup be a custom `Menu`
-// (Form B)? The write-refusal guarantee does NOT depend on this probe: it lives
-// in the pure `DisplayStyleOptions.write(for:)`. Only the chrome does.
+// one of its options — i.e. can the per-display style popup grey out "Notch" on
+// a slitless display with a plain Picker, or must the popup be a custom `Menu`
+// that takes the option out of reach? (Measured: it discards it — the anchor is
+// docs/DECISIONS.md: the-chrome-is-not-the-guarantee.) The write-refusal
+// guarantee does NOT depend on this probe: it lives in the pure
+// `DisplayStyleOptions.write(for:)`. Only the chrome does.
 //
 // CONTROL that makes a negative mean something: the same window carries a
 // `Menu { Button }` with `.disabled(true)` — a shape that is known to disable —
 // plus a `Menu { Toggle }` (measures whether Toggle-in-Menu renders a checkmark,
-// which is Form B's chrome). If the control does not read as disabled either,
+// the chrome the custom-Menu popup relies on). If the control does not read as disabled either,
 // the probe's introspection is broken and the verdict is UNVERIFIED, never NO.
 //
 // Run: swift scripts/probes/picker-option-disabled.swift
@@ -114,7 +116,7 @@ DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
     if !sawPicker || !sawControl {
         print("VERDICT: UNVERIFIED — introspection did not reach \(sawPicker ? "" : "the picker ")\(sawControl ? "" : "the control ")menu items; a missing item list is not a NO.")
     } else {
-        print("VERDICT: read the lines above — Form A needs 'picker-second' isEnabled=false AND 'control-disabled' isEnabled=false (the control proves the probe can see disabling at all).")
+        print("VERDICT: read the lines above — a plain Picker suffices only if 'picker-second' isEnabled=false AND 'control-disabled' isEnabled=false (the control proves the probe can see disabling at all).")
     }
     exit(0)
 }

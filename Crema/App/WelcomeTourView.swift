@@ -42,12 +42,15 @@ struct WelcomeTourView: View {
     init(core: AppCore, dismiss: @escaping () -> Void) {
         self.core = core
         self.dismiss = dismiss
-        _style = State(initialValue: core.declaredStyle())
-        _rendersCard = State(initialValue: core.rendersAnywhere(.card))
-        _rendersNotch = State(initialValue: core.rendersAnywhere(.notch))
-        _wallpaper = State(initialValue: core.tileWallpaper())
-        _launchesAtLogin = State(initialValue: core.loginItem.isEnabled || core.loginItem.requiresApproval)
-        _loginNeedsApproval = State(initialValue: core.loginItem.requiresApproval)
+        // One seed rule for both windows that carry this section — the reads and
+        // their why live in StyleSectionSeed, never respelled here.
+        let seed = StyleSectionSeed(core: core)
+        _style = State(initialValue: seed.style)
+        _rendersCard = State(initialValue: seed.rendersCard)
+        _rendersNotch = State(initialValue: seed.rendersNotch)
+        _wallpaper = State(initialValue: seed.wallpaper)
+        _launchesAtLogin = State(initialValue: seed.launchesAtLogin)
+        _loginNeedsApproval = State(initialValue: seed.loginNeedsApproval)
     }
 
     var body: some View {
@@ -382,7 +385,7 @@ struct WelcomeTourView: View {
                 .foregroundStyle(.orange)
                 Button(String(
                     localized: "settings.general.launchAtLogin.openSettings",
-                    defaultValue: "Open Login Items settings…"
+                    defaultValue: "Open Login Items Settings…"
                 )) {
                     core.openLoginItemsSettings()
                 }

@@ -52,8 +52,9 @@ struct ScrubberRow: View {
     /// The same bar the HUD draws, and that is the point of it being shared.
     ///
     /// It used to be a stock `Slider` tinted with the artwork accent: a thumb
-    /// always visible, a coloured fill. Two rows above it in the lock card sits
-    /// the HUD's own bar, which had already been measured off the Tahoe banner
+    /// always visible, a coloured fill. Two rows above it in the lock card — a
+    /// surface since removed whole — sat the HUD's own bar, which had already
+    /// been measured off the Tahoe banner
     /// and Control Center and decided — thumbless at rest, knob only under the
     /// pointer, fill WHITE (`docs/DECISIONS.md: hud-capsule-track`). The
     /// scrubber never adopted it, so one card carried two bars obeying opposite

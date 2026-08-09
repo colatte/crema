@@ -96,8 +96,8 @@ struct SparkleUpdaterTests {
     @Test func pendingUpdateStringsResolvePerLanguage() throws {
         #expect(try value("menu.update.available", in: "en") == "An update to Crema is available.")
         #expect(try value("menu.update.available", in: "pt-BR") == "Há uma atualização do Crema disponível.")
-        #expect(try value("menu.update.show", in: "en") == "Show the Update…")
-        #expect(try value("menu.update.show", in: "pt-BR") == "Mostrar a Atualização…")
+        #expect(try value("menu.update.show", in: "en") == "Show Update…")
+        #expect(try value("menu.update.show", in: "pt-BR") == "Mostrar Atualização…")
     }
 
     private func value(_ key: String, in language: String) throws -> String {

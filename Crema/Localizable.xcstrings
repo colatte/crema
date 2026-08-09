@@ -251,7 +251,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Demo: tocar/pausar"
+            "value": "Demo: reproduzir/pausar"
           }
         }
       }
@@ -404,7 +404,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Conceder acesso de Acessibilidade…"
+            "value": "Conceder Acesso de Acessibilidade…"
           }
         }
       }
@@ -421,7 +421,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "A abertura no início da sessão aguarda sua aprovação."
+            "value": "“Abrir o Crema ao iniciar a sessão” está aguardando sua aprovação."
           }
         }
       }
@@ -432,7 +432,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open Login Items settings…"
+            "value": "Open Login Items Settings…"
           }
         },
         "pt-BR": {
@@ -472,7 +472,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "A abertura no início da sessão foi desativada\nporque o app mudou desde que você a ativou."
+            "value": "“Abrir o Crema ao iniciar a sessão” foi desativado\nporque o app mudou desde que você o ativou."
           }
         }
       }
@@ -483,13 +483,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The last playback command didn’t get through —\nthe player stays view-only."
+            "value": "The last playback command didn’t get through —\nthe player isn’t accepting controls right now."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O último comando de reprodução não passou —\no player fica só de visualização."
+            "value": "O último comando de reprodução não passou —\no player não está aceitando controles no momento."
           }
         }
       }
@@ -557,7 +557,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tocando Agora está indisponível —\nnenhuma fonte de mídia está respondendo."
+            "value": "O Tocando Agora está indisponível —\nnenhuma fonte de mídia está respondendo."
           }
         }
       }
@@ -755,13 +755,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Show the Update…"
+            "value": "Show Update…"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mostrar a Atualização…"
+            "value": "Mostrar Atualização…"
           }
         }
       }
@@ -812,7 +812,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "A concessão é detectada automaticamente — sem precisar reiniciar. Se mesmo assim a captura não começar, reinicie o Crema."
+            "value": "O Crema detecta a permissão automaticamente — não é preciso reiniciar. Se mesmo assim a captura não começar, reinicie o Crema."
           }
         }
       }
@@ -1067,7 +1067,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abrir o Crema no início da sessão"
+            "value": "Abrir o Crema ao iniciar a sessão"
           }
         }
       }
@@ -1095,7 +1095,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open Login Items settings…"
+            "value": "Open Login Items Settings…"
           }
         },
         "pt-BR": {
@@ -1135,7 +1135,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aplica-se a todas as telas. Em uma tela sem notch, o estilo Notch volta para o Card."
+            "value": "Aplica-se a todas as telas. Em uma tela sem notch, o estilo Notch aparece como Card."
           }
         }
       }
@@ -1220,7 +1220,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Com o BetterDisplay 4.2.1 ou mais novo, o Crema consegue mostrar o indicador de brilho de uma tela externa. Nada a ativar aqui."
+            "value": "Com o BetterDisplay 4.2.1 ou posterior, o Crema pode mostrar o indicador de brilho de uma tela externa. Não é preciso ativar nada aqui."
           }
         }
       }
@@ -1662,7 +1662,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Solicitar acesso de Automação…"
+            "value": "Solicitar Acesso de Automação…"
           }
         }
       }
@@ -1747,7 +1747,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Conceder acesso de Acessibilidade…"
+            "value": "Conceder Acesso de Acessibilidade…"
           }
         }
       }
@@ -1968,7 +1968,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bloco discreto perto da base"
+            "value": "Bloco discreto na parte inferior da tela"
           }
         }
       }
@@ -2121,7 +2121,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Crema mora na barra de menus — o ícone dele abre o menu, e os Ajustes estão lá também, ou pressione ⌘ + vírgula."
+            "value": "O Crema mora na barra de menus — o ícone dele abre o menu, e os Ajustes estão lá também, ou pressione Command + Vírgula."
           }
         }
       }
@@ -2240,7 +2240,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Boas-vindas ao Crema"
+            "value": "Damos as boas-vindas ao Crema"
           }
         }
       }

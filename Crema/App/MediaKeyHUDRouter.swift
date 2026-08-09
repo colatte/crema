@@ -23,7 +23,8 @@
 /// is not resubscribable. Whoever called it would get brightness keys that stop
 /// reaching the HUD for the rest of the process, with no error anywhere. The
 /// router lives for the process, the same conclusion the Coordinator's start()
-/// records for its own consumption tasks.
+/// records for its own consumption tasks
+/// (docs/DECISIONS.md: teardown-seam-that-cannot-be-honoured).
 final class MediaKeyHUDRouter: @unchecked Sendable {
     private let mediaKeys: any MediaKeySource
     private let screenBrightness: any ManuallySampledSource

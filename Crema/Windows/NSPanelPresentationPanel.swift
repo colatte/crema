@@ -7,8 +7,8 @@ import SwiftUI
 /// this class only configures the NSPanel and applies what it is told.
 ///
 /// For the real skins the window is fixed at the style's maximum frame and only
-/// the SwiftUI content animates inside it (design-reference §1.3, the
-/// boring.notch model). With the window never resizing there is no
+/// the SwiftUI content animates inside it (the model the mature notch apps
+/// converged on). With the window never resizing there is no
 /// window-frame-vs-render-commit ordering to coordinate — the whole class of
 /// intermittent cropped-frame blinks dies by construction. The price is that
 /// the fixed window overlaps the menu bar around the slit, paid for by click
@@ -60,7 +60,7 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// silence, and until these existed no test could see them at all: mutations
     /// handing SwiftUI the power to size the window, and dropping the fixed
     /// frame entirely, both left the whole suite green.
-    /// (CLAUDE.md "Never do"; design-reference §1.3.)
+    /// (CLAUDE.md "Never do".)
     var currentWindowFrame: CGRect { panel.frame }
 
     /// What this panel's hover detection is keyed on right now; nil for a style
@@ -238,11 +238,16 @@ final class NSPanelPresentationPanel: PresentationPanel {
         }
         if reportedSurfaceSize != nil {
             // The view reports its rendered size: the region tracks the real
-            // surface through morphs, no settle heuristics needed. Hover is
-            // NOT pushed from this apply-time refresh — its reported size
-            // predates the state (see the tight retarget above); only a fresh
-            // report (surfaceSizeChanged) retargets hover.
-            refreshReportedInteractiveRect(pushesHoverRegions: false)
+            // surface through morphs, no settle heuristics needed. At apply
+            // time that report still PREDATES the state change (while hidden
+            // it holds the frozen last-visible silhouette), so the click
+            // region errs TIGHT exactly like the hover retarget above —
+            // silhouette ∩ the state's rule frame — or an appearance out of
+            // hidden would capture clicks on the old, larger silhouette over
+            // the apps below until the first fresh report. Hover is NOT
+            // pushed from here for the same staleness; only a fresh report
+            // (surfaceSizeChanged) retargets both to the rendered truth.
+            refreshReportedInteractiveRect(pushesHoverRegions: false, tightensToRuleFrame: true)
             hoverMonitor?.setActive(hoverArmed)
             return
         }
@@ -264,7 +269,10 @@ final class NSPanelPresentationPanel: PresentationPanel {
         hoverMonitor?.setActive(hoverArmed)
     }
 
-    private func surfaceSizeChanged(_ size: CGSize) {
+    /// Internal, not private: the size relay is the production caller, and the
+    /// tests drive this same seam to simulate reports deterministically — the
+    /// real view's reports depend on a live layout pass no test controls.
+    func surfaceSizeChanged(_ size: CGSize) {
         reportedSurfaceSize = size
         // From the first report on, the reported path owns the region outright.
         refreshReportedInteractiveRect()
@@ -273,11 +281,17 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// Interactive region from the rendered surface: its size, top-center
     /// anchored (how the views draw it). Hidden always wins — the fading ghost
     /// still reports its size but must not capture clicks.
-    private func refreshReportedInteractiveRect(pushesHoverRegions: Bool = true) {
+    private func refreshReportedInteractiveRect(pushesHoverRegions: Bool = true, tightensToRuleFrame: Bool = false) {
         guard let fixedWindowFrame, let size = reportedSurfaceSize else { return }
-        let visible: CGRect = currentFrame.isEmpty
+        var visible: CGRect = currentFrame.isEmpty
             ? .zero
             : SurfaceClickThrough.surfaceRect(size: size, window: fixedWindowFrame, anchor: style.surfaceVerticalAnchor)
+        if tightensToRuleFrame {
+            // Apply path only: the reported size predates the state, so the
+            // click region may not exceed the state's tight rule frame — the
+            // click-side twin of the hover retarget's errs-TIGHT rule.
+            visible = Self.staleReportClickRect(rendered: visible, ruleFrame: currentFrame)
+        }
         interactiveRect = visible
         // Hover follows the same rendered surface as clicks, on every style —
         // the two truths of one panel never diverge (docs/DECISIONS.md:
@@ -290,6 +304,17 @@ final class NSPanelPresentationPanel: PresentationPanel {
             hoverMonitor?.updateRegions(.around(visible, margins: style.hoverExitMargins))
         }
         routeClicks(at: NSEvent.mouseLocation)
+    }
+
+    /// The apply-time click rule, pure so the tests can pin it: a rendered
+    /// silhouette that predates the state is trusted only where the state's
+    /// tight rule frame agrees. Disjoint rects normalize to .zero (never
+    /// CGRect.null, whose infinite origin would poison later comparisons); an
+    /// empty rule frame (hidden) yields .zero, preserving the ghost-never-
+    /// captures-clicks rule.
+    nonisolated static func staleReportClickRect(rendered: CGRect, ruleFrame: CGRect) -> CGRect {
+        let tight = rendered.intersection(ruleFrame)
+        return tight.isEmpty ? .zero : tight
     }
 
     /// Fallback for a window-filling view: per-state window frames. Mapping a
@@ -323,7 +348,7 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// SwiftUI must never drive the window frame: the default sizingOptions
     /// (.standardBounds) install min/intrinsic/max constraints that can resize
     /// the panel from the view's layout — the window-vs-render race the fixed
-    /// window model exists to kill (design-reference §1.3).
+    /// window model exists to kill.
     /// Returns whether the bar took, read back from the view itself — the only
     /// place its concrete (modifier-chained) type is still known.
     private static func barContentFromSizingTheWindow(_ hostingView: NSHostingView<some View>) -> Bool {

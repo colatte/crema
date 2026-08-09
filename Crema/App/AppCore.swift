@@ -122,12 +122,14 @@ final class AppCore {
     private var lowPowerConsumption: Task<Void, Never>?
 
     /// Stored, not merely built: the source keeps no strong reference to itself
-    /// (weak self in both observers and in the settle task), and its only other
-    /// owner is `SuppressionLockController` — which is not built when the
+    /// (weak self in both observers and in the settle task), and its only
+    /// consumer is `SuppressionLockController` — which is not built when the
     /// brightness backends do not resolve, nor in the demo graph. Held as a
-    /// local it would deallocate at the end of `init` on exactly those paths and
-    /// the mirror would never move again, leaving the lock surface convinced the
-    /// Mac is unlocked forever.
+    /// local it would deallocate at the end of `init` on exactly those paths,
+    /// making the source's lifetime depend on which graph was minted; stored,
+    /// it lives for the app lifetime on every path, like the wake observers.
+    /// (A lock-screen mirror that also read it shipped for one session and was
+    /// removed whole — docs/DECISIONS.md: the-lock-screen-was-built-and-taken-out.)
     private let lockSource: any ScreenLockSource
     /// Kept past the merge so the menu can report whether the neighbour's OSD
     /// integration is actually feeding us; nil on demo sources.
@@ -1501,5 +1503,3 @@ extension AppCore {
         windowManager.refreshPresentation()
     }
 }
-
-// MARK: - Lock screen

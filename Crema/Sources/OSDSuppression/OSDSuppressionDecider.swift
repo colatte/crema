@@ -78,11 +78,17 @@ final class SuppressionDecider: @unchecked Sendable {
     /// no up, which is the half of this type's pairing rule that has no closing
     /// event: nothing the system receives later ends that press. An orphan up only
     /// ever ends a press nobody was tracking. What is NOT at risk in either
-    /// direction is the AUTOREPEAT — it is generated upstream of every CGEventTap,
-    /// by a timer inside the HID event system that the physical key-down arms and
-    /// the physical key-up cancels (IOHIDFamily: IOHIDKeyboardFilter.mm
-    /// processKeyRepeats; IOHIKeyboard::setRepeat on the legacy path), so no tap
-    /// ever sees those events, let alone swallows them.
+    /// direction is a runaway AUTOREPEAT: the repeat TIMER lives upstream of
+    /// every CGEventTap, inside the HID event system, armed by the physical
+    /// key-down and cancelled by the physical key-up (IOHIDFamily:
+    /// IOHIDKeyboardFilter.mm processKeyRepeats; IOHIKeyboard::setRepeat on the
+    /// legacy path) — so a swallowed up cannot leave repeats running; they stop
+    /// with the finger. The repeat EVENTS themselves DO reach the tap — the
+    /// hold described above consumes every autorepeat down, and `decide`'s
+    /// latch migration frees a held key on exactly its next autorepeat
+    /// (docs/DECISIONS.md: absent-capability-hands-the-key-back);
+    /// scripts/probes/media-key-autorepeat.swift is the instrument that
+    /// observes them.
     func suspend(_ domain: OSDSuppressionDomain) {
         lock.withLock {
             suspended.insert(domain)

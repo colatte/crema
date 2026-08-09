@@ -9,10 +9,13 @@ import os
 
 /// Suppresses the native volume/brightness OSD by consuming the media keys:
 /// the system never sees the key, so it never shows its HUD, and the app
-/// becomes the only applier (docs/osd-suppression-reference.md §3.1 — the
-/// technique the ecosystem converged on for macOS 26, where the redesigned
-/// OSD is rendered by ControlCenter and the old helper-suspension trick died;
-/// §3.2 records why that alternative was rejected).
+/// becomes the only applier — the technique the ecosystem converged on for
+/// macOS 26, where the redesigned OSD is rendered by ControlCenter: freezing
+/// the old OSDUIHelper is a no-op there (measured on hardware — the per-key
+/// popover kept appearing with the helper alive and SIGSTOPped), and
+/// suspending ControlCenter itself is out of the question (it hosts the menu
+/// bar and has KeepAlive), which is why the helper-suspension alternative was
+/// rejected.
 ///
 /// Reversible by construction: disengaging clears the tap's consumer, and the
 /// tap itself dies with the process — toggle-off, quit or crash all restore
@@ -129,15 +132,17 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     /// key-time poke still gives the HUD its instant appearance).
     var onApplied: (@MainActor (MediaKey) -> Void)?
 
-    /// Fired when a healthy domain's key was handed back to the system, for either
-    /// reason this app has one: the pointer rule declined it, or the key's control
-    /// is known absent on this route. The seam does not tell them apart because the
-    /// consequence is identical and is the only thing the owner acts on — somebody
-    /// else draws that press, so AppCore spends the local brightness source's key
-    /// window with this. Otherwise the tap's own observation arms a poll, the poll
+    /// Fired when a key was handed back to the system, for any of the three
+    /// reasons this app has one: the pointer rule declined it, the key's control
+    /// is known absent on this route, or its domain is suspended after a failed
+    /// apply. The seam does not tell them apart because the consequence is
+    /// identical and is the only thing the owner acts on — somebody else draws
+    /// that press, so AppCore spends the local brightness source's key window
+    /// with this. Otherwise the tap's own observation arms a poll, the poll
     /// reads the value macOS just moved, and the app puts a second bar over the
     /// native indicator. Same seam the neighbour's report uses (docs/DECISIONS.md:
-    /// betterdisplay-osd-source, absent-capability-hands-the-key-back).
+    /// betterdisplay-osd-source, absent-capability-hands-the-key-back,
+    /// per-domain-suspension).
     var onHandedBackToTheSystem: (@MainActor (MediaKey) -> Void)?
 
     private(set) var longSuspendedDomains: Set<OSDSuppressionDomain> = []
@@ -291,12 +296,13 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         if decider.isSuspended(domain) {
             // A suspended domain's key passed to the system; an active user
             // pressing it is a cue to try recovering now, ahead of the backoff.
+            // The seam below still fires: the press is the system's to draw, and
+            // suspension changes only WHO recovers, never who owes the feedback.
             kickProbe(domain)
         } else {
-            // Passed with the domain healthy, which leaves the two reasons this app
-            // hands a key back: the pointer rule declined it, or its control is
-            // known absent. The seam below needs neither name — both mean somebody
-            // else applies and draws this press. Still derived from the state rather
+            // Passed with the domain healthy, which leaves the other two reasons
+            // this app hands a key back: the pointer rule declined it, or its
+            // control is known absent. Still derived from the state rather
             // than carried down from the tap, so an autorepeat that passes on the
             // LATCH — after the pointer has already crossed back — stands down too;
             // otherwise the router's poll re-arms mid-hold and the local bar returns
@@ -311,8 +317,8 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
                 // nothing under autorepeat.
                 recheckCapability(capability, generation: generation)
             }
-            onHandedBackToTheSystem?(key)
         }
+        onHandedBackToTheSystem?(key)
     }
 
     /// Capabilities with a re-check in flight. Autorepeat arrives at the HID timer's
@@ -564,7 +570,16 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
             // channel itself ever removes a mark.
             if try await readWithDeadline({ [volume] in volume.supportsMute() }) {
                 decider.clearAbsentCapability(.mute)
-                if try await readWithDeadline({ [volume] in volume.readMuted() }) == true {
+                // A nil mute read is a read failure, not "not muted" — the same
+                // line `applyMute` draws. Skipping the unmute on it left the key
+                // consumed and the bar rising over a Mac that stayed muted, with
+                // no failure axis touched. Nil throws so the apply fails and the
+                // domain follows the ordinary suspension rules; only a real
+                // `false` (read fine, not muted) skips the unmute.
+                guard let muted = try await readWithDeadline({ [volume] in volume.readMuted() }) else {
+                    throw ApplyFailure.currentValueUnreadable
+                }
+                if muted {
                     try await withDeadline { [volume] in try await volume.setMuted(false) }
                     guard let stillMuted = try await readWithDeadline({ [volume] in volume.readMuted() }) else {
                         throw ApplyFailure.currentValueUnreadable

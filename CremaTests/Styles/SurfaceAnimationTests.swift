@@ -109,25 +109,4 @@ struct SurfaceAnimationTests {
         #expect(SurfaceAnimation.closeDamping >= 1.0)
         #expect(SurfaceAnimation.openDamping < 1.0)
     }
-
-    @Test func theAppearFadeIsDirectionalAndNeverGated() {
-        // The signature is the guarantee: no `reduceMotion` parameter and a
-        // non-optional return, so the gate cannot be reintroduced without a
-        // caller changing shape. What is left to pin is the direction pair —
-        // asserting one side alone survives collapsing both to a single spring.
-        #expect(SurfaceAnimation.appearFade(vanishing: false) == SurfaceAnimation.open)
-        #expect(SurfaceAnimation.appearFade(vanishing: true) == SurfaceAnimation.close)
-    }
-
-    @Test func theAppearFadeAgreesWithTheSpringsTheSkinsUse() {
-        // The lock surface and the desktop skins must fade with the same two
-        // springs — the whole point of the shared type is that a fourth surface
-        // cannot quietly pick its own. Written against the springs rather than
-        // against the helper so it fails if the helper starts inventing values.
-        let arriving = SurfaceAnimation.appearFade(vanishing: false)
-        let leaving = SurfaceAnimation.appearFade(vanishing: true)
-        #expect(arriving != leaving)
-        #expect([SurfaceAnimation.open, SurfaceAnimation.close].contains(arriving))
-        #expect([SurfaceAnimation.open, SurfaceAnimation.close].contains(leaving))
-    }
 }
