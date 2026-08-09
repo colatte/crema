@@ -2871,3 +2871,77 @@ must clip its own shadow, or it means "no drawn SURFACE", which is what it has
 always been used as. It means the second, and it now says so, because an
 unexamined contradiction between a constant and every use of it is how the
 constant eventually gets ignored.
+
+### the-lock-card-is-light-and-lives-on-a-module
+Two changes in one round, and they came from one report: the card "parece
+pobre" and "nada parece conversar de fato". The second is the substantial half.
+
+**The card had five independent numbers.** Cover 72, text 38, transport 38,
+spacing 22, padding 16 — none derived from any other, and one gap value (12)
+serving both the horizontal rhythm and the vertical one. That is why the three
+rows read as an undifferentiated stack: with padding 16 against gap 12, nothing
+is grouped, because grouping IS the difference between a within gap and a
+between gap.
+
+Decision: **a module of 4, every measure a multiple of it, and the important
+relationships declared rather than coincidental.** The cover is exactly two play
+buttons (80 = 2 × 40). The gap hierarchy is padding 20 > gap 16 > the type
+ramp's own 2. The card's radius rose 22 → 28 for an arithmetic reason rather
+than taste: with padding at 20, the concentric rule (`inner = outer − padding`)
+needs an outer of 28 to give the cover a radius of 8, and at 22 the cover would
+have landed on 2 — visually square inside a very round card, which is the
+dissonance the concentric rule exists to prevent, reached by obeying it against
+the wrong parent. 80/8 = 10.0 also sits mid-cluster against the siblings' size÷
+radius spread (5.0 to 14.0), which is the sanity check the rule alone omits.
+
+**And the palette flipped to light with dark ink**, which reverses three rounds
+of argument and needs saying plainly. Those rounds argued dark-and-certain:
+a heavy material, a black fill, a luminance ceiling, all so the ground would be
+predictable over a wallpaper the app does not choose. The author then supplied a
+reference — a bright, transparent glass card with a strong specular rim — and
+the honest reading of it is that its ink is WHITE on a LIGHT card, which is the
+one combination that fails on a bright wallpaper. Three options were put up; the
+one taken was light glass with DARK ink, explicitly because it is the only one
+with no contrast risk in either direction: over a light wallpaper the material
+stays light and dark ink reads, over a dark one the material tints toward white
+and dark ink still reads.
+
+**This amends hud-fixed-dark-palette rather than breaking it.** That rule's
+mechanism is "one appearance per surface, in every state", written because
+scoping the palette per branch flipped it mid-morph. This surface has one state
+and cannot morph; what it does is choose the other constant appearance. WWDC25
+session 219 demands the same shape — a large surface may adapt to context but
+must not flip light/dark with its background — so a card that chose by wallpaper
+would be the violation, and a card that chooses once is not.
+
+**`SurfaceChrome` gained the light set, beside the dark one and in the same
+file**, for the reason the two type ramps share a file. The numbers invert
+rather than scale, because the two jobs swap: on a dark surface the BLACK rim
+carries the boundary against a light backdrop and the white specular carries it
+against a dark one; on a light surface the bright rim is what reads as glass
+catching light — the most visible thing in the reference — and the hairline
+recedes to keep the boundary from dissolving. So light gets a stronger specular
+(0.85 against 0.35) and a weaker rim (0.14 against 0.35), plus a faint return at
+the foot, because real glass catches light twice.
+
+**The digits came back**, having been removed one commit earlier on an arcminute
+argument that is still true for a 10 pt cap at two metres. The card is now
+380×208 with a 40 pt play button, and at that scale the row has the space; a bar
+with nothing at its ends also reads as decoration rather than as a measure,
+which is the harmony complaint restated.
+
+**And the source's app icon now sits on the cover's corner** (`SourceBadge`).
+It answers something the card could not — "playing" was visible, "playing FROM
+WHERE" was not — and it costs nothing new: `NowPlaying.sourceBundleID` has
+carried the identifier since the adapter translation, and the icon comes from
+`NSWorkspace`'s in-process cache. Absence is the resting state rather than an
+error: the JXA fallback leaves the identifier nil by design, so the badge simply
+does not draw. A generic placeholder there would announce that something is
+missing about a fact nobody asked for.
+
+**Unmeasured, and worth stating rather than discovering:** the exact luminance
+of `.popover` under the AQUA appearance. Every material number this repo holds
+was measured under darkAqua, and the light side has not been. It is the reason
+the fill sits at white 0.55 rather than lower — headroom taken on purpose while
+the number is unknown. `scripts/probes/lockscreen-card-material.swift` answers
+it with a one-line change to the swatches' appearance.

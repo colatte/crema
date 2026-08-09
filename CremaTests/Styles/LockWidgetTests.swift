@@ -168,6 +168,47 @@ struct LockCardDesignTests {
         #expect(ratio < 0.55, "and it must not become the card — the words still lead")
     }
 
+    @Test func everyMeasureIsAMultipleOfTheModule() {
+        // The answer to "nothing talks": five independent numbers became one
+        // module and its multiples. Asserting the module rather than the values
+        // means a retune has to stay on the grid instead of drifting off it one
+        // number at a time, which is how the old set arrived.
+        let module = LockWidgetMetrics.unit
+        let measures: [(String, CGFloat)] = [
+            ("cardWidth", LockWidgetMetrics.cardWidth),
+            ("cornerRadius", LockWidgetMetrics.cornerRadius),
+            ("padding", LockWidgetMetrics.padding),
+            ("gap", LockWidgetMetrics.gap),
+            ("thumbnailSide", LockWidgetMetrics.thumbnailSide),
+            ("thumbnailRadius", LockWidgetMetrics.thumbnailRadius),
+            ("scrubberHeight", LockWidgetMetrics.scrubberHeight),
+            ("transportSide", LockWidgetMetrics.transportSide),
+            ("transportPrimarySide", LockWidgetMetrics.transportPrimarySide),
+            ("transportSpacing", LockWidgetMetrics.transportSpacing),
+            ("badgeSide", LockWidgetMetrics.badgeSide),
+        ]
+        for (name, value) in measures {
+            #expect(value.truncatingRemainder(dividingBy: module) == 0, "\(name) = \(value) is off the grid")
+        }
+    }
+
+    @Test func theGapHierarchyIsActuallyAHierarchy() {
+        // Padding outside the rows, gap between them, and the type ramp's own
+        // 2 pt inside a pair. Before this the card ran 16 against 12 — close
+        // enough to equal that the rows read as one undifferentiated stack.
+        #expect(LockWidgetMetrics.padding > LockWidgetMetrics.gap)
+        #expect(LockWidgetMetrics.gap > 2)
+    }
+
+    @Test func theCoverIsExactlyTwoPlayButtons() {
+        // A size that is a multiple of another size on the same card is a size
+        // the eye can relate. 80 = 2 x 40 is the relationship the whole set is
+        // hung on, so it is asserted rather than left to the constants.
+        #expect(LockWidgetMetrics.thumbnailSide == 2 * LockWidgetMetrics.transportPrimarySide)
+        // And the badge stays a badge rather than becoming a second subject.
+        #expect(LockWidgetMetrics.badgeSide * 4 == LockWidgetMetrics.thumbnailSide)
+    }
+
     @Test func theTransportHasTwoTiers() {
         // Three identical glyphs read as a row; two tiers read as a control.
         // Asserting the relationship rather than either number, so retuning
@@ -198,6 +239,6 @@ struct LockCardDesignTests {
         // height must not have moved.
         let top = LockWidgetMetrics.bottomInset + LockWidgetMetrics.collapsedHeight
         #expect(top <= 641, "the ceiling the ruler proved on the author's panel")
-        #expect(LockWidgetMetrics.collapsedHeight == 182)
+        #expect(LockWidgetMetrics.collapsedHeight == 208)
     }
 }

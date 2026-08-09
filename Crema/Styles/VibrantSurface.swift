@@ -57,17 +57,21 @@ extension View {
     /// stay shared, because those are the numbers a surface must not drift on.
     func vibrantSurface(
         in shape: some InsettableShape,
-        material: NSVisualEffectView.Material = .hudWindow
+        material: NSVisualEffectView.Material = .hudWindow,
+        palette: SurfaceChrome.Palette = .dark
     ) -> some View {
         background {
             VibrancyMaterial(material: material)
                 .clipShape(shape)
         }
         .clipShape(shape)
-        .overlay(shape.strokeBorder(SurfaceChrome.specularGradient, lineWidth: SurfaceChrome.specularWidth))
+        .overlay(shape.strokeBorder(palette.specular, lineWidth: SurfaceChrome.specularWidth))
         // Last, so the boundary is never dimmed by the highlight that touches
         // it: the two strokes are adjacent by half a point each.
-        .overlay(shape.stroke(SurfaceChrome.outerHairlineColor, lineWidth: SurfaceChrome.outerHairlineWidth))
+        .overlay(shape.stroke(
+            Color(white: SurfaceChrome.outerHairlineWhite).opacity(palette.hairlineOpacity),
+            lineWidth: SurfaceChrome.outerHairlineWidth
+        ))
     }
 }
 
@@ -81,6 +85,29 @@ extension View {
 /// SurfaceAnimation's — what must survive a retune is the shape of the border,
 /// not any single number (docs/DECISIONS.md: surface-border-2026).
 enum SurfaceChrome {
+
+    /// Which of the two calibrated sets a surface wears. A closed pair rather
+    /// than free numbers, so a third look has to be argued into this file
+    /// instead of appearing at a call site.
+    enum Palette {
+        case dark
+        case light
+
+        var specular: LinearGradient {
+            switch self {
+            case .dark: SurfaceChrome.specularGradient
+            case .light: SurfaceChrome.lightSpecularGradient
+            }
+        }
+
+        var hairlineOpacity: Double {
+            switch self {
+            case .dark: SurfaceChrome.outerHairlineOpacity
+            case .light: SurfaceChrome.lightOuterHairlineOpacity
+            }
+        }
+    }
+
     /// The rim as a white component (0 is black) plus its opacity — one number
     /// for how dark, one for how present. It reads as a shadow of an edge
     /// rather than an edge: over a bright desktop that is the only thing that
@@ -88,6 +115,36 @@ enum SurfaceChrome {
     static let outerHairlineWhite: Double = 0
     static let outerHairlineOpacity: Double = 0.35
     static let outerHairlineWidth: CGFloat = 0.5
+
+    /// THE LIGHT SET, beside the dark one and never in another file, for the
+    /// same reason the two type ramps share a file: a surface that spelled its
+    /// own would drift the first time somebody retuned the other.
+    ///
+    /// The numbers invert rather than scale, because the two jobs swap. On a
+    /// dark surface the BLACK rim carries the boundary against a light backdrop
+    /// and the white specular carries it against a dark one. On a light surface
+    /// the bright rim is what the eye reads as glass catching light — it is the
+    /// most visible thing in the reference this card was designed against — and
+    /// a black hairline underneath keeps the boundary from dissolving into a
+    /// pale wallpaper. So light gets a STRONGER specular and a WEAKER rim.
+    static let lightSpecularTopOpacity: Double = 0.85
+    static let lightSpecularStops: [(location: Double, opacity: Double)] = [
+        (0, lightSpecularTopOpacity),
+        (0.30, 0.30),
+        (0.65, 0.10),
+        (1, 0.22),   // a faint return at the foot: real glass catches light twice
+    ]
+    static let lightOuterHairlineOpacity: Double = 0.14
+
+    static var lightSpecularGradient: LinearGradient {
+        LinearGradient(
+            stops: lightSpecularStops.map {
+                .init(color: .white.opacity($0.opacity), location: $0.location)
+            },
+            startPoint: specularStart,
+            endPoint: specularEnd
+        )
+    }
 
     /// The specular's opacity at the very top of the surface.
     static let specularTopOpacity: Double = 0.35

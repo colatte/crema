@@ -19,57 +19,66 @@ import CoreGraphics
 /// the geometry of ONE bounded object.
 enum LockWidgetMetrics {
 
-    // MARK: - The card, collapsed
+    // MARK: - The card
 
-    /// 360 rather than the 340 it shipped at, and the extra 20 pt go to the
-    /// WORDS. The cover grew by 22 and the text column would otherwise have
-    /// paid for it — the title's budget was 218 pt and would have fallen to
-    /// 196, which is the opposite of what a round about distance legibility is
-    /// for.
-    static let cardWidth: CGFloat = 360
-    static let cornerRadius: CGFloat = 22
-    static let padding: CGFloat = 16
-    /// Between the cover and the words, and between each stacked row.
-    static let gap: CGFloat = 12
-
-    /// The cover was the smallest of its siblings by a wide margin, and that is
-    /// most of why the card read thin. Measured this round, cover height against
-    /// card height: FluentFlyout 67%, boring.notch open 47%, Crema 50/152 = 33%.
-    /// At 72 in a 182 pt card this is 40% — not the largest in the group, and
-    /// deliberately: the words still lead, the picture no longer apologises.
-    static let thumbnailSide: CGFloat = 72
-
-    /// CONCENTRIC, not chosen: `inner = outer − padding`, which is 22 − 16.
+    /// EVERY measure below is a multiple of this, and that is the point rather
+    /// than a tidiness preference. The card read as five unrelated numbers —
+    /// cover 72, text 38, transport 38, spacing 22, padding 16 — none derived
+    /// from any other, and the author's word for the result was that nothing
+    /// seemed to talk to anything. A module is what makes measures relate; the
+    /// named relationships below are what makes the relation legible.
     ///
-    /// Apple states the rule and its worked example is literally this card —
-    /// "one place this often shows up in is nested containers, like artwork in a
-    /// card" (WWDC25 session 356). The API that computes it (`ConcentricRectangle`,
-    /// `.containerConcentric`) is macOS 26, but the arithmetic needs no API.
-    ///
-    /// It shipped at 9 for a week, which is 3 pt over-round, and the reason it
-    /// matters at the distance this surface is read from is that concentricity is
-    /// a SILHOUETTE property: it keeps the gap between cover and card edge
-    /// optically constant as it turns the corner, and a non-concentric pair makes
-    /// that gap pinch — a misalignment the eye registers and cannot name, and one
-    /// of the few cues still legible after the text has stopped resolving.
-    ///
-    /// If either number above moves, this one moves with it.
-    static let thumbnailRadius: CGFloat = cornerRadius - padding
+    /// The one deliberate exception is `TrackTextStack`'s 2 pt between title and
+    /// artist, which belongs to the shared type ramp and is a WITHIN-group gap:
+    /// it is supposed to be smaller than the module, or the pair stops reading
+    /// as one object.
+    static let unit: CGFloat = 4
 
-    /// Taken from the scale rather than restated, so the two cannot drift: the
-    /// lock card is the `.glance` ramp, and if that ramp moves this moves with
-    /// it. A reserved height rather than a measured one, so the card does not
-    /// resize by a point when an artist is missing.
+    static let cardWidth: CGFloat = 95 * unit          // 380
+    /// Bigger than it was, and the reason is arithmetic rather than taste: with
+    /// a padding of 20 the concentric rule (`inner = outer − padding`) needs an
+    /// outer of 28 to give the cover a radius of 8. At 22 the cover would have
+    /// landed on 2 — visually square inside a very round card, which is the
+    /// dissonance the concentric rule exists to prevent, arrived at by obeying
+    /// it with the wrong parent.
+    static let cornerRadius: CGFloat = 7 * unit        // 28
+
+    /// THE GAP HIERARCHY, and it is the whole answer to "nothing talks".
+    /// Padding is larger than the gap between rows, which is larger than the
+    /// gap inside a row's own pair. Before this the card had 16 of padding
+    /// against 12 of gap — near enough to equal that the three rows read as an
+    /// undifferentiated stack rather than as three grouped things.
+    static let padding: CGFloat = 5 * unit             // 20
+    static let gap: CGFloat = 4 * unit                 // 16
+
+    /// EXACTLY TWO PLAY BUTTONS. The cover was 72 because 72 hit a ratio; it is
+    /// 80 because 80 is 2 × 40, and a size that is a multiple of another size on
+    /// the same card is a size the eye can relate. It also lands the cover/card
+    /// ratio at 38%, against the siblings measured this round (boring.notch 47%,
+    /// FluentFlyout 67%) and the 33% this surface shipped with.
+    static let thumbnailSide: CGFloat = 2 * transportPrimarySide   // 80
+
+    /// CONCENTRIC: `inner = outer − padding`, Apple's rule, whose published
+    /// worked example is literally artwork inside a card. 80/8 = 10.0 also sits
+    /// mid-range against the siblings' size÷radius cluster (5.0 to 14.0), which
+    /// is the sanity check the rule alone does not give.
+    static let thumbnailRadius: CGFloat = cornerRadius - padding   // 8
+
+    /// The source app's icon on the cover's corner. A quarter of the cover, so
+    /// it stays a badge: bigger and it competes with the artwork it annotates.
+    static let badgeSide: CGFloat = thumbnailSide / 4   // 20 — 5 × unit
+
+    /// Taken from the scale rather than restated, so the two cannot drift.
     static let textBlockHeight: CGFloat = TrackTextStack.Scale.glance.blockHeight
 
-    static let scrubberHeight: CGFloat = 16
+    static let scrubberHeight: CGFloat = 4 * unit      // 16
 
     /// Two tiers, because three identical glyphs read as a row and two tiers
     /// read as a control. The skips keep a full hit target; what changes is
     /// which button the eye lands on first.
-    static let transportSide: CGFloat = 30
-    static let transportPrimarySide: CGFloat = 38
-    static let transportSpacing: CGFloat = 22
+    static let transportSide: CGFloat = 7 * unit           // 28
+    static let transportPrimarySide: CGFloat = 10 * unit   // 40
+    static let transportSpacing: CGFloat = 7 * unit        // 28
 
     /// Tall enough for the cover or the words, whichever wins. Today the cover
     /// does; writing it as a max keeps that true if the ramp ever grows.

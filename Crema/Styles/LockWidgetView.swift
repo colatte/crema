@@ -136,11 +136,14 @@ struct LockWidgetView: View {
                 position: coordinator.nowPlaying?.position ?? 0,
                 duration: coordinator.nowPlaying?.duration,
                 enabled: coordinator.commandsAvailable,
-                // No digits. At two metres a 10 pt cap subtends about 2.5
-                // arcminutes, under the 5 a 20/20 eye needs to resolve a letter
-                // it already expects — they were not being read, they were
-                // occupying the row. The bar keeps the position.
-                showsDuration: false,
+                // The digits are back. They were removed on an arcminute
+                // argument that is still true for a 10 pt cap at two metres —
+                // but the card is now 380x208 with a 40 pt play button, and at
+                // that scale the row has the space to carry them. A bar with
+                // nothing at its ends also reads as decoration rather than as a
+                // measure, which is the harmony complaint that opened this
+                // round.
+                showsDuration: true,
                 onScrub: { coordinator.scrub(to: $0) }
             )
             .frame(height: LockWidgetMetrics.scrubberHeight)
@@ -163,7 +166,15 @@ struct LockWidgetView: View {
         // `.artworkAccent(from:)`, which would open a second ImageIO path over
         // the same bytes.
         .environment(\.artworkAccent, decoded.tone)
-        .environment(\.colorScheme, .dark)
+        // LIGHT, and this is an amendment to hud-fixed-dark-palette rather than
+        // a violation of it. That rule's mechanism is "one appearance per
+        // surface, in every state" — written because scoping the palette per
+        // branch flipped it mid-morph. This surface has one state and never
+        // morphs, so it cannot flip; what it does is pick the other constant
+        // appearance, which is also what WWDC25's rule about large surfaces
+        // demands (they may adapt to context but must not flip light/dark with
+        // their background).
+        .environment(\.colorScheme, .light)
         // The reported rect attaches HERE, above the placement frame in
         // `surface(_:)` and never under it. Under it it would describe the
         // LAYOUT frame, which is this width by the whole height of the display —
@@ -214,29 +225,39 @@ struct LockWidgetView: View {
     private var cardSurface: some View {
         let shape = RoundedRectangle(cornerRadius: LockWidgetMetrics.cornerRadius, style: .continuous)
         return shape
-            .fill(.black.opacity(reduceTransparency ? 1 : 0.42))
-            .vibrantSurface(in: shape, material: .underWindowBackground)
-            // The preference means "do not put a translucent layer over content",
-            // and a card whose ground is the user's wallpaper is exactly that.
-            // The substitute is a measured system value rather than a guess:
-            // `windowBackgroundColor` under darkAqua is white 0.1176, which is
-            // where AppKit itself puts an opaque dark surface.
-            .background(reduceTransparency ? Color(white: 0.1176) : .clear, in: shape)
-            // Three members, tight to broad, rather than one. A single shadow
-            // is a halo; a stack is height, because the near member draws the
-            // contact and the far one draws the distance. Amberol's own
-            // stylesheet is the reference and this is its shape scaled up —
-            // 0 1px 6px at 0.30, 0 2px 12px at 0.15, 0 6px 32px at 0.10.
-            //
-            // The broad member is deliberately kept off the floor: at radius 30
-            // with y 10 its penumbra reaches roughly 260, which is above the
-            // login's measured top of 180 but below `clearBandFloor`. The
-            // constant means "no drawn SURFACE below this line" and a shadow is
-            // not a surface — stated here because the alternative reading would
-            // have every design in the round quietly violating it.
-            .shadow(color: .black.opacity(0.30), radius: 3, y: 1)
-            .shadow(color: .black.opacity(0.15), radius: 12, y: 3)
-            .shadow(color: .black.opacity(0.10), radius: 30, y: 10)
+            // WHITE, not black. The card is light and its ink is dark, which is
+            // the one combination that survives a wallpaper the app does not
+            // choose: over a light wallpaper the material stays light and dark
+            // ink reads; over a dark one the material tints toward white and
+            // dark ink still reads. A light card with WHITE ink — the reference
+            // this was designed against — is the prettier version and fails on
+            // exactly the bright wallpapers this app cannot rule out.
+                .fill(.white.opacity(reduceTransparency ? 1 : 0.55))
+                .vibrantSurface(in: shape, material: .popover, palette: .light)
+                // The preference means "do not put a translucent layer over content",
+                // and a card whose ground is the user's wallpaper is exactly that.
+                // The substitute is a measured system value rather than a guess:
+                // `windowBackgroundColor` under darkAqua is white 0.1176, which is
+                // where AppKit itself puts an opaque dark surface.
+                // The opaque substitute is now the LIGHT system value, for the same
+                // reason the ink flipped: `windowBackgroundColor` under aqua rather
+                // than darkAqua.
+                .background(reduceTransparency ? Color(white: 0.9333) : .clear, in: shape)
+                // Three members, tight to broad, rather than one. A single shadow
+                // is a halo; a stack is height, because the near member draws the
+                // contact and the far one draws the distance. Amberol's own
+                // stylesheet is the reference and this is its shape scaled up —
+                // 0 1px 6px at 0.30, 0 2px 12px at 0.15, 0 6px 32px at 0.10.
+                //
+                // The broad member is deliberately kept off the floor: at radius 30
+                // with y 10 its penumbra reaches roughly 260, which is above the
+                // login's measured top of 180 but below `clearBandFloor`. The
+                // constant means "no drawn SURFACE below this line" and a shadow is
+                // not a surface — stated here because the alternative reading would
+                // have every design in the round quietly violating it.
+                .shadow(color: .black.opacity(0.22), radius: 3, y: 1)
+                .shadow(color: .black.opacity(0.12), radius: 12, y: 3)
+                .shadow(color: .black.opacity(0.10), radius: 30, y: 10)
     }
 
     private func head(_ track: NowPlaying) -> some View {
@@ -250,8 +271,16 @@ struct LockWidgetView: View {
             // object resting ON the card rather than a picture printed into it.
             // Tuneful's mini player does exactly this at a comparable size
             // (black 0.30, radius 5, y 2); the numbers here are that shape,
-            // scaled to 72 pt.
-            .shadow(color: .black.opacity(0.30), radius: 6, y: 2)
+            // scaled to 80 pt and lightened, because the card under it is light.
+            .shadow(color: .black.opacity(0.22), radius: 6, y: 2)
+                // The source's icon, bottom-trailing, overhanging the cover's corner
+                // by a third of itself — the badge idiom the Finder and the Dock
+                // both use, where sitting fully inside reads as part of the artwork
+                // and sitting fully outside reads as a second object.
+                .overlay(alignment: .bottomTrailing) {
+                    SourceBadge(bundleID: track.sourceBundleID, side: LockWidgetMetrics.badgeSide)
+                        .offset(x: LockWidgetMetrics.badgeSide / 3, y: LockWidgetMetrics.badgeSide / 3)
+                }
             TrackTextStack(
                 title: track.title,
                 artist: track.artist,
