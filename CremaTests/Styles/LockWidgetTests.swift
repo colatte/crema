@@ -14,7 +14,10 @@ struct LockWidgetMetricsTests {
             + LockWidgetMetrics.gap
             + LockWidgetMetrics.scrubberHeight
             + LockWidgetMetrics.gap
-            + LockWidgetMetrics.transportSide
+            // The PRIMARY side: the row is as tall as its tallest button, and
+            // this line restated the old single-tier sum until the transport
+            // grew a second tier.
+            + LockWidgetMetrics.transportPrimarySide
             + LockWidgetMetrics.padding
         #expect(LockWidgetMetrics.collapsedHeight == expected)
         #expect(LockWidgetMetrics.collapsedSize.height == expected)
@@ -154,12 +157,47 @@ struct LockCardDesignTests {
         #expect(LockWidgetMetrics.thumbnailRadius < LockWidgetMetrics.cornerRadius)
     }
 
+    @Test func theCoverIsALargerShareOfTheCardThanItWas() {
+        // The measured reason the card read thin. Cover height against card
+        // height across the siblings read from source this round: FluentFlyout
+        // 67%, boring.notch open 47%, Crema 33%. A ratio rather than a size, so
+        // growing the card without growing the cover fails here — which is the
+        // exact way the old proportion arrived.
+        let ratio = LockWidgetMetrics.thumbnailSide / LockWidgetMetrics.collapsedHeight
+        #expect(ratio > 0.36, "the cover must not go back to being an afterthought")
+        #expect(ratio < 0.55, "and it must not become the card — the words still lead")
+    }
+
+    @Test func theTransportHasTwoTiers() {
+        // Three identical glyphs read as a row; two tiers read as a control.
+        // Asserting the relationship rather than either number, so retuning
+        // both keeps the property.
+        #expect(LockWidgetMetrics.transportPrimarySide > LockWidgetMetrics.transportSide)
+        // And the row's height comes from the larger one, or the card's sum is
+        // wrong by the difference.
+        #expect(
+            LockWidgetMetrics.collapsedHeight
+                == LockWidgetMetrics.padding + LockWidgetMetrics.headHeight
+                + LockWidgetMetrics.gap + LockWidgetMetrics.scrubberHeight
+                + LockWidgetMetrics.gap + LockWidgetMetrics.transportPrimarySide
+                + LockWidgetMetrics.padding
+        )
+    }
+
+    @Test func theTextBlockComesFromTheScaleItDraws() {
+        // Not restated: the card reserves what the `.glance` ramp needs, so a
+        // ramp change cannot leave a band of dead space nobody can explain.
+        #expect(LockWidgetMetrics.textBlockHeight == TrackTextStack.Scale.glance.blockHeight)
+        // And the two scales must actually differ, or the enum is decoration.
+        #expect(TrackTextStack.Scale.glance.blockHeight > TrackTextStack.Scale.family.blockHeight)
+    }
+
     @Test func theCardStillFitsInsideTheMeasuredBand() {
         // The sum-of-parts discipline, re-asserted after the rows changed: the
         // digits left the scrubber and the head kept its height, so the card's
         // height must not have moved.
         let top = LockWidgetMetrics.bottomInset + LockWidgetMetrics.collapsedHeight
         #expect(top <= 641, "the ceiling the ruler proved on the author's panel")
-        #expect(LockWidgetMetrics.collapsedHeight == 152)
+        #expect(LockWidgetMetrics.collapsedHeight == 182)
     }
 }

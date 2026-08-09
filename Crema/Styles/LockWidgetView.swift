@@ -149,6 +149,7 @@ struct LockWidgetView: View {
                 enabled: coordinator.commandsAvailable,
                 skipEnabled: coordinator.skipControlsEnabled,
                 buttonSide: LockWidgetMetrics.transportSide,
+                primarySide: LockWidgetMetrics.transportPrimarySide,
                 spacing: LockWidgetMetrics.transportSpacing,
                 onPrevious: { coordinator.previousTrack() },
                 onPlayPause: { coordinator.togglePlayPause() },
@@ -221,6 +222,21 @@ struct LockWidgetView: View {
             // `windowBackgroundColor` under darkAqua is white 0.1176, which is
             // where AppKit itself puts an opaque dark surface.
             .background(reduceTransparency ? Color(white: 0.1176) : .clear, in: shape)
+            // Three members, tight to broad, rather than one. A single shadow
+            // is a halo; a stack is height, because the near member draws the
+            // contact and the far one draws the distance. Amberol's own
+            // stylesheet is the reference and this is its shape scaled up —
+            // 0 1px 6px at 0.30, 0 2px 12px at 0.15, 0 6px 32px at 0.10.
+            //
+            // The broad member is deliberately kept off the floor: at radius 30
+            // with y 10 its penumbra reaches roughly 260, which is above the
+            // login's measured top of 180 but below `clearBandFloor`. The
+            // constant means "no drawn SURFACE below this line" and a shadow is
+            // not a surface — stated here because the alternative reading would
+            // have every design in the round quietly violating it.
+            .shadow(color: .black.opacity(0.30), radius: 3, y: 1)
+            .shadow(color: .black.opacity(0.15), radius: 12, y: 3)
+            .shadow(color: .black.opacity(0.10), radius: 30, y: 10)
     }
 
     private func head(_ track: NowPlaying) -> some View {
@@ -230,14 +246,21 @@ struct LockWidgetView: View {
                 side: LockWidgetMetrics.thumbnailSide,
                 cornerRadius: LockWidgetMetrics.thumbnailRadius
             )
+            // The cover gets a shadow of its own, which is what makes it an
+            // object resting ON the card rather than a picture printed into it.
+            // Tuneful's mini player does exactly this at a comparable size
+            // (black 0.30, radius 5, y 2); the numbers here are that shape,
+            // scaled to 72 pt.
+            .shadow(color: .black.opacity(0.30), radius: 6, y: 2)
             TrackTextStack(
                 title: track.title,
                 artist: track.artist,
                 alignment: .leading,
-                // The one place the family's ramp bends, and it bends on weight
-                // rather than size — the sizes stay shared. Apple's Live
-                // Activities guidance asks for "a medium weight or higher" on a
-                // glanceable surface, and this is the app's only one.
+                // The app's only glanceable surface takes the only other scale
+                // there is, declared beside the family's in `TrackTextStack`.
+                // Apple publishes macOS default 13 pt against minimum 10, and
+                // the family ramp sits under the first and on the second.
+                scale: .glance,
                 artistWeight: .medium
             )
             .frame(maxWidth: .infinity, alignment: .leading)

@@ -13,6 +13,17 @@ struct TransportControls: View {
     /// one and reject the other (Coordinator.skipControlsEnabled).
     let skipEnabled: Bool
     var buttonSide: CGFloat = 28
+    /// Play/pause, when a surface wants the primary action to READ as primary.
+    /// Defaults to `buttonSide`, so every existing caller keeps three equal
+    /// buttons and nothing moves.
+    ///
+    /// Three identical glyphs read as a row; two tiers read as a control. Both
+    /// siblings measured this round do it — boring.notch runs 40x40 against
+    /// 30x30 with a 26 pt glyph against 13, and Amberol's transport is
+    /// described in its own source as a centred, oversized play button. The
+    /// hit target of the skips is untouched: what changes is which one the eye
+    /// lands on first.
+    var primarySide: CGFloat?
     /// Breathing room between the three hit targets. The notch band passes a
     /// tighter value (NotchMetrics.controlsSpacing): its width shrinks with
     /// the display's scale mode and the default overflows the narrowest one.
@@ -34,11 +45,12 @@ struct TransportControls: View {
             )
             Button(action: onPlayPause) {
                 let glyph = isPlaying ? "pause.fill" : "play.fill"
+                let side = primarySide ?? buttonSide
                 Image(systemName: glyph)
-                    .font(.title3)
+                    .font(side > buttonSide ? .title : .title3)
                     // The glyph alone is a ~15 pt target — too small for an
                     // ephemeral surface whose linger timers race the click.
-                    .frame(width: buttonSide, height: buttonSide)
+                    .frame(width: side, height: side)
                     .contentShape(Rectangle())
                     // Native play↔pause replace, the same dynamic-glyph idiom as
                     // the HUD icons; keyed on the glyph so only the icon animates.
@@ -53,7 +65,7 @@ struct TransportControls: View {
                 action: onNext
             )
         }
-        .frame(height: buttonSide)
+        .frame(height: max(buttonSide, primarySide ?? buttonSide))
     }
 
     /// Skips render a step smaller than play/pause (the native hierarchy:

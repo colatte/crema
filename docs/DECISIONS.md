@@ -2810,3 +2810,64 @@ name, and the round that made the type more legible made that more true. iOS
 hides notification previews by default; Crema does not, and Settings says so in
 a sentence placed BEFORE the switch, because the person it affects cannot undo
 it after the fact.
+
+
+### the-card-was-thin-because-it-was-small
+An amendment to the-card-takes-the-material-it-was-refusing. That round shipped
+the design research's CORRECTIONS — material, concentric radius, accessibility —
+and none of its craft, so the card came back measurably more correct and looked
+exactly as thin as before. The author's report was "parece pobre", and the
+research already had the numbers explaining why.
+
+**The cover was the smallest of its siblings by a wide margin.** Cover height
+against card height, read from source: FluentFlyout 67%, boring.notch open 47%,
+Crema 50/152 = **33%**. It is now 72 in a 182 pt card, which is 40% — chosen
+short of the group's top deliberately, because on this surface the words lead
+and the picture only has to stop apologising. The card widened 340 → 360 in the
+same move, and the 20 pt go to the TEXT: the title's budget was 218 pt and a
+bigger cover alone would have cut it to 196, which is the opposite of what a
+round about distance legibility is for.
+
+**The type went up one step on both lines**, and the interesting part is what
+that cost. `LockWidgetMetrics` carried a paragraph refusing a second ramp
+because it would break the family's siblinghood "for a feeling nobody measured".
+The feeling is now measured and the refusal was right about the standard, not
+the answer — so the rule moved from "there is one ramp" to "there are exactly
+two and they live in the same file", as `TrackTextStack.Scale`. Both cases in
+one enum is the whole mitigation: a lock card spelling its sizes inline would
+put the ramps in different files and the next person to move one would not see
+the other.
+
+**The transport gained a second tier** — play/pause at 38 against the skips'
+30 — because three identical glyphs read as a row and two tiers read as a
+control. Both siblings measured this round do it, boring.notch at 40/30 with a
+26 pt glyph against 13, and Amberol's own source calling its play button
+oversized. The skips keep their full hit target; what changes is where the eye
+lands first.
+
+**The shadow became three, tight to broad**, and the cover got one of its own.
+One shadow is a halo; a stack is height, because the near member draws the
+contact and the far one draws the distance. Amberol's stylesheet is the shape
+(0 1px 6px at 0.30, 0 2px 12px at 0.15, 0 6px 32px at 0.10) and Tuneful is the
+precedent for the cover carrying its own at a comparable size — that is what
+makes it an object resting ON the card rather than a picture printed into it.
+
+**One craft finding was deliberately NOT taken**, and refusing it is the point.
+boring.notch's scrubber thickens from 5 to 9 pt under the finger, on a spring,
+with the container height reserved so nothing reflows. It is a good affordance
+and it is not ours to add here: `CapsuleTrack` is shared with the HUD and
+carries a written decision (hud-capsule-track — thumbless at rest, knob only
+under the pointer, fill white). Growing it would change the HUD too and reopen
+that anchor without an argument, which is precisely the failure the design
+round's critic found in six proposals at once: they made the expanded knob
+visible at rest, which is the same decision, and only one of them named the
+anchor it was amending.
+
+**And the shadow forced a reading of `clearBandFloor` to be written down.** The
+broad member's penumbra reaches roughly 260 pt — above the login's measured top
+of 180, below the constant. Either the constant means "no drawn pixels below
+this line", in which case every design in the round violates it and the card
+must clip its own shadow, or it means "no drawn SURFACE", which is what it has
+always been used as. It means the second, and it now says so, because an
+unexamined contradiction between a constant and every use of it is how the
+constant eventually gets ignored.

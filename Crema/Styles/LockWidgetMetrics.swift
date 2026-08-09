@@ -21,13 +21,23 @@ enum LockWidgetMetrics {
 
     // MARK: - The card, collapsed
 
-    static let cardWidth: CGFloat = 340
+    /// 360 rather than the 340 it shipped at, and the extra 20 pt go to the
+    /// WORDS. The cover grew by 22 and the text column would otherwise have
+    /// paid for it — the title's budget was 218 pt and would have fallen to
+    /// 196, which is the opposite of what a round about distance legibility is
+    /// for.
+    static let cardWidth: CGFloat = 360
     static let cornerRadius: CGFloat = 22
     static let padding: CGFloat = 16
     /// Between the cover and the words, and between each stacked row.
     static let gap: CGFloat = 12
 
-    static let thumbnailSide: CGFloat = 50
+    /// The cover was the smallest of its siblings by a wide margin, and that is
+    /// most of why the card read thin. Measured this round, cover height against
+    /// card height: FluentFlyout 67%, boring.notch open 47%, Crema 50/152 = 33%.
+    /// At 72 in a 182 pt card this is 40% — not the largest in the group, and
+    /// deliberately: the words still lead, the picture no longer apologises.
+    static let thumbnailSide: CGFloat = 72
 
     /// CONCENTRIC, not chosen: `inner = outer − padding`, which is 22 − 16.
     ///
@@ -46,14 +56,19 @@ enum LockWidgetMetrics {
     /// If either number above moves, this one moves with it.
     static let thumbnailRadius: CGFloat = cornerRadius - padding
 
-    /// `TrackTextStack`'s two lines at the family ramp — `.subheadline` over
-    /// `.caption`, 2 pt apart. A reserved height rather than a measured one, so
-    /// the card does not resize by a point when an artist is missing; if the
-    /// ramp ever moves, this is the single number that moves with it.
-    static let textBlockHeight: CGFloat = 34
+    /// Taken from the scale rather than restated, so the two cannot drift: the
+    /// lock card is the `.glance` ramp, and if that ramp moves this moves with
+    /// it. A reserved height rather than a measured one, so the card does not
+    /// resize by a point when an artist is missing.
+    static let textBlockHeight: CGFloat = TrackTextStack.Scale.glance.blockHeight
 
     static let scrubberHeight: CGFloat = 16
+
+    /// Two tiers, because three identical glyphs read as a row and two tiers
+    /// read as a control. The skips keep a full hit target; what changes is
+    /// which button the eye lands on first.
     static let transportSide: CGFloat = 30
+    static let transportPrimarySide: CGFloat = 38
     static let transportSpacing: CGFloat = 22
 
     /// Tall enough for the cover or the words, whichever wins. Today the cover
@@ -61,7 +76,7 @@ enum LockWidgetMetrics {
     static let headHeight: CGFloat = max(thumbnailSide, textBlockHeight)
 
     static var collapsedHeight: CGFloat {
-        padding + headHeight + gap + scrubberHeight + gap + transportSide + padding
+        padding + headHeight + gap + scrubberHeight + gap + transportPrimarySide + padding
     }
 
     static var collapsedSize: CGSize {
