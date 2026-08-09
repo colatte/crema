@@ -50,7 +50,7 @@ crema/                       # repository root
 │   ├── check-catalog.py     # the String Catalog gate (six rules + two "not verified" reports: multiline defaultValue and a call shape the checker does not read); CI and release.sh run it — Xcode enforces nothing
 │   ├── check-catalog-selftest.py  # proves the checker by making it FAIL on every rule; runs BEFORE it, because a checker that stops checking returns the same "clean"
 │   ├── make-web-assets.sh   # derives docs/assets/web/ (what the landing page serves) from the full-size PNGs in docs/assets/; idempotent, requires cwebp
-│   └── probes/              # disposable-but-kept hardware instruments (`swift scripts/probes/<x>.swift`): each header says which decision it settles, and each carries the CONTROL that makes a negative result mean something — they never enter the app or the CI
+│   └── probes/              # disposable-but-kept instruments against the real system — hardware, cfprefsd (`swift scripts/probes/<x>.swift`): each header says which decision it settles, and each carries the CONTROL that makes a negative result mean something — they never enter the app or the CI
 ├── ThirdParty/
 │   └── mediaremote-adapter/ # vendored now-playing bridge (BSD-3-Clause)
 ├── Crema.xcodeproj          # Xcode project
