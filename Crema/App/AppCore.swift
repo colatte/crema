@@ -581,7 +581,7 @@ final class AppCore {
 
     /// The picture for the style tiles, or nil for them to draw their own desk.
     /// Seeded at view construction — the deal those panes' other mirrors take
-    /// (docs/internal/archive/CONTRACTS-AUDIT.md: S4): SwiftUI re-runs the seed
+    /// (docs/CONTRACTS.md: S4): SwiftUI re-runs the seed
     /// per tab visit, the store's URL cache keeps that a dictionary hit, and a
     /// wallpaper changed with Settings open shows up on the next construction.
     func tileWallpaper() -> NSImage? {

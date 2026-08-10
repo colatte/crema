@@ -423,7 +423,7 @@ Tag **`v1.1.1`** · Title **`Crema 1.1.1`** · Assets **`Crema.dmg`** and
 gh release create v1.1.1 Crema.dmg Crema-1.1.1.dmg \
   --target main \
   --title "Crema 1.1.1" \
-  --notes-file docs/internal/release-notes-1.1.1.html \
+  --notes-file release-notes/1.1.1.html \
   --latest
 ```
 
@@ -431,8 +431,8 @@ gh release create v1.1.1 Crema.dmg Crema-1.1.1.dmg \
   resolve.
 - **`Crema-1.1.1.dmg`** → the **enclosure** `docs/appcast.xml` references at
   `releases/download/v1.1.1/Crema-1.1.1.dmg`. Without it, auto-update 404s.
-- `--notes-file` points at a file in `docs/internal/` (gitignored working notes;
-  the template is in §8). The **same file** feeds the Sparkle panel — GitHub
+- `--notes-file` points at a file in `release-notes/` (versioned; the template is
+  in §8). The **same file** feeds the Sparkle panel — GitHub
   renders the HTML subset it uses, so one file serves both. Or use
   `--notes "..."`, or omit it to open the editor.
 
@@ -680,8 +680,8 @@ problematic on hardware. In that case the Release would carry **three** assets
 ## 8. Release notes — template
 
 Public, in English (consistent with the README). Sober tone. Save as
-`docs/internal/release-notes-<version>.**html**` (gitignored working notes, and
-the first path `release.sh` looks for) and pass it to `--notes-file`; or paste
+`release-notes/<version>.**html**` (versioned, and the first path `release.sh`
+looks for) and pass it to `--notes-file`; or paste
 straight into the description (option B). On the **first** release use the full
 overview; afterwards, summarize **what changed** (new things, fixes).
 

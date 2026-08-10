@@ -213,11 +213,12 @@ xattr -dr com.apple.quarantine /Applications/Crema.app
 
 Crema runs entirely on your Mac. It reads now-playing information locally through
 a vendored out-of-process bridge and, with your permission, watches the volume and
-brightness keys. There are no accounts and no analytics. There are two ways anything can
-leave your machine, and it is optional and off until you say so:
+brightness keys. There are no accounts and no analytics. There is exactly one way anything can
+leave your machine, and it is off until you say so:
 
 - **The update check.** **Check for Updates…** in the menu bar (or automatic
   checks, if you consent when asked) fetches the release feed from GitHub Pages.
+
 Nothing else leaves your machine.
 
 ## Build from source

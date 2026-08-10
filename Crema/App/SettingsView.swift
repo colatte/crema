@@ -83,7 +83,7 @@ struct SettingsView: View {
 ///
 /// The per-display list is reactive; the declaration's mirrors are seeded once and
 /// re-read only when that picker writes — a pinned-latent tradeoff
-/// (docs/internal/archive/CONTRACTS-AUDIT.md: S4) that costs a stale value there.
+/// (docs/CONTRACTS.md: S4) that costs a stale value there.
 /// A list whose rows ARE the displays cannot take that deal: a row outliving its
 /// monitor is a control over a screen the user cannot see, and a display plugged in
 /// with the window open would have no row at all until Settings is closed and

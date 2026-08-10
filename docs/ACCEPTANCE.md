@@ -5,13 +5,13 @@
 > plan: everything below describes the app as it ships today. Where a criterion
 > names something not yet built, it says so in place.
 >
-> Provenance: distilled from the author's working specification, which lives in
-> `docs/internal/` (gitignored, local-only). It is published here because it is
-> the only list that says what "working" means, and a reader outside that folder
-> had no way to check the app against it. Items 20–21 were added on 2026-08-07
-> with the lock-screen surface and retired 2026-08-08 with it; while they stood,
-> a default install satisfied them by doing nothing. The specification stays the source; if
-> the two ever disagree, this file is the one that has drifted.
+> This file is the **only home** of the criteria. The list once lived in two
+> places and the copies drifted — one carried a pair of criteria the other had
+> already retired — so [SPEC.md](../SPEC.md) points here instead of restating
+> them. The SPEC says what the app is and why; this list says how you check it.
+> Items 20–21 were added on 2026-08-07 with the lock-screen surface and retired
+> 2026-08-08 with it; while they stood, a default install satisfied them by
+> doing nothing.
 
 1. With media playing (browser media only with the toggle on — it is filtered by
    default), now playing appears near the notch (or in the floating card, on a

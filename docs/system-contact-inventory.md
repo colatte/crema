@@ -18,11 +18,13 @@
 > enumeration itself — the list of things that can die.
 >
 > Provenance: section D of the bug-class audit of 2026-07-18 (5 auditors, 11
-> adversarial verifiers, 5 completeness critics; report only, no fixes applied),
-> which lives with the author's working docs in `docs/internal/` (gitignored).
-> The `A1…A9`, `B1…B3`, `S…`, `MG…`, `P…`, `G2` and `§C` markers are that audit's
-> own finding IDs, kept as provenance; the findings that mattered were fixed and
-> now live as anchors in [DECISIONS.md](https://github.com/colatte/crema/blob/main/docs/DECISIONS.md).
+> adversarial verifiers, 5 completeness critics; report only, no fixes applied).
+> The report itself has since been retired; this inventory is what survived of
+> it. The `A1…A9`, `B1…B3` and `§C` markers
+> are its own finding IDs, kept as provenance; the findings that mattered were
+> fixed and now live as anchors in [DECISIONS.md](https://github.com/colatte/crema/blob/main/docs/DECISIONS.md).
+> The `S…`, `MG…`, `P…` and `G2` markers are contract ids and resolve in
+> [CONTRACTS.md](https://github.com/colatte/crema/blob/main/docs/CONTRACTS.md).
 
 ## D1 · Class 1 — live resources of the physical world (23 items + 6 from the critic)
 

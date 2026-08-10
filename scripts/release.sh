@@ -558,16 +558,15 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     # the notes are staged beside the dmg under the matching name.
     #
     # Source, in order: an explicit file (CREMA_RELEASE_NOTES), else
-    # docs/internal/release-notes-<version>.html, else the same name with .md,
-    # otherwise the commit subjects since the previous tag. The file lives under
-    # docs/internal/ because docs/ is the published Pages root — a notes file
-    # dropped there ships as a public page nobody linked, and the default used to
-    # point at docs/release-notes/, a directory that has never existed in this
-    # repository's history, so following the comment produced a file the script
-    # then ignored in silence. The fallback is not a placeholder: this repo writes
-    # subjects as sentences, so it reads as prose rather than as a changelog dump —
-    # and it can never be forgotten, which is the property a hand-written file
-    # lacks.
+    # release-notes/<version>.html, else the same name with .md, otherwise the
+    # commit subjects since the previous tag. The directory sits at the repository
+    # root, versioned — the text ships in the appcast and in the GitHub release
+    # anyway, so keeping it local only meant a shipped note nobody could recover —
+    # and deliberately NOT under docs/, which is the published Pages root: a notes
+    # file dropped there ships as a public page nobody linked. The fallback is not
+    # a placeholder: this repo writes subjects as sentences, so it reads as prose
+    # rather than as a changelog dump — and it can never be forgotten, which is the
+    # property a hand-written file lacks.
     #
     # .html is looked up FIRST because it is the only source that survives prose.
     # An .html file is copied verbatim; anything else is rendered one bullet per
@@ -580,10 +579,10 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     NOTES_HTML="$STAGING_DIR/Crema-$VERSION.html"
     if [[ -n "${CREMA_RELEASE_NOTES:-}" ]]; then
         NOTES_SRC="$CREMA_RELEASE_NOTES"
-    elif [[ -f "$REPO_ROOT/docs/internal/release-notes-$VERSION.html" ]]; then
-        NOTES_SRC="$REPO_ROOT/docs/internal/release-notes-$VERSION.html"
+    elif [[ -f "$REPO_ROOT/release-notes/$VERSION.html" ]]; then
+        NOTES_SRC="$REPO_ROOT/release-notes/$VERSION.html"
     else
-        NOTES_SRC="$REPO_ROOT/docs/internal/release-notes-$VERSION.md"
+        NOTES_SRC="$REPO_ROOT/release-notes/$VERSION.md"
     fi
     escape_html() { sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
     if [[ -f "$NOTES_SRC" && "$NOTES_SRC" == *.html ]]; then
