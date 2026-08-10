@@ -30,7 +30,6 @@ Objective: the app in the user's hands. Twenty-five phases (numbered 0–24) plu
 - [x] **The lock-screen surface: built and removed whole** (2026-08-08) — proven on hardware, shipped for one session, removed by a decision about return rather than correctness. The app has no private window API; the investigation stays as the record (docs/LOCKSCREEN-INVESTIGATION.md, docs/DECISIONS.md: the-lock-screen-was-built-and-taken-out).
 - [x] **The pruning round** — the demolition's debts paid, six bugs with them, and the cfprefsd instrument added to the probes drawer.
 
-<!-- round: bootstrap-audit @ 2026-08-10 -->
 
 ## Phase 1 — The open residues
 
@@ -101,3 +100,5 @@ Depends on: the author exporting the art in separate layers (background / pill /
 - [x] **The appcast's publishing infrastructure** — resolved: `release.sh` generates a signed `docs/appcast.xml` and Pages serves it at the `SUFeedURL`; publishing is the commit+push the script prints and never runs.
 - [x] **Migrating to the observer model (SlimHUD's style)** — resolved: evaluated and discarded — freezing OSDUIHelper does not suppress the per-key OSD on macOS 26, and an orphaned SIGSTOP violates reversibility under crash.
 - [x] **The concrete private brightness APIs** — resolved: DisplayServices for the screen, CoreBrightness with an enumerated ID for the keyboard; CoreDisplay and IOKit discarded as non-functional on this hardware.
+
+<!-- round: one-system @ 9f5933f -->
