@@ -13,7 +13,7 @@
 - Each task carries an id (e.g. T7.1), the responsible module (matching the folder structure in [CLAUDE.md](CLAUDE.md)), the tests or the verification that define it, and its acceptance. The field is spelled `· módulo:` — the one Portuguese token in an English document, because it is what the grammar checker reads to verify that no task is added without naming a module. That the named module *exists* is checked by hand: the checker's own rule for it is suppressed above, for the reason stated there.
 - A phase starts only when the previous one's checkboxes are all ticked, except phases marked optional, which may be skipped.
 - Detail per task covers the current phase and the next; phases beyond that carry only an objective and their dependencies until they come close.
-- **Task ids are never renumbered and never reused.** T7.1, T10.2 and T17.6 sit inside phases numbered 1 to 4 because the id — not the phase — is the thread tying a residue to the round that opened it; closing the numeric gaps would cut that thread and buy nothing.
+- **Task ids are never renumbered and never reused.** T7.1, T10.2 and T12.2 sit inside phases numbered 1 to 4 because the id — not the phase — is the thread tying a residue to the round that opened it; closing the numeric gaps would cut that thread and buy nothing. A retired task takes its id with it: the number is not returned to the pool.
 - Every edge enters behind a mockable protocol; i18n is a cross-cutting foundation, not a phase.
 - Deviations are recorded in the task itself: what changed and why stay in its text.
 
