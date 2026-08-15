@@ -1047,26 +1047,19 @@ does not honour, by inheriting one; it may never be PUT there here. Refusing to
 inherit would be refusing the one answer that exists for every screen whatever it
 draws.
 
-And the list is now CONDITIONAL, gated by `DisplayStyleOptions.listIsOffered` —
-not a count of screens but the question "is there an answer per display that the
-section above cannot give?". Three clauses: more than one screen, the only
-arrangement in which per-display answers can differ from each other at all; a
-sole display that is NOT internal — the Mac mini class, where
-`Preferences.defaultShowsNowPlaying(isInternal:)` is literally `isInternal`, so
-the now-playing surface is born OFF there and no other control in the app can
-turn it on (the same class of hardware `rendered-style-gates-settings` was
-written about); and a sole display already carrying an override, a key some
-earlier arrangement wrote that nothing else can clear while the sweep footer goes
-on naming a per-display style nobody can see. An empty roster answers false
-rather than subscripting. On a lone laptop with no override every row would
-repeat the declaration, and a control that decides nothing still reads as one
-that does.
+And the list is gated by `DisplayStyleOptions.listIsOffered` — a rule of its
+own, because the question is not a count of screens but "is there an answer per
+display that the section above cannot give?". The answer is yes for every
+non-empty roster: the row is the app's ONLY switch for the now-playing surface,
+and the switch's default is a function of the display (the amendment below says
+why that strands a lone display of either kind). An empty roster answers false
+rather than subscripting.
 
 The sweep footer became deictic — "This also replaces the per-display styles
-below" — and it may point down, because the clause that makes it appear (an
-override among the connected displays) is also one of the clauses that opens the
-list: wherever that sentence is drawn, the section it names is drawn under it —
-an implication, not a coincidence, and pinned as one
+below" — and it may point down, because whenever there is a display to carry an
+override there is a list under the footer to show it: wherever that sentence is
+drawn, the section it names is drawn under it — an implication, not a
+coincidence, and pinned as one
 (`DisplayStyleListOfferTests.anOverrideAnywhereGuaranteesTheListThatShowsIt`).
 The welcome tour makes the same declaration with no list beneath it, and
 therefore carries its own wording (`tour.step.style.replacesPerDisplay`) rather

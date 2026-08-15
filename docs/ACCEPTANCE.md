@@ -24,11 +24,10 @@
 4. Each display renders the HUD and now playing in its resolved style — its own
    override from the Displays list in General when it has one, else the style
    declared just above it; notch→card where there is no slit — positioned and
-   sized by that style. That list is offered only where there is a per-display
-   answer to give: more than one screen, or a sole display that is not the
-   built-in one, or a display already carrying an override; a lone built-in panel
-   with no override shows no list at all, the way System Settings offers no
-   Arrange with one display. Picking a style for one display moves only that
+   sized by that style. That list is offered for every connected display, a lone
+   built-in panel included: its row carries the only switch for the now-playing
+   surface, so a MacBook on its own still shows the Displays section with its one
+   row. Picking a style for one display moves only that
    display; picking that display's "Follow all displays (…)" item returns it to
    the declaration at once, and declaring for all displays (General's leading
    section, or the menu bar's Style submenu) replaces every per-display style. On
