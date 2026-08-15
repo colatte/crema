@@ -19,26 +19,16 @@
 
 ## Phase 1 — The open residues
 
-Objective: close, or consciously retire, what the building rounds left open. Nothing here blocks a release; each item is either a smoke test the author owes, a field measurement, or a small fix waiting on evidence.
+Objective: close, or consciously retire, what the building rounds left open. Nothing here blocks a release, and both items wait on the same thing — the author at the machine, because neither question has an answer a unit test can give.
 Depends on: nothing — the items are independent of one another.
 
 - [ ] T10.2 — Verify tolerant of a quantized channel · módulo: Sources
-  - Prerequisite: a hardware smoke (suppression ON, Option+Shift + keyboard brightness at a level the coarse grid does not move) — it decides whether the read-back returns the quantized value or the armed float.
+  - Prerequisite: a hardware smoke (suppression ON, Option+Shift + keyboard brightness at a level the coarse grid does not move). The apply chain already reads a SECOND time when nothing moved (`OSDApplyVerification.mayBeAsynchronous`, for a write the HAL took but has not published), so what the smoke decides is narrower than it looks: whether that second read publishes the armed float, or the channel stores the quantized value and never moves for a fine step. In the second case the domain suspends today.
   - Tests (first): a no-move of up to one whole step without regression passes verify; a real regression keeps failing.
   - Acceptance: a keyboard-brightness key on a quantized channel neither suspends the domain nor lets a genuine write failure through.
-- [ ] T10.9 — Spike: `coreaudiod` restart × listeners · módulo: Sources
-  - Spike first (`sudo killall coreaudiod` with the app running): does volume observation survive? If not, a `kAudioHardwarePropertyServiceRestarted` listener re-running `observeCurrentDefaultDevice()`.
-  - Acceptance: the volume HUD still appears after the daemon restarts — or the spike proves it already does, and the finding is recorded as verified-OK.
 - [ ] T11.5 — Open investigation: the occasionally slow key · módulo: Sources
   - Recorded with no fix in [docs/KEY-LATENCY-INVESTIGATION.md](docs/KEY-LATENCY-INVESTIGATION.md), three candidate profiles mapped to code paths. **Waiting on field data from the author** — captured live with `log stream --level debug`, because the discriminating line is debug level and does not persist.
   - Acceptance: either a profile confirmed by a capture (and then a fix with its own task), or the investigation closed as unreproducible.
-- [ ] T17.6 — `retrySuspendedNow`: the `else if` that should be two `if`s · módulo: Sources
-  - Tests (first): a retry with both domains suspended re-engages both, not just the first.
-  - Acceptance: the menu's retry clears every lasting suspension it names.
-- [ ] T24.1 — `currentStyle()` seeds the leader's override, not the declaration · módulo: App
-  - The residue the per-display round left open: `AppCore.currentStyle()` returns `preferences.style(for: leadingDisplay)`, so the "All displays" tiles can show Card (the leader's override) while the row below reads "Follow all displays (Notch)". Nothing breaks — writing there declares and sweeps all the same — but the seeded value is not the declaration, and the menu's Style submenu reads `declaredStyle` raw, so two surfaces of the SAME declaration can disagree. Readers: `GeneralSettingsView.init`, `WelcomeTourView.init`.
-  - Tests (first): with an override on the leading display, the tiles seed from `declaredStyle`, matching the menu submenu.
-  - Acceptance: both surfaces of the declaration show the same value, and `currentStyle()` either answers a question of its own or goes.
 
 ## Phase 2 (optional) — External displays: what is still missing
 
