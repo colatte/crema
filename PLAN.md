@@ -6,9 +6,11 @@
 > that ships is described, in the present, by [SPEC.md](SPEC.md). Phase 1 is
 > the current one.
 
+<!-- docscheck: ignore T3 — the four module names resolve in CLAUDE.md's "Folder structure" tree (Sources and App under Crema/, plus docs/ and design/), verified by hand; the checker reads the tree only from a section literally titled "Estrutura"/"Módulos", and renaming that heading would put Portuguese in the most-read line of an English document -->
+
 ## Conventions
 
-- Each task carries an id (e.g. T7.1), the responsible module (matching the folder structure in [CLAUDE.md](CLAUDE.md)), the tests or the verification that define it, and its acceptance.
+- Each task carries an id (e.g. T7.1), the responsible module (matching the folder structure in [CLAUDE.md](CLAUDE.md)), the tests or the verification that define it, and its acceptance. The field is spelled `· módulo:` — the one Portuguese token in an English document, because it is what the grammar checker reads to verify that every task names a module and that the module actually exists in CLAUDE.md.
 - A phase starts only when the previous one's checkboxes are all ticked, except phases marked optional, which may be skipped.
 - Detail per task covers the current phase and the next; phases beyond that carry only an objective and their dependencies until they come close.
 - **Task ids are never renumbered and never reused.** T7.1, T10.2 and T17.6 sit inside phases numbered 1 to 4 because the id — not the phase — is the thread tying a residue to the round that opened it; closing the numeric gaps would cut that thread and buy nothing.
@@ -20,20 +22,20 @@
 Objective: close, or consciously retire, what the building rounds left open. Nothing here blocks a release; each item is either a smoke test the author owes, a field measurement, or a small fix waiting on evidence.
 Depends on: nothing — the items are independent of one another.
 
-- [ ] T10.2 — Verify tolerant of a quantized channel · module: Sources
+- [ ] T10.2 — Verify tolerant of a quantized channel · módulo: Sources
   - Prerequisite: a hardware smoke (suppression ON, Option+Shift + keyboard brightness at a level the coarse grid does not move) — it decides whether the read-back returns the quantized value or the armed float.
   - Tests (first): a no-move of up to one whole step without regression passes verify; a real regression keeps failing.
   - Acceptance: a keyboard-brightness key on a quantized channel neither suspends the domain nor lets a genuine write failure through.
-- [ ] T10.9 — Spike: `coreaudiod` restart × listeners · module: Sources
+- [ ] T10.9 — Spike: `coreaudiod` restart × listeners · módulo: Sources
   - Spike first (`sudo killall coreaudiod` with the app running): does volume observation survive? If not, a `kAudioHardwarePropertyServiceRestarted` listener re-running `observeCurrentDefaultDevice()`.
   - Acceptance: the volume HUD still appears after the daemon restarts — or the spike proves it already does, and the finding is recorded as verified-OK.
-- [ ] T11.5 — Open investigation: the occasionally slow key · module: Sources
+- [ ] T11.5 — Open investigation: the occasionally slow key · módulo: Sources
   - Recorded with no fix in [docs/KEY-LATENCY-INVESTIGATION.md](docs/KEY-LATENCY-INVESTIGATION.md), three candidate profiles mapped to code paths. **Waiting on field data from the author** — captured live with `log stream --level debug`, because the discriminating line is debug level and does not persist.
   - Acceptance: either a profile confirmed by a capture (and then a fix with its own task), or the investigation closed as unreproducible.
-- [ ] T17.6 — `retrySuspendedNow`: the `else if` that should be two `if`s · module: Sources
+- [ ] T17.6 — `retrySuspendedNow`: the `else if` that should be two `if`s · módulo: Sources
   - Tests (first): a retry with both domains suspended re-engages both, not just the first.
   - Acceptance: the menu's retry clears every lasting suspension it names.
-- [ ] T24.1 — `currentStyle()` seeds the leader's override, not the declaration · module: App
+- [ ] T24.1 — `currentStyle()` seeds the leader's override, not the declaration · módulo: App
   - The residue the per-display round left open: `AppCore.currentStyle()` returns `preferences.style(for: leadingDisplay)`, so the "All displays" tiles can show Card (the leader's override) while the row below reads "Follow all displays (Notch)". Nothing breaks — writing there declares and sweeps all the same — but the seeded value is not the declaration, and the menu's Style submenu reads `declaredStyle` raw, so two surfaces of the SAME declaration can disagree. Readers: `GeneralSettingsView.init`, `WelcomeTourView.init`.
   - Tests (first): with an override on the leading display, the tiles seed from `declaredStyle`, matching the menu submenu.
   - Acceptance: both surfaces of the declaration show the same value, and `currentStyle()` either answers a question of its own or goes.
@@ -43,10 +45,10 @@ Depends on: nothing — the items are independent of one another.
 Objective: external-display volume and a brightness key Crema applies itself, over the neighbour's channel; Lunar behind the same protocols.
 Depends on: Phase 1 not at all — but on evidence the neighbour's API does not give today (its `get` refuses every spelling of brightness, so the apply+verify cycle has no `before`; docs/DECISIONS.md: external-brightness-is-write-only). Tasks are detailed in the round that opens this phase.
 
-- [ ] T7.1 — Integration detection and selection · module: Sources
+- [ ] T7.1 — Integration detection and selection · módulo: Sources
   - Tests (first): with detection mocked (none / BetterDisplay only / Lunar only / both), the selection offers only what exists and allows one active integration at a time.
   - Acceptance: with both installed the user chooses in Settings; with one installed it is the one offered, which is why there is no preference today; never a requirement for the app to work.
-- [ ] T7.4 — `LunarOSDSource` and the way back · module: Sources
+- [ ] T7.4 — `LunarOSDSource` and the way back · módulo: Sources
   - Tests (first): fixtures of the socket's events (`lunar listen`) → the correct `SystemHUD`.
   - Acceptance: equivalent to the BetterDisplay pair, behind the same protocols. The socket's event format is an open decision below.
 
@@ -55,7 +57,7 @@ Depends on: Phase 1 not at all — but on evidence the neighbour's API does not 
 Objective: the downloaded `.dmg` opens with no "unidentified developer" warning.
 Depends on: an Apple Developer account existing. The script path is already written and exercised; nothing in the code changes.
 
-- [ ] T8.5 — Signing and notarization · module: docs
+- [ ] T8.5 — Signing and notarization · módulo: docs
   - Verification: no unit test — a smoke on the release machine (`spctl --assess` accepts the app; a fresh download opens without the Gatekeeper prompt).
   - Acceptance: SPEC's criterion for notarized distribution passes, and docs/RELEASE-GUIDE.md's Developer ID path is the one release.sh takes by default.
 
@@ -64,7 +66,7 @@ Depends on: an Apple Developer account existing. The script path is already writ
 Objective: an Icon Composer `.icon` alongside the classic appiconset, additive and without breaking macOS 14 (which falls back to the appiconset automatically).
 Depends on: the author exporting the art in separate layers (background / pill / wave). Without them, Tahoe already applies its system treatment to the classic icon on its own, which is why this is deferred rather than open.
 
-- [ ] T12.2 — Tahoe icon (Icon Composer, Liquid Glass) · module: design
+- [ ] T12.2 — Tahoe icon (Icon Composer, Liquid Glass) · módulo: design
   - Verification: visual, on Tahoe and on Sonoma, from one build.
   - Acceptance: the icon reads correctly in Finder, Get Info, Spotlight and Sparkle on both, with no regression at 16/32 pt.
 

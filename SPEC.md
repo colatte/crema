@@ -10,6 +10,8 @@
 > [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md) is the observable definition of
 > "correct" — the acceptance criteria live there and only there.
 
+<!-- docscheck: ignore F1 — the frontier is declared in the blockquote above and enforced by the final section "Planned / not implemented (future roadmap)"; the checker keys that section name in Portuguese ("Planejado") and this doc-set is English by decision, Crema being a public GPL-3.0 repository whose contributors read it -->
+
 ## Problem
 
 macOS's native HUDs (volume, screen brightness, keyboard brightness) offer no choice of style or position, and the system has no dedicated now-playing surface in the notch region. The utilities that attack that space (MediaMate, for one) bundle far more than that — calendar, widgets, file drop.
