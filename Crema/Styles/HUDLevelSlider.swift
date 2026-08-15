@@ -162,14 +162,6 @@ struct HUDLevelSlider: View {
         .frame(width: width, height: height)
     }
 
-    /// The measured Control Center affordance: no knob at rest, an oval fading
-    /// in under the pointer, riding the inset track with the value (the native
-    /// thumb mapping — see knobCenterX). Hover holds the HUD — the pointer's
-    /// arrival cancels the revert timer (Coordinator.publishPointer),
-    /// introduced with the knob so its premise is real: a hovered HUD is not
-    /// transient, which is exactly when a drag affordance earns its place
-    /// (docs/DECISIONS.md: hud-capsule-track).
-
     private var segments: some View {
         HStack(spacing: Self.segmentSpacing) {
             ForEach(0..<Self.segmentCount, id: \.self) { index in
@@ -238,19 +230,8 @@ struct HUDLevelSlider: View {
     /// follows the interaction, so a drag that wanders off the surface keeps
     /// its knob deliberately (not by event-mask accident). The segmented
     /// Classic and the full-bleed filled bar stay bare — their references
-    /// carry no knob.
-    /// The knob's reveal — an opacity fade under the pointer, the measured
-    /// Control Center affordance-on-demand. A component-private affordance
-    /// timing, so it lives here, not in SurfaceAnimation (which keeps the
-    /// values that participate in the presentation contracts); value-scoped:
-    /// it never reaches the surface morph. Under Reduce Motion the knob snaps
-    /// in and out — a deliberate over-restriction (value animations suspend
-    /// under RM; the opacity-fade allowance belongs to surface appear/dismiss).
-    nonisolated static let knobRevealDuration: Double = 0.15
-    nonisolated static func knobReveal(reduceMotion: Bool) -> Animation? {
-        reduceMotion ? nil : .easeOut(duration: knobRevealDuration)
-    }
-
+    /// carry no knob. The reveal animation lives with the drawing, in
+    /// CapsuleTrack.knobReveal — a second copy here is how they drifted.
     nonisolated static func showsKnob(appearance: Appearance, isHovered: Bool, isEditing: Bool) -> Bool {
         appearance == .capsule && (isHovered || isEditing)
     }

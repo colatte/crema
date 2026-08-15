@@ -37,11 +37,6 @@ final class AccessibilityPermissionMonitor {
         }
     }
 
-    func stop() {
-        pollTask?.cancel()
-        pollTask = nil
-    }
-
     private func refresh() {
         let granted = permission.isGranted()
         if granted != isGranted {
