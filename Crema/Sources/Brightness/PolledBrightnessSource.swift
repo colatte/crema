@@ -40,6 +40,12 @@ final class PolledBrightnessSource: SystemHUDSource, ManuallySampledSource, @unc
     /// is the honest answer when the value itself is unknowable.
     private let queue: DispatchQueue
     private var gate: KeyOriginBrightnessGate
+    /// The key window's length and its clock, held here as well as inside the gate:
+    /// the announcement banked below expires on the same scale a key's origin claim
+    /// does, and whether a reading may still speak for its key is this source's
+    /// call rather than the gate's.
+    private let keyActivityWindow: Double
+    private let now: @Sendable () -> Date
     /// Readings a key asked for that have not come back yet, and how many of those
     /// a `standDown()` has already spoken for. Needed because a reading now returns
     /// AFTER the call that asked for it: a key-driven reading emits on any change,
@@ -49,6 +55,26 @@ final class PolledBrightnessSource: SystemHUDSource, ManuallySampledSource, @unc
     /// on the caller's thread (docs/DECISIONS.md: betterdisplay-osd-source).
     private var pendingKeyReadings = 0
     private var spokenForKeyReadings = 0
+    /// A `standDown()` that found nothing in flight to speak for, and the instant it
+    /// arrived: the next `sample()` inside the key window consumes it.
+    ///
+    /// It exists because the two announcements reach this source on DIFFERENT
+    /// executors — the key's `sample()` from the media-key router's task on the
+    /// cooperative pool, the stand-down from the MainActor (the suppressor's
+    /// handback, the neighbour's OSD report) — so "the handback follows the key" is
+    /// a sequence inside the tap, never an order between these two calls. A
+    /// stand-down that wins that race used to be spent on nothing, and the sample
+    /// right behind it re-armed the window: the poll a beat later then drew our
+    /// hardware-scale bar over the very feedback the handback had just conceded to
+    /// the system — the double bar this whole mechanism exists to prevent, in the
+    /// arrangement that reaches it every time (a domain suspended for a dead write
+    /// hands back every key).
+    ///
+    /// Stamped rather than merely counted so it cannot silence an unrelated later
+    /// key: an announcement with no key of ours behind it at all — the neighbour's
+    /// own UI moved the level — is the ordinary case, and its credit has to expire
+    /// on the same window the key's own origin claim gets.
+    private var standDownAwaitingSample: Date?
     private var pollTask: Task<Void, Never>?
 
     init(
@@ -63,6 +89,8 @@ final class PolledBrightnessSource: SystemHUDSource, ManuallySampledSource, @unc
         self.backend = backend
         self.clock = clock
         self.pollInterval = pollInterval
+        self.keyActivityWindow = keyActivityWindow
+        self.now = now
         queue = DispatchQueue(label: "com.colatte.crema.PolledBrightnessSource.\(kind)")
 
         var continuation: AsyncStream<SystemHUD>.Continuation!
@@ -147,11 +175,23 @@ final class PolledBrightnessSource: SystemHUDSource, ManuallySampledSource, @unc
     /// suppressor's post-apply poke, or the slider echo): arm the gate here, read
     /// on `queue`. Arming is a timestamp, so it stays on the caller's thread — the
     /// window then measures from the key itself, and a `standDown()` arriving right
-    /// behind the key acts on a window that is already open. Only the reading hops.
+    /// behind the key acts on a window that is already open; one that arrived just
+    /// ahead of it is consumed below, since the two calls reach this source on
+    /// different executors and neither order is guaranteed. Only the reading hops.
     func sample() {
         lock.lock()
         gate.armKeyWindow()
         pendingKeyReadings += 1
+        // An announcement that arrived just AHEAD of this key speaks for it: the arm
+        // above would otherwise reopen the window that announcement had just spent,
+        // and the reading queued below still emits on any change without it
+        // (see `standDownAwaitingSample`).
+        if let announced = standDownAwaitingSample,
+           now().timeIntervalSince(announced) <= keyActivityWindow {
+            gate.standDown()
+            spokenForKeyReadings += 1
+        }
+        standDownAwaitingSample = nil
         lock.unlock()
         queue.async { [weak self] in
             self?.readAndRegister(keyDriven: true)
@@ -165,17 +205,29 @@ final class PolledBrightnessSource: SystemHUDSource, ManuallySampledSource, @unc
         }
     }
 
-    /// Another source reported this channel's level (BetterDisplay's OSD
-    /// notification): the key's window is spent so the armed poll does not draw a
-    /// second, hardware-only reading over it — AND every reading a key already
-    /// asked for is spoken for too, because such a reading emits on any change
-    /// whether the window is open or not, and it comes back from `queue` after this
-    /// call rather than before it. Synchronous like the arm it undoes: both only
-    /// touch state under the lock, so their order is the order of the two events.
+    /// The press this source must not draw, because another authority is already
+    /// giving feedback for it: the neighbour reported the level (BetterDisplay's OSD
+    /// notification), or the suppressor handed the key back and the native OSD is
+    /// drawing it.
+    ///
+    /// One announcement silences one press, whichever side of it this call lands on
+    /// — and which side that is cannot be assumed, since the key's `sample()` comes
+    /// from the router's task on the cooperative pool while this arrives on the
+    /// MainActor. Three things follow, in order: the key's window is spent, so the
+    /// armed poll adds no second, hardware-scale reading; the readings a key has
+    /// already asked for are marked spoken-for, because such a reading emits on any
+    /// change whether the window is open or not and returns from `queue` after this
+    /// call; and with nothing in flight the announcement is banked for the sample it
+    /// may still be racing. The lock makes each of those atomic — it cannot order
+    /// the two events themselves (docs/DECISIONS.md: betterdisplay-osd-source).
     func standDown() {
         lock.lock()
         gate.standDown()
-        spokenForKeyReadings = pendingKeyReadings
+        if spokenForKeyReadings < pendingKeyReadings {
+            spokenForKeyReadings = pendingKeyReadings
+        } else {
+            standDownAwaitingSample = now()
+        }
         lock.unlock()
     }
 

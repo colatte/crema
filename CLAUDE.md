@@ -392,6 +392,7 @@ Deliberate debts, one line each — the reasoning, the palliative and the reopen
 - [ ] **`BrightnessConversion` and `VolumeConversion` hold eight byte-identical lines, and that is the decision** — independent domains agreeing on a defensive contract; the rule of three has not been met. Reopening gate: a third domain wanting the clamp, or the first divergence between these two.
 - [ ] **The waveform carries no time veto** — the two app-wide vetoes and nothing else; the case for a third is unestablished until someone measures the power cost of four 12 pt bars (the display sleeping does not stop compositing — measured).
 - [ ] **A process finishing is not its children finishing** — the mediaremote-adapter outlives whoever spawned it; `release.sh` reaps it by path, the app-hosted test target still leaks it per run, and closing a round includes `ps` for stray children.
+- [ ] **The keyboard-backlight client is resolved once, and no edge re-creates it** — the IDs are re-enumerated per operation, the client is not, so a dead connection is a dead backlight HUD until relaunch; degradation is honest (unavailable, keys back to the system). Reopening gate: a reproduction on hardware of the dead client.
 - [ ] **SwiftLint's analyzer rules are off, so nothing in CI looks for dead code** — a gate would build twice; the palliative is a one-off by-hand sweep (zero unused `private` declarations across the tree), which does not reach a file added after it, and spending the CI minutes is the maintainer's call.
 
 ## Open decisions

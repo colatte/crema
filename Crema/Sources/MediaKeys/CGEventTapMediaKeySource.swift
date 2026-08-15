@@ -124,11 +124,16 @@ final class CGEventTapMediaKeySource: MediaKeySource, MediaKeyConsuming, @unchec
     ///
     /// The port reads stay OUT of the lock so a main-thread mutation never queues
     /// behind a round-trip held here; the local binding keeps the token alive even if
-    /// it is uninstalled meanwhile. They are blocking C calls on a cooperative-pool
-    /// thread, which is what `blockingCall` exists to avoid — unreachable here
-    /// because the token is a non-Sendable `AnyObject` and cannot cross into a
-    /// `@Sendable` closure. One periodic caller parks at most one pool thread, which
-    /// is why that is tolerable and not a licence to add more.
+    /// it is uninstalled meanwhile. All three reads below — the permission and the
+    /// two port questions — are blocking C calls made on a cooperative-pool thread,
+    /// which is what `blockingCall` exists to keep off it, and they stay here by
+    /// decision rather than by oversight: this is ONE periodic caller, so it parks at
+    /// most one pool thread at a time, while the hop would cost a queue round trip
+    /// every tick, forever, on the healthy path this filter exists to make cheap.
+    /// Moving only the part that COULD move buys nothing either — the port token is a
+    /// non-Sendable `AnyObject` and cannot cross into a `@Sendable` closure, so the
+    /// two port round trips would stay on this thread regardless. None of that is a
+    /// licence for a second such caller.
     /// (docs/DECISIONS.md: read-deadline-pool-rule)
     private func pollNeedsMutation() -> Bool {
         // Revoked with a token still stored: the teardown is what keeps the state

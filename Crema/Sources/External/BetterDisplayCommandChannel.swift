@@ -42,7 +42,11 @@ final class BetterDisplayCommandChannel: BetterDisplayCommanding {
     // read only in `deinit`, after every other access has ended — the lifecycle
     // brackets rule out the concurrent access the attribute waives; a nonisolated
     // deinit can't see that bracket, and removeObserver itself is thread-safe.
-    private nonisolated(unsafe) var observers: [NSObjectProtocol] = []
+    //
+    // A relay object rather than an opaque token, because the suspension behaviour
+    // is only on the selector-based registration (see `installObserver`); the center
+    // holds an observer unowned, so the deinit still has to name it.
+    private nonisolated(unsafe) var responseRelay: DistributedPayloadRelay?
 
     private let logger = Logger.crema("External")
 
@@ -71,8 +75,8 @@ final class BetterDisplayCommandChannel: BetterDisplayCommanding {
     }
 
     deinit {
-        for observer in observers {
-            DistributedNotificationCenter.default().removeObserver(observer)
+        if let responseRelay {
+            DistributedNotificationCenter.default().removeObserver(responseRelay)
         }
     }
 
@@ -122,14 +126,29 @@ final class BetterDisplayCommandChannel: BetterDisplayCommanding {
     }
 
     private func installObserver() {
-        let observer = DistributedNotificationCenter.default().addObserver(
-            forName: Notification.Name(Self.responseName),
+        // The answer comes back through the selector registration, for the
+        // suspension behaviour no block-based cover can express: those default to
+        // `NSNotificationSuspensionBehaviorCoalesce`
+        // (`NSDistributedNotificationCenter.h`: "All other registration methods are
+        // covers of this one, with the default for suspensionBehavior =
+        // NSNotificationSuspensionBehaviorCoalesce"), which the server HOLDS while
+        // the centre is suspended — and AppKit suspends it whenever the app is not
+        // active, which an LSUIElement accessory essentially always is.
+        //
+        // The asymmetry that made it worse was ours: the request already goes out
+        // with `deliverImmediately: true`, so the neighbour hears us however it
+        // registered, while its answer was arriving into a registration that could
+        // be held. And a held answer is indistinguishable from silence here — the
+        // deadline fires, the drag reports a failed apply and rolls the bar back
+        // over a write that actually landed.
+        let relay = DistributedPayloadRelay { [weak self] json in self?.handle(response: json) }
+        DistributedNotificationCenter.default().addObserver(
+            relay,
+            selector: #selector(DistributedPayloadRelay.payloadArrived(_:)),
+            name: Notification.Name(Self.responseName),
             object: nil,
-            queue: .main
-        ) { [weak self] note in
-            guard let json = note.object as? String else { return }
-            MainActor.assumeIsolated { self?.handle(response: json) }
-        }
-        observers.append(observer)
+            suspensionBehavior: .deliverImmediately
+        )
+        responseRelay = relay
     }
 }

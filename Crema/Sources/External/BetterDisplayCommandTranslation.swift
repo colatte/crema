@@ -32,6 +32,16 @@ enum BetterDisplayCommandTranslation {
     /// `brightness` feature takes a fraction; its 0...64 scale appears only in the
     /// OSD payload, which is a different message entirely.
     static func setBrightnessRequest(uuid: String, value: Double, displayID: Int) -> String? {
+        // NaN is refused rather than clamped: it compares false against everything,
+        // so `max(value, 0)` returns it intact and the wire would carry the string
+        // "nan" — a request the neighbour can only reject, arriving as a plausible
+        // one. Nil is read by the channel as a failed apply, which rolls the bar
+        // back to the level the screen still has; a fabricated 0 would darken a
+        // display over a number nobody asked for. The infinities need no branch —
+        // they saturate to the near end like any out-of-range reading, which is the
+        // same contract the domain's own conversions document
+        // (VolumeConversion.normalize).
+        guard !value.isNaN else { return nil }
         let clamped = min(max(value, 0), 1)
         return encode(Request(
             uuid: uuid,

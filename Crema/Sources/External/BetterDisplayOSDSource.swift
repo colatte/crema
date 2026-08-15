@@ -60,7 +60,12 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     /// but `hasReported`, and here that is load-bearing: a generated accessor pair
     /// drops `nonisolated(unsafe)` and puts the registrar in the path of that
     /// nonisolated deinit.
-    @ObservationIgnored private nonisolated(unsafe) var observers: [NSObjectProtocol] = []
+    ///
+    /// The OSD registration is a relay object rather than a token, because the
+    /// suspension behaviour is only available on the selector-based registration
+    /// (see `installObserver`); the center holds an observer unowned, so the deinit
+    /// still has to name it.
+    @ObservationIgnored private nonisolated(unsafe) var payloadRelay: DistributedPayloadRelay?
     @ObservationIgnored private nonisolated(unsafe) var workspaceObservers: [NSObjectProtocol] = []
 
     @ObservationIgnored private let logger = Logger.crema("External")
@@ -87,8 +92,8 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     }
 
     deinit {
-        for observer in observers {
-            DistributedNotificationCenter.default().removeObserver(observer)
+        if let payloadRelay {
+            DistributedNotificationCenter.default().removeObserver(payloadRelay)
         }
         for observer in workspaceObservers {
             NSWorkspace.shared.notificationCenter.removeObserver(observer)
@@ -137,19 +142,30 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     }
 
     private func installObserver() {
-        let observer = DistributedNotificationCenter.default().addObserver(
-            forName: Notification.Name(Self.notificationName),
+        // Registered through the SELECTOR method, and only because it is the one
+        // that takes a suspension behaviour. Every block-based cover defaults to
+        // `NSNotificationSuspensionBehaviorCoalesce` (`NSDistributedNotificationCenter.h`:
+        // "All other registration methods are covers of this one, with the default
+        // for suspensionBehavior = NSNotificationSuspensionBehaviorCoalesce"), and
+        // a coalesced registration is HELD while the centre is suspended — which
+        // AppKit does on its own whenever the app is not active. Crema is an
+        // LSUIElement accessory: it is essentially never active, so the brightness
+        // bar was asking for the delivery mode that waits for a moment which may
+        // never come. Whether it arrives anyway is then the POSTER's choice — the
+        // same header says a `deliverImmediately:` post is received as if every
+        // registrant had asked for immediate delivery — and the poster here is
+        // another app, which is exactly why this side must not depend on it.
+        // `.deliverImmediately` is the documented opt-out; the screen-lock edges
+        // were moved off the block-based cover for the same reason.
+        let relay = DistributedPayloadRelay { [weak self] json in self?.handle(json: json) }
+        DistributedNotificationCenter.default().addObserver(
+            relay,
+            selector: #selector(DistributedPayloadRelay.payloadArrived(_:)),
+            name: Notification.Name(Self.notificationName),
             object: nil,
-            queue: .main
-        ) { [weak self] note in
-            // The payload rides in `object` as a JSON string, not in userInfo —
-            // that is the published contract, and a dictionary would be wrong.
-            guard let json = note.object as? String else { return }
-            // Delivered on the main queue, so the MainActor is the current
-            // executor — assume it rather than hop, which would reorder events.
-            MainActor.assumeIsolated { self?.handle(json: json) }
-        }
-        observers.append(observer)
+            suspensionBehavior: .deliverImmediately
+        )
+        payloadRelay = relay
 
         // The workspace edge, not BetterDisplay's own `.terminated` notification:
         // that one is documented as not sent on an unexpected quit, and a crash is

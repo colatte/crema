@@ -10,7 +10,10 @@ struct JXACommandChannel: NowPlayingCommandChannel {
     }
 
     func seek(to seconds: Double) async throws {
-        try await run(Self.control("app.playerPosition = \(max(0, seconds));"))
+        guard let position = Self.playerPosition(forSeek: seconds) else {
+            throw NowPlayingCommandError.commandFailed
+        }
+        try await run(Self.control("app.playerPosition = \(position);"))
     }
 
     func nextTrack() async throws {
@@ -19,6 +22,19 @@ struct JXACommandChannel: NowPlayingCommandChannel {
 
     func previousTrack() async throws {
         try await run(Self.control("app.previousTrack();"))
+    }
+
+    /// The seconds JXA's `playerPosition` is given, or nil for a number no player
+    /// can be asked to seek to. The value arrives from outside — the slider's range
+    /// comes from player metadata — so it is guarded rather than assumed, and NaN is
+    /// rejected rather than floored: `max(0, .nan)` is 0, which would turn an
+    /// unusable number into a silent seek to the start of the track instead of a
+    /// failed command. Same guard, same reason, as the adapter channel's
+    /// `microseconds(forSeek:)`; the infinities go with it, since neither survives
+    /// interpolation into a JavaScript number literal.
+    static func playerPosition(forSeek seconds: Double) -> Double? {
+        guard seconds.isFinite else { return nil }
+        return max(0, seconds)
     }
 
     /// Wraps a control statement so it runs against whichever of Spotify/Music

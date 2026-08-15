@@ -112,6 +112,25 @@ struct BetterDisplayCommandTranslationTests {
             .contains("\"brightness\":\"0.0\"") == true)
     }
 
+    @Test func aValueThatIsNotANumberNeverReachesTheWire() {
+        // NaN compares false against everything, so the clamp passes it through
+        // intact and the request would have carried the string "nan" — nonsense the
+        // neighbour can only reject, arriving as a plausible command. Nil is a
+        // failed apply at the caller, which rolls the bar back to the level the
+        // screen still has.
+        #expect(BetterDisplayCommandTranslation.setBrightnessRequest(
+            uuid: "A", value: .nan, displayID: 1
+        ) == nil)
+
+        // The infinities are a different case and stay clamped: they saturate to the
+        // near end like any out-of-range reading, exactly as the domain's own
+        // conversions promise.
+        #expect(BetterDisplayCommandTranslation.setBrightnessRequest(uuid: "A", value: .infinity, displayID: 1)?
+            .contains("\"brightness\":\"1.0\"") == true)
+        #expect(BetterDisplayCommandTranslation.setBrightnessRequest(uuid: "A", value: -.infinity, displayID: 1)?
+            .contains("\"brightness\":\"0.0\"") == true)
+    }
+
     @Test func averdictCarriesItsQuestionsIdentity() throws {
         let verdict = try #require(BetterDisplayCommandTranslation.verdict(
             fromJSON: #"{"uuid":"XYZ","result":true,"payload":"0.69"}"#
