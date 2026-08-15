@@ -35,7 +35,7 @@ func raceAgainstDeadline<T: Sendable>(
             race.finish(timedOutValue)
             onDeadline()
         } catch {
-            // The operation won; this sleep was cancelled.
+            // The operation won — this sleep was cancelled.
         }
     }
     let result = await withCheckedContinuation { (continuation: CheckedContinuation<T, Never>) in

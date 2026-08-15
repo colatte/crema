@@ -108,7 +108,7 @@ private extension SingleResumeRace where Failure == any Error {
                 try await clock.sleep(for: seconds)
                 self.finish(.failure(DeadlineExceeded.timedOut))
             } catch {
-                // The operation won the race and this sleep was cancelled.
+                // The operation won the race — this sleep was cancelled.
             }
         }
         do {
