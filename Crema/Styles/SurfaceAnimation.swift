@@ -87,14 +87,22 @@ enum SurfaceAnimation {
     /// Motion gate as the geometry/content springs: nil under the preference so
     /// the resize lands dry while its opacity/content still fades.
     ///
-    /// Directionless ON PURPOSE, and only for morphs that genuinely have no
-    /// direction. A surface that grows one way and shrinks back the other must
-    /// NOT use it — the open spring's damping is deliberately under critical, so
-    /// the return overshoots. A directional overload lived here for one commit,
-    /// for the lock card's expand/collapse; that state was removed and the
-    /// overload went with it rather than waiting in the file for a caller. The
-    /// rule survives its implementation: the destination picks the spring, which
-    /// is what `geometryAnimation` does from provenance.
+    /// Directionless ON PURPOSE, and the cost of that is quantified rather than
+    /// forbidden: the open spring's damping is deliberately under critical
+    /// (`openDamping` 0.8), so a return trip overshoots by roughly 1.5% of its
+    /// delta. Its clients here swing on the order of a hundred points — the
+    /// view-only band resize, the card's width hug — which puts the bounce under
+    /// 2 pt, and that is the shipped behaviour: at that size it reads as the
+    /// surface settling, not as a wobble.
+    ///
+    /// The warning is about SCALE, then, not about round trips as such. A large
+    /// geometry morph that goes one way and comes back the other wants a spring
+    /// chosen by the destination, because there the same 1.5% is a visible bounce
+    /// against the menu bar. A directional overload lived here for one commit, for
+    /// the lock card's expand/collapse; that state was removed and the overload
+    /// went with it rather than waiting in the file for a caller. The rule
+    /// survives its implementation: the destination picks the spring, which is
+    /// what `geometryAnimation` does from provenance.
     static func morph(reduceMotion: Bool) -> Animation? {
         reduceMotion ? nil : open
     }

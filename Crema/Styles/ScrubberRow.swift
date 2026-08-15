@@ -2,9 +2,12 @@ import SwiftUI
 
 /// Shared thin progress row: elapsed time, the track bar and (optionally) the
 /// duration at the trailing end. The reference layout shows both times at the
-/// bar's ends; narrow skins keep only the elapsed label to protect the drag
-/// range. Position and duration come from the caller's live `nowPlaying` read;
-/// the scrub intent flows back through the caller into the Coordinator.
+/// bar's ends; only the Notch band drops the trailing one, and only because a
+/// second label there comes straight out of the drag range — its content is
+/// ~101 pt wide at the narrowest scale mode (NotchWidthBudgetTests). The card and
+/// the classic block are several times that wide and show both. Position and
+/// duration come from the caller's live `nowPlaying` read; the scrub intent flows
+/// back through the caller into the Coordinator.
 ///
 /// The drag owns the shown position: while editing, the row reads and writes
 /// `draft` (ephemeral, purely visual — the gesture's in-flight value), so the
@@ -29,19 +32,39 @@ struct ScrubberRow: View {
     @State private var isEditing = false
     @State private var isHovered = false
 
-    /// Both labels follow the TRACK's length, so they never disagree about
-    /// their own shape. Live content reports no duration at all, and there the
-    /// elapsed time is the only number on screen — m:ss until it earns hours.
-    private var reachesAnHour: Bool {
-        TimeLabel.reachesAnHour(duration ?? position)
+    private var showsHours: Bool { Self.showsHours(duration: duration) }
+
+    /// The label's shape, decided by the TRACK's length so the two labels never
+    /// disagree about their own. With no duration the shape is FIXED at m:ss
+    /// rather than derived from the running position: a live stream would cross
+    /// an hour with the row already on screen and rewrite its own labels in the
+    /// air, widening the elapsed number from 22.33 to 38.25 pt (measured) and
+    /// shoving the bar beside it. The cost is honest and bounded — a stream past
+    /// an hour reads 60:00 and keeps counting minutes — and it buys a number that
+    /// never moves under the eye.
+    static func showsHours(duration: Double?) -> Bool {
+        guard let duration else { return false }
+        return TimeLabel.reachesAnHour(duration)
+    }
+
+    /// The bar's 0…1 fill. A fraction needs a denominator, and live content
+    /// reports none: with no duration the bar is BARE, the same "zero stays
+    /// empty" rule `CapsuleTrack.capsuleFillWidth` draws. It used to stand a
+    /// `max(position, 1)` span in for the missing one, which pins the fraction at
+    /// 1 from the first second onward — a radio stream drawing a permanently
+    /// finished track. Nothing interactive is lost: the row is not a control
+    /// without a duration (`interactive`).
+    static func fill(position: Double, duration: Double?) -> Double {
+        guard let duration, duration > 0 else { return 0 }
+        return min(max(position / duration, 0), 1)
     }
 
     var body: some View {
         HStack(spacing: 8) {
-            Text(timeLabel(draft ?? position, reachesAnHour: reachesAnHour))
+            Text(timeLabel(draft ?? position, showsHours: showsHours))
             track
             if showsDuration, let duration {
-                Text(timeLabel(duration, reachesAnHour: reachesAnHour))
+                Text(timeLabel(duration, showsHours: showsHours))
             }
         }
         .font(.caption2)
@@ -69,11 +92,15 @@ struct ScrubberRow: View {
     /// holds open, while a scrubber sitting inside a bigger card should answer
     /// to the pointer being on the BAR — which is also what Control Center does.
     @ViewBuilder private var track: some View {
+        // The stand-in span survives HERE and nowhere else: the accessibility
+        // Slider below needs a non-empty range even on a row it cannot adjust,
+        // and the gesture answers 0 for a zero span anyway. The FILL no longer
+        // reads it — a stand-in denominator is a lie about how far in we are.
         let span = duration ?? max(position, 1)
         let shown = draft ?? position
         GeometryReader { geometry in
             CapsuleTrack(
-                value: span > 0 ? min(max(shown / span, 0), 1) : 0,
+                value: Self.fill(position: shown, duration: duration),
                 showsKnob: (isHovered || isEditing) && interactive,
                 reduceMotion: reduceMotion,
                 layoutDirection: layoutDirection
@@ -86,14 +113,17 @@ struct ScrubberRow: View {
         }
         .frame(height: CapsuleTrack.trackHitHeight)
         .onHover { isHovered = $0 }
-        // A live gesture is never yanked away: a command failure flipping
-        // `enabled` (or a payload dropping the duration) mid-drag must degrade
-        // AFTER the release, not kill the tracking under the finger.
-        //
+        // The dead control has to LOOK dead, at the transport's own opacity: the
+        // buttons a row below already dim when their command path degrades, and a
+        // bar that stayed fully lit beside them read as the one live control on a
+        // player where nothing responds. Only the bar dims — the elapsed label
+        // keeps counting on a stream with no duration, and that number is
+        // information rather than an affordance.
+        .opacity(isLive ? 1 : TransportControls.disabledOpacity)
         // `disabled` rather than `allowsHitTesting`: it stops the gesture AND
         // takes the accessibility element out of adjustability. Hit testing
         // alone left VoiceOver able to scrub a row with no duration to scrub.
-        .disabled(!interactive && !isEditing)
+        .disabled(!isLive)
         .accessibilityRepresentation {
             Slider(
                 value: Binding(get: { shown }, set: { onScrub($0) }),
@@ -106,6 +136,15 @@ struct ScrubberRow: View {
     }
 
     private var interactive: Bool { duration != nil && enabled }
+    private var isLive: Bool { Self.isLive(interactive: interactive, isEditing: isEditing) }
+
+    /// A live gesture is never yanked away: a command failure flipping `enabled`
+    /// (or a payload dropping the duration) mid-drag must degrade AFTER the
+    /// release — neither killing the tracking under the finger nor dimming the
+    /// bar beneath it. So the in-flight gesture keeps the row live on its own.
+    static func isLive(interactive: Bool, isEditing: Bool) -> Bool {
+        interactive || isEditing
+    }
 
     /// One seek on release, never a storm of per-pixel subprocess commands —
     /// the reason the draft exists. A tap has no drag phase, so `onEnded` alone
@@ -143,9 +182,9 @@ struct ScrubberRow: View {
     /// The pattern is chosen by the TRACK's length, not by the value being
     /// printed, so the elapsed and total labels always have the same shape: a
     /// 1h20m recording reads `0:05:00 / 1:20:00`, never `5:00 / 1:20:00`.
-    private func timeLabel(_ seconds: Double, reachesAnHour: Bool) -> String {
+    private func timeLabel(_ seconds: Double, showsHours: Bool) -> String {
         let value = Duration.seconds(max(0, seconds))
-        return reachesAnHour
+        return showsHours
             ? value.formatted(.time(pattern: .hourMinuteSecond))
             : value.formatted(.time(pattern: .minuteSecond))
     }

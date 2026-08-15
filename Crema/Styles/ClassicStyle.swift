@@ -29,12 +29,18 @@ struct ClassicStyle: PresentationStyle {
 
     /// Bottom-anchored, so the headroom goes sideways and up — the default
     /// (top-pinned) would let the open spring's overshoot clip at the top edge
-    /// and would shift the anchor line.
+    /// and would shift the anchor line. The anchor is the ONLY thing this
+    /// overrides: the size still comes from the union of every state, exactly as
+    /// the shared default builds it, because no single state is guaranteed
+    /// largest on both axes. Sizing off the expanded block alone contained the
+    /// 200² HUD by arithmetic coincidence (230 × 224 happens to cover it), and a
+    /// coincidence is not a rule — the first state resize past it would clip the
+    /// morph at the window edge, the artifact the fixed window exists to remove.
     func windowFrame(on geometry: ScreenGeometry) -> CGRect {
-        var rect = frame(
-            for: .nowPlaying(NowPlaying(title: "", isPlaying: true, position: 0), expanded: true),
-            on: geometry
-        )
+        let track = NowPlaying(title: "", isPlaying: true, position: 0)
+        var rect = frame(for: .nowPlaying(track, expanded: true), on: geometry)
+            .union(frame(for: .nowPlaying(track, expanded: false), on: geometry))
+            .union(frame(for: .hud(SystemHUD(kind: .volume, value: 0)), on: geometry))
         rect.origin.x -= SurfaceAnimation.overshootHeadroom
         rect.size.width += 2 * SurfaceAnimation.overshootHeadroom
         rect.size.height += SurfaceAnimation.overshootHeadroom
@@ -90,18 +96,27 @@ enum ClassicMetrics {
     static let expandedArtworkRadius: CGFloat = 14
     static let hudIconSize: CGFloat = 56
     static let contentPadding: CGFloat = 16
-    /// Compact stack gap (artwork / text / waveform).
-    static let compactGap: CGFloat = 8
+    /// Compact stack gap (artwork / text / waveform), and the only term in that
+    /// stack with slack in it. The padded height is 170 − 2 × 16 = 138, and the
+    /// stack is artwork 80 + gap + the two-line text + gap + the 12 pt waveform:
+    /// measured at 137 with an 8 pt gap, which is one point from collapsing the
+    /// vertical padding the way a 96 pt artwork once did. 7 buys back two, and
+    /// the point it replaces was inside a line height's rounding — luck, not a
+    /// margin. Re-do this sum before growing anything in the compact stack.
+    static let compactGap: CGFloat = 7
     /// The HUD breathes wider than the media states: a lone glyph over the
     /// segmented track wants more air than the packed media block.
     static let hudPadding: CGFloat = contentPadding + 8
     /// One gap between the expanded sections — the block reads as one rhythm.
     static let contentGap: CGFloat = 10
     /// Fixed row heights so the section sum above is honest; the text row fits
-    /// the shared two-line stack.
+    /// the shared two-line stack. The other two come from the components that
+    /// fill them — the capsule's hit row and the transport's button — because a
+    /// literal here is a second copy of a number that is retuned elsewhere, and
+    /// the drift lands as dead space inside the derived block.
     static let textStackHeight: CGFloat = 30
-    static let scrubberRowHeight: CGFloat = 16
-    static let controlsHeight: CGFloat = 28
+    static let scrubberRowHeight: CGFloat = CapsuleTrack.trackHitHeight
+    static let controlsHeight: CGFloat = TransportControls.buttonSide
     /// The section view-only removes from the expanded height: the transport row
     /// plus the gap above it — the surface shrinks to the visible sections.
     static let controlsSectionHeight: CGFloat = contentGap + controlsHeight

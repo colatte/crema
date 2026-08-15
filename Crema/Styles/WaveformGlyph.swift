@@ -1,12 +1,18 @@
 import SwiftUI
 
-/// Decorative playback indicator: thin center-anchored bars pulsing
-/// symmetrically between rest and peak, each offset a fraction of a cycle from
-/// its neighbor — one rises while another falls, the live-equalizer read.
-/// (Bottom-anchored bars read as a column chart; synchronized ones as a
-/// blinking block.) Pure state-driven animation — no audio capture, no
-/// spectrum analysis. The family shares one tuning (`Configuration.standard`);
-/// a skin passes its own Configuration only when it actually diverges.
+/// Playback indicator: thin center-anchored bars pulsing symmetrically between
+/// rest and peak, each offset a fraction of a cycle from its neighbor — one rises
+/// while another falls, the live-equalizer read. (Bottom-anchored bars read as a
+/// column chart; synchronized ones as a blinking block.) Pure state-driven
+/// animation — no audio capture, no spectrum analysis. The family shares one
+/// tuning (`Configuration.standard`); a skin passes its own Configuration only
+/// when it actually diverges.
+///
+/// PULSE and FORM are two questions with two rules: `dances` decides whether the
+/// bars move, `stillHeights` decides what they look like when they do not. The
+/// glyph is decorative only where something else says "playing" — on the compact
+/// surfaces it is the sole signal, which is why a motion veto silences the
+/// movement without silencing the silhouette.
 struct WaveformGlyph: View {
     struct Configuration {
         var barCount: Int
@@ -48,6 +54,11 @@ struct WaveformGlyph: View {
     /// @State has to be told. One derived value carries both vetoes, so the
     /// `onChange` below stays keyed on it rather than growing a key per input —
     /// which is how one of them ends up watched and the other forgotten.
+    ///
+    /// It carries the PULSE alone. The form the bars hold when it is false comes
+    /// from `stillHeights`, read inside the body: a veto arriving mid-playback
+    /// takes the movement away and leaves the silhouette, and that change needs
+    /// no phase because a body re-run already carries it.
     @State private var dancing = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Nil off the panels (previews, the Settings tiles): no mirror, no veto.
@@ -61,18 +72,23 @@ struct WaveformGlyph: View {
     private static let freezeDuration: Double = 0.25
 
     var body: some View {
+        let still = Self.stillHeights(
+            animating: animating, reduceMotion: reduceMotion, lowPower: lowPower, config: config
+        )
         HStack(alignment: .center, spacing: config.barSpacing) {
             ForEach(0..<config.barCount, id: \.self) { index in
                 RoundedRectangle(cornerRadius: config.barCornerRadius, style: .continuous)
                     .frame(
                         width: config.barWidth,
-                        height: dancing ? config.peakHeight : config.restHeight
+                        height: dancing ? config.peakHeight : still[index]
                     )
                     // One flip of `dancing` starts the endless bounce
                     // (repeatForever autoreverses between rest and peak); the
                     // per-bar delay staggers the phases evenly across one
-                    // cycle. Flipping back replaces it with a plain settle —
-                    // the freeze that reads as "paused".
+                    // cycle. Flipping back replaces it with a plain settle onto
+                    // whatever height the bar holds still at — flat at rest when
+                    // playback stopped, the frozen equalizer when a veto stopped
+                    // the movement and playback did not.
                     .animation(
                         dancing
                             ? .easeInOut(duration: config.pulsePeriod)
@@ -99,8 +115,10 @@ struct WaveformGlyph: View {
     /// only at the next transport event. Read inside the body, so an @Observable
     /// mirror flip invalidates it like the accessibility preference does.
     private var shouldDance: Bool {
-        Self.dances(animating: animating, reduceMotion: reduceMotion, lowPower: lowPowerMode?.isLowPower ?? false)
+        Self.dances(animating: animating, reduceMotion: reduceMotion, lowPower: lowPower)
     }
+
+    private var lowPower: Bool { lowPowerMode?.isLowPower ?? false }
 
     /// The rule itself, pure and static so it is testable without a rendered view.
     /// Two vetoes, neither reducible to the other: Reduce Motion is the user's
@@ -108,7 +126,39 @@ struct WaveformGlyph: View {
     /// request that nothing be spent on motion — a repeatForever pulse on a
     /// surface that sits over the menu bar is exactly what it means. An absent
     /// mirror means nobody wired one, which is no veto.
+    ///
+    /// It decides the PULSE and nothing else; the silhouette is `stillHeights`.
     static func dances(animating: Bool, reduceMotion: Bool, lowPower: Bool) -> Bool {
         animating && !reduceMotion && !lowPower
+    }
+
+    /// The frozen equalizer, as fractions of the rest→peak span. One bar down,
+    /// one up and two between: enough that the row reads as levels rather than as
+    /// the flat block four equal bars draw. It repeats if a skin ever asks for
+    /// more bars than it has entries.
+    static let stillProfile: [Double] = [0, 1, 0.5, 0.75]
+
+    /// The height each bar HOLDS — the form, which the vetoes do not get to
+    /// decide. They forbid movement and spending, not information, and on the
+    /// compact surfaces this glyph is the only thing that says playing at all
+    /// (`CardView.compactContent`): with the pulse vetoed and every bar at rest,
+    /// playing and paused drew the same four 4 pt stubs. Playing under a veto
+    /// therefore keeps a staggered silhouette and does not move; paused is flat
+    /// at rest, whatever the vetoes say.
+    ///
+    /// While the pulse is ON this is its FLOOR, not the silhouette: the endless
+    /// autoreverse animates between the height declared here and the peak, so a
+    /// bar handed its profile height would pulse from peak to peak — invisibly.
+    static func stillHeights(
+        animating: Bool, reduceMotion: Bool, lowPower: Bool, config: Configuration = .standard
+    ) -> [CGFloat] {
+        let vetoed = animating && !dances(animating: animating, reduceMotion: reduceMotion, lowPower: lowPower)
+        guard vetoed, !stillProfile.isEmpty else {
+            return Array(repeating: config.restHeight, count: config.barCount)
+        }
+        let span = config.peakHeight - config.restHeight
+        return (0..<config.barCount).map { index in
+            config.restHeight + span * CGFloat(stillProfile[index % stillProfile.count])
+        }
     }
 }

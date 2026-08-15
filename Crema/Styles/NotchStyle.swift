@@ -18,16 +18,47 @@ struct NotchStyle: PresentationStyle {
         SurfaceHoverRegions.Margins(top: 0, lateral: 5, bottom: 16)
     }
 
+    /// The physical slit as a rect, or nil when this geometry describes no notch
+    /// the skin can hug. The ONE place that answers where the cutout is: the
+    /// surface, the click-invoke zone, the Settings picture and the declared→drawn
+    /// resolver all ask it, so none of them can claim a pixel another one disowns
+    /// (docs/DECISIONS.md: the-slit-is-found-from-its-edges).
+    ///
+    /// Built from the two EDGES the API gives — the auxiliary areas flanking the
+    /// safe-area strip — and never from the display's centre. A centre is an
+    /// inference that the cutout is symmetric, and the measured 14" panel is not
+    /// (663 pt left, 664 right): the inferred centre sits half a point right of
+    /// the real one, enough to put the surface's right edge on live menu-bar
+    /// pixels that `NotchMetrics.lateralInset`'s flush calibration forbids.
+    ///
+    /// Empty auxiliary areas are NOT a notch, whatever `safeTop` reports:
+    /// `NSScreen.h` documents both rects as "empty if there are no additional
+    /// unobscured areas", so a full-width safe area is a display with nothing
+    /// beside the obscured strip. Answering that with a slit as wide as the
+    /// screen would weld a display-wide surface to the top edge and hand the
+    /// invoke zone the entire menu bar, which the panel then captures the mouse
+    /// inside for clicks `Coordinator.invoke` mostly refuses.
+    static func slit(on geometry: ScreenGeometry) -> CGRect? {
+        let width = geometry.frame.width - geometry.auxLeft - geometry.auxRight
+        guard geometry.safeTop > 0, width > 0, width < geometry.frame.width else { return nil }
+        return CGRect(
+            x: geometry.frame.minX + geometry.auxLeft,
+            y: geometry.frame.maxY - geometry.safeTop,
+            width: width,
+            height: geometry.safeTop
+        )
+    }
+
     func frame(for state: PresentationState, on geometry: ScreenGeometry) -> CGRect {
-        // No physical notch here → behave like the card. Defensive only: the
-        // render rule (`Style.resolved(on:)`) already maps notch→card on a
-        // slitless display, so this rule normally runs on notched geometry.
-        guard geometry.safeTop > 0 else {
+        // No slit to hug here → behave like the card. Defensive only: the render
+        // rule (`Style.resolved(on:)`) already maps notch→card on such a display,
+        // asking this same slit rule, so this branch normally never runs.
+        guard let slit = Self.slit(on: geometry) else {
             return CardStyle().frame(for: state, on: geometry)
         }
 
         // The surface anchors at the slit (top edge flush with the screen top,
-        // centered on the display) but descends below it: the slit itself is the
+        // centered in the SLIT) but descends below it: the slit itself is the
         // camera's dead zone, so any content or hover target that lived there
         // would be invisible and would flicker on the cursor's fringe. Every
         // state's height is `safeTop` (the slit, the visual origin) plus a drop
@@ -39,9 +70,8 @@ struct NotchStyle: PresentationStyle {
         // Expanded only grows the drop; hover exit tracks the current state's
         // rect plus its band, so the hysteresis holds without a state-blind
         // union (docs/DECISIONS.md: hover-follows-the-eye).
-        let slitWidth = geometry.frame.width - geometry.auxLeft - geometry.auxRight
         let compactSize = CGSize(
-            width: slitWidth - 2 * NotchMetrics.lateralInset,
+            width: slit.width - 2 * NotchMetrics.lateralInset,
             height: geometry.safeTop + NotchMetrics.compactDrop
         )
         // Same width in every state: widening would land edges on live pixels
@@ -56,25 +86,27 @@ struct NotchStyle: PresentationStyle {
         case .hidden:
             // Collapsed to a point at the slit's center-top, so the show/hide
             // animation converges on the notch.
-            return CGRect(x: geometry.frame.midX, y: geometry.frame.maxY, width: 0, height: 0)
+            return CGRect(x: slit.midX, y: geometry.frame.maxY, width: 0, height: 0)
         case .nowPlaying(_, expanded: false), .hud:
-            return topAnchored(compactSize, on: geometry)
+            return topAnchored(compactSize, centeredIn: slit, on: geometry)
         case .nowPlaying(_, expanded: true):
-            return topAnchored(expandedSize, on: geometry)
+            return topAnchored(expandedSize, centeredIn: slit, on: geometry)
         }
     }
 
-    /// Centered on the display (the notch is physically centered), anchored
+    /// Centered in the slit — the cutout's own centre, derived from the rect
+    /// `slit(on:)` built out of the two edges, never the display's midX (the
+    /// hardware is not obliged to be symmetric, and this one is not). Anchored
     /// flush with the screen top, lateral edges snapped inward to device
     /// pixels. A fractional slit width (scale modes) would put the surface's
     /// antialiased edge a sub-pixel outside the cutout — near-invisible at
     /// rest, but a visible shimmer while the content animates and the edge
     /// re-rasterizes. Inward, because a half-pixel deficit hides against the
     /// black cutout while an excess sits on live pixels.
-    private func topAnchored(_ size: CGSize, on geometry: ScreenGeometry) -> CGRect {
+    private func topAnchored(_ size: CGSize, centeredIn slit: CGRect, on geometry: ScreenGeometry) -> CGRect {
         let scale = max(geometry.scale, 1)
-        let left = ((geometry.frame.midX - size.width / 2) * scale).rounded(.up) / scale
-        let right = ((geometry.frame.midX + size.width / 2) * scale).rounded(.down) / scale
+        let left = ((slit.midX - size.width / 2) * scale).rounded(.up) / scale
+        let right = ((slit.midX + size.width / 2) * scale).rounded(.down) / scale
         return CGRect(
             x: left,
             y: geometry.frame.maxY - size.height,
@@ -86,15 +118,12 @@ struct NotchStyle: PresentationStyle {
     /// Click-invoke zone: the physical slit only — dead pixels with no menu
     /// items and no app content under them, so capturing clicks there steals
     /// nothing. Deliberately not the compact frame: its drop band extends
-    /// below the menu bar over live window content.
+    /// below the menu bar over live window content. It IS `slit(on:)`'s rect
+    /// rather than a second derivation of it: the panel takes the mouse inside
+    /// this zone, so a zone that reaches a pixel the surface disowns captures
+    /// clicks over live menu bar (docs/DECISIONS.md: the-slit-is-found-from-its-edges).
     func invokeZone(on geometry: ScreenGeometry) -> CGRect? {
-        guard geometry.safeTop > 0 else { return nil }
-        return CGRect(
-            x: geometry.frame.minX + geometry.auxLeft,
-            y: geometry.frame.maxY - geometry.safeTop,
-            width: geometry.frame.width - geometry.auxLeft - geometry.auxRight,
-            height: geometry.safeTop
-        )
+        Self.slit(on: geometry)
     }
 
     @MainActor
@@ -136,16 +165,26 @@ enum NotchMetrics {
     static let contentPaddingHorizontal: CGFloat = 12
     /// Compact band content: the small cover with its single-line title and
     /// the waveform, sized to sit inside the 44 pt drop.
+    ///
+    /// This 8 is the band's ONE rhythm, horizontal and vertical alike
+    /// (`expandedGap`, `expandedSectionGap`), against the 10 the card and the
+    /// classic block declare for theirs. Tighter because width is the scarce axis
+    /// here: the slit is 185 pt at the default scale mode and ~125 at the
+    /// narrowest, so every point spent on a gap comes out of the title column,
+    /// whose floor NotchWidthBudgetTests pins. Three names because there are three
+    /// sites, not three rhythms — moving one alone is how the drift comes back.
     static let compactGap: CGFloat = 8
     static let compactArtworkSide: CGFloat = 26
     static let compactArtworkRadius: CGFloat = 6
-    /// The HUD row's gap (glyph | slider).
+    /// The HUD row's gap (glyph | slider) — the exception to the rhythm above, and
+    /// the same 10 the card's slider row uses: this row has two elements and no
+    /// title column to protect, so the air costs nothing that is scarce.
     static let hudGap: CGFloat = 10
-    /// Fixed column for that leading glyph, for the same reason as the card's:
-    /// the volume family steps through four symbols of different widths as the
-    /// level moves (HUDPresentation), and without a column of its own each swap
-    /// would shift the bar beside it.
-    static let hudIconColumnWidth: CGFloat = 22
+    /// Fixed column for that leading glyph — the shared indicator's column, read
+    /// from it rather than re-declared: both skins draw the same icon-beside-bar
+    /// row, and the column is what holds the bar still while the volume family
+    /// steps through four symbols of different widths (HUDPresentation).
+    static let hudIconColumnWidth: CGFloat = CardHUDIndicator.hudIconColumnWidth
     /// Expanded: the cutout stretching down (Dynamic Island). The width never
     /// changes (see the frame rule); the drop is derived from the reference
     /// layout's stacked sections (header, thin scrubber, transport) — like the
@@ -160,17 +199,23 @@ enum NotchMetrics {
             + controlsHeight
     }
 
-    /// Artwork stays small so the title column keeps ~120 pt of the narrow
-    /// surface — a 44 pt cover truncated most real titles.
+    /// Artwork stays small so the title column keeps 117 pt of the 185 pt slit
+    /// (185 − 24 padding − 36 cover − 8 gap) at the default scale mode, and 57 pt
+    /// at the narrowest one, which NotchWidthBudgetTests floors — a 44 pt cover
+    /// truncated most real titles.
     static let expandedArtworkSide: CGFloat = 36
     static let expandedArtworkRadius: CGFloat = 9
     static let expandedPaddingHorizontal: CGFloat = 12
     static let expandedPaddingVertical: CGFloat = 12
-    /// One gap for the expanded header row (artwork | text).
-    static let expandedGap: CGFloat = 10
+    /// The expanded header row (artwork | text), on the band's rhythm (compactGap).
+    static let expandedGap: CGFloat = 8
+    /// Between the expanded sections — the same rhythm, vertically.
     static let expandedSectionGap: CGFloat = 8
-    static let scrubberRowHeight: CGFloat = 16
-    static let controlsHeight: CGFloat = 28
+    /// Row heights are their content's OWN numbers, read from the types that own
+    /// them: a re-declared 16 or 28 here would let the derived drop keep promising
+    /// a height the scrubber or the transport block no longer has.
+    static let scrubberRowHeight: CGFloat = CapsuleTrack.trackHitHeight
+    static let controlsHeight: CGFloat = TransportControls.buttonSide
     /// Tighter than the transport's default 10: the band's width scales with
     /// the display's scale mode (the physical cutout is constant), and at the
     /// narrowest 14" mode (1024 pt wide) the content width is ~101 pt — three

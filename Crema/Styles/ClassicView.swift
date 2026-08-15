@@ -177,10 +177,14 @@ struct ClassicView: View, SurfaceStyleBody {
     }
 
     private var scrubber: some View {
+        // Both times, like the card: only the notch band is narrow enough that the
+        // trailing label would eat its drag range (see ScrubberRow). This block is
+        // 230 pt wide and shows the reference layout in full.
         ScrubberRow(
             position: scrubberPosition,
             duration: scrubberDuration,
             enabled: controlsEnabled,
+            showsDuration: true,
             onScrub: { scrubbed(to: $0) }
         )
     }
@@ -196,6 +200,10 @@ struct ClassicView: View, SurfaceStyleBody {
                 // skin echoes the translucent pre-Tahoe bezel, so the glyph
                 // carries the same lowered contrast as the segmented track.
                 .foregroundStyle(.secondary)
+                // The bar below already names the reading to VoiceOver
+                // (HUDLevelSlider); the glyph is a second telling of it, the same
+                // as in CardHUDIndicator's two bodies.
+                .accessibilityHidden(true)
                 .symbolReplace(on: presentation.iconSystemName)
             Spacer(minLength: 0)
             HUDLevelSlider(

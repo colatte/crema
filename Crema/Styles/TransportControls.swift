@@ -12,7 +12,7 @@ struct TransportControls: View {
     /// Skip availability is independent of play/pause: a source can accept
     /// one and reject the other (Coordinator.skipControlsEnabled).
     let skipEnabled: Bool
-    var buttonSide: CGFloat = 28
+    var buttonSide: CGFloat = Self.buttonSide
     /// Breathing room between the three hit targets. The notch band passes a
     /// tighter value (NotchMetrics.controlsSpacing): its width shrinks with
     /// the display's scale mode and the default overflows the narrowest one.
@@ -21,9 +21,16 @@ struct TransportControls: View {
     let onPlayPause: () -> Void
     let onNext: () -> Void
 
+    /// The transport row's height, owned here because it is this block's own hit
+    /// target: each skin's `controlsHeight` derives from it, so the row a surface
+    /// reserves and the row the buttons fill cannot be two different numbers.
+    nonisolated static let buttonSide: CGFloat = 28
+
     /// .plain buttons render custom labels unchanged when disabled — the
-    /// affordance has to be drawn by hand or the dead control looks live.
-    private static let disabledOpacity: Double = 0.35
+    /// affordance has to be drawn by hand or the dead control looks live. Shared
+    /// with the scrubber beside them: one dimming for every dead control on the
+    /// surface, or the bar reads as the only live thing on a player that is not.
+    nonisolated static let disabledOpacity: Double = 0.35
 
     var body: some View {
         HStack(spacing: spacing) {
@@ -47,6 +54,16 @@ struct TransportControls: View {
             .buttonStyle(.plain)
             .disabled(!enabled)
             .opacity(enabled ? 1 : Self.disabledOpacity)
+            // Explicit, like the skips beside it, and for the same two reasons:
+            // the derived label is whatever SF Symbols calls the glyph, which is
+            // not a string this app translates, and what a control announces is
+            // the command rather than the picture. This one also flips with the
+            // state it draws — the label is half the button's meaning.
+            .accessibilityLabel(
+                isPlaying
+                    ? String(localized: "transport.pause", defaultValue: "Pause")
+                    : String(localized: "transport.play", defaultValue: "Play")
+            )
             skipButton(
                 "forward.fill",
                 label: String(localized: "transport.nextTrack", defaultValue: "Next Track"),

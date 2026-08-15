@@ -784,6 +784,28 @@ plain forwarding read on the way up (`AppCore.betterDisplayIsReporting` is a com
 property over the source): caching it into a stored field anywhere on that path puts
 the staleness back.
 
+**Amendment (2026-08-15): the neighbour is heard the way the lock edges are, and
+the stand-down works from either side of the race.** Two things the probing did
+not settle. First, both registrations on the neighbour's names (the OSD payload
+and the command channel's answer) used the block-based cover, whose suspension
+behaviour defaults to Coalesce — held and collapsed by the server while the
+centre is suspended, which AppKit does whenever the app is not active, and an
+LSUIElement accessory essentially never is (`NSDistributedNotificationCenter.h`).
+The lock edges had already moved to selector registration with
+`.deliverImmediately` for exactly this; the neighbour's did not, and the
+asymmetry was ours: the request went out `deliverImmediately: true` while the
+answer came into a registration that could be held — a held answer being
+indistinguishable from silence at the deadline. Both now register through
+`DistributedPayloadRelay` with `.deliverImmediately`, so the integration no
+longer depends on how the neighbour chooses to post. Second, "stand the local key
+source down when the neighbour reports" assumed an order between the report and
+the local sample that does not exist: they arrive on different executors. A
+stand-down that finds no reading in flight now BANKS the announcement, and the
+next sample inside the key window consumes it (armed then disarmed under one
+lock) — stamped rather than counted, because an announcement with no key of ours
+behind it is the ordinary case, and an immortal credit would silence an
+unrelated later key. Pinned in `BetterDisplayOSDSourceTests`, both orderings.
+
 ### the-bar-never-outruns-the-screen
 The bar has no local value: it draws the last reading, and a drag publishes the
 new level BEFORE the write leaves so the fill follows the finger instead of
@@ -870,6 +892,22 @@ honours the promise the happy path made. Pinned in
 `BetterDisplayScreenBrightnessControllerTests` (the exit race, the orphan in the
 error) and `CoordinatorNeighbourBrightnessTests` (the fallback writes the
 orphan; a coalesced echo alone never decides the settle).
+
+**Amendment (2026-08-15): the echo is not evidence on the way back either.** The
+guard above held at the write site and leaked one hop later. The app's own echo
+is delivered to the bar by yielding it into the neighbour's HUD stream (that
+source never reports what third parties set), and it came back into
+`handleHUDUpdate` on the same path as a spontaneous reading — where it was
+recorded as one: `confirmedScreenBrightness` took the coalesced 0.9, and a
+coalesced echo still in the pipe when a failure landed revived
+`externalBrightnessReachable`, so the next frame hit the neighbour's deadline
+again. So a `SystemHUD` now carries its provenance (`.reading` or `.echo`): the
+Coordinator marks everything it hands to `onBrightnessApplied` for the neighbour
+as an echo, and only a reading becomes evidence or recovers a channel — an echo
+moves the bar and nothing else. Pinned by the loop test
+(`aCoalescedEchoStaysNoEvidenceAfterTheRoundTripThroughTheHUDStream`), which is
+the seam-and-recorder pair that existed before with the loop actually closed
+through `AppCore.wireBrightnessEcho` and a real neighbour source.
 
 ### hud-belongs-to-its-display
 The app has ONE state and one panel per screen, so every panel drew every HUD.
@@ -1158,6 +1196,20 @@ override — or a monitor plugged in — with the window open leaves the row on 
 previous answer until Settings is reopened. The list next to it is reactive
 because its rows ARE displays; this row is not a display, so it keeps the cheaper
 deal.
+
+**Amendment (2026-08-15): the per-display list is offered for every roster that
+is not empty.** It used to be gated — two displays, or a sole external, or an
+override somewhere — on the reasoning that a lone built-in panel's row would only
+repeat the declaration above it. That reasoning saw the style popup and missed
+the switch beside it: the row is the app's ONLY control for the now-playing
+surface, born from `defaultShowsNowPlaying(isInternal:)`, which is literally
+`isInternal`. The gate had a clause for the sole external (born OFF, nothing else
+turns it on) and none for its mirror — a sole internal panel, the most common
+Mac there is, born ON with nothing in the app able to turn it off. Both
+directions strand the user without a row, so the only roster that answers no is
+the empty one, which is a real state (Settings open across the last display
+going away), not a corner to trap on (`DisplayStyleOptions.listIsOffered`, pinned
+in `DisplayStyleOptionsTests`).
 
 ### sample-dont-integrate
 A UI ticker that adds a fixed step per tick is a clock that runs slow. Timers are
@@ -1514,6 +1566,25 @@ of the menu's gating: `MenuStatus` is built in `CremaMenu`'s body, whose every
 rebuild pull-reads the event-tap chain, so a gate over the media state would hang
 that system-wide probe off a value rewritten once a second — the whole thesis of
 `menu-reads-mirrors`.
+
+**Amendment (2026-08-15, fifth): the width ceiling counts what the hole fills
+with.** The third amendment put every menu line under about 72 characters and
+moved the breaks into the catalog; it measured the STATIC text and stopped there.
+The suspension warning interpolates a list of domains, and the line was written as
+if `%@` were worth nothing: with all three domains suspended, "volume, screen
+brightness, and keyboard brightness" is 50 characters on its own and the single
+line reached 85 — the wide menu the ceiling exists to prevent, reachable by
+turning the app on and having three channels fail. The rule the ceiling was
+missing: **a hole whose content comes from a CLOSED set is measured at its widest
+member, never at the empty string.** Where the content is closed the worst case is
+a fact, and the break goes wherever that fact needs it — here BEFORE the list, so
+the interpolation owns a line of its own and the ceiling holds at 52 (en) and 44
+(pt-BR) instead of 85 and 86. Both languages keep the same number of breaks, as
+the third amendment already required.
+The complement is stated so it is not read as a licence: a hole filled with
+EXTERNAL content — a track title, a neighbour app's name — has no worst case to
+measure, which is why the third amendment left the media block as data rather than
+chrome. What changes here is only the chrome whose holes the app itself fills.
 
 ### brightness-key-target-in-the-menu
 Correct behavior nobody can see reads as a bug: with an external monitor as the
@@ -2888,3 +2959,48 @@ surface had to be beautiful, legible at three metres, safe over a credential
 field, and correct on every panel size, all at once, on a display the app does
 not own. Anyone proposing it again should say which of those four they are
 dropping.
+
+### the-slit-is-found-from-its-edges
+The app carried **two rules for finding the same cutout**. The click-invoke zone
+and the Settings picture built the slit from its edges — `frame.minX + auxLeft`,
+`frame.width − auxLeft − auxRight`. The surface built it from the display's
+centre: `topAnchored` laid the rule width around `geometry.frame.midX`. The two
+agree only while `auxLeft == auxRight`, and diverge by `(auxRight − auxLeft) / 2`
+when they do not.
+
+They do not. The 14" panel this app was built on measures **663 pt left of the
+slit and 664 right** — the app's own reference geometry says so
+(`StylePreview.notchedReference`, and `StylePreviewTests` already called that
+asymmetry "the hardware's, not ours to round away"). So the display's centre is
+756 and the cutout's is 755.5, and the surface claimed x ∈ [663.5, 848.5] against
+a cutout ending at 848: **half a point of antialiased edge sitting on live
+menu-bar pixels**, on the default scale mode, on the author's own machine. That
+is precisely what `NotchMetrics.lateralInset`'s calibration forbids — its whole
+argument is that the edges land flush on pixel boundaries so the height morph has
+no fringe to re-rasterize, and it is written never to overhang even at rest.
+
+Decision: **one rule, `NotchStyle.slit(on:)`, and it is built from the two edges
+the API hands over.** The centre is derived from the rect, never the rect from a
+centre — a centre is an inference that the hardware is symmetric, and nothing in
+`NSScreen` promises that. Every reader asks that one function: the frame rule
+(which centres the surface in the slit's own midX), the click-invoke zone (which
+IS its rect), `StylePreview` (which pictures it), and `Style.resolved(on:)`. The
+zone matters most: the panel takes the mouse inside it, so a zone reaching a
+pixel the surface disowns captures clicks over live menu bar.
+
+**The same rule answers "is there a notch at all", and `safeTop` alone does not.**
+`NSScreen.h` documents both auxiliary rects as *"empty if there are no additional
+unobscured areas"*, so a top safe area with `auxLeft == auxRight == 0` describes a
+display whose obscured strip spans the full width — not a cutout. Read as one, the
+slit became the whole screen: a display-wide black surface welded to the top edge,
+and an invoke zone over the entire menu bar, captured by the panel and then handed
+to `Coordinator.invoke`, which refuses most clicks (it acts only from `.hidden`
+with something playing). Every menu-bar click in that state is swallowed and does
+nothing. So the criterion is now that the slit be **narrower than the display**,
+and a geometry that fails it resolves notch→card like any slitless panel.
+
+**Where the criterion stops, deliberately.** One empty auxiliary rect and one
+populated would pass — a slit flush against a screen edge. No Mac reports that,
+the header's sentence is about both rects together, and inventing a rule for
+hardware nobody ships is how the centre-inference got in. If such a panel ever
+appears, the rule is re-derived from a measurement of it, not guessed here.

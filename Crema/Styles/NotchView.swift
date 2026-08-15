@@ -196,9 +196,14 @@ struct NotchView: View, SurfaceStyleBody {
                 cornerRadius: NotchMetrics.compactArtworkRadius
             )
             // The family's type ramp, single line — the narrow band carries
-            // no artist.
+            // no artist. It also takes the flexible role, pinning the waveform
+            // to the trailing edge: a Spacer would do the same and charge for
+            // it, because each of its neighbours pays the HStack's own spacing —
+            // the gap beside it lands doubled (8 becomes 16), 8 pt of title
+            // spent on air on the narrowest surface in the app. Same rule the
+            // card's rows follow.
             TrackTextStack(title: track.title, artist: nil)
-            Spacer(minLength: 0)
+                .frame(maxWidth: .infinity, alignment: .leading)
             // Same live waveform as the other skins (one implementation):
             // dancing while playing, frozen when paused.
             WaveformGlyph(animating: track.isPlaying)
@@ -218,8 +223,11 @@ struct NotchView: View, SurfaceStyleBody {
                     side: NotchMetrics.expandedArtworkSide,
                     cornerRadius: NotchMetrics.expandedArtworkRadius
                 )
+                // Flexible role on the text again, never a trailing Spacer: the
+                // Spacer is a subview like any other, so the row pays its gap to
+                // reach it — 8 pt of title column for nothing (see compactContent).
                 TrackTextStack(title: track.title, artist: track.artist)
-                Spacer(minLength: 0)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(height: NotchMetrics.expandedArtworkSide)
             scrubber
@@ -258,8 +266,18 @@ struct NotchView: View, SurfaceStyleBody {
         let presentation = HUDPresentation(hud: hud)
         return HStack(spacing: NotchMetrics.hudGap) {
             Image(systemName: presentation.iconSystemName)
-                .frame(width: NotchMetrics.hudIconColumnWidth)
-                .symbolReplace(on: presentation.iconSystemName)
+                // Anchored leading inside the column, not centred: the volume
+                // family steps through glyphs of different widths as the level
+                // moves (HUDPresentation), and a centred glyph slides inside its
+                // own column at every swap — the column exists to hold the BAR
+                // still, not to re-centre the icon. The card's fused indicator
+                // already anchors its glyph to the leading edge for the same reason.
+                    .frame(width: NotchMetrics.hudIconColumnWidth, alignment: .leading)
+                    // The slider beside it is the accessibility element and carries the
+                    // label; unhidden, the glyph makes VoiceOver read the symbol's name
+                    // before the control it decorates.
+                    .accessibilityHidden(true)
+                    .symbolReplace(on: presentation.iconSystemName)
             HUDLevelSlider(kind: hud.kind, value: presentation.value, onChange: { hudSliderMoved(to: $0) }, onRelease: { hudSliderReleased() },
                            isHovered: displayPolicy.pointerInside)
         }

@@ -4,8 +4,8 @@ import Testing
 
 /// Notch frame rule: pure function of
 /// (state, ScreenGeometry). The surface anchors at the slit (top edge flush with
-/// the screen top, centered) but descends below it into visible pixels; the
-/// expanded rect fully contains the compact one, giving hover hysteresis. No AppKit.
+/// the screen top, centred IN THE SLIT) but descends below it into visible pixels;
+/// the expanded rect fully contains the compact one, giving hover hysteresis. No AppKit.
 @MainActor
 struct NotchFrameRuleTests {
 
@@ -20,14 +20,41 @@ struct NotchFrameRuleTests {
         auxLeft: 663.5,
         auxRight: 663.5
     )
+    /// The SAME panel as measured rather than rounded: 663 pt left of the slit and
+    /// 664 right (StylePreview.notchedReference, the numbers the Settings picture
+    /// draws). The fixture above splits the difference; this one keeps the
+    /// hardware's own half point, and that half point is the whole test — a rule
+    /// that finds the slit by the DISPLAY's centre lands half a point right of the
+    /// cutout's, on live menu-bar pixels
+    /// (docs/DECISIONS.md: the-slit-is-found-from-its-edges).
+    private let asymmetric = ScreenGeometry(
+        frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+        safeTop: 32,
+        auxLeft: 663,
+        auxRight: 664
+    )
     private let noNotch = ScreenGeometry(frame: CGRect(x: 0, y: 0, width: 1512, height: 982))
 
-    private var slitWidth: CGFloat { notched.frame.width - notched.auxLeft - notched.auxRight }   // 185
+    private var slitWidth: CGFloat { slitWidth(of: notched) }   // 185
+
+    private func slitWidth(of geometry: ScreenGeometry) -> CGFloat {
+        geometry.frame.width - geometry.auxLeft - geometry.auxRight
+    }
+
+    /// Every state that actually draws a surface — `.hidden` is a point and has no
+    /// edges to compare against the cutout's.
+    private var visibleStates: [PresentationState] {
+        [
+            .nowPlaying(track, expanded: false),
+            .nowPlaying(track, expanded: true),
+            .hud(SystemHUD(kind: .volume, value: 0.5)),
+        ]
+    }
 
     @Test func compactAnchorsAtTheSlitTuckedInsideIt() {
         let frame = style.frame(for: .nowPlaying(track, expanded: false), on: notched)
         #expect(frame.width == slitWidth - 2 * NotchMetrics.lateralInset)
-        #expect(frame.midX == notched.frame.midX)                              // centered on the display
+        #expect(frame.midX == notched.frame.midX)                              // this fixture's slit is centred, so both centres agree
         #expect(frame.maxY == notched.frame.maxY)                              // top flush with the screen top
     }
 
@@ -59,13 +86,56 @@ struct NotchFrameRuleTests {
         // Flush with the cutout is the calibrated ideal (lateralInset 0 — any
         // tuck reads recessed on hardware); an edge past the slit would land
         // on live pixels and cover the clickable menu bar. So: within, never
-        // beyond.
-        let slitLeft = notched.auxLeft
-        let slitRight = notched.frame.width - notched.auxRight
-        for state in [PresentationState.nowPlaying(track, expanded: false), .nowPlaying(track, expanded: true), .hud(SystemHUD(kind: .volume, value: 0.5))] {
-            let frame = style.frame(for: state, on: notched)
-            #expect(frame.minX >= slitLeft)
-            #expect(frame.maxX <= slitRight)
+        // beyond. Asked of the asymmetric panel too, where a display-centred
+        // rule overshoots the right edge by half a point.
+        for geometry in [notched, asymmetric] {
+            let slitLeft = geometry.frame.minX + geometry.auxLeft
+            let slitRight = geometry.frame.maxX - geometry.auxRight
+            for state in visibleStates {
+                let frame = style.frame(for: state, on: geometry)
+                #expect(frame.minX >= slitLeft)
+                #expect(frame.maxX <= slitRight)
+            }
+        }
+    }
+
+    @Test func theSurfaceIsCentredInTheSlitNotInTheDisplay() throws {
+        // One rule finds the cutout, and the surface, the click-invoke zone and
+        // that rule's own rect are the same span of x. On the measured 663/664
+        // panel the display's centre (756) and the slit's (755.5) differ, which
+        // is what let the surface claim [663.5, 848.5] against a cutout ending at
+        // 848 — half a point of antialiased edge on live menu-bar pixels.
+        let slit = try #require(NotchStyle.slit(on: asymmetric))
+        #expect(slit.midX != asymmetric.frame.midX, "the fixture must be asymmetric or it proves nothing")
+        let zone = try #require(style.invokeZone(on: asymmetric))
+        #expect(zone == slit)
+        for state in visibleStates {
+            let frame = style.frame(for: state, on: asymmetric)
+            #expect(frame.midX == slit.midX)
+            #expect(frame.minX == slit.minX)
+            #expect(frame.maxX == slit.maxX)
+        }
+    }
+
+    @Test func aFullWidthSafeAreaIsNotANotch() {
+        // NSScreen.h documents both auxiliary rects as "empty if there are no
+        // additional unobscured areas", so a top safe area with no aux coverage
+        // describes an obscured strip spanning the display — not a cutout. Read as
+        // one, the slit would be the whole 1512 pt: a display-wide surface welded
+        // to the top edge, and an invoke zone over the entire menu bar, which the
+        // panel captures the mouse inside for clicks Coordinator.invoke refuses.
+        let fullWidthSafeArea = ScreenGeometry(
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            safeTop: 32
+        )
+        #expect(NotchStyle.slit(on: fullWidthSafeArea) == nil)
+        #expect(style.invokeZone(on: fullWidthSafeArea) == nil)
+        // The declared→drawn resolver asks the same rule, so the picker, the
+        // panels and this geometry cannot disagree about what is drawn here.
+        #expect(Style.notch.resolved(on: fullWidthSafeArea) == .card)
+        #expect(!Style.notch.isHonoured(on: fullWidthSafeArea))
+        for state in visibleStates + [.hidden] {
+            #expect(style.frame(for: state, on: fullWidthSafeArea) == CardStyle().frame(for: state, on: fullWidthSafeArea))
         }
     }
 
@@ -87,11 +157,15 @@ struct NotchFrameRuleTests {
         #expect(expanded.contains(compact))
     }
 
-    @Test func hiddenCollapsesToThePointAtTheSlit() {
+    @Test func hiddenCollapsesToThePointAtTheSlit() throws {
         let frame = style.frame(for: .hidden, on: notched)
         #expect(frame.isEmpty)
         #expect(frame.midX == notched.frame.midX)
         #expect(frame.maxY == notched.frame.maxY)
+        // The point the show/hide animation converges on is the CUTOUT's centre,
+        // which on the measured 663/664 panel is not the display's.
+        let slit = try #require(NotchStyle.slit(on: asymmetric))
+        #expect(style.frame(for: .hidden, on: asymmetric).midX == slit.midX)
     }
 
     @Test func fallsBackToTheCardOnADisplayWithoutANotch() {
@@ -111,14 +185,18 @@ struct NotchFrameRuleTests {
     @Test func invokeZoneIsExactlyThePhysicalSlit() {
         // The click-invoke zone must be dead territory only: the slit rect,
         // never the compact frame (whose drop band overlaps live content
-        // below the menu bar) and never the flanking menu-bar areas.
-        let zone = style.invokeZone(on: notched)
-        #expect(zone == CGRect(
-            x: notched.auxLeft,
-            y: notched.frame.maxY - notched.safeTop,
-            width: slitWidth,
-            height: notched.safeTop
-        ))
+        // below the menu bar) and never the flanking menu-bar areas. Written out
+        // from the aux edges rather than read back from the rule, and asked of the
+        // asymmetric panel too — the zone is where clicks are captured, so it may
+        // not inherit a centre-derived guess of where the cutout is.
+        for geometry in [notched, asymmetric] {
+            #expect(style.invokeZone(on: geometry) == CGRect(
+                x: geometry.frame.minX + geometry.auxLeft,
+                y: geometry.frame.maxY - geometry.safeTop,
+                width: slitWidth(of: geometry),
+                height: geometry.safeTop
+            ))
+        }
         // Without a slit there is nothing dead to claim.
         #expect(style.invokeZone(on: noNotch) == nil)
         // The floating styles never click-invoke: their regions sit over

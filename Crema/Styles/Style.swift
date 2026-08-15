@@ -16,8 +16,13 @@ enum Style: String, CaseIterable, Equatable, Sendable {
     /// the drawn one: the WindowManager builds every panel through it and Settings
     /// gates its Card-scoped controls on the same answer, so the two cannot
     /// disagree by accident (docs/DECISIONS.md: rendered-style-gates-settings).
+    ///
+    /// "Has a slit" is asked of the skin's own slit rule, not of `safeTop`: a top
+    /// safe area with empty auxiliary areas is an obscured strip spanning the
+    /// whole width, which is a display the notch skin cannot hug rather than a
+    /// notch it can (docs/DECISIONS.md: the-slit-is-found-from-its-edges).
     func resolved(on geometry: ScreenGeometry) -> Self {
-        self == .notch && geometry.safeTop <= 0 ? .card : self
+        self == .notch && NotchStyle.slit(on: geometry) == nil ? .card : self
     }
 
     /// Whether this display draws the style as chosen instead of the fallback

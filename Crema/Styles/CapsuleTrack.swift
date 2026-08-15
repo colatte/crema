@@ -32,7 +32,7 @@ struct CapsuleTrack: View {
     // through, instead of riding the wallpaper's luminance. The 16 pt hit row is
     // the measured height of the stock Slider both callers replaced: the drag
     // target must not regress and no surrounding layout may move.
-    static let trackHitHeight: CGFloat = 16
+    nonisolated static let trackHitHeight: CGFloat = 16
     static let trackThickness: CGFloat = 4
     static let trackBase = Color.black.opacity(0.25)
     static let trackWash = Color.white.opacity(0.15)

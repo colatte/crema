@@ -2,10 +2,12 @@ import AppKit
 import SwiftUI
 
 /// Accent tone derived from the album cover — the Apple restraint model: one
-/// contained tone on the highlight elements (waveform bars, scrubber fill),
-/// everything else neutral. Extraction is pure over downsampled pixels so the
-/// picking policy is unit-testable; nil means "no usable tone" and every
-/// consumer falls back to its neutral style.
+/// contained tone on a single highlight element, the waveform bars, and
+/// everything else neutral. The scrubber is deliberately NOT a consumer: the bar
+/// is a control, and a control reads white (docs/DECISIONS.md:
+/// hud-capsule-track). Extraction is pure over downsampled pixels so the picking
+/// policy is unit-testable; nil means "no usable tone" and the one consumer falls
+/// back to its neutral style.
 enum ArtworkAccent {
     /// The picked tone: hue and saturation already clamped; brightness is kept
     /// raw and resolved into the single display band. One band suffices because
@@ -50,6 +52,16 @@ enum ArtworkAccent {
     /// The tint fades in when extraction lands (mid-crossfade, a beat after
     /// the surface) — a bare snap read as a flicker against the ghost.
     static let toneFadeDuration: Double = 0.25
+
+    /// Under Reduce Motion the tone arrives without the fade — nil is
+    /// `withAnimation`'s own "no animation". The gate belongs here for the same
+    /// reason every animated leaf carries one (MG5): the preference is a standing
+    /// request over the whole app, and a tint sliding in on a surface that sits
+    /// over the menu bar is motion like any other. Same shape as
+    /// `CapsuleTrack.knobReveal`, which answers nil and lets the knob snap.
+    static func toneFade(reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : .easeInOut(duration: toneFadeDuration)
+    }
 
     /// Full pipeline from raw artwork bytes: bounded decode (the same ImageIO
     /// thumbnail path the ArtworkView uses), downsample, pick. Nil anywhere
@@ -185,8 +197,8 @@ extension EnvironmentValues {
 }
 
 extension View {
-    /// Derives the accent from the artwork bytes and injects it for the
-    /// shared components (WaveformGlyph, ScrubberRow) below. Applied above
+    /// Derives the accent from the artwork bytes and injects it for the one
+    /// component that tints with it below (`WaveformGlyph`). Applied above
     /// the crossfading branches (one instance per skin view), so the state
     /// survives compact↔expanded and extraction truly runs once per cover —
     /// keyed on the bytes, which position ticks never change — and off the
@@ -199,6 +211,7 @@ extension View {
 private struct ArtworkAccentModifier: ViewModifier {
     let data: [UInt8]?
     @State private var accent: ArtworkAccent.Tone?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
@@ -215,7 +228,7 @@ private struct ArtworkAccentModifier: ViewModifier {
                 // hopped-off work isn't cancelled with it (ImageIO never checks),
                 // and a slow old cover would land its tone over the successor's.
                 guard !Task.isCancelled else { return }
-                withAnimation(.easeInOut(duration: ArtworkAccent.toneFadeDuration)) {
+                withAnimation(ArtworkAccent.toneFade(reduceMotion: reduceMotion)) {
                     accent = tone
                 }
             }

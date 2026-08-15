@@ -240,7 +240,11 @@ struct CardView: View, SurfaceStyleBody {
                 side: CardMetrics.compactArtworkSide,
                 cornerRadius: CardMetrics.compactArtworkRadius
             )
-            TrackTextStack(title: track.title, artist: track.artist, spacing: CardMetrics.textStackSpacing)
+            // No spacing argument, here or in the expanded header: the
+            // title-over-artist gap belongs to the stacked text, which is the same
+            // element in both states and in the other two skins — so every call
+            // site takes the component's own default rather than naming a second 2.
+            TrackTextStack(title: track.title, artist: track.artist)
                 .frame(maxWidth: .infinity, alignment: .leading)
             // Compact only: here it is the sole "playing" signal. Expanded
             // already says it twice (scrubber motion + pause glyph).
@@ -271,7 +275,7 @@ struct CardView: View, SurfaceStyleBody {
                 side: CardMetrics.expandedArtworkSide,
                 cornerRadius: CardMetrics.expandedArtworkRadius
             )
-            TrackTextStack(title: track.title, artist: track.artist, spacing: CardMetrics.textStackSpacing)
+            TrackTextStack(title: track.title, artist: track.artist)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: CardMetrics.expandedArtworkSide)

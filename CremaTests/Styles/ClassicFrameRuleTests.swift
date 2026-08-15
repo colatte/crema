@@ -36,13 +36,15 @@ struct ClassicFrameRuleTests {
         #expect(expanded.contains(compact))
     }
 
-    /// Pinned-latent fence (CONTRACTS-AUDIT G2): ClassicStyle.windowFrame builds
-    /// the fixed window from ONLY the expanded state's rule frame, silently
-    /// assuming expanded dominates compact AND hud on both axes (true today by
-    /// metric coincidence: expanded 230×224 vs hud 200×200 vs compact 170×170).
-    /// This converts that silent assumption into a loud fence — grow
-    /// ClassicMetrics.hud or .compact past expanded on either axis and this
-    /// fails, pointing straight at windowFrame's union-of-one shortcut.
+    /// Pinned-latent fence (docs/CONTRACTS.md: G2), kept past the shortcut it
+    /// was written against: ClassicStyle.windowFrame once built the fixed window
+    /// from ONLY the expanded state's rule frame, on the silent assumption that
+    /// expanded dominates compact AND hud on both axes (true by metric
+    /// coincidence: expanded 230×224 vs hud 200×200 vs compact 170×170). The
+    /// window now unions the three states, so nothing clips if the assumption
+    /// breaks — but the Classic's headroom and anchor arithmetic still assume
+    /// expanded is the tallest, so the fence stays loud: grow ClassicMetrics.hud
+    /// or .compact past expanded on either axis and this fails first.
     @Test func expandedDominatesEveryOtherStateFrame_pinnedLatentG2() {
         let expanded = style.frame(for: .nowPlaying(track, expanded: true), on: geometry)
         let others: [PresentationState] = [
@@ -58,8 +60,8 @@ struct ClassicFrameRuleTests {
             #expect(frame.width <= expanded.width)
             #expect(frame.height <= expanded.height)
         }
-        // The window really is derived from expanded alone, so it inherits the
-        // dominance above — if that ever breaks, the morph clips at the edge.
+        // The window unions every state, so it holds them by construction; this
+        // half is the contract the union must never lose.
         let window = style.windowFrame(on: geometry)
         for state in others {
             #expect(window.contains(style.frame(for: state, on: geometry)))
