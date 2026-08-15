@@ -1,8 +1,12 @@
 # Roadmap
 
+> Directions and possibilities for Crema — never promises, never dated
+> commitments, and never an execution plan. What the app does today is
+> [SPEC.md](SPEC.md); the order the open work is taken in is
+> [PLAN.md](PLAN.md).
+
 Crema does a few things, and tries to do them well. This is where it might go
-next — directions and possibilities, not promises or dated commitments. If one of
-these matters to you, contributions are welcome; see
+next. If one of these matters to you, contributions are welcome; see
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## External displays

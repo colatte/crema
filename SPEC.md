@@ -84,13 +84,14 @@ An optional enhancement: without BetterDisplay nothing arrives, the source sits 
 
 - Calendar, widgets, file drop / AirDrop.
 - Mirror/webcam, teleprompter, clipboard.
+- Telemetry of any kind — the app collects nothing and phones nowhere; the only network traffic it originates is Sparkle's update check (docs/DECISIONS.md).
 - A DDC implementation of our own — external brightness and volume control is delegated to BetterDisplay/Lunar. For brightness both directions already exist over that channel; what is missing is volume (see "Planned / not implemented").
 
 ## Modules
 
 Architecture: one core, several views.
 
-- **Sources** — system integration (the fragile part): now playing, volume, screen brightness, keyboard brightness, media keys, native HUD suppression and screen lock state. Every point of contact with the system sits behind a protocol, so it can be swapped without affecting the rest. The BetterDisplay integration is just one more source, behind the same protocol (`Sources/External/`); Lunar stays roadmap.
+- **Sources** — system integration (the fragile part): now playing, volume, screen brightness, keyboard brightness, media keys, native HUD suppression and screen lock state. Every point of contact with the system sits behind a protocol, so it can be swapped without affecting the rest. The BetterDisplay integration is just one more source, behind the same protocol (`Crema/Sources/External/`); Lunar stays roadmap.
 - **Domain** — the app's own types (`NowPlaying`, `SystemHUD`); nothing of Apple's leaks into the layers above.
 - **Coordinator** — decides what appears on screen (`hidden` / `nowPlaying` / `hud`), with priority between states and timers.
 - **WindowManager** — one window per screen; resolves the style per display and scopes the HUD to the display it names (`effectiveState`).
@@ -99,11 +100,15 @@ Architecture: one core, several views.
 
 ## Stack
 
+The technologies, and why each one is here. The versions, the deployment target
+and the SDK the build links against live in [CLAUDE.md](CLAUDE.md)'s Stack
+table, which owns them — a second copy here is the one nobody updates.
+
 - **Swift + SwiftUI** — UI and animations.
 - **AppKit** — borderless NSPanel; accessory app (LSUIElement).
-- **Target**: macOS on Apple Silicon and Intel, with and without a notch. Minimum version: **macOS 14 (Sonoma)**.
-- **Auxiliary bridges**: mediaremote-adapter (a Perl bridge) for now playing on **all supported versions**, with a JXA fallback and an availability check — never MediaRemote directly (blocked without an entitlement from macOS 15.4 on; a single path avoids branching by version).
-- **Distribution**: direct download, outside the Mac App Store (private API use rules it out). Signing through `scripts/release.sh`, which supports three modes (ad-hoc / self-signed / Developer ID + notarization); what ships today is **self-signed** (a stable code identity, so the Accessibility grant persists; Gatekeeper still asks for "Open Anyway"; Developer ID awaits an Apple Developer account — see "Planned / not implemented"). Auto-update through **integrated Sparkle** (SPM 2.9.4, compiled in Release only): the cycle **has operated since v1.2.0**, with the appcast published on GitHub Pages. `release.sh` regenerates the signed `docs/appcast.xml` on every release; publishing is a commit+push the script prints and never runs.
+- **Target**: macOS on Apple Silicon and Intel, with and without a notch.
+- **Auxiliary bridges**: mediaremote-adapter (a Perl bridge) for now playing on **all supported versions**, with a JXA fallback and an availability check — never MediaRemote directly (constraint 1; a single path avoids branching by version).
+- **Distribution**: direct download, outside the Mac App Store (private API use rules it out). Signing through `scripts/release.sh`, which supports three modes (ad-hoc / self-signed / Developer ID + notarization); what ships is **self-signed** (a stable code identity, so the Accessibility grant persists; Gatekeeper still asks for "Open Anyway"; Developer ID awaits an Apple Developer account — see "Planned / not implemented"). Auto-update through **integrated Sparkle**, compiled in Release only: the cycle is live, with the appcast published on GitHub Pages. `release.sh` regenerates the signed `docs/appcast.xml` on every release; publishing is a commit+push the script prints and never runs.
 - **App name**: **Crema** (bundle ID `com.colatte.crema`).
 
 ## Technical constraints
@@ -115,7 +120,7 @@ Architecture: one core, several views.
 
 ## Acceptance criteria
 
-The criteria live in **[docs/ACCEPTANCE.md](docs/ACCEPTANCE.md)** and only there — 19 numbered items, each one checkable by a person on a running Crema. Two homes for one list is how a list ends up with two versions of item 4: while this file kept a copy, the two drifted (the published one carried a pair of criteria the internal one had already retired). A new criterion is written there, in the same round as the behaviour it describes.
+The criteria live in **[docs/ACCEPTANCE.md](docs/ACCEPTANCE.md)** and only there — 21 numbered items, two of them retired with the lock-screen surface, each live one checkable by a person on a running Crema. Two homes for one list is how a list ends up with two versions of item 4, which is why this file points instead of restating. A new criterion is written there, in the same round as the behaviour it describes.
 
 ## Planned / not implemented (future roadmap)
 
@@ -155,9 +160,6 @@ Acceptance criterion (when activated): the downloaded `.dmg` opens with no "unid
 
 ## Open decisions
 
-- [ ] **The format of Lunar's socket events** — the output of `lunar listen`, to be researched in the implementation (affects T7.4).
-- [x] **App name** — resolved: Crema, bundle ID `com.colatte.crema`.
-- [x] **The appcast URL** — resolved: `https://colatte.github.io/crema/appcast.xml`, configured as `SUFeedURL` (re-addressed when the repository moved to the organization; Pages does not redirect between accounts).
-- [x] **Where the high-resolution cover comes from** — resolved: the Cover Art Archive, never Apple's Search API, whose terms grant album art only beside a purchase badge (docs/DECISIONS.md: the-cover-comes-from-the-archive-not-the-store). The feature was then removed whole with the expanded state that fed it (2026-08-08), so the decision has no subject; the reasoning stands for whoever picks a source again.
-- [x] **Migrating to the observer model (SlimHUD's style)** — resolved: evaluated and **discarded** — freezing OSDUIHelper does not suppress the per-key OSD on macOS 26 (measured on hardware; the renderer is ControlCenter), and an orphaned SIGSTOP violates reversibility under crash.
-- [x] **The concrete private brightness APIs** — resolved: screen via DisplayServices, keyboard via CoreBrightness `KeyboardBrightnessClient` with an enumerated ID; CoreDisplay and IOKit discarded, tested and non-functional on this hardware (CLAUDE.md, "Never do").
+No product or scope decision is pending. The one open decision in the system —
+the format of Lunar's socket events — gates task T7.4 and therefore lives in
+[PLAN.md](PLAN.md), which owns decisions of execution.

@@ -15,7 +15,7 @@
 - [CONTRIBUTING.md](https://github.com/colatte/crema/blob/main/CONTRIBUTING.md) — how to contribute.
 - [CLAUDE.md](https://github.com/colatte/crema/blob/main/CLAUDE.md) — the contract for how code is written in this repository: architecture, conventions, concurrency, and the rules the layers live by. Read at the start of every working session; evolves with the code.
 - [SPEC.md](https://github.com/colatte/crema/blob/main/SPEC.md) — what the app is and why, with everything planned-but-not-built isolated in a final section. The acceptance criteria are not restated there; they live in `ACCEPTANCE.md` below.
-- [PLAN.md](https://github.com/colatte/crema/blob/main/PLAN.md) — the order of execution: what already stands (as an inventory), and the residues still open, each with the module that owns it.
+- [PLAN.md](https://github.com/colatte/crema/blob/main/PLAN.md) — the order of execution: only what is still open, each item with the module that owns it. What already stands is not listed there — the shipped app is described, in the present, by `SPEC.md`.
 - [LICENSE](https://github.com/colatte/crema/blob/main/LICENSE) — GPL-3.0.
 - `release-notes/` — one file per released version, `<version>.html` (or `.md`), which `scripts/release.sh` feeds to the Sparkle update panel and `gh release create` to the GitHub Release body. Versioned because that text ships to every user anyway.
 
