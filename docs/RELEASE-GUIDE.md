@@ -461,6 +461,18 @@ git push
 > whichever your flow is). The enclosure has to be published in the Release
 > **first** — otherwise the app finds the item and 404s on the download.
 
+**The appcast commit is the last step, and it never parks on a branch.** If the
+Release is not published in the same sitting, revert the appcast commit
+(`git revert <sha>`) and regenerate it when the release actually goes out. The
+reason is that the commit does not need a release to reach the users: it goes
+live on the next push to `main` for *any* reason — a documentation merge, a
+README fix — and whoever runs that merge is not thinking about Sparkle. The
+feed then advertises a version whose Release does not exist, and every client
+that checks in that window downloads a 404. An entry left waiting is not a
+release half-done; it is a trap armed on someone else's branch, and the git
+history keeps it recoverable (`git show <sha>` restores the whole entry,
+signature included) at no cost.
+
 ### 5.5 Post-publication verification
 
 > **Wait for GitHub Pages to republish.** After the push, Pages takes tens of

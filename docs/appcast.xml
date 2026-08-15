@@ -4,46 +4,49 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>Crema</title>
         <item>
-            <title>1.5.2</title>
-            <pubDate>Sun, 09 Aug 2026 13:44:41 -0400</pubDate>
-            <sparkle:version>10502</sparkle:version>
-            <sparkle:shortVersionString>1.5.2</sparkle:shortVersionString>
+            <title>1.5.1</title>
+            <pubDate>Fri, 07 Aug 2026 12:24:31 -0400</pubDate>
+            <sparkle:version>10501</sparkle:version>
+            <sparkle:shortVersionString>1.5.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<p><strong>Crema 1.5.2</strong></p>
+            <description><![CDATA[<h2>Crema 1.5.1</h2>
 
-<p>A maintenance release: fixes across the HUD pipeline, and wording polish in
-both languages.</p>
+<p>A maintenance release: two fixes and a translation pass. Nothing about how the
+app works changed.</p>
 
 <h3>Fixed</h3>
 <ul>
-  <li>Dragging a brightness bar backed by BetterDisplay is more trustworthy:
-      the bar only anchors to levels confirmed on the wire, and if the channel
-      fails mid-drag the fallback now writes the exact level your finger
-      stopped at — never one it passed through.</li>
-  <li>When Crema hands a key back to the system, its own bar now stands down
-      too — one keypress, one indicator, in every case.</li>
-  <li>A failed mute read during volume-up no longer leaves the Mac muted while
-      the bar keeps rising.</li>
-  <li>Clicks now land exactly on the visible surface while it appears, matching
-      hover — clicks in the dead margin no longer fall through.</li>
-  <li>A completed hover gesture no longer re-routes a later interaction in
-      styles that commit immediately.</li>
+  <li><strong>The style tiles told the truth about which style they mean.</strong>
+      The tiles in Settings &rsaquo; General — and the ones in the welcome tour —
+      were seeded with the main display's <em>resolved</em> style. If that display
+      carried a per-display override, the override showed up selected in the
+      control that speaks for <em>every</em> screen, claiming a declaration nobody
+      had made, one row above the row already reporting it correctly as that
+      display's own.</li>
+  <li><strong>Helium no longer surfaces as a music player.</strong> YouTube playing
+      in Helium reached the notch as if it were a player, because a Chromium fork
+      gets its own bundle identifier and slipped past the browser filter. Helium is
+      now filtered like every other browser, so it only appears when you have asked
+      for browser media.</li>
 </ul>
 
-<h3>Polish</h3>
+<h3>Improved</h3>
 <ul>
-  <li>Portuguese (Brazil) strings revised to match the system's own register.
-      The three style names — Notch, Card, Classic — are product names and stay
-      in English in both languages.</li>
-  <li>Small English wording fixes in the menu and Settings.</li>
+  <li>Brazilian Portuguese wording, tightened throughout.</li>
 </ul>
 
 <p><strong>Requirements:</strong> macOS 14 (Sonoma) or later · Apple Silicon or Intel.</p>
+
+<p>Crema isn't notarized by Apple, so a fresh install needs one extra step on first
+launch — see <a href="https://github.com/colatte/crema#first-launch">First launch</a>
+in the README. Updating from 1.2.0 or later happens on its own.</p>
+
+<p>Free and open source under GPL-3.0.</p>
 ]]></description>
-            <enclosure url="https://github.com/colatte/crema/releases/download/v1.5.2/Crema-1.5.2.dmg" length="3438988" type="application/octet-stream" sparkle:edSignature="xgiYIi/ZVkfsJwiZmbBVQ7O1eZBKcHJqXJcL6LEnDBjPe3cCy59kwLHovygCrm8kzxWPorQGAqLI62UfonqRBw=="></enclosure>
+            <enclosure url="https://github.com/colatte/crema/releases/download/v1.5.1/Crema-1.5.1.dmg" length="3424672" type="application/octet-stream" sparkle:edSignature="VwNjP/FIb8ww0RnTp8/wEx2tZPoOovWyN+t4Z2FUove4lMOvATNpxc0l2nIZJ7woiBYQmBeBHt8243B5o51QBg=="></enclosure>
         </item>
     </channel>
 </rss><!-- sparkle-signatures:
-edSignature: cao7HbsLpvjwbMWkKsQaozhHHz8Jg8XtEH1BBMhSQ0A3UiO+CNcI84N9DCJL8JktQqtN+xbkTsWtyNcJWD8vCg==
-length: 2444
+edSignature: w7UmmWmUj0I7sT8cz9OTKUx3gC4y4xPpbw+XWSpdnRr3HkBfiOAAimjgQkNN8s0305sgscEvGCe5YNhBhfQuDg==
+length: 2591
 -->
