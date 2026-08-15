@@ -25,8 +25,8 @@ final class BetterDisplayCommandChannel: BetterDisplayCommanding {
         case refused
     }
 
-    static let requestName = "pro.betterdisplay.BetterDisplay.request"
-    static let responseName = "pro.betterdisplay.BetterDisplay.response"
+    private static let requestName = "pro.betterdisplay.BetterDisplay.request"
+    private static let responseName = "pro.betterdisplay.BetterDisplay.response"
 
     private let clock: any SleepClock
     private let timeout: Double

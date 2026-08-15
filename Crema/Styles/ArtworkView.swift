@@ -1,17 +1,11 @@
 import AppKit
 import SwiftUI
 
-/// Album art with a one-time decode. The hosting views re-run body on every
-/// position tick (they read the live scrubber position), so decoding inline
-/// would rerun `NSImage(data:)` on the identical bytes each second — the live
-/// snapshot re-carries the same artwork every emit. Caching in @State keyed by
-/// the bytes decodes only when they change (a new cover); @State holds a
-/// purely-visual artifact, not domain. The placeholder (♪) stands in when a
-/// track has no artwork or bytes haven't arrived yet.
-/// What a cover slot LOOKS like, with no opinion about who decoded it. Shared
-/// so the view that owns a decode and the view that is handed one cannot drift
-/// apart on the placeholder, the clip or the fill rule.
-struct ArtworkFrame: View {
+/// What a cover slot LOOKS like, with no opinion about who decoded it: the
+/// placeholder (♪) when a track has no artwork or the bytes haven't arrived,
+/// the clip and the fill rule. Split from the decode so the drawing cannot
+/// acquire an opinion about it; ArtworkView below is its only client.
+private struct ArtworkFrame: View {
     let image: CGImage?
     let side: CGFloat
     let cornerRadius: CGFloat
@@ -40,6 +34,12 @@ struct ArtworkFrame: View {
     }
 }
 
+/// Album art with a one-time decode. The hosting views re-run body on every
+/// position tick (they read the live scrubber position), so decoding inline
+/// would re-run the ImageIO thumbnail (ArtworkDecoding) on the identical
+/// bytes each second — the live snapshot re-carries the same artwork every
+/// emit. Caching in @State keyed by the bytes decodes only when they change
+/// (a new cover); @State holds a purely-visual artifact, not domain.
 struct ArtworkView: View {
     let data: [UInt8]?
     let side: CGFloat

@@ -3,7 +3,9 @@
 /// applier and owes the user the native feel. Native scale: 16 steps across
 /// the 0...1 range; holding Option+Shift switches to quarter-steps (64).
 enum MediaKeyStepper {
-    static let coarseStep: Double = 1.0 / 16.0
+    private static let coarseStep: Double = 1.0 / 16.0
+    /// Internal (not private like its coarse sibling): OSDApplyVerification
+    /// reads it to size the verify tolerance under a fine step.
     static let fineStep: Double = 1.0 / 64.0
 
     /// The next value for a step key from the current normalized value,

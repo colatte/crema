@@ -6,10 +6,14 @@ struct NowPlaying: Equatable, Sendable {
     var artist: String?
     /// Raw encoded image bytes (PNG/JPEG); decoded by the view layer.
     var artworkData: [UInt8]?
-    /// The album, when the source reports one. Carried for exactly one reader:
-    /// the optional high-resolution artwork lookup, where it turns a fuzzy
-    /// two-term search into an accurate three-term one. Nothing renders it —
-    /// the surfaces show title and artist, and a third line would crowd them.
+    /// The album, when the source reports one. No reader today: the
+    /// high-resolution artwork lookup that consumed it (album turned a fuzzy
+    /// two-term search into an accurate three-term one) went out whole with
+    /// the 300 pt tile (docs/DECISIONS.md:
+    /// the-click-was-the-last-thing-holding-the-lookup-up), and nothing
+    /// renders it — the surfaces show title and artist, and a third line
+    /// would crowd them. It stays as the seed of the cover upgrade that
+    /// anchor says a future round might want back.
     var album: String?
     var isPlaying: Bool
     /// Playback position in seconds (drives scrubbing).

@@ -254,7 +254,7 @@ struct Preferences {
     /// same contract the suppression preference lives under (pref-sacred), so a
     /// system-side revocation can be DETECTED without the app ever deciding for
     /// the user. Off by default: the app never registers itself uninvited.
-    static let launchesAtLoginKey = "launchesAtLogin"
+    private static let launchesAtLoginKey = "launchesAtLogin"
     var launchesAtLogin: Bool {
         get { defaults.bool(forKey: Self.launchesAtLoginKey) }
         nonmutating set { defaults.set(newValue, forKey: Self.launchesAtLoginKey) }
@@ -264,7 +264,7 @@ struct Preferences {
     /// distinguishes "macOS dropped the registration when the bundle changed"
     /// from "the user removed it in System Settings" — without it, the warning
     /// would nag people who deliberately turned it off outside the app.
-    static let launchesAtLoginBuildKey = "launchesAtLoginBuild"
+    private static let launchesAtLoginBuildKey = "launchesAtLoginBuild"
     var launchesAtLoginBuild: String? {
         get { defaults.string(forKey: Self.launchesAtLoginBuildKey) }
         nonmutating set { defaults.set(newValue, forKey: Self.launchesAtLoginBuildKey) }

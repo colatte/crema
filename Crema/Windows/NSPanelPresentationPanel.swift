@@ -439,6 +439,6 @@ final class NSPanelPresentationPanel: PresentationPanel {
 /// The environment closure is baked into the root view during init, before
 /// `self` can be captured; this box gets its target right after.
 @MainActor
-final class SurfaceSizeRelay {
+private final class SurfaceSizeRelay {
     var onChange: ((CGSize) -> Void)?
 }

@@ -64,7 +64,7 @@ struct DisplayStyleOptions {
     /// copy of that rule is how a control comes to name a style its screen does not
     /// draw. It is the CHOSEN style, not necessarily the drawn one — `footnotes` is
     /// where that difference is spoken.
-    let effectiveStyle: Style
+    private let effectiveStyle: Style
     private let geometry: ScreenGeometry
 
     init(overrideRawValue: String?, declaredRawValue: String?, geometry: ScreenGeometry) {

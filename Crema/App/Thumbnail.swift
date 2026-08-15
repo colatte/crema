@@ -21,7 +21,7 @@ enum Thumbnail {
     static let referenceAspectRatio = StylePreview.notchedReference.frame.width / StylePreview.notchedReference.frame.height
     static let cornerRadius: CGFloat = 6
     /// Room between the picture and the selection ring.
-    static let ringInset: CGFloat = 3
+    fileprivate static let ringInset: CGFloat = 3
     /// Floor for the menu-bar strip and the slit that cuts it. Scenery, like the
     /// strip itself: the tile scales its screen by `width / that screen's width`,
     /// so the reference panel's 32 pt safe area derives to roughly 2.3 pt here,

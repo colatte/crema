@@ -33,7 +33,7 @@
 enum PositionReconciliation {
     /// Above player rounding (≤ 1 s) plus tick granularity, below any
     /// deliberate seek.
-    static let seekTolerance: Double = 2
+    private static let seekTolerance: Double = 2
     /// How close an anchor must land to a pending seek target to read as the
     /// player confirming it — playback advances while the command flies, so
     /// exact equality never happens. Shared with the source's hint lifecycle.

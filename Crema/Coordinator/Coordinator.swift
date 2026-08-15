@@ -131,7 +131,7 @@ final class Coordinator {
     /// Mirrored out of the snapshot instead of read through `nowPlaying` so
     /// the transport doesn't re-render on every position tick; written only
     /// when the value actually flips.
-    private(set) var skipSupportedByTrack = true
+    private var skipSupportedByTrack = true
 
     /// Title and artist of the current media, for readers outside the surface —
     /// the menu bar first among them. Mirrors for the same reason as

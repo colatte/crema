@@ -81,8 +81,8 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     /// Recovery-probe backoff: 1, 2, 4, 8, 16 s, then 30 s forever. The first
     /// three cover the typical AirPods/output-swap window (<5 s), re-engaging
     /// in silence; the 30 s cap keeps the self-heal eternal and cheap.
-    static let probeBackoffSchedule: [Double] = [1, 2, 4, 8, 16]
-    static let probeBackoffCap: Double = 30
+    private static let probeBackoffSchedule: [Double] = [1, 2, 4, 8, 16]
+    private static let probeBackoffCap: Double = 30
 
     /// After this many consecutive *scheduled* probe failures with the channel
     /// present (~31 s of accumulated backoff), a domain is long-suspended and

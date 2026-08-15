@@ -61,12 +61,12 @@ enum ArtworkAccent {
         return extract(from: image)
     }
 
-    /// The same pipeline from a cover somebody has ALREADY decoded. It exists so
-    /// a surface drawing one cover in several slots can pay for one decode
-    /// instead of a decode per slot — `rgbaPixels` redraws into a
-    /// `sampleSide` box either way, so a 1024 px source gives the same answer as
-    /// a freshly thumbnailed one.
-    static func extract(from image: CGImage) -> Tone? {
+    /// The same pipeline from a cover already decoded — today only the step the
+    /// byte overload above delegates to (the surface that paid for one decode
+    /// across several slots is gone). `rgbaPixels` redraws into a `sampleSide`
+    /// box either way, so a 1024 px source gives the same answer as a freshly
+    /// thumbnailed one.
+    private static func extract(from image: CGImage) -> Tone? {
         guard let pixels = rgbaPixels(from: image, side: sampleSide) else { return nil }
         return tone(fromRGBA: pixels)
     }
@@ -125,7 +125,7 @@ enum ArtworkAccent {
 
     /// Border: the cover drawn into a tiny RGBA grid — all the pixels the
     /// picker ever sees, so extraction cost is independent of cover size.
-    static func rgbaPixels(from cgImage: CGImage, side: Int) -> [UInt8]? {
+    private static func rgbaPixels(from cgImage: CGImage, side: Int) -> [UInt8]? {
         var pixels = [UInt8](repeating: 0, count: side * side * 4)
         let drawn: Bool = pixels.withUnsafeMutableBytes { buffer in
             guard let context = CGContext(

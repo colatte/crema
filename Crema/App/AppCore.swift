@@ -75,7 +75,7 @@ final class AppCore {
     /// Menu signal for domains whose native-OSD suppression stayed
     /// unrecoverable long enough to escalate — a failed apply suspends only its
     /// own domain, not all three. (docs/DECISIONS.md: per-domain-suspension)
-    let osdSuppressionMonitor = OSDSuppressionMonitor()
+    private let osdSuppressionMonitor = OSDSuppressionMonitor()
     private let mediaKeys: any MediaKeySource
     /// Zero-latency brightness HUD via the tap; nil when on demo sources.
     private let mediaKeyRouter: MediaKeyHUDRouter?
@@ -453,7 +453,7 @@ final class AppCore {
     /// `NotificationCenter.default`, so wiring them to the wrong center arms
     /// nothing — and arms it silently, since a tap that stopped delivering looks
     /// identical to an idle one from inside this process.
-    static let wakeReinstallNames = [
+    private static let wakeReinstallNames = [
         NSWorkspace.screensDidWakeNotification,
         NSWorkspace.didWakeNotification,
     ]
@@ -1039,7 +1039,7 @@ extension AppCore {
     /// REUSES it, and a second presentation shows the same window instead of
     /// building a second one. `closeWelcomeTour` is the programmatic way out, for
     /// the buttons inside the view.
-    func presentWelcomeTour() {
+    private func presentWelcomeTour() {
         if let welcomeTourWindow {
             welcomeTourWindow.makeKeyAndOrderFront(nil)
             NSApp.activate()
@@ -1061,7 +1061,7 @@ extension AppCore {
     /// through here (no delegate, as with the onboarding window above) and does not
     /// need to: nothing records a "finished", because the flag was committed before
     /// the window existed — leaving early and reaching the end are the same act.
-    func closeWelcomeTour() {
+    private func closeWelcomeTour() {
         welcomeTourWindow?.close()
         welcomeTourWindow = nil
     }
