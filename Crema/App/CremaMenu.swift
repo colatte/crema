@@ -198,15 +198,18 @@ struct CremaMenu: View {
                 localized: "menu.mediaControlsBlocked",
                 defaultValue: "The last playback command didn’t get through —\nthe player isn’t accepting controls right now."
             )
+        // Both name the control in its own words, quoted: the switch is labelled
+        // "Open Crema at login" in General, and a warning that renames the thing it
+        // is about sends the reader looking for a setting that is not there.
         case .loginItemRevoked:
             String(
                 localized: "menu.loginItem.revoked",
-                defaultValue: "Open at login was turned off\nbecause the app changed since you enabled it."
+                defaultValue: "“Open Crema at login” was turned off\nbecause the app changed since you enabled it."
             )
         case .loginItemNeedsApproval:
             String(
                 localized: "menu.loginItem.needsApproval",
-                defaultValue: "Open at login is waiting for your approval."
+                defaultValue: "“Open Crema at login” is waiting for your approval."
             )
         }
     }
@@ -230,11 +233,18 @@ struct CremaMenu: View {
     /// a locale-aware list format (", " vs " and " vs " e "); the ORDER comes from
     /// the model, which sorts by the enum's declaration, so the same set never reads
     /// two different ways.
+    ///
+    /// The line breaks BEFORE the list because the menu's width ceiling counts the
+    /// interpolated text too: the domains are a closed set of three, so the worst
+    /// case is measurable — all three joined is 50 characters, which put the single
+    /// line at 85 and reopened the wide menu the ceiling exists to prevent. A hole
+    /// whose content is bounded is measured at its widest, never at the empty
+    /// string (docs/DECISIONS.md: menu-status-before-warnings).
     private func suspendedText(_ domains: [OSDSuppressionDomain]) -> String {
         let names = domains.map(localizedDomainName).formatted(.list(type: .and))
         return String(
             localized: "menu.osdSuspended.warning",
-            defaultValue: "The system indicator is back for \(names) —\nCrema couldn’t apply the change."
+            defaultValue: "The system indicator is back for\n\(names) —\nCrema couldn’t apply the change."
         )
     }
 

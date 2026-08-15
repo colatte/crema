@@ -117,20 +117,23 @@ struct DisplayStyleOptions {
 
     /// Whether the per-display list is offered at all. Not a count of screens: the
     /// question is whether there is an answer per display that the all-displays
-    /// section above cannot give, and each clause below is one way there is one.
-    static func listIsOffered(for displays: [ScreenDescription], in defaults: UserDefaults = .standard) -> Bool {
-        // More than one screen is the only arrangement in which per-display answers
-        // can differ from each other at all.
-        if displays.count > 1 { return true }
-        guard let only = displays.first else { return false }
-        // A sole EXTERNAL panel — the Mac mini, the Studio, the clamshell desk:
-        // `Preferences.defaultShowsNowPlaying(isInternal:)` is literally
-        // `isInternal`, so the now-playing surface is born off there and no other
-        // control in the app can turn it on.
-        if !only.isInternal { return true }
-        // A key written when more displays were attached outlives that arrangement:
-        // without a row nothing can clear it, while the sweep footnote above goes on
-        // naming a per-display style the user has no way to see.
-        return PerDisplayStyleOverride.exists(among: displays, in: defaults)
+    /// section above cannot give — and there always is one, because the row is the
+    /// app's ONLY switch for the now-playing surface.
+    ///
+    /// That switch is born from `Preferences.defaultShowsNowPlaying(isInternal:)`,
+    /// which is literally `isInternal`, so both directions strand a user without a
+    /// row: a sole EXTERNAL panel (the Mac mini, the Studio, the clamshell desk)
+    /// starts with the player OFF and nothing else in the app turns it on, and a
+    /// sole INTERNAL panel starts with it ON and nothing else turns it off. The
+    /// style popup alone would not carry the list — on one screen it does repeat the
+    /// declaration above — but it rides along on the row that must exist anyway, and
+    /// with it a per-display key an older arrangement wrote, which no other control
+    /// can clear.
+    ///
+    /// So the only roster that answers no is the empty one, which is a real state (a
+    /// Settings window open across the last display going away) and not a corner
+    /// case to trap on.
+    static func listIsOffered(for displays: [ScreenDescription]) -> Bool {
+        !displays.isEmpty
     }
 }

@@ -91,7 +91,11 @@ struct WelcomeTourView: View {
             // already says the tour is over and a second way out beside it would
             // only ask the person to choose between two identical exits.
             if WelcomeTourFlow.next(after: step) != nil {
+                // Esc leaves, the way it does out of every macOS sheet: this is the
+                // first thing a new install shows and nothing in it is required, so
+                // the platform's own way out has to reach the button that takes it.
                 Button(String(localized: "tour.skip", defaultValue: "Skip")) { dismiss() }
+                    .keyboardShortcut(.cancelAction)
             }
             Spacer()
             if let previous = WelcomeTourFlow.previous(before: step) {
@@ -167,7 +171,12 @@ struct WelcomeTourView: View {
                 .foregroundStyle(.primary)
                 .padding(10)
                 .background(.quaternary, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            Text(String(localized: "tour.window.title", defaultValue: "Welcome to Crema"))
+            // Its own key, deliberately not the window's title: every step carries a
+            // heading and this is the first one, but the two strings answer to
+            // different constraints — a title bar is sized by the window and this
+            // line by the step — and sharing one made a change to either silently
+            // rewrite the other.
+            Text(String(localized: "tour.welcome.title", defaultValue: "Welcome to Crema"))
                 .font(.title2.bold())
             Text(String(
                 localized: "tour.welcome.body",
@@ -317,6 +326,19 @@ struct WelcomeTourView: View {
             .disabled(!canSuppress)
             .onChange(of: suppressesNativeOSD) { _, new in core.setNativeOSDSuppression(new) }
 
+            // The house rule, the same one the Indicators tab follows: the fix sits
+            // BESIDE the control it unblocks, never in its place. Without it this
+            // step showed a dead switch and a sentence naming a permission, to a
+            // person whose only way to grant it was to walk back a step.
+            if !core.permissionMonitor.isGranted {
+                Button(String(
+                    localized: "settings.permissions.grant",
+                    defaultValue: "Grant Accessibility Access…"
+                )) {
+                    core.requestAccessibilityAccess()
+                }
+            }
+
             VStack(spacing: 6) {
                 Text(String(
                     localized: "settings.hud.suppress.footer",
@@ -327,10 +349,21 @@ struct WelcomeTourView: View {
                     // swiftlint:disable:next line_length
                     defaultValue: "Screen brightness is replaced only on the built-in display, while the pointer is on it — a key aimed at any other display is left to the system."
                 ))
-                if !canSuppress {
+                // Split for the reason the Indicators tab states it: the joint gate
+                // told someone who HAD granted Accessibility that the grant was
+                // missing, which is an accusation rather than a diagnosis. The
+                // second branch is the honest sentence for a Mac with nothing to
+                // engage.
+                if !core.permissionMonitor.isGranted {
                     Text(String(
                         localized: "settings.hud.suppress.needsPermission",
                         defaultValue: "Needs Accessibility access — until then the system’s own indicators stay."
+                    ))
+                    .foregroundStyle(.orange)
+                } else if core.osdSuppressor == nil {
+                    Text(String(
+                        localized: "settings.hud.suppress.unavailable",
+                        defaultValue: "System indicator replacement isn’t available on this Mac."
                     ))
                     .foregroundStyle(.orange)
                 }
@@ -393,14 +426,20 @@ struct WelcomeTourView: View {
                 .font(.footnote)
             }
 
-            // Where everything in this window lives afterwards, said in words: the
-            // shortcut is spelled out rather than offered as a button, because
-            // nothing outside the Settings scene can open that window — an
-            // accessory app has no supported call for it, so a button here would be
-            // one that does nothing (docs/DECISIONS.md: the-tour-configures-instead-of-pointing).
+            // Where everything in this window lives afterwards, said in words rather
+            // than offered as a button: nothing outside the Settings scene can open
+            // that window — an accessory app has no supported call for it, so a
+            // button here would be one that does nothing
+            // (docs/DECISIONS.md: the-tour-configures-instead-of-pointing).
+            //
+            // The menu bar is the whole answer, and Command-Comma is deliberately no
+            // longer part of it: a key equivalent belongs to the active app, and this
+            // one has no Dock tile and no window to become active by — so the
+            // shortcut fires only while the menu it was offered as an alternative to
+            // is already open.
             Text(String(
                 localized: "tour.step.finish.body",
-                defaultValue: "Crema lives in the menu bar — its icon opens the menu, and Settings is there too, or press Command-Comma."
+                defaultValue: "Crema lives in the menu bar — its icon opens the menu, and Settings is there too."
             ))
             .font(.callout)
             .foregroundStyle(.secondary)

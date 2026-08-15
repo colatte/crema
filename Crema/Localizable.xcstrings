@@ -387,7 +387,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Buscar Atualizações…"
+            "value": "Buscar atualizações…"
           }
         }
       }
@@ -404,7 +404,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Conceder Acesso de Acessibilidade…"
+            "value": "Conceder acesso de Acessibilidade…"
           }
         }
       }
@@ -415,7 +415,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open at login is waiting for your approval."
+            "value": "“Open Crema at login” is waiting for your approval."
           }
         },
         "pt-BR": {
@@ -438,7 +438,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abrir Ajustes de Itens de Início de Sessão…"
+            "value": "Abrir ajustes de Itens de Início de Sessão…"
           }
         }
       }
@@ -466,7 +466,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open at login was turned off\nbecause the app changed since you enabled it."
+            "value": "“Open Crema at login” was turned off\nbecause the app changed since you enabled it."
           }
         },
         "pt-BR": {
@@ -619,13 +619,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The system indicator is back for %@ —\nCrema couldn’t apply the change."
+            "value": "The system indicator is back for\n%@ —\nCrema couldn’t apply the change."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O sistema voltou a mostrar o indicador de %@ —\no Crema não conseguiu aplicar a mudança."
+            "value": "O sistema voltou a mostrar o indicador de\n%@ —\no Crema não conseguiu aplicar a mudança."
           }
         }
       }
@@ -761,7 +761,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mostrar Atualização…"
+            "value": "Mostrar atualização…"
           }
         }
       }
@@ -829,7 +829,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agora Não"
+            "value": "Agora não"
           }
         }
       }
@@ -846,7 +846,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abrir Ajustes do Sistema…"
+            "value": "Abrir os Ajustes do Sistema…"
           }
         }
       }
@@ -976,13 +976,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Show now playing here"
+            "value": "Show the player here"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mostrar o Tocando Agora aqui"
+            "value": "Mostrar o player aqui"
           }
         }
       }
@@ -1101,7 +1101,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abrir Ajustes de Itens de Início de Sessão…"
+            "value": "Abrir ajustes de Itens de Início de Sessão…"
           }
         }
       }
@@ -1395,6 +1395,23 @@
         }
       }
     },
+    "settings.hud.suppress.unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System indicator replacement isn’t available on this Mac."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A substituição dos indicadores do sistema não está disponível neste Mac."
+          }
+        }
+      }
+    },
     "settings.nowPlaying.browsers": {
       "extractionState": "manual",
       "localizations": {
@@ -1497,6 +1514,74 @@
         }
       }
     },
+    "settings.nowPlaying.source": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Media source"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fonte de mídia"
+          }
+        }
+      }
+    },
+    "settings.nowPlaying.source.footer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crema reads what’s playing from the system. With nothing reporting, the player stays hidden and the options below have nothing to act on."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Crema lê o que está tocando pelo sistema. Sem nada respondendo, o player fica oculto e as opções abaixo não têm sobre o que agir."
+          }
+        }
+      }
+    },
+    "settings.nowPlaying.source.notReporting": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not reporting"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sem resposta"
+          }
+        }
+      }
+    },
+    "settings.nowPlaying.source.reporting": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reporting"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Respondendo"
+          }
+        }
+      }
+    },
     "settings.permissions.accessibility": {
       "extractionState": "manual",
       "localizations": {
@@ -1577,7 +1662,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Só o leitor reserva do Crema precisa disso — ele pergunta ao %@ o que está tocando. O leitor principal não precisa de permissão nenhuma, então o Tocando Agora funciona de qualquer forma."
+            "value": "Só o leitor reserva do Crema precisa disso — ele pergunta a %@ o que está tocando. O leitor principal não precisa de permissão nenhuma, então o Tocando Agora funciona de qualquer forma."
           }
         }
       }
@@ -1645,7 +1730,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abrir Ajustes de Automação…"
+            "value": "Abrir ajustes de Automação…"
           }
         }
       }
@@ -1662,7 +1747,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Solicitar Acesso de Automação…"
+            "value": "Solicitar acesso de Automação…"
           }
         }
       }
@@ -1747,7 +1832,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Conceder Acesso de Acessibilidade…"
+            "value": "Conceder acesso de Acessibilidade…"
           }
         }
       }
@@ -2115,13 +2200,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Crema lives in the menu bar — its icon opens the menu, and Settings is there too, or press Command-Comma."
+            "value": "Crema lives in the menu bar — its icon opens the menu, and Settings is there too."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Crema mora na barra de menus — o ícone dele abre o menu, e os Ajustes estão lá também, ou pressione Command + Vírgula."
+            "value": "O Crema mora na barra de menus — o ícone dele abre o menu, e os Ajustes estão lá também."
           }
         }
       }
@@ -2228,6 +2313,23 @@
         }
       }
     },
+    "tour.welcome.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Welcome to Crema"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Damos as boas-vindas ao Crema"
+          }
+        }
+      }
+    },
     "tour.window.title": {
       "extractionState": "manual",
       "localizations": {
@@ -2257,7 +2359,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Próxima Faixa"
+            "value": "Próxima faixa"
           }
         }
       }
@@ -2308,7 +2410,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Faixa Anterior"
+            "value": "Faixa anterior"
           }
         }
       }

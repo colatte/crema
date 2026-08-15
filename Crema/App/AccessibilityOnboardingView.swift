@@ -46,6 +46,10 @@ struct AccessibilityOnboardingView: View {
                 Button(String(localized: "onboarding.notNow", defaultValue: "Not Now")) {
                     dismiss()
                 }
+                // Esc dismisses, as it does out of any macOS sheet: this window asks
+                // for a permission the app runs without, so the platform's own way
+                // of declining has to reach the button that declines.
+                .keyboardShortcut(.cancelAction)
                 if monitor.isGranted {
                     Button(String(localized: "onboarding.done", defaultValue: "Done")) {
                         dismiss()

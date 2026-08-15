@@ -143,7 +143,8 @@ struct DisplayStyleOptionsTests {
 
 /// Whether the per-display list is offered at all. The gate is not a count: the
 /// question is "is there an answer per display that the all-displays section
-/// cannot give?", and each clause below is one way there is one.
+/// cannot give?" — and the row is the app's only switch for the now-playing
+/// surface, so every attached display has one.
 struct DisplayStyleListOfferTests {
     private let store = EphemeralDefaults()
 
@@ -158,8 +159,9 @@ struct DisplayStyleListOfferTests {
 
     /// The General footer's deictic sentence ("replaces the per-display styles
     /// BELOW") leans on this: wherever an override exists among the attached
-    /// displays, the list that shows it must be on screen — clause 1 or clause 3
-    /// carries every such roster, so the sweep never names styles nobody can see.
+    /// displays, the list that shows it is on screen — an override needs a display
+    /// to sit on, and a display is what opens the list, so the sweep can never name
+    /// styles nobody can see.
     @Test func anOverrideAnywhereGuaranteesTheListThatShowsIt() {
         let rosters: [[ScreenDescription]] = [
             [screen("A", isInternal: true)],
@@ -174,56 +176,57 @@ struct DisplayStyleListOfferTests {
                 let exists = PerDisplayStyleOverride.exists(among: roster, in: store.defaults)
                 #expect(exists)
                 #expect(
-                    !exists || DisplayStyleOptions.listIsOffered(for: roster, in: store.defaults),
+                    !exists || DisplayStyleOptions.listIsOffered(for: roster),
                     "an override on \(carrier.id.rawValue) must surface the list in a \(roster.count)-display roster"
                 )
             }
         }
     }
 
-    @Test func aSoleBuiltInDisplayIsAnsweredEntirelyByTheSectionAbove() {
-        // Kills: `> 1` widened to `> 0` or `>= 1`. One laptop with no override: every
-        // per-display answer IS the all-displays answer, and a second section
-        // repeating it is a control that decides nothing.
-        #expect(!DisplayStyleOptions.listIsOffered(for: [screen("A", isInternal: true)], in: store.defaults))
-    }
-
-    @Test func twoDisplaysAlwaysOfferTheList() {
-        // Kills: the count clause deleted. Neither of these can be carried by another
-        // clause — the first is internal and neither holds an override — so the only
-        // thing that answers here is there being more than one screen to differ.
-        let two = [screen("A", isInternal: true), screen("B", isInternal: false)]
-        #expect(DisplayStyleOptions.listIsOffered(for: two, in: store.defaults))
+    @Test func aSoleBuiltInDisplayOffersTheListBecauseTheSurfaceStartsOnThere() {
+        // Kills: the internal panel answered entirely by the all-displays section —
+        // the gate this rule shipped with, and the mirror of the bug the external
+        // clause below was written for. The style popup on a lone laptop does repeat
+        // the declaration, but the row also carries the ONLY "show the player here"
+        // switch in the app, and the surface is born ON here — the default is
+        // literally `isInternal`, pinned in PreferencesTests — so withholding the row
+        // leaves a single-laptop install unable to turn it off.
+        #expect(DisplayStyleOptions.listIsOffered(for: [screen("A", isInternal: true)]))
     }
 
     @Test func aSoleExternalDisplayOffersTheListBecauseNowPlayingStartsOffThere() {
-        // Kills: the not-internal clause deleted. The Mac mini class of hardware:
-        // `Preferences.defaultShowsNowPlaying(isInternal:)` is literally `isInternal`,
-        // so on a single external panel the now-playing surface is born OFF — and
-        // without this row there is no switch anywhere in the app that turns it on.
-        #expect(DisplayStyleOptions.listIsOffered(for: [screen("B", isInternal: false)], in: store.defaults))
+        // Kills: an `isInternal` gate in either direction. The Mac mini class of
+        // hardware: the surface is born OFF on a single external panel, and without
+        // this row there is no switch anywhere in the app that turns it on.
+        #expect(DisplayStyleOptions.listIsOffered(for: [screen("B", isInternal: false)]))
     }
 
-    @Test func aSoleDisplayThatAlreadyCarriesAnOverrideOffersTheList() {
-        // Kills: the existing-override clause deleted — which strands a key an older
-        // version wrote, with no control able to clear it, while the sweep footnote
-        // above goes on naming per-display styles the user cannot see.
-        let laptop = screen("A", isInternal: true)
-        let defaults = store.defaults
-        // A retired rawValue is not a style of its own: it already reads as inherit,
-        // so it opens nothing.
-        defaults.set("pill", forKey: Preferences.styleKey(for: laptop.id))
-        #expect(!DisplayStyleOptions.listIsOffered(for: [laptop], in: defaults))
+    @Test func twoDisplaysAlwaysOfferTheList() {
+        // Kills: the answer narrowed to exactly one display. Two screens are the
+        // arrangement where per-display answers can differ from each other at all,
+        // and neither of these carries an override to be found.
+        let two = [screen("A", isInternal: true), screen("B", isInternal: false)]
+        #expect(DisplayStyleOptions.listIsOffered(for: two))
+    }
 
-        defaults.set(Style.classic.rawValue, forKey: Preferences.styleKey(for: laptop.id))
-        #expect(DisplayStyleOptions.listIsOffered(for: [laptop], in: defaults))
+    @Test func aSoleDisplayThatAlreadyCarriesAnOverrideOffersTheListThatClearsIt() {
+        // A key written when more displays were attached outlives that arrangement,
+        // and this is the promise that it can still be cleared: the row exists for
+        // the display, whatever the key says — including a rawValue a future version
+        // retired, which reads as inherit and would have opened no list of its own.
+        let laptop = screen("A", isInternal: true)
+        store.defaults.set("pill", forKey: Preferences.styleKey(for: laptop.id))
+        #expect(DisplayStyleOptions.listIsOffered(for: [laptop]))
+
+        store.defaults.set(Style.classic.rawValue, forKey: Preferences.styleKey(for: laptop.id))
+        #expect(DisplayStyleOptions.listIsOffered(for: [laptop]))
     }
 
     @Test func anEmptyRosterOffersNothingAndAsksNothingOfItsFirstElement() {
-        // Kills: `displays[0]` in place of the guard. An empty roster is a real state
-        // — a Settings window open across a display going away — and a trap there
-        // takes the whole test host down, not one section (the run then reports no
-        // verdict at all).
-        #expect(!DisplayStyleOptions.listIsOffered(for: [], in: store.defaults))
+        // Kills: `displays[0]` in place of the emptiness check. An empty roster is a
+        // real state — a Settings window open across a display going away — and a
+        // trap there takes the whole test host down, not one section (the run then
+        // reports no verdict at all).
+        #expect(!DisplayStyleOptions.listIsOffered(for: []))
     }
 }

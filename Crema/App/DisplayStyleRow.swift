@@ -33,23 +33,45 @@ struct DisplayStyleRow: View {
     }
 
     var body: some View {
-        LabeledContent {
-            stylePopup
-        } label: {
-            Text(verbatim: title)
-        }
+        // Each display contributes several Form rows whose labels are identical
+        // across displays — two monitors mean two switches both reading "Show the
+        // player here", and the only thing telling them apart is the title above,
+        // which VoiceOver has no reason to associate with either. Containing them
+        // and naming the container with the display puts that title back in reach.
+        //
+        // A modifier on a Group applies to every MEMBER and not to the group
+        // (Apple's `Group` documentation: "any modifier you apply to the group
+        // affects all of that group's members"), which is what keeps this from
+        // collapsing three rows into one and is exactly the shape a Form wants: the
+        // rows stay rows, each one carrying the display's name.
+        Group {
+            LabeledContent {
+                stylePopup
+            } label: {
+                Text(verbatim: title)
+            }
 
-        ForEach(footnotes, id: \.self) { footnote in
-            Text(footnote).settingsFootnote()
-        }
+            // Kept directly under the popup it qualifies, ahead of the toggle: the
+            // sentence is about the STYLE this screen draws, and moving it below the
+            // switch would leave a note about the popup nearer to a control it says
+            // nothing about. The grouping above is what removes the ambiguity the
+            // order used to carry.
+            ForEach(footnotes, id: \.self) { footnote in
+                Text(footnote).settingsFootnote()
+            }
 
-        Toggle(isOn: $showsNowPlaying) {
-            Text(String(
-                localized: "settings.displays.showNowPlaying",
-                defaultValue: "Show now playing here"
-            ))
+            Toggle(isOn: $showsNowPlaying) {
+                Text(String(
+                    localized: "settings.displays.showNowPlaying",
+                    defaultValue: "Show the player here"
+                ))
+            }
+            .onChange(of: showsNowPlaying) { _, new in core.setShowsNowPlaying(new, on: screen.id) }
         }
-        .onChange(of: showsNowPlaying) { _, new in core.setShowsNowPlaying(new, on: screen.id) }
+        .accessibilityElement(children: .contain)
+        // Verbatim, like the title row itself: an external monitor's name is the
+        // one macOS gives it and is never parsed as markdown.
+        .accessibilityLabel(Text(verbatim: title))
     }
 
     /// What this row offers, what it reads back and what a pick may write — decided

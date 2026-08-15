@@ -79,8 +79,9 @@ struct NowPlayingMenuSection: View {
 
     /// Play vs Pause off `mediaActive`, which flips only on a real play/pause edge —
     /// the live snapshot's `isPlaying` carries the same fact at the price of a
-    /// rebuild per second. Same keys the surface's transport button will use for the
-    /// accessibility label it still lacks: one name per concept.
+    /// rebuild per second. The same two keys the surface's transport button speaks
+    /// its accessibility label from: one name per concept, so the menu item and the
+    /// button VoiceOver reads are never two different verbs for one command.
     private var playPauseLabel: String {
         coordinator.mediaActive
             ? String(localized: "transport.pause", defaultValue: "Pause")

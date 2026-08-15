@@ -147,8 +147,9 @@ private struct GeneralSettingsView: View {
     }
 
     /// Whether there is a per-display answer the section above cannot give. Asked of
-    /// `DisplayStyleOptions` rather than counted here, because the answer is not a
-    /// count of screens and every clause of it is a separate reason.
+    /// `DisplayStyleOptions` rather than answered here, because the reason is not a
+    /// count of screens: the row is where the now-playing switch lives, and there is
+    /// nowhere else in the app to turn that surface on or off.
     private var offersPerDisplayList: Bool {
         DisplayStyleOptions.listIsOffered(for: core.displayRoster.displays)
     }
@@ -234,11 +235,17 @@ private struct GeneralSettingsView: View {
                 }
                 .settingsFootnote()
             }
+            // The indicator row appears and disappears with the declaration right
+            // above it, and an instant insertion jumps every control under it in the
+            // same frame as the click that caused it. Scoped to that one fact, so
+            // nothing else in the pane animates.
+            .animation(.default, value: rendersCard)
 
-            // Offered only where a per-display answer can differ from the one above:
-            // on a lone built-in panel with no override every row would repeat the
-            // declaration, and a control that decides nothing still reads as one
-            // that does.
+            // Offered wherever there is a display at all. The style popup on a lone
+            // panel does repeat the declaration above — but the row also carries the
+            // only "show the player here" switch the app has, and withholding it left
+            // a single-laptop install with the surface on and no way to turn it off,
+            // the mirror of the sole-external case that first opened this list.
             if offersPerDisplayList {
                 Section {
                     ForEach(core.displayRoster.displays, id: \.id) { screen in
@@ -313,6 +320,34 @@ private struct NowPlayingSettingsView: View {
 
     var body: some View {
         Form {
+            // The degradation this tab was silent about: with nothing reporting,
+            // every switch below configures a surface that never appears, and the
+            // menu was the only place saying so. Same shape the Indicators tab gives
+            // the neighbour integration, and the footer names the channel rather than
+            // a fault — the resting case is nobody playing anything.
+            //
+            // `isActive` is safe to read from a Form body, unlike the readings behind
+            // the menu: it is a guarded mirror written only on a chain selection edge
+            // (NowPlayingMonitor), so it invalidates this pane when the answer
+            // changes and never on a track tick.
+            Section {
+                LabeledContent {
+                    Text(core.nowPlayingMonitor.isActive
+                        ? String(localized: "settings.nowPlaying.source.reporting", defaultValue: "Reporting")
+                        : String(localized: "settings.nowPlaying.source.notReporting", defaultValue: "Not reporting"))
+                        .foregroundStyle(core.nowPlayingMonitor.isActive ? .primary : .secondary)
+                } label: {
+                    Text(String(localized: "settings.nowPlaying.source", defaultValue: "Media source"))
+                }
+            } footer: {
+                Text(String(
+                    localized: "settings.nowPlaying.source.footer",
+                    // swiftlint:disable:next line_length
+                    defaultValue: "Crema reads what’s playing from the system. With nothing reporting, the player stays hidden and the options below have nothing to act on."
+                ))
+                .settingsFootnote()
+            }
+
             Section {
                 Toggle(isOn: $reactive) {
                     Text(String(localized: "settings.nowPlaying.reactive", defaultValue: "Show the player automatically"))
