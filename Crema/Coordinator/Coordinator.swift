@@ -53,9 +53,8 @@ final class Coordinator {
     /// What any finished hover on the REACTIVE appearance buys before the
     /// tuck, in place of a fresh full linger — a graze must not re-arm the
     /// whole 3 s (the invoked appearance keeps its full tail; see
-    /// commitHover). Calibration-in-test (hover round): if it reads short on
-    /// hardware, replace the tail expression with `currentLinger` at the
-    /// commitHover call site.
+    /// commitHover). Calibration-in-test: if it reads short on hardware, drop
+    /// the cap `commitHover` applies to `currentLinger`.
     static let hoverExitRelinger: Double = 1.5
 
     /// Layout-driving state. The views observe this; it is written only when
@@ -227,11 +226,15 @@ final class Coordinator {
     /// routing guard in `hover(_:)` reads it so a gesture leaves the way it
     /// came. Split from `pointerInside`, which both paths now write.
     @ObservationIgnored private var enteredViaHoverIntent = false
-    /// The active appearance's linger — a property of the appearance, not of
-    /// the restart site: the invoke click lands with the pointer inside the
-    /// zone, so the monitor's re-entrant hover-in/out cycle immediately
-    /// replaces the initial timer, and a restart that hardcoded the reactive
-    /// duration would silently downgrade every invoked appearance to ~3 s.
+    /// The linger the visible appearance still owes — a property of the
+    /// appearance, not of the restart site: the invoke click lands with the
+    /// pointer inside the zone, so the monitor's re-entrant hover-in/out cycle
+    /// immediately replaces the initial timer, and a restart that hardcoded the
+    /// reactive duration would silently downgrade every invoked appearance to
+    /// ~3 s. A finished hover shortens it IN PLACE rather than handing its tail
+    /// to one restart call (commitHover), because content arriving a beat later
+    /// restarts the timer through the same plain path: a tail that lived only in
+    /// that argument handed the graze back the whole linger it had just spent.
     @ObservationIgnored private var currentLinger: Double
     /// Provenance of `currentLinger` — true only for a click-invoked
     /// appearance. A flag, not a value compare against `invokedLinger`:
@@ -483,10 +486,15 @@ final class Coordinator {
             // click itself, so a capped re-linger would make the invoked
             // linger unreachable again — the exact production bug the
             // invoked-linger tests pin.
-            let tail = lingerIsInvoked
-                ? currentLinger
-                : min(currentLinger, Self.hoverExitRelinger)
-            restartLingerTimer(duration: tail)
+            //
+            // The cap goes into the appearance's own duration, not into one
+            // restart: artwork landing during the tail restarts the timer from
+            // that duration, and a cap held only in an argument was undone by
+            // the next refinement — the graze got its whole 3 s back.
+            if !lingerIsInvoked {
+                currentLinger = min(currentLinger, Self.hoverExitRelinger)
+            }
+            restartLingerTimer()
         }
     }
 
@@ -515,9 +523,17 @@ final class Coordinator {
         enteredViaHoverIntent = false
         currentLinger = nowPlayingLinger
         lingerIsInvoked = false
-        // The bar that was under the finger is gone, so no correction is owed and
-        // no gesture is in progress — the HUD can dismiss on its revert timer while
-        // the button is still down, and that view's release never arrives.
+        forgetTheBarUnderTheFinger()
+    }
+
+    /// The bar a drag was working on is gone, so no correction is owed on it and
+    /// no gesture can still be in progress — a HUD dismisses on its own revert
+    /// timer while the button is still down, and that view's release never
+    /// arrives. EVERY exit from `.hud` owes this, not just the one that hides:
+    /// a mark carried into the next bar fires on that bar's release and pulls a
+    /// perfectly good drag back to a level two readings old, its own write still
+    /// in flight (docs/DECISIONS.md: the-bar-never-outruns-the-screen).
+    private func forgetTheBarUnderTheFinger() {
         screenBarUnconfirmed = false
         hudSliderHeld = false
     }
@@ -658,7 +674,11 @@ final class Coordinator {
         // put a stale brightness reading over whatever replaced it.
         guard case .hud(let hud) = state, hud.kind == .screenBrightness,
               let confirmed = confirmedScreenBrightness, confirmed != hud.value else { return }
-        publishHUD(hud.at(confirmed))
+        // The bar on screen may be the app's own echo (it came round through the
+        // stream); what replaces it is the last READING, so it goes back out as one.
+        var settled = hud.at(confirmed)
+        settled.provenance = .reading
+        publishHUD(settled)
     }
 
     // MARK: - Event handling
@@ -863,19 +883,29 @@ final class Coordinator {
     }
 
     private func handleHUDUpdate(_ hud: SystemHUD) {
-        // A fresh report is proof the neighbour is answering again, so a channel
-        // written off after a failed command is given back its chance. Recovery by
-        // evidence, never by a timer.
-        if hud.authority == .betterDisplay {
-            externalBrightnessReachable = true
+        // The app's own echo comes back through this same stream (the neighbour's
+        // source yields it, so the bar follows the finger), and it must move the
+        // bar and nothing else: it is the level the app ASKED for, which is not
+        // evidence of anything until a write answers. Taking it for a reading is
+        // how a failed drag once settled home on a brightness no display ever
+        // went to, and how a coalesced echo still in the pipe revived a channel
+        // the failure had just written off (docs/DECISIONS.md:
+        // the-bar-never-outruns-the-screen).
+        if hud.provenance == .reading {
+            // A fresh report is proof the neighbour is answering again, so a
+            // channel written off after a failed command is given back its chance.
+            // Recovery by evidence, never by a timer.
+            if hud.authority == .betterDisplay {
+                externalBrightnessReachable = true
+            }
+            // A reading that arrived on its own is evidence, so it becomes what an
+            // unbacked drag falls back to. It does NOT also retire a pending
+            // correction: this reading is already on the bar, so the correction it
+            // would trigger finds the bar at the level it was going to publish and
+            // returns without touching it. Clearing here would be a second
+            // spelling of that guard, and a second spelling is what goes stale.
+            if hud.kind == .screenBrightness { confirmedScreenBrightness = hud.value }
         }
-        // A reading that arrived on its own is evidence, so it becomes what an
-        // unbacked drag falls back to. It does NOT also retire a pending
-        // correction: this reading is already on the bar, so the correction it
-        // would trigger finds the bar at the level it was going to publish and
-        // returns without touching it. Clearing here would be a second spelling of
-        // that guard, and a second spelling is what goes stale.
-        if hud.kind == .screenBrightness { confirmedScreenBrightness = hud.value }
         publishHUD(hud)
     }
 
@@ -922,6 +952,9 @@ final class Coordinator {
 
     private func revertHUD() {
         guard case .hud = state else { return }
+        // Ahead of the branch, because both arms take the bar away: resuming the
+        // appearance dismisses it exactly as hiding does.
+        forgetTheBarUnderTheFinger()
         // Only a pending media event (or the HUD having interrupted a visible
         // appearance) earns a resurface — a pointer merely resting on the
         // region during the HUD does not: the region sits on the menu-bar
@@ -942,10 +975,12 @@ final class Coordinator {
         }
     }
 
-    private func restartLingerTimer(duration: Double? = nil) {
-        let delay = duration ?? currentLinger
+    /// Arms the tuck on whatever the appearance currently owes. No per-call
+    /// duration: one source for the number is what keeps a refinement from
+    /// re-arming a tail the hover already shortened (see `currentLinger`).
+    private func restartLingerTimer() {
         lingerTask?.cancel()
-        lingerTask = scheduleTimer(after: delay) { [weak self] in self?.tuckNowPlaying() }
+        lingerTask = scheduleTimer(after: currentLinger) { [weak self] in self?.tuckNowPlaying() }
     }
 
     private func cancelLinger() {
@@ -1073,12 +1108,13 @@ final class Coordinator {
             case .written(let written):
                 confirmedScreenBrightness = written
                 screenBarUnconfirmed = false
-                onBrightnessApplied?(hud.at(written).by(hud.authority))
+                onBrightnessApplied?(hud.at(written).by(hud.authority).echoed())
             case .coalesced(let echoed):
                 // For the bar only: the driver still owes this level a write (or
                 // will surface it with its error), so it is no evidence and must
-                // not clear the unconfirmed mark.
-                onBrightnessApplied?(hud.at(echoed).by(hud.authority))
+                // not clear the unconfirmed mark — here, and again when this echo
+                // comes back round through the HUD stream (handleHUDUpdate).
+                onBrightnessApplied?(hud.at(echoed).by(hud.authority).echoed())
             }
             return .honoured
         } catch let failure as BrightnessWriteFailure {

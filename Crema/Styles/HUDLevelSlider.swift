@@ -110,7 +110,9 @@ struct HUDLevelSlider: View {
                 // the hand-drawn bodies do not carry. VoiceOver behavior is part of
                 // the hardware acceptance session.
                 .accessibilityRepresentation {
-                    Slider(value: Binding(get: { value }, set: onChange), in: 0...1)
+                    // An assistive adjustment is a whole gesture — press and release
+                    // in one step — so it reports its own end (`adjust`).
+                    Slider(value: Binding(get: { value }, set: { Self.adjust(to: $0, onChange: onChange, onRelease: onRelease) }), in: 0...1)
                 }
                 .accessibilityLabel(accessibilityLabel)
     }
@@ -220,6 +222,22 @@ struct HUDLevelSlider: View {
         guard trackWidth > 0 else { return nil }
         let fraction = min(max(Double(x / trackWidth), 0), 1)
         return layoutDirection == .rightToLeft ? 1 - fraction : fraction
+    }
+
+    /// What an assistive adjustment reports: the new level, then the end of the
+    /// gesture. A VoiceOver increment is a press and a release in one step — no
+    /// hand stays on the bar afterwards — and the ORDER carries the contract,
+    /// because `onChange` is what marks a gesture as in flight: a release sent
+    /// first would be undone by the change behind it, and no release at all
+    /// leaves the app holding a correction for a finger that is not there,
+    /// showing a level nothing wrote until the HUD dismisses itself.
+    nonisolated static func adjust(
+        to value: Double,
+        onChange: (Double) -> Void,
+        onRelease: () -> Void
+    ) {
+        onChange(value)
+        onRelease()
     }
 
     nonisolated static func animatesLevel(isEditing: Bool, reduceMotion: Bool) -> Bool {

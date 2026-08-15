@@ -309,10 +309,15 @@ struct CoordinatorNeighbourBrightnessTests {
         let clock = TestSleepClock()
         let coordinator: Coordinator
 
-        init() {
+        /// `alsoHearing` merges a second HUD source in, the way production merges
+        /// the neighbour's — for the test that needs the app's own echo to come
+        /// back round through the stream.
+        init(alsoHearing extra: (any SystemHUDSource)? = nil) {
+            let hud: any SystemHUDSource
+            if let extra { hud = MergedSystemHUDSource([hudSource, extra]) } else { hud = hudSource }
             coordinator = Coordinator(
                 nowPlayingSource: MockNowPlayingSource(),
-                systemHUDSource: hudSource,
+                systemHUDSource: hud,
                 nowPlayingController: MockNowPlayingController(),
                 volumeController: MockVolumeController(),
                 screenBrightnessController: screen,
@@ -405,6 +410,39 @@ struct CoordinatorNeighbourBrightnessTests {
 
         // Home is 0.5 — the reading that arrived on its own. Settling on 0.9
         // would mean the echo was taken for a write.
+        #expect(await eventually { h.coordinator.state == .hud(bar.at(0.5)) })
+    }
+
+    @Test func aCoalescedEchoStaysNoEvidenceAfterTheRoundTripThroughTheHUDStream() async {
+        // The twin of the test above with the loop CLOSED the way production
+        // closes it: the neighbour's source yields the app's own echo back into
+        // the HUD stream (`AppCore.wireBrightnessEcho` → `noteApplied`), and it
+        // arrives at `handleHUDUpdate` on the same path a spontaneous report
+        // takes. Recorded there as a reading, the promised 0.9 became "confirmed"
+        // one hop later than the guard in `writeThroughNeighbour` could see, and
+        // the rollback settled the bar on it. Only the loop shows that.
+        let neighbour = BetterDisplayOSDSource(target: { _ in nil })
+        let h = CoalescingHarness(alsoHearing: neighbour)
+        AppCore.wireBrightnessEcho(
+            to: h.coordinator, screen: SpySampledSource(), keyboard: SpySampledSource(), neighbour: neighbour
+        )
+        h.external.answers(.success(.coalesced(0.9)))
+        h.external.answers(.failure(BrightnessWriteFailure(
+            underlying: MockScreenBrightnessController.Refusal(), orphan: nil
+        )))
+        h.screen.refuseEverything()
+        let bar = SystemHUD(kind: .screenBrightness, value: 0.5, authority: .betterDisplay)
+        h.hudSource.emit(bar)
+        #expect(await eventually { h.coordinator.state != .hidden })
+
+        h.coordinator.hudSliderChanged(to: 0.9)   // the coalesced echo goes round the loop
+        #expect(await eventually { h.coordinator.state == .hud(bar.at(0.9).echoed()) })   // and moves the bar
+        h.coordinator.hudSliderChanged(to: 0.8)   // fails; the fallback refuses
+        #expect(await eventually { h.screen.commands.count == 1 })
+        h.coordinator.hudSliderReleased()
+
+        // Home is still 0.5: the echo that came back through the stream moved the
+        // bar and was not taken for a reading.
         #expect(await eventually { h.coordinator.state == .hud(bar.at(0.5)) })
     }
 
