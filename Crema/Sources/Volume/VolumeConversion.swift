@@ -4,8 +4,8 @@
 /// a value outside 0...1.
 enum VolumeConversion {
     /// The normalized scale ends, shared with the boundary-refresh rule below.
-    static let minValue: Double = 0
-    static let maxValue: Double = 1
+    private static let minValue: Double = 0
+    private static let maxValue: Double = 1
 
     /// Raw system value → domain value. NaN needs the explicit guard because it
     /// compares false against everything and would pass through the clamp intact;

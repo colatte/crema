@@ -62,7 +62,7 @@ struct PermissionsSettingsView: View {
                 Text(String(
                     localized: "settings.permissions.footer",
                     // swiftlint:disable:next line_length
-                    defaultValue: "Crema needs Accessibility access to capture the media keys — for its volume and brightness indicators and to replace the system's. Without it the app still runs; it just can't react to those keys. Granting is picked up automatically, no relaunch needed."
+                    defaultValue: "Crema needs Accessibility access to capture the media keys — for its volume and brightness indicators and to replace the system’s. Without it the app still runs; it just can’t react to those keys. Granting is picked up automatically, no relaunch needed."
                 ))
                 .settingsFootnote()
             }
@@ -115,7 +115,7 @@ struct PermissionsSettingsView: View {
                     Text(String(
                         localized: "settings.permissions.automation.footer",
                         // swiftlint:disable:next line_length
-                        defaultValue: "Only Crema's backup reader needs this — it asks \(musicApps) what is playing. The usual reader needs no permission, so Now Playing works either way."
+                        defaultValue: "Only Crema’s backup reader needs this — it asks \(musicApps) what is playing. The usual reader needs no permission, so Now Playing works either way."
                     ))
                     automationDetail
                 }
@@ -132,9 +132,21 @@ struct PermissionsSettingsView: View {
         .onDisappear { core.watchAutomationPermission(false) }
     }
 
-    /// The apps the backup reader scripts, from their single source, joined by the
-    /// locale's own "or" list format. Brand names, so they are not translated —
-    /// what is localized is the sentence around them.
+    /// The apps the backup reader scripts, from their single source, joined by
+    /// the locale's own "or" list format, and NOT translated.
+    ///
+    /// Checked rather than assumed, because the obvious objection is that Apple
+    /// localizes its own app names — `Music.app`'s `InfoPlist.loctable` really
+    /// does map `pt` → "Música". Measured on a Mac with `AppleLanguages =
+    /// ("pt-BR")` (2026-08-07): `FileManager.displayName` and the bundle's
+    /// `localizedInfoDictionary` both return **"Music"**, which is also what the
+    /// Dock shows. The table has `pt` and `pt_PT` and no `pt-BR`, and macOS does
+    /// not fall back for this.
+    ///
+    /// So resolving the installed bundle's name would cost a LaunchServices
+    /// lookup on every body pass and produce the same three letters. If a
+    /// future macOS starts showing "Música" here, that lookup is the fix and
+    /// this paragraph is the reason it was not done sooner.
     private var musicApps: String {
         JXAPlayerScript.players.map(\.name).formatted(.list(type: .or))
     }
@@ -169,7 +181,7 @@ struct PermissionsSettingsView: View {
         case .undecided:
             Text(String(
                 localized: "settings.permissions.automation.undecided",
-                defaultValue: "macOS hasn't asked you about this yet. Request it and macOS shows its own dialog."
+                defaultValue: "macOS hasn’t asked you about this yet. Request it and macOS shows its own dialog."
             ))
         case .targetNotRunning:
             Text(String(
@@ -179,7 +191,7 @@ struct PermissionsSettingsView: View {
         case .unknown:
             Text(String(
                 localized: "settings.permissions.automation.unknown",
-                defaultValue: "macOS didn't answer. Crema checks again while this tab is open."
+                defaultValue: "macOS didn’t answer. Crema checks again while this tab is open."
             ))
         case nil, .granted:
             EmptyView()

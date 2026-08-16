@@ -137,6 +137,50 @@ struct CoordinatorHoverIntentTests {
         #expect(await eventually { h.coordinator.state == .hidden })
     }
 
+    /// A completed intent cycle leaves no residue in the immediate path: the
+    /// fired task must not stay retained, or `hover(false)` on an immediate
+    /// style would divert to the debounced collapse (the mixed-style setup:
+    /// debounced gesture on the notch, immediate Card on another display,
+    /// one Coordinator).
+    @Test func aCompletedIntentCycleDoesNotDebounceALaterImmediateHover() async {
+        let h = await showingCompact()
+        await expand(h)
+
+        // Complete the cycle: the collapse intent fires too.
+        h.coordinator.hoverIntent(false)
+        await h.clock.waitForSleep(delay: Coordinator.defaultHoverOutDebounce)
+        h.clock.advance(delay: Coordinator.defaultHoverOutDebounce)
+        _ = await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) }
+
+        // Immediate-style gesture: both edges commit at once. The clock stays
+        // parked — any diversion to the debounced path would leave the state
+        // expanded here, waiting on an advance this test never gives.
+        h.coordinator.hover(true)
+        #expect(h.coordinator.state == .nowPlaying(track, expanded: true))
+        h.coordinator.hover(false)
+        #expect(h.coordinator.state == .nowPlaying(track, expanded: false))
+    }
+
+    /// The control pair: a genuinely in-flight debounced gesture still routes
+    /// `hover(false)` through the intent path — the fix narrows the guard to
+    /// live tasks, it does not remove it.
+    @Test func hoverOutDuringAnInFlightIntentStillTakesTheDebouncedPath() async {
+        let h = await showingCompact()
+
+        h.coordinator.hover(true)   // immediate expand
+        #expect(h.coordinator.state == .nowPlaying(track, expanded: true))
+
+        h.coordinator.hoverIntent(true)   // debounced gesture now in flight
+        await h.clock.waitForSleep(delay: Coordinator.defaultHoverIntentDelay)
+
+        h.coordinator.hover(false)
+        // Diverted: still expanded until the out-debounce elapses.
+        #expect(h.coordinator.state == .nowPlaying(track, expanded: true))
+        await h.clock.waitForSleep(delay: Coordinator.defaultHoverOutDebounce)
+        h.clock.advance(delay: Coordinator.defaultHoverOutDebounce)
+        #expect(await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) })
+    }
+
     @Test func delaysAreConfigurable() async {
         let h = await showingCompact(hoverIntentDelay: 0.5, hoverOutDebounce: 0.05)
 

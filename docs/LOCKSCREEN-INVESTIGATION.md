@@ -1,11 +1,33 @@
 # HUDs on the lock screen — reopened investigation
 
-> **STATUS: REOPENED 2026-08-07 — the mechanism this file left unexplained has
-> been found and proven on hardware.** Everything below still holds as written:
-> no window LEVEL composites over the shield, and there is still no PUBLIC path.
-> What was wrong was the framing, not a fact — the barrier is not the level
-> axis at all. See "The reopening" at the end before acting on anything here.
-> The lock-aware policy the file argued for stays; its justification changes.
+> **STATUS, 2026-08-08 — READ THIS FIRST.** Everything below was proven, and
+> then built, and then removed. The app draws nothing over the lock shield
+> today; there is no SkyLight space, no panel, no preference and no probe left
+> in the tree (docs/DECISIONS.md: the-lock-screen-was-built-and-taken-out).
+>
+> This file is kept because the KNOWLEDGE is not recoverable from the code, and
+> because it is the file that stops the same sweep being run a third time. What
+> it records and what still holds: no window LEVEL reaches the shield; the
+> shield is a SPACE at absolute level 300; a private SkyLight space at 400
+> composites over it; clicks reach a window there; a screen-sized window
+> behaves; the login's top edge sits at or below 180 pt on a 1512×982 panel.
+>
+> What it does NOT record, and what a future attempt owes: whether a space
+> BELOW 300 composites behind the shield, which would let the system draw the
+> login on top and retire most of the difficulty at once. Nobody ran that.
+
+
+> **STATUS AS IT STOOD ON 2026-08-07 — superseded by the banner above.** For one
+> day this file read: reopened and partly shipped — the mechanism this file left
+> unexplained had been found, proven on hardware, and taken. Everything below
+> still held as written: no window LEVEL composites over the shield, and there
+> was still no PUBLIC path; what was wrong was the framing, not a fact — the
+> barrier is not the level axis at all. The opt-in now-playing widget (item b)
+> shipped on a raised SkyLight space; the **HUDs** over the lock (item a2) did
+> not, and the lock-aware suppression policy this file argued for was unchanged —
+> its justification moved from "we cannot draw there" to "we have not chosen to
+> draw the HUDs there". "The reopening", "The second round" and "What shipped"
+> at the end record that day; the banner at the top says where it ended.
 
 > Investigation concluded on 2026-07-10, with both probes run by the author on
 > real hardware (macOS 26.5.2, Apple Silicon). Every decisive claim below is
@@ -82,8 +104,10 @@ exist; see "The reopening".
 |---|---|
 | (a1) Suspend suppression under lock (palliative → fix) | **GO — bug priority, v1.1** |
 | (a2) Crema's HUD over the lock | **NO public path** (proven on hardware) · a PRIVATE one exists and is proven too — see "The reopening"; the verdict is now a choice, not a wall |
-| (b) Now-playing widget on the lock (opt-in) | **OPEN** — the mechanism blocker named here is gone; what is left is whether to take a private space API for it |
-| (c) Artwork as the lock's background | **NO-GO** (unaddressable layer; only static art via MediaRemote — no Canvas or animated covers) |
+| (b) Now-playing widget on the lock (opt-in) | **SHIPPED** — the mechanism blocker named here is gone, the second round of probes closed the behaviour questions, and the private space API was taken for this and only this. See "What shipped" |
+| (c1) Replacing the SYSTEM's lock wallpaper | **NO-GO** — unaddressable; nothing here reaches loginwindow's own background |
+| (c2) Our own artwork filling the lock screen | **SHIPPED** — a raised-space window of our own, which is a different claim from (c1) and was hiding inside it |
+| (c3) Animated / motion covers | **NO-GO**, and not for the reason this row used to give. See "Animated artwork" |
 
 ## Stage 1 — the design (validated by the probes)
 - `ScreenLockSource` behind a protocol (edges + authoritative poll + onConsole
@@ -174,4 +198,152 @@ machine, same OS, same moment, one variable.
   idea; that this survives a macOS update; that a raised space behaves for
   hover, click routing or multi-display the way the app's panels do today. The
   probe answers one question — whether pixels reach the lock screen — and
-  nothing else.
+  nothing else. (Two of these were closed by the second probe, below. The macOS
+  update remains open by nature.)
+
+---
+
+## The second round (2026-08-07) — do events reach, and does a big one behave
+
+The paragraph above named three unknowns and the widget's design rested on two
+of them: its expanded state exists only if a click lands, and expanding covers
+the display, which a 460×120 marker never tested.
+`scripts/probes/lockscreen-events.swift` settled both, with the same control
+discipline — it reads the session dictionary itself and stamps every click with
+the lock state at the moment it arrived, so a silent log is distinguishable from
+a broken probe.
+
+**Measured by the author on hardware** (macOS 26, Apple Silicon):
+
+- **5 clicks logged `unlocked`** — the control. Clicks reach this window at all.
+- **10 clicks logged `LOCKED`** — events reach a raised-space window over the
+  shield. The expanded state is viable.
+- **Both windows stayed visible across three lock/unlock cycles**, so a
+  screen-sized window in the raised space behaves like the small one.
+- **macOS drew no media controls of its own** on the lock screen. This is not a
+  second player competing with the system's.
+- **Not answered: sleep, wake and hotplug.** No such edge fired during the run,
+  so the log carries no evidence either way. Left open deliberately rather than
+  guessed at, and covered by action instead of by a read — see below.
+
+A FOURTH probe, `lockscreen-geometry.swift`, answered where the surface may sit.
+The card had been placed 96 pt off the bottom from a mock, with a comment
+claiming that cleared the avatar and the password field; on hardware the
+opposite was true, because Sonoma moved the login UI DOWN. The ruler draws
+labelled bands and candidate rects over the shield and the author reads it.
+**Measured 2026-08-07:** the login never leaves the centre column (the
+horizontal invariant every version has kept), a card at 96 pt lands on the
+avatar, and a 300 pt square centred on the display touches nothing. That is why
+the collapsed card now rests at 300 pt and the expanded state is a 300 pt tile
+centred rather than a cover stacked over a card (docs/DECISIONS.md:
+the-lock-screen-is-a-space).
+
+**Re-run 2026-08-08**, because that first run answered three of its own five
+questions and the silence read as an answer. It now records the display size
+(1512×982), puts the login's top at or below 180 pt, and reads candidate B clear
+at 220 — so 300 clears the login by at least 120 pt rather than by a margin
+nobody had measured. Two claims died with it. The stack was rejected here for
+"its bottom edge lands back on the login": on the real panel it centres to
+259…723 and clears the login by 79 pt, so the true reason is the other end — 723
+leaves the 641 ceiling the ruler proved — plus the interaction one, that a hero
+above a card is a large picture ignoring every click aimed at it. And a "72% of
+the height" that had reached CLAUDE.md turned out to be 1 − 250/900 off a test
+fixture, not a reading.
+
+**And then the backdrop went, entirely** (2026-08-08, docs/DECISIONS.md:
+the-lock-surface-is-a-card). For one round it merely stopped erasing the login —
+clearing the band below `clearBandFloor`, ramping back to opaque above it, and
+drawing a clock of its own because that layer covered the system's. The round
+after deleted the layer instead of tuning it: the fade's boundary is a Mach band
+and cannot be softened away, a light cover erased the very clock the backdrop
+obliged, and covering a login turns a cosmetic feature into a safety-critical
+one. What ships is two bounded objects on the user's own wallpaper. There is no
+Crema clock any more, and there must not be one: with no ground, the shield's
+own clock is visible, and a second beside it is a defect rather than a feature.
+
+Everything below about clicks, cursor routing and the raised space still holds —
+those questions belong to the WINDOW, which is unchanged.
+
+A third probe, `lockscreen-mouse-routing.swift`, was needed once the surface
+shipped, and its question is the mirror of the second one's: not "do clicks
+reach a window that wants them" but "can a window that deliberately REFUSES them
+still learn where the cursor is". A screen-sized clear window captures every
+click on the display, so the panel has to stay click-through and open only over
+the card — which requires tracking the cursor while capturing nothing. Apple
+documents that a global event monitor "would not be able to detect Command-Tab
+or a system alert", and the lock screen is loginwindow's UI, so this was a real
+doubt. **Measured 2026-08-07: it does not generalize.** While locked, with a
+window in exactly that configuration: 1092 global mouse-moved events, 281 local,
+and 117 live readings from `NSEvent.mouseLocation` polling — all three
+mechanisms alive, the third being a standing fallback if delivery ever stops.
+
+The probe splits into two windows on purpose, and the split is a safety property
+rather than a convenience: the screen-sized one sets `ignoresMouseEvents`, so it
+can never swallow a click meant for the password field. A screen-sized window
+that ate events over the lock shield would be a probe that locks you out of your
+Mac.
+
+---
+
+## What shipped
+
+Item (b), opt-in and born off (`showsLockScreenWidget`). The pieces:
+
+| | |
+|---|---|
+| `Crema/Sources/SkyLight/SkyLightSpace.swift` | The private edge, behind `RaisedSpace` like every other system contact — dlopen, dlsym, **every one of the five symbols checked**; any nil ⇒ `isAvailable == false` and the feature is simply not offered |
+| `Crema/Windows/LockScreenPanel.swift` | One screen-sized borderless panel, `canBecomeVisibleWithoutLogin = true` |
+| `Crema/Windows/LockScreenPresenter.swift` | Owns the window's whole lifetime; the policy is the pure `LockWidgetPresence.shouldPresent(enabled:locked:spaceAvailable:)` |
+| `Crema/Styles/LockWidgetView.swift` | The surface: collapsed card, expanded cover, both states |
+
+Three decisions worth not re-deriving:
+
+- **It reads the raw `locked` bit, never `!isSuppressionSafe`.** That predicate
+  collapses locked with off-console, and drawing this user's listening onto
+  another account's lock screen after a fast user switch is a worse mistake than
+  not drawing at all. The pair survives in `ScreenLockSessionTranslation.decode`.
+- **A second reader of the lock needs a mirror, not a second `for await`.**
+  `ScreenLockSource.updates` is a single-consumer `AsyncStream` the suppression
+  controller already owns; a second loop would silently split the values. The
+  house template is `LowPowerModeMirror`, and `LockScreenMirror` follows it —
+  reported **before** the reconciler, deliberately, because the reconciler
+  deduplicates on `safe` and would swallow a lock→lock-with-different-console
+  edge this mirror needs to see.
+- **The sleep/wake unknown is covered by action, not by a read.** Whether a
+  raised space survives a display sleep is state living in the WindowServer, and
+  the J7 lesson in this codebase is that such state cannot be audited from
+  inside the process — a local read answers "fine" either way. So the panel
+  re-adopts its space unconditionally on all four edges the media-key tap
+  already reinstalls on (`docs/DECISIONS.md: preventive-reinstall`,
+  `J7-estado-do-outro-lado`). `adopt` is idempotent; acting costs one cheap
+  call, trusting a local read costs a surface that silently stopped appearing.
+
+## Animated artwork
+
+Row (c) used to read "only static art via MediaRemote — no Canvas or animated
+covers", stated as a limitation of the bridge. That is one of three walls, and
+not the load-bearing one. Any of them alone is fatal, so this does not reopen
+when a new bridge appears:
+
+- **Apple withholds the data from every third party.** `editorialVideo`, where
+  motion artwork lives, is not exposed to third-party apps through the Apple
+  Music API — developer token or not. For albums, the only extended attribute a
+  third party can load is `artistUrl`.
+- **`MPMediaItemAnimatedArtwork` is a provider API.** It is how a music app
+  hands animation *to* the system. Crema observes whatever is playing and never
+  receives it. It is also iOS-only.
+- **The bridge has no such key.** The vendored adapter emits 45 fields and
+  exactly one image: `artworkData` + `artworkMimeType`. No artwork identifier,
+  no URL, no animated variant — and `MRMediaRemoteGetNowPlayingInfo` takes no
+  options dictionary, so there is no size to negotiate and the dimensions
+  received are not even reported. Apple Music's motion art never crosses the
+  MediaRemote boundary.
+
+The consequence has outlived the thing it was written for. It once justified the
+slow drift on the blurred backdrop as the honest form of the idea on this
+platform; the backdrop is gone and the finding is unaffected, because it was
+never about the backdrop — no animated artwork reaches this app by any route, so
+no future lock composition can plan on one. And the same paragraph explains the
+**cover lookup** (`ArtworkLookup`, opt-in, off by default): the size is not negotiable
+at the MediaRemote boundary either, so a larger cover has to come from somewhere
+else entirely.

@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import Crema
 
@@ -295,6 +296,156 @@ struct CoordinatorNeighbourBrightnessTests {
         #expect(h.external?.commands.count == 1)   // asked once, then written off
     }
 
+    /// The neighbour's real actuator answers a queued drag frame IMMEDIATELY,
+    /// before anything reaches the wire, and can fail holding a frame nobody else
+    /// will write. The plain mock cannot say either of those things, so the pins
+    /// on that seam wire a Coordinator by hand around a coalescing fake — the
+    /// same mocks as the harness everywhere else, every clock injected.
+    @MainActor
+    private struct CoalescingHarness {
+        let hudSource = MockSystemHUDSource()
+        let screen = MockScreenBrightnessController()
+        let external = FakeCoalescingBrightnessController()
+        let clock = TestSleepClock()
+        let coordinator: Coordinator
+
+        /// `alsoHearing` merges a second HUD source in, the way production merges
+        /// the neighbour's — for the test that needs the app's own echo to come
+        /// back round through the stream.
+        init(alsoHearing extra: (any SystemHUDSource)? = nil) {
+            let hud: any SystemHUDSource
+            if let extra { hud = MergedSystemHUDSource([hudSource, extra]) } else { hud = hudSource }
+            coordinator = Coordinator(
+                nowPlayingSource: MockNowPlayingSource(),
+                systemHUDSource: hud,
+                nowPlayingController: MockNowPlayingController(),
+                volumeController: MockVolumeController(),
+                screenBrightnessController: screen,
+                keyboardBrightnessController: MockKeyboardBrightnessController(),
+                externalScreenBrightnessController: external,
+                clock: clock
+            )
+            coordinator.start()
+        }
+    }
+
+    /// Answers each call from a script: a coalesced echo, a written level, or a
+    /// failure carrying an orphan — the three answers the real coalescing writer
+    /// can give, produced without a queue since what is under test is what the
+    /// Coordinator does with each one.
+    private final class FakeCoalescingBrightnessController:
+    CoalescingScreenBrightnessWriting, @unchecked Sendable {
+        private let lock = NSLock()
+        private var script: [Result<BrightnessWriteEcho, BrightnessWriteFailure>] = []
+        private var recorded: [CoalescedWrite] = []
+
+        var commands: [CoalescedWrite] { lock.withLock { recorded } }
+        func answers(_ next: Result<BrightnessWriteEcho, BrightnessWriteFailure>) {
+            lock.withLock { script.append(next) }
+        }
+
+        func applyBrightness(_ value: Double, on display: DisplayUUID?) async throws -> BrightnessWriteEcho {
+            let next = lock.withLock { () -> Result<BrightnessWriteEcho, BrightnessWriteFailure>? in
+                recorded.append(.setBrightness(value, display: display))
+                return script.isEmpty ? nil : script.removeFirst()
+            }
+            switch next {
+            case .success(let echo): return echo
+            case .failure(let failure): throw failure
+            case nil: return .written(value)   // off-script, a write is the plain answer
+            }
+        }
+
+        func setBrightness(_ value: Double, on display: DisplayUUID?) async throws -> Double {
+            switch try await applyBrightness(value, on: display) {
+            case .written(let level), .coalesced(let level): return level
+            }
+        }
+    }
+
+    @Test func theFallbackWritesTheFrameTheChannelOrphanedNotTheOldArgument() async {
+        // The drive that fails has been inside its drain for a round-trip, and the
+        // finger has moved on: newer frames coalesced behind it, echoed, and were
+        // never written. The failure carries the newest of them, and THAT level —
+        // on the display it was aimed at — is what the fallback owes the user;
+        // writing the drive's own argument would land the screen on a level the
+        // finger merely passed through.
+        let h = CoalescingHarness()
+        h.external.answers(.failure(BrightnessWriteFailure(
+            underlying: MockScreenBrightnessController.Refusal(),
+            orphan: .init(value: 0.9, display: nil)
+        )))
+        h.hudSource.emit(SystemHUD(kind: .screenBrightness, value: 0.5, authority: .betterDisplay))
+        #expect(await eventually { h.coordinator.state != .hidden })
+
+        h.coordinator.hudSliderChanged(to: 0.3)   // the drive's stale argument
+
+        #expect(await eventually { h.screen.commands.isEmpty == false })
+        #expect(h.screen.commands == [.setBrightness(0.9, display: nil)])
+    }
+
+    @Test func aCoalescedEchoAloneIsNeverEvidenceForTheSettle() async {
+        // A coalesced answer arrives BEFORE anything reaches the wire — it exists
+        // so the bar follows the finger, and that is all it may do. Recording it
+        // as a confirmed write is how a bar once settled, after a failed gesture,
+        // on a level no display ever went to: the echo had promised 0.9, nobody
+        // wrote it, and the rollback took the promise for evidence.
+        let h = CoalescingHarness()
+        let applied = Applied()
+        h.coordinator.onBrightnessApplied = { applied.record($0) }
+        h.external.answers(.success(.coalesced(0.9)))
+        h.external.answers(.failure(BrightnessWriteFailure(
+            underlying: MockScreenBrightnessController.Refusal(), orphan: nil
+        )))
+        h.screen.refuseEverything()   // the fallback declines too: nothing wrote
+        let bar = SystemHUD(kind: .screenBrightness, value: 0.5, authority: .betterDisplay)
+        h.hudSource.emit(bar)
+        #expect(await eventually { h.coordinator.state != .hidden })
+
+        h.coordinator.hudSliderChanged(to: 0.9)   // answered by the coalesced echo
+        #expect(await eventually { applied.last?.value == 0.9 })   // the bar got its echo
+        h.coordinator.hudSliderChanged(to: 0.8)   // fails; the fallback refuses
+        #expect(await eventually { h.screen.commands.count == 1 })
+        h.coordinator.hudSliderReleased()
+
+        // Home is 0.5 — the reading that arrived on its own. Settling on 0.9
+        // would mean the echo was taken for a write.
+        #expect(await eventually { h.coordinator.state == .hud(bar.at(0.5)) })
+    }
+
+    @Test func aCoalescedEchoStaysNoEvidenceAfterTheRoundTripThroughTheHUDStream() async {
+        // The twin of the test above with the loop CLOSED the way production
+        // closes it: the neighbour's source yields the app's own echo back into
+        // the HUD stream (`AppCore.wireBrightnessEcho` → `noteApplied`), and it
+        // arrives at `handleHUDUpdate` on the same path a spontaneous report
+        // takes. Recorded there as a reading, the promised 0.9 became "confirmed"
+        // one hop later than the guard in `writeThroughNeighbour` could see, and
+        // the rollback settled the bar on it. Only the loop shows that.
+        let neighbour = BetterDisplayOSDSource(target: { _ in nil })
+        let h = CoalescingHarness(alsoHearing: neighbour)
+        AppCore.wireBrightnessEcho(
+            to: h.coordinator, screen: SpySampledSource(), keyboard: SpySampledSource(), neighbour: neighbour
+        )
+        h.external.answers(.success(.coalesced(0.9)))
+        h.external.answers(.failure(BrightnessWriteFailure(
+            underlying: MockScreenBrightnessController.Refusal(), orphan: nil
+        )))
+        h.screen.refuseEverything()
+        let bar = SystemHUD(kind: .screenBrightness, value: 0.5, authority: .betterDisplay)
+        h.hudSource.emit(bar)
+        #expect(await eventually { h.coordinator.state != .hidden })
+
+        h.coordinator.hudSliderChanged(to: 0.9)   // the coalesced echo goes round the loop
+        #expect(await eventually { h.coordinator.state == .hud(bar.at(0.9).echoed()) })   // and moves the bar
+        h.coordinator.hudSliderChanged(to: 0.8)   // fails; the fallback refuses
+        #expect(await eventually { h.screen.commands.count == 1 })
+        h.coordinator.hudSliderReleased()
+
+        // Home is still 0.5: the echo that came back through the stream moved the
+        // bar and was not taken for a reading.
+        #expect(await eventually { h.coordinator.state == .hud(bar.at(0.5)) })
+    }
+
     @Test func aFreshReportEarnsTheNeighbourAnotherChance() async {
         // Recovery by evidence, never by a timer: the app answering again is the
         // proof, and it is the same proof the menu uses.
@@ -311,4 +462,10 @@ struct CoordinatorNeighbourBrightnessTests {
 
         #expect(await eventually { h.external?.commands.count == 2 })
     }
+}
+
+/// What the scripted coalescing fake records per call; file-scoped because the
+/// house lint caps type nesting at one level.
+private enum CoalescedWrite: Equatable {
+    case setBrightness(Double, display: DisplayUUID?)
 }

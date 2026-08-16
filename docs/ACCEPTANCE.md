@@ -5,11 +5,13 @@
 > plan: everything below describes the app as it ships today. Where a criterion
 > names something not yet built, it says so in place.
 >
-> Provenance: distilled from the author's working specification, which lives in
-> `docs/internal/` (gitignored, local-only). It is published here because it is
-> the only list that says what "working" means, and a reader outside that folder
-> had no way to check the app against it. The specification stays the source; if
-> the two ever disagree, this file is the one that has drifted.
+> This file is the **only home** of the criteria. The list once lived in two
+> places and the copies drifted — one carried a pair of criteria the other had
+> already retired — so [SPEC.md](../SPEC.md) points here instead of restating
+> them. The SPEC says what the app is and why; this list says how you check it.
+> Items 20–21 were added on 2026-08-07 with the lock-screen surface and retired
+> 2026-08-08 with it; while they stood, a default install satisfied them by
+> doing nothing.
 
 1. With media playing (browser media only with the toggle on — it is filtered by
    default), now playing appears near the notch (or in the floating card, on a
@@ -22,11 +24,10 @@
 4. Each display renders the HUD and now playing in its resolved style — its own
    override from the Displays list in General when it has one, else the style
    declared just above it; notch→card where there is no slit — positioned and
-   sized by that style. That list is offered only where there is a per-display
-   answer to give: more than one screen, or a sole display that is not the
-   built-in one, or a display already carrying an override; a lone built-in panel
-   with no override shows no list at all, the way System Settings offers no
-   Arrange with one display. Picking a style for one display moves only that
+   sized by that style. That list is offered for every connected display, a lone
+   built-in panel included: its row carries the only switch for the now-playing
+   surface, so a MacBook on its own still shows the Displays section with its one
+   row. Picking a style for one display moves only that
    display; picking that display's "Follow all displays (…)" item returns it to
    the declaration at once, and declaring for all displays (General's leading
    section, or the menu bar's Style submenu) replaces every per-display style. On
@@ -108,3 +109,10 @@
     once per install. An install that already carries the Accessibility grant
     still sees it once; the menu's "Grant Accessibility Access…" button remains
     the manual path to the standalone permission window afterwards.
+20. ~~The lock-screen card.~~ **Retired 2026-08-08 with the whole surface**
+    (docs/DECISIONS.md: the-lock-screen-was-built-and-taken-out). The app draws
+    nothing over the lock shield; with music playing and the screen locked,
+    macOS looks exactly as it does without Crema installed. That is the only
+    thing left to check here, and it is checked by there being nothing to see.
+21. ~~The cover lookup.~~ **Retired the same day, with the expanded state it
+    fed.** Crema makes no artwork request of any kind.

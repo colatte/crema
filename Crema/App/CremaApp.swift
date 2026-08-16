@@ -103,7 +103,7 @@ private struct PendingUpdateMenuSection: View {
     var body: some View {
         if updater.hasPendingUpdate {
             Text(String(localized: "menu.update.available", defaultValue: "An update to Crema is available."))
-            Button(String(localized: "menu.update.show", defaultValue: "Show the Update…")) {
+            Button(String(localized: "menu.update.show", defaultValue: "Show Update…")) {
                 NSApp.activate()
                 updater.checkForUpdates()
             }

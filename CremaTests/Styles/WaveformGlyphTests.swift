@@ -1,16 +1,21 @@
+import CoreGraphics
 import Testing
 @testable import Crema
 
-/// The pulse's whole decision, as a table written independently of the rule it
+/// The glyph's two decisions, each as a table written independently of the rule it
 /// checks — the glyph's own `&&` chain would agree with any mutation of itself.
 ///
-/// The rule has two vetoes and they are not interchangeable: Reduce Motion is the
+/// The PULSE has two vetoes and they are not interchangeable: Reduce Motion is the
 /// standing accessibility preference over every animation in the app, and Low
 /// Power Mode is the system asking that nothing be spent on motion. A `&&
 /// !lowPower` deletion is the mutation that goes silent — the bars keep dancing
 /// forever and nothing else in the app reads the mirror. Both are read live inside
 /// the body, which is why the `@State` phase is keyed on this rule and not on
 /// `animating`.
+///
+/// The FORM is a separate question with a separate answer, and the second half of
+/// this file is where the two are held apart: a veto takes the movement away, not
+/// the fact that something is playing.
 @MainActor
 struct WaveformGlyphTests {
 
@@ -34,6 +39,67 @@ struct WaveformGlyphTests {
         // the kind of spend it means. Deleting `&& !lowPower` from the rule leaves
         // every other assertion in the suite green.
         #expect(!WaveformGlyph.dances(animating: true, reduceMotion: false, lowPower: true))
+    }
+
+    // MARK: - The form, which the vetoes do not decide
+
+    @Test func aVetoedGlyphStillSaysPlaying() {
+        // The bug this rule exists for: with the pulse vetoed and every bar at
+        // rest, playing and paused drew the same four 4 pt stubs — and on the
+        // compact surfaces this glyph is the ONLY thing that says playing at all.
+        // The vetoes forbid movement and spending, not information.
+        let playing = WaveformGlyph.stillHeights(animating: true, reduceMotion: true, lowPower: false)
+        let paused = WaveformGlyph.stillHeights(animating: false, reduceMotion: true, lowPower: false)
+        #expect(playing != paused)
+        #expect(WaveformGlyph.stillHeights(animating: true, reduceMotion: false, lowPower: true) == playing)
+    }
+
+    @Test func aPausedGlyphIsFlatAtRestUnderEveryVeto() {
+        // Paused is paused, and it is flat: nothing about the vetoes may draw a
+        // silhouette playback did not ask for.
+        let flat = [CGFloat](repeating: WaveformGlyph.Configuration.standard.restHeight, count: 4)
+        for reduceMotion in [false, true] {
+            for lowPower in [false, true] {
+                #expect(
+                    WaveformGlyph.stillHeights(animating: false, reduceMotion: reduceMotion, lowPower: lowPower) == flat,
+                    "reduceMotion=\(reduceMotion) lowPower=\(lowPower)"
+                )
+            }
+        }
+    }
+
+    @Test func theHeightsBehindALivePulseAreItsFloorAndNotTheSilhouette() {
+        // Playing with no veto, the height declared here is the value the endless
+        // autoreverse animates AWAY from. Hand it the silhouette and the bar the
+        // profile puts at peak would pulse from peak to peak — a bar that stops
+        // moving while its neighbours dance, which no other assertion would catch.
+        let flat = [CGFloat](repeating: WaveformGlyph.Configuration.standard.restHeight, count: 4)
+        #expect(WaveformGlyph.stillHeights(animating: true, reduceMotion: false, lowPower: false) == flat)
+    }
+
+    @Test func theSilhouetteIsStaggeredAcrossTheRestToPeakSpan() {
+        // Written out rather than recomputed from the profile: four bars at four
+        // different heights is what makes the row read as levels instead of the
+        // flat block four equal bars draw, and the numbers are the standard
+        // tuning's own span (4…12) at the profile's fractions.
+        let vetoed = WaveformGlyph.stillHeights(animating: true, reduceMotion: true, lowPower: false)
+        #expect(vetoed == [4, 12, 8, 10])
+        // Zero movement is the whole point: the profile is a shape, not a phase,
+        // so the same inputs answer the same heights every time.
+        #expect(WaveformGlyph.stillHeights(animating: true, reduceMotion: true, lowPower: false) == vetoed)
+    }
+
+    @Test func theSilhouetteFollowsATuningItDoesNotHardcode() {
+        // A skin that diverges (Configuration is per call site) gets its own span
+        // and its own bar count — the fractions are the constant, not the points.
+        var wide = WaveformGlyph.Configuration.standard
+        wide.barCount = 6
+        wide.restHeight = 10
+        wide.peakHeight = 20
+        let heights = WaveformGlyph.stillHeights(
+            animating: true, reduceMotion: false, lowPower: true, config: wide
+        )
+        #expect(heights == [10, 20, 15, 17.5, 10, 20])
     }
 
     /// One row of the table, written out rather than computed — a row that

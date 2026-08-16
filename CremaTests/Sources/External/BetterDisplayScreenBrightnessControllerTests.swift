@@ -30,9 +30,12 @@ struct BetterDisplayScreenBrightnessControllerTests {
 
         try await controller.setBrightness(0.4, on: nil)
 
+        // #expect does not halt the test, so the subscript needs its own guard —
+        // a trap here would kill the host and every in-flight sibling.
+        let first = try #require(channel.written.first)
         #expect(channel.written.count == 1)
-        #expect(channel.written[0].displayID == 1)
-        #expect(channel.written[0].value == 0.4)
+        #expect(first.displayID == 1)
+        #expect(first.value == 0.4)
     }
 
     @Test func anExternalScreenIsAddressedByItsOwn() async throws {
@@ -44,7 +47,8 @@ struct BetterDisplayScreenBrightnessControllerTests {
 
         try await controller.setBrightness(0.9, on: external)
 
-        #expect(channel.written[0].displayID == 7)
+        let first = try #require(channel.written.first)
+        #expect(first.displayID == 7)
     }
 
     @Test func aDisplayThatNoLongerResolvesIsNotWrittenTo() async {
@@ -115,15 +119,134 @@ struct BetterDisplayScreenBrightnessControllerTests {
         #expect(await eventuallyOffActor { channel.written == [0.2, 0.8] })
     }
 
-    @Test func theNeighboursRefusalTravelsBackToTheCaller() async {
+    @Test func theNeighboursRefusalTravelsBackToTheCaller() async throws {
         // A failed apply must read as failure so the drag reports it, exactly
-        // like the system actuator's own failures.
+        // like the system actuator's own failures. The channel's error travels
+        // wrapped, carrying the frame the failed write held — here the drive's
+        // own, the only one there was — so the fallback always has a level to
+        // honour.
         let channel = SpyChannel()
         channel.failure = BetterDisplayCommandChannel.CommandError.unanswered
         let controller = BetterDisplayScreenBrightnessController(channel: channel, displayID: { _ in 1 })
 
-        await #expect(throws: BetterDisplayCommandChannel.CommandError.unanswered) {
-            try await controller.setBrightness(0.5, on: nil)
+        do {
+            _ = try await controller.setBrightness(0.5, on: nil)
+            Issue.record("the channel refused; the call must throw")
+        } catch let failure as BrightnessWriteFailure {
+            #expect(failure.underlying as? BetterDisplayCommandChannel.CommandError == .unanswered)
+            let orphan = try #require(failure.orphan)
+            #expect(orphan.value == 0.5)
+            #expect(orphan.display == nil)
+        }
+    }
+
+    @Test func aFrameStillQueuedWhenTheChannelFailsLeavesWithTheError() async throws {
+        // The frame that coalesces echoes at once, having written nothing — a
+        // promise the driver normally keeps by draining it. When the driver's
+        // write fails instead, no driver is left: the frame must leave WITH the
+        // error, so the caller's fallback can write the finger's newest level
+        // (and the display it was aimed at) instead of the drive's stale argument.
+        let channel = ReentrantChannel()
+        channel.firstWriteFailure = BetterDisplayCommandChannel.CommandError.unanswered
+        let controller = BetterDisplayScreenBrightnessController(
+            channel: channel,
+            displayID: { [external] display in display == external ? 7 : 1 }
+        )
+        let coalesced = CoalescedReturns()
+        channel.duringFirstWrite = { [weak controller, external] in
+            guard let controller else { return }
+            try await coalesced.append(controller.setBrightness(0.9, on: external))
+        }
+
+        do {
+            _ = try await controller.setBrightness(0.1, on: nil)
+            Issue.record("the channel failed; the drive must throw")
+        } catch let failure as BrightnessWriteFailure {
+            let orphan = try #require(failure.orphan)
+            #expect(orphan.value == 0.9)
+            #expect(orphan.display == external)
+            #expect(failure.underlying as? BetterDisplayCommandChannel.CommandError == .unanswered)
+        }
+        // The echo already promised 0.9, which is exactly why it may not die in
+        // the queue; and only the failed attempt ever reached the wire.
+        #expect(coalesced.values == [0.9])
+        #expect(channel.written == [0.1])
+    }
+
+    @Test func aFailureWithTheQueueEmptyCarriesTheFrameItWasWriting() async throws {
+        // The narrower path of the same class: the drain dequeues the newest
+        // frame, leaving the queue EMPTY, and that very write fails. The failed
+        // frame queued after the drive's argument, so it is newer — an error
+        // carrying nothing would point the caller's fallback at the argument,
+        // a level the finger only passed through.
+        let channel = ReentrantChannel()
+        channel.secondWriteFailure = BetterDisplayCommandChannel.CommandError.unanswered
+        let controller = BetterDisplayScreenBrightnessController(
+            channel: channel,
+            displayID: { [external] display in display == external ? 7 : 1 }
+        )
+        let coalesced = CoalescedReturns()
+        channel.duringFirstWrite = { [weak controller, external] in
+            guard let controller else { return }
+            try await coalesced.append(controller.setBrightness(0.5, on: external))
+        }
+
+        do {
+            _ = try await controller.setBrightness(0.3, on: nil)
+            Issue.record("the channel failed; the drive must throw")
+        } catch let failure as BrightnessWriteFailure {
+            let orphan = try #require(failure.orphan)
+            #expect(orphan.value == 0.5)
+            #expect(orphan.display == external)
+            #expect(failure.underlying as? BetterDisplayCommandChannel.CommandError == .unanswered)
+        }
+        // 0.3 reached the wire whole; 0.5 is the failed attempt. Its echo had
+        // already promised it, which is exactly why it may not vanish with the
+        // error.
+        #expect(coalesced.values == [0.5])
+        #expect(channel.written == [0.3, 0.5])
+    }
+
+    @Test func aFrameArrivingAsTheDriveWindsDownIsNeverDropped() async {
+        // The exit race: with the drain's "queue is empty" check and the inFlight
+        // reset in separate critical sections, a frame slipping between them saw
+        // inFlight still true, echoed as coalesced, and was drained by nobody —
+        // the gesture's last level died in the queue while both calls reported
+        // success. The window is a few instructions wide and sits between two lock
+        // acquisitions on the driver's path, so no fake can hook inside it; this
+        // pins the invariant by racing a frame against many drives ending, which
+        // is deterministic-green on the single-critical-section drain and reached
+        // the window probabilistically on the split one.
+        for round in 0..<200 {
+            let channel = YieldingChannel()
+            let racing = BetterDisplayScreenBrightnessController(channel: channel, displayID: { _ in 1 })
+            let driver = Task { try? await racing.setBrightness(0.15, on: nil) }
+            // Only after 0.15 is on the wire may 0.85 leave: fired earlier it could
+            // be legally superseded BY 0.15, and a dropped frame would mean nothing.
+            // From here on it is the strictly newest level, racing the drive's exit.
+            #expect(await eventuallyOffActor { channel.written.contains(0.15) })
+            let late = Task { try? await racing.setBrightness(0.85, on: nil) }
+            _ = await driver.value
+            _ = await late.value
+            // Both calls have returned, so every drain they started has finished;
+            // nothing superseded 0.85, so it must be on the wire by now.
+            if !channel.written.contains(0.85) {
+                Issue.record("round \(round): the newest frame was enqueued, echoed, and never written")
+                break
+            }
+        }
+    }
+
+    /// A channel whose write suspends once, widening the interleaving between a
+    /// drive winding down and a frame arriving — no wall clock involved.
+    private final class YieldingChannel: BetterDisplayCommanding, @unchecked Sendable {
+        private let lock = NSLock()
+        private var calls: [Double] = []
+        var written: [Double] { lock.withLock { calls } }
+
+        func setBrightness(_ value: Double, displayID: Int) async throws {
+            await Task.yield()
+            lock.withLock { calls.append(value) }
         }
     }
 
@@ -213,13 +336,24 @@ struct BetterDisplayScreenBrightnessControllerTests {
         /// frame written to the driving call's display instead of its own.
         var addressed: [Int] { lock.withLock { calls }.map(\.displayID) }
         var duringFirstWrite: (@Sendable () async throws -> Void)?
+        /// Thrown by the first write AFTER `duringFirstWrite` ran: the shape of a
+        /// drive that failed with frames already queued behind it.
+        var firstWriteFailure: Error?
+        /// Thrown by the second write — the drained frame — with nothing queued
+        /// behind it: the shape of a drain failing on a frame that emptied the
+        /// queue.
+        var secondWriteFailure: Error?
 
         func setBrightness(_ value: Double, displayID: Int) async throws {
-            let isFirst = lock.withLock { () -> Bool in
+            let ordinal = lock.withLock { () -> Int in
                 calls.append((value, displayID))
-                return calls.count == 1
+                return calls.count
             }
-            if isFirst { try await duringFirstWrite?() }
+            if ordinal == 1 {
+                try await duringFirstWrite?()
+                if let firstWriteFailure { throw firstWriteFailure }
+            }
+            if ordinal == 2, let secondWriteFailure { throw secondWriteFailure }
         }
     }
 }

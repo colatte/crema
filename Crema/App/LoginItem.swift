@@ -7,7 +7,8 @@ import ServiceManagement
 enum LoginItemStatus: Equatable {
     case enabled
     /// Registered, but macOS is waiting for the user to approve it in System
-    /// Settings › General › Login Items — a non-throwing `register()` can land
+    /// Settings › General (the pane macOS 15 renamed to "Login Items &
+    /// Extensions") — a non-throwing `register()` can land
     /// here, so the toggle must not read this as fully on.
     case requiresApproval
     case notRegistered

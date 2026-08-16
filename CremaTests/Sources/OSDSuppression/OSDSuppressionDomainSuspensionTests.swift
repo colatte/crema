@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import Testing
 @testable import Crema
 
@@ -124,6 +125,43 @@ struct OSDSuppressionDomainSuspensionTests {
         #expect(await eventually { !h.suppressor.suspendedDomains.contains(.volume) })
         #expect(h.suppressor.isEngaged)
         #expect(h.suspensionChanges == 0)   // transient recovery, no menu churn
+    }
+
+    @Test func aKeyOnASuspendedDomainStandsTheLocalBarDownAndStillKicksTheProbe() async {
+        // The third reason a key is handed back, with the same duty as the other
+        // two (pointer rule, absent capability): the tap keeps OBSERVING a key it
+        // passes, so without the seam the router's key-time poll reads the value
+        // macOS just moved and the app draws a second bar over the native
+        // indicator — on the very press whose feedback the suspension exists to
+        // hand back (docs/DECISIONS.md: per-domain-suspension). One press, one
+        // indicator, whoever drew it; the reason for the handback does not
+        // change that.
+        let h = OSDSuppressorHarness()
+        let handedBack = CounterBox()
+        h.suppressor.onHandedBackToTheSystem = { [handedBack] _ in handedBack.count += 1 }
+        h.volume.value = nil   // reads fail → suspends the volume domain
+        h.suppressor.setEngaged(true)
+
+        h.keys.press(.volumeUp)   // swallowed; its failed apply suspends
+        #expect(await eventually { h.suppressor.suspendedDomains.contains(.volume) })
+        // The suspension arriving is the barrier: the swallowed press's apply has
+        // finished, and a SWALLOWED key must never have fired the seam.
+        // swiftlint:disable:next empty_count
+        #expect(handedBack.count == 0)
+        await h.clock.waitForSleep()   // the recovery probe is parked on the backoff
+
+        // The channel heals; the passed-through press fires the seam AND kicks
+        // the parked probe.
+        h.volume.value = 0.5
+        let passed = h.keys.press(.volumeUp)
+        #expect(!passed.down)
+        #expect(!passed.up)
+        // swiftlint:disable:next empty_count
+        #expect(await eventually { handedBack.count > 0 })
+        // The kick must survive the seam's addition: recovery here comes only
+        // from the press — the clock is never advanced.
+        #expect(await eventually { !h.suppressor.suspendedDomains.contains(.volume) })
+        #expect(h.suspensionChanges == 0)
     }
 
     // MARK: - #5: device-absent probes never escalate (AirPods swap by design)
@@ -339,6 +377,39 @@ struct OSDSuppressionDomainSuspensionTests {
         #expect(await eventually { h.suppressor.suspendedDomains.contains(.volume) })
     }
 
+    @Test func anUnreadableMutePlaneOnVolumeUpFailsTheApplyInsteadOfSkippingTheUnmute() async {
+        // A nil mute read on the unmute-first step used to read as "not muted":
+        // the unmute was skipped in silence, the level step verified fine and
+        // the apply returned verified — key consumed, bar rising, Mac still
+        // muted, no failure axis touched. `applyMute` throws
+        // currentValueUnreadable on the SAME nil; this pins volume-up to the
+        // same line. Both halves: a real `false` skips the unmute and verifies
+        // normally; a nil fails the apply on the ordinary suspension path.
+        let h = OSDSuppressorHarness()
+        let applies = CounterBox()
+        h.suppressor.onApplied = { [applies] _ in applies.count += 1 }
+        h.suppressor.setEngaged(true)
+
+        // Half one: read fine, not muted — the unmute is skipped, the level
+        // lands and the apply is verified.
+        h.keys.press(.volumeUp)
+        #expect(await eventually { applies.count == 1 })
+        #expect(h.volume.applied == [0.5 + OSDTest.step])
+        #expect(h.volume.mutedWrites.isEmpty)
+        #expect(h.suppressor.suspendedDomains.isEmpty)
+
+        // Half two: the mute-plane read comes back nil (coreaudiod hiccup). The
+        // landed apply above is the barrier that makes this flip safe to read.
+        h.volume.muted = nil
+        h.keys.press(.volumeUp)
+        #expect(await eventually { h.suppressor.suspendedDomains.contains(.volume) })
+        // Nothing was written or confirmed for the failed press: no unmute, no
+        // second level step, no verified echo.
+        #expect(h.volume.mutedWrites.isEmpty)
+        #expect(h.volume.applied == [0.5 + OSDTest.step])
+        #expect(applies.count == 1)
+    }
+
     @Test func anUnreadableCurrentValueSuspendsTheDomain() async {
         let h = OSDSuppressorHarness()
         h.keyboard.value = nil
@@ -403,5 +474,69 @@ struct OSDSuppressionDomainSuspensionTests {
         h.keys.press(.volumeUp)
         #expect(await eventually { h.volume.applied == [0.5 + OSDTest.step] })
         #expect(h.suppressor.isEngaged)
+    }
+}
+
+/// A device that takes the write and publishes it late must not be treated as
+/// one that refused it.
+///
+/// Apple documents the delay as the general case, not an exotic device:
+/// `AudioObjectSetPropertyData` — "the value of the property should not be
+/// considered changed until the HAL has called the listeners as many properties
+/// values are changed asynchronously" (AudioHardware.h:302). The apply cycle
+/// read back on the very next line, so an unmoved value read as a failed write:
+/// the domain suspended, the keys went back to the system, and the menu told
+/// the user Crema could not change a volume it had just changed.
+@MainActor
+struct OSDLateWritePublicationTests {
+
+    @Test func aWritePublishedOnTheSecondReadIsNotAFailure() async {
+        let h = OSDSuppressorHarness()
+        // The write lands; only the FIRST read-back still shows the old value.
+        h.screen.publishesWriteLate = true
+
+        // `onApplied` fires ONLY for a verified apply, which is the positive
+        // signal this test needs. Waiting on `applied` instead would prove
+        // nothing: the channel records the write BEFORE the read-back runs, so
+        // the "not suspended" assertion would land before the verification it
+        // is about — and it did, until a mutation that removed the second read
+        // failed to turn this red.
+        let verified = CounterBox()
+        h.suppressor.onApplied = { _ in verified.count += 1 }
+        h.suppressor.setEngaged(true)
+
+        h.keys.press(.screenBrightnessUp)
+        #expect(await eventually { verified.count == 1 })
+        #expect(h.screen.applied == [0.5 + OSDTest.step])
+        // The whole point: no suspension, no handback, no menu warning.
+        #expect(!h.suppressor.suspendedDomains.contains(.screenBrightness))
+        #expect(h.suppressor.isEngaged)
+    }
+
+    @Test func aWriteThatNeverLandsStillSuspends() async {
+        // The clearing must not launder a genuinely dead write. `writeIsDead`
+        // leaves the value untouched forever, so the second read agrees with the
+        // first and the failure survives — which is what keeps the second look
+        // from being a way to stop noticing.
+        let h = OSDSuppressorHarness()
+        h.screen.writeIsDead = true
+        h.suppressor.setEngaged(true)
+
+        h.keys.press(.screenBrightnessUp)
+        #expect(await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) })
+    }
+}
+
+/// Proves the double models what it claims, independently of the suppressor —
+/// a test double that silently does nothing makes every test above vacuous.
+@MainActor
+struct LateWriteDoubleTests {
+    @Test func theFirstReadBackShowsTheOldValueAndTheSecondTheNew() async throws {
+        let channel = MockOSDChannel()
+        channel.value = 0.5
+        channel.publishesWriteLate = true
+        try await channel.apply(0.5625)
+        #expect(channel.read() == 0.5, "the first read-back must still show the pre-write value")
+        #expect(channel.read() == 0.5625, "the second must show the write")
     }
 }

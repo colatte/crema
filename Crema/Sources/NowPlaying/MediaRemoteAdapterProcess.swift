@@ -11,6 +11,27 @@ import os
 /// the stream — unavailability is state, not a fatal error. The process is
 /// terminated on stop()/deinit so quitting the app leaves no zombie.
 final class MediaRemoteAdapterProcess: @unchecked Sendable {
+    /// The interpreter the vendored bridge runs on, named once so the three
+    /// places that spawn it (this stream, the availability probe, the command
+    /// channel) cannot drift — and so the warning has one home.
+    ///
+    /// **This path is on notice from Apple, and has been since Catalina.** The
+    /// 10.15 release notes, under Scripting Language Runtimes → Deprecations:
+    /// "Scripting language runtimes such as Python, Ruby, and Perl are included
+    /// in macOS for compatibility with legacy software. Future versions of macOS
+    /// won't include scripting language runtimes by default." Still shipping as
+    /// of macOS 26 (measured on this machine: 5.34.1), so nothing is broken
+    /// today.
+    ///
+    /// The failure when it goes is quiet rather than loud, which is the part
+    /// worth knowing: `run()` throws, the probe answers false forever, and the
+    /// now-playing chain pins itself to the JXA fallback for the life of the
+    /// install — no browser media, no artwork, and an Automation prompt where
+    /// there was none. That is the chain's designed degradation working exactly
+    /// as intended, so there is nothing to fix here; what there is, is a reason
+    /// to recognise the shape fast when a macOS release finally does it.
+    static let perlPath = "/usr/bin/perl"
+
     let rawLines: AsyncStream<String>
 
     private let continuation: AsyncStream<String>.Continuation
@@ -36,7 +57,7 @@ final class MediaRemoteAdapterProcess: @unchecked Sendable {
         rawLines = AsyncStream { continuation = $0 }
         self.continuation = continuation
 
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
+        process.executableURL = URL(fileURLWithPath: Self.perlPath)
         process.arguments = [paths.script, paths.framework] + streamArguments
         process.standardOutput = stdout
         process.standardError = FileHandle.nullDevice

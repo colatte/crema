@@ -69,6 +69,31 @@ struct FixedWindowFrameTests {
         }
     }
 
+    @Test func classicKeepsItsHeadroomAroundEveryStateNotJustTheExpandedOne() {
+        // `containsEveryStateFrame` passes today for a reason that is not the
+        // rule: the expanded block happens to be the largest state on both axes,
+        // so a window sized off it alone contains the others by luck. This asks
+        // for the headroom itself around EVERY state — the window is the union
+        // plus the band, so no state may sit flush against the sideways or top
+        // edge — which is what the luck stops covering the moment a state is
+        // resized past the expanded one.
+        let style = ClassicStyle()
+        let window = style.windowFrame(on: plain)
+        let states: [PresentationState] = [
+            .nowPlaying(track, expanded: false),
+            .nowPlaying(track, expanded: true),
+            .hud(SystemHUD(kind: .volume, value: 0.5)),
+        ]
+        for state in states {
+            let rect = style.frame(for: state, on: plain)
+            #expect(window.minX <= rect.minX - SurfaceAnimation.overshootHeadroom, "\(state)")
+            #expect(window.maxX >= rect.maxX + SurfaceAnimation.overshootHeadroom, "\(state)")
+            #expect(window.maxY >= rect.maxY + SurfaceAnimation.overshootHeadroom, "\(state)")
+            // Bottom-anchored: every state shares the window's own bottom line.
+            #expect(window.minY == rect.minY, "\(state)")
+        }
+    }
+
     @Test func classicWindowPinsTheBottomAnchor() {
         // The classic block sits on the native OSD line and grows upward, so
         // its headroom must go up — a moved bottom edge would shift the anchor.

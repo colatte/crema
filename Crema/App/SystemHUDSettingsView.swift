@@ -41,7 +41,7 @@ struct SystemHUDSettingsView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(String(
                         localized: "settings.hud.suppress.footer",
-                        defaultValue: "Hides the system volume and brightness indicators and shows Crema's instead."
+                        defaultValue: "Hides the system volume and brightness indicators and shows Crema’s instead."
                     ))
                     // Unconditional, and deliberately not routed through
                     // `brightnessKeyTargetNotice`: that answer needs a
@@ -58,10 +58,21 @@ struct SystemHUDSettingsView: View {
                         // swiftlint:disable:next line_length
                         defaultValue: "Screen brightness is replaced only on the built-in display, while the pointer is on it — a key aimed at any other display is left to the system."
                     ))
-                    if !canSuppress {
+                    // Two different absences behind one disabled switch, and only one
+                    // of them is the reader's to fix. Told apart because the joint
+                    // gate said "needs Accessibility access" to someone who had
+                    // already granted it — accusing the user of withholding the one
+                    // thing they did, with no way to make the sentence go away.
+                    if !core.permissionMonitor.isGranted {
                         Text(String(
                             localized: "settings.hud.suppress.needsPermission",
-                            defaultValue: "Needs Accessibility access — until then the system's own indicators stay."
+                            defaultValue: "Needs Accessibility access — until then the system’s own indicators stay."
+                        ))
+                        .foregroundStyle(.orange)
+                    } else if core.osdSuppressor == nil {
+                        Text(String(
+                            localized: "settings.hud.suppress.unavailable",
+                            defaultValue: "System indicator replacement isn’t available on this Mac."
                         ))
                         .foregroundStyle(.orange)
                     }

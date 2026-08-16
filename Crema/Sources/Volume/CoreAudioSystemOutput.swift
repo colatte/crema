@@ -5,8 +5,10 @@ import CoreAudio
 /// writes and property addresses for the system's default output device.
 /// Nothing above this layer sees a Core Audio type (the border rule).
 /// (AudioToolbox is imported only for the 'vmvc' virtual-main-volume selector,
-/// which this SDK no longer exposes through CoreAudio; the calls themselves
-/// are all plain AudioObject* APIs.)
+/// which lives in AudioToolbox and always has — Audio Hardware Services is an
+/// AudioToolbox API, never a CoreAudio one, so this import is where the
+/// selector comes from rather than a workaround for something CoreAudio
+/// dropped; the calls themselves are all plain AudioObject* APIs.)
 enum CoreAudioSystemOutput {
     enum Failure: Error {
         case notSettable

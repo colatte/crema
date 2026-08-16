@@ -46,7 +46,9 @@ struct MediaKeyChainReconcilerTests {
             isEnabled: true,
             canConsume: false,
             mask: MediaKeyTranslation.systemDefinedMask,
-            precedesSessionTaps: false
+            precedesSessionTaps: false,
+            followsSessionTaps: false,
+            processBeingTapped: nil
         )
         #expect(chain([watcher, .contender(pid: us)]) == .ours)
     }
@@ -57,7 +59,9 @@ struct MediaKeyChainReconcilerTests {
             isEnabled: false,
             canConsume: true,
             mask: MediaKeyTranslation.systemDefinedMask,
-            precedesSessionTaps: false
+            precedesSessionTaps: false,
+            followsSessionTaps: false,
+            processBeingTapped: nil
         )
         #expect(chain([dormant, .contender(pid: us)]) == .ours)
     }
@@ -70,7 +74,9 @@ struct MediaKeyChainReconcilerTests {
             isEnabled: true,
             canConsume: true,
             mask: 1 << 5,
-            precedesSessionTaps: false
+            precedesSessionTaps: false,
+            followsSessionTaps: false,
+            processBeingTapped: nil
         )
         #expect(chain([mouseWatcher, .contender(pid: us)]) == .ours)
     }
@@ -178,5 +184,49 @@ struct MediaKeyChainSeamTests {
         // where the brightness bar comes from, and the menu says so.
         let registry = MockEventTapRegistry(taps: [.contender(pid: 100)])
         #expect(notice(registry, betterDisplayIsFeedingUs: true) == .drawingFromBetterDisplay)
+    }
+}
+
+/// Two ways a neighbour listed ahead of us is innocent by the DOCUMENTED
+/// pipeline, not by position — both of which the registry used to discard, so
+/// both produced a false accusation against a named app.
+///
+/// This decision errs toward silence on purpose (`media-key-chain-contention`):
+/// a missing line costs a diagnostic, a false line accuses somebody.
+struct MediaKeyChainInnocenceTests {
+    private let us: pid_t = 100
+    private let them: pid_t = 200
+
+    private func chain(_ entries: [EventTapEntry]) -> MediaKeyChain {
+        MediaKeyChainReconciler.chain(
+            ourPID: us,
+            mask: MediaKeyTranslation.systemDefinedMask,
+            in: entries
+        )
+    }
+
+    @Test func anAnnotatedSessionTapIsBehindUsWhereverItIsLISTED() {
+        // CGEventTapLocation is an ordered pipeline — HID, session, annotated
+        // session (CGEventTypes.h) — so this one receives AFTER our session tap
+        // no matter what index the registry hands it back at. It was being named
+        // purely for being listed first.
+        let downstream = EventTapEntry.contender(pid: them, atAnnotatedSessionLocation: true)
+        #expect(chain([downstream, .contender(pid: us)]) == .ours)
+    }
+
+    @Test func aPerProcessTapOnlySeesItsOwnTarget() {
+        // `processBeingTapped` is documented as "Zero if not a per-process tap",
+        // and apps routinely tap themselves. Such a tap cannot be ahead of us
+        // for the media keys whatever its mask says.
+        let scoped = EventTapEntry.contender(pid: them, tapping: 999)
+        #expect(chain([scoped, .contender(pid: us)]) == .ours)
+        // Even at the HID point, which otherwise beats us unconditionally.
+        let scopedHID = EventTapEntry.contender(pid: them, atHIDLocation: true, tapping: 999)
+        #expect(chain([scopedHID, .contender(pid: us)]) == .ours)
+    }
+
+    @Test func aRealSessionWideRivalIsStillNamed() {
+        // The clearing must not swallow the case the feature exists for.
+        #expect(chain([.contender(pid: them), .contender(pid: us)]) == .precededBy(them))
     }
 }

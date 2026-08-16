@@ -159,7 +159,14 @@ struct OSDWriteHealthAxisTests {
         h.suppressor.retrySuspendedNow()   // the channel is STILL dead
 
         await settle()
-        for _ in 0..<5 { _ = await eventually { h.clock.advance(); return true } }
+        // Each advance waits for the probe to park first: an advance before the
+        // park is a no-op (TestSleepClock resumes nobody), and five no-ops would
+        // pass this negative without the probe→re-engage cycle ever running. The
+        // wait fails loudly on a blown deadline instead of hanging the suite.
+        for _ in 0..<5 {
+            await h.clock.waitForSleep()
+            h.clock.advance()
+        }
         #expect(h.suppressor.longSuspendedDomains.contains(.screenBrightness),
                 "a click silenced a channel that is still broken")
     }

@@ -30,13 +30,27 @@ struct CardHUDIndicator: View {
     let onChange: (Double) -> Void
     let onRelease: () -> Void
 
+    /// Fixed column for the leading glyph, owned here because the glyph is drawn
+    /// here — the skins' Metrics derive from it rather than each declaring 22.
+    /// The volume family steps through four symbols of different widths as the
+    /// level moves (`HUDPresentation`), so without a column each swap would shift
+    /// the bar beside it — motion the level animation would then carry.
+    nonisolated static let hudIconColumnWidth: CGFloat = 22
+
     @ViewBuilder var body: some View {
         switch indicatorStyle {
         case .slider:
             // Icon beside the capsule row (the Notch's layout too); Classic keeps its bezel's segmented bar.
             HStack(spacing: CardMetrics.contentGap) {
+                // Pinned to the column's leading edge, not centred in it: the column
+                // is wider than the narrowest glyph of the family, so a centred
+                // symbol slides sideways on every swap — the exact motion the fixed
+                // column exists to remove. The `.filled` body below pins its own the
+                // same way, and hides it from VoiceOver for the same reason: the bar
+                // beside it already names the reading (HUDLevelSlider).
                 Image(systemName: presentation.iconSystemName)
-                    .frame(width: CardMetrics.hudIconColumnWidth)
+                    .frame(width: Self.hudIconColumnWidth, alignment: .leading)
+                    .accessibilityHidden(true)
                     .symbolReplace(on: presentation.iconSystemName)
                 HUDLevelSlider(
                     kind: kind,

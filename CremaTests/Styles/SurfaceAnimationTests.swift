@@ -98,4 +98,15 @@ struct SurfaceAnimationTests {
         #expect(SurfaceAnimation.morph(reduceMotion: true) == nil)
         #expect(SurfaceAnimation.morph(reduceMotion: false) == SurfaceAnimation.open)
     }
+
+    @Test func theTwoSpringsAreActuallyDifferentAnimations() {
+        // The property the whole directional rule rests on, kept after the
+        // helper that motivated it was retired: only a critically damped spring
+        // cannot overshoot, so a surface that closes on `open` bounces. Every
+        // caller that picks a spring by direction depends on these two staying
+        // different animations with that difference in the damping.
+        #expect(SurfaceAnimation.open != SurfaceAnimation.close)
+        #expect(SurfaceAnimation.closeDamping >= 1.0)
+        #expect(SurfaceAnimation.openDamping < 1.0)
+    }
 }

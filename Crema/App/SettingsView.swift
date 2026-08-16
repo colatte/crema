@@ -83,7 +83,7 @@ struct SettingsView: View {
 ///
 /// The per-display list is reactive; the declaration's mirrors are seeded once and
 /// re-read only when that picker writes — a pinned-latent tradeoff
-/// (docs/internal/archive/CONTRACTS-AUDIT.md: S4) that costs a stale value there.
+/// (docs/CONTRACTS.md: S4) that costs a stale value there.
 /// A list whose rows ARE the displays cannot take that deal: a row outliving its
 /// monitor is a control over a screen the user cannot see, and a display plugged in
 /// with the window open would have no row at all until Settings is closed and
@@ -119,12 +119,15 @@ private struct GeneralSettingsView: View {
 
     init(core: AppCore) {
         self.core = core
-        _style = State(initialValue: core.declaredStyle())
-        _rendersCard = State(initialValue: core.rendersAnywhere(.card))
-        _rendersNotch = State(initialValue: core.rendersAnywhere(.notch))
-        _wallpaper = State(initialValue: core.tileWallpaper())
-        _launchesAtLogin = State(initialValue: core.loginItem.isEnabled || core.loginItem.requiresApproval)
-        _loginNeedsApproval = State(initialValue: core.loginItem.requiresApproval)
+        // One seed rule for both windows that carry this section — the reads and
+        // their why live in StyleSectionSeed, never respelled here.
+        let seed = StyleSectionSeed(core: core)
+        _style = State(initialValue: seed.style)
+        _rendersCard = State(initialValue: seed.rendersCard)
+        _rendersNotch = State(initialValue: seed.rendersNotch)
+        _wallpaper = State(initialValue: seed.wallpaper)
+        _launchesAtLogin = State(initialValue: seed.launchesAtLogin)
+        _loginNeedsApproval = State(initialValue: seed.loginNeedsApproval)
     }
 
     /// Notch is what the user declared, and nothing on screen is honouring it.
@@ -144,8 +147,9 @@ private struct GeneralSettingsView: View {
     }
 
     /// Whether there is a per-display answer the section above cannot give. Asked of
-    /// `DisplayStyleOptions` rather than counted here, because the answer is not a
-    /// count of screens and every clause of it is a separate reason.
+    /// `DisplayStyleOptions` rather than answered here, because the reason is not a
+    /// count of screens: the row is where the now-playing switch lives, and there is
+    /// nowhere else in the app to turn that surface on or off.
     private var offersPerDisplayList: Bool {
         DisplayStyleOptions.listIsOffered(for: core.displayRoster.displays)
     }
@@ -231,11 +235,17 @@ private struct GeneralSettingsView: View {
                 }
                 .settingsFootnote()
             }
+            // The indicator row appears and disappears with the declaration right
+            // above it, and an instant insertion jumps every control under it in the
+            // same frame as the click that caused it. Scoped to that one fact, so
+            // nothing else in the pane animates.
+            .animation(.default, value: rendersCard)
 
-            // Offered only where a per-display answer can differ from the one above:
-            // on a lone built-in panel with no override every row would repeat the
-            // declaration, and a control that decides nothing still reads as one
-            // that does.
+            // Offered wherever there is a display at all. The style popup on a lone
+            // panel does repeat the declaration above — but the row also carries the
+            // only "show the player here" switch the app has, and withholding it left
+            // a single-laptop install with the surface on and no way to turn it off,
+            // the mirror of the sole-external case that first opened this list.
             if offersPerDisplayList {
                 Section {
                     ForEach(core.displayRoster.displays, id: \.id) { screen in
@@ -272,11 +282,26 @@ private struct GeneralSettingsView: View {
                 }
             } footer: {
                 if loginNeedsApproval {
+                    // The sentence names no PATH, and that is the fix rather
+                    // than a shorter sentence. It used to read "System Settings
+                    // › General › Login Items", which macOS 15 renamed to "Login
+                    // Items & Extensions" (Apple: "Change Login Items &
+                    // Extensions settings on Mac"). The app supports 14+, so any
+                    // written path is wrong on one of them — and a button that
+                    // opens the pane cannot be wrong on either.
                     Text(String(
                         localized: "settings.general.launchAtLogin.needsApproval",
-                        defaultValue: "Approve Crema in System Settings › General › Login Items to finish enabling this."
+                        defaultValue: "Approve Crema in System Settings to finish enabling this."
                     ))
                     .foregroundStyle(.orange)
+                    .settingsFootnote()
+                    Button(String(
+                        localized: "settings.general.launchAtLogin.openSettings",
+                        defaultValue: "Open Login Items Settings…"
+                    )) {
+                        core.openLoginItemsSettings()
+                    }
+                    .buttonStyle(.link)
                     .settingsFootnote()
                 }
             }
@@ -295,6 +320,34 @@ private struct NowPlayingSettingsView: View {
 
     var body: some View {
         Form {
+            // The degradation this tab was silent about: with nothing reporting,
+            // every switch below configures a surface that never appears, and the
+            // menu was the only place saying so. Same shape the Indicators tab gives
+            // the neighbour integration, and the footer names the channel rather than
+            // a fault — the resting case is nobody playing anything.
+            //
+            // `isActive` is safe to read from a Form body, unlike the readings behind
+            // the menu: it is a guarded mirror written only on a chain selection edge
+            // (NowPlayingMonitor), so it invalidates this pane when the answer
+            // changes and never on a track tick.
+            Section {
+                LabeledContent {
+                    Text(core.nowPlayingMonitor.isActive
+                        ? String(localized: "settings.nowPlaying.source.reporting", defaultValue: "Reporting")
+                        : String(localized: "settings.nowPlaying.source.notReporting", defaultValue: "Not reporting"))
+                        .foregroundStyle(core.nowPlayingMonitor.isActive ? .primary : .secondary)
+                } label: {
+                    Text(String(localized: "settings.nowPlaying.source", defaultValue: "Media source"))
+                }
+            } footer: {
+                Text(String(
+                    localized: "settings.nowPlaying.source.footer",
+                    // swiftlint:disable:next line_length
+                    defaultValue: "Crema reads what’s playing from the system. With nothing reporting, the player stays hidden and the options below have nothing to act on."
+                ))
+                .settingsFootnote()
+            }
+
             Section {
                 Toggle(isOn: $reactive) {
                     Text(String(localized: "settings.nowPlaying.reactive", defaultValue: "Show the player automatically"))

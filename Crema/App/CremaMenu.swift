@@ -160,7 +160,7 @@ struct CremaMenu: View {
             // (docs/DECISIONS.md: brightness-key-target-in-the-menu).
             String(
                 localized: "menu.status.brightnessNoBuiltIn",
-                defaultValue: "Crema can't control screen brightness —\nit works only with the built-in display, and none is in use."
+                defaultValue: "Crema can’t control screen brightness —\nit works only with the built-in display, and none is in use."
             )
         }
     }
@@ -170,14 +170,14 @@ struct CremaMenu: View {
         case .accessibilityMissing:
             String(
                 localized: "menu.accessibilityWarning",
-                defaultValue: "Accessibility access is missing —\nCrema can't react to the volume or brightness keys."
+                defaultValue: "Accessibility access is missing —\nCrema can’t react to the volume or brightness keys."
             )
         case .suppressionSuspended(let domains):
             suspendedText(domains)
         case .betterDisplayAheadAndSilent:
             String(
                 localized: "menu.betterDisplay.silent",
-                defaultValue: "BetterDisplay receives the brightness keys.\nTurn on its OSD notification integration and\nCrema can show the indicator."
+                defaultValue: "BetterDisplay receives the brightness keys.\nTurn on its OSD notification integration\nand Crema can show the indicator."
             )
         case .anotherAppAhead(let app):
             // Stated as the fact it is — a position in the chain, not a
@@ -186,7 +186,7 @@ struct CremaMenu: View {
             // unaided (docs/DECISIONS.md: media-key-chain-contention).
             String(
                 localized: "menu.mediaKeysPrecededBy",
-                defaultValue: "\(app) receives the media keys before Crema —\nsome of Crema's indicators may not appear."
+                defaultValue: "\(app) receives the media keys before Crema —\nsome of Crema’s indicators may not appear."
             )
         case .nowPlayingUnavailable:
             String(
@@ -196,17 +196,20 @@ struct CremaMenu: View {
         case .mediaControlsBlocked:
             String(
                 localized: "menu.mediaControlsBlocked",
-                defaultValue: "The last playback command didn't get through —\nthe player stays view-only."
+                defaultValue: "The last playback command didn’t get through —\nthe player isn’t accepting controls right now."
             )
+        // Both name the control in its own words, quoted: the switch is labelled
+        // "Open Crema at login" in General, and a warning that renames the thing it
+        // is about sends the reader looking for a setting that is not there.
         case .loginItemRevoked:
             String(
                 localized: "menu.loginItem.revoked",
-                defaultValue: "Open at login was turned off\nbecause the app changed since you enabled it."
+                defaultValue: "“Open Crema at login” was turned off\nbecause the app changed since you enabled it."
             )
         case .loginItemNeedsApproval:
             String(
                 localized: "menu.loginItem.needsApproval",
-                defaultValue: "Open at login is waiting for your approval."
+                defaultValue: "“Open Crema at login” is waiting for your approval."
             )
         }
     }
@@ -221,7 +224,7 @@ struct CremaMenu: View {
         case .automationForBackupReader:
             String(
                 localized: "menu.nowPlayingUnavailable.fallbackHint",
-                defaultValue: "Crema's backup reader needs Automation access."
+                defaultValue: "Crema’s backup reader needs Automation access."
             )
         }
     }
@@ -230,22 +233,29 @@ struct CremaMenu: View {
     /// a locale-aware list format (", " vs " and " vs " e "); the ORDER comes from
     /// the model, which sorts by the enum's declaration, so the same set never reads
     /// two different ways.
+    ///
+    /// The line breaks BEFORE the list because the menu's width ceiling counts the
+    /// interpolated text too: the domains are a closed set of three, so the worst
+    /// case is measurable — all three joined is 50 characters, which put the single
+    /// line at 85 and reopened the wide menu the ceiling exists to prevent. A hole
+    /// whose content is bounded is measured at its widest, never at the empty
+    /// string (docs/DECISIONS.md: menu-status-before-warnings).
     private func suspendedText(_ domains: [OSDSuppressionDomain]) -> String {
         let names = domains.map(localizedDomainName).formatted(.list(type: .and))
         return String(
             localized: "menu.osdSuspended.warning",
-            defaultValue: "The system indicator is back for \(names) —\nCrema couldn't apply the change."
+            defaultValue: "The system indicator is back for\n\(names) —\nCrema couldn’t apply the change."
         )
     }
 
     private func localizedDomainName(_ domain: OSDSuppressionDomain) -> String {
         switch domain {
         case .volume:
-            String(localized: "osd.domain.volume", defaultValue: "Volume")
+            String(localized: "osd.domain.volume", defaultValue: "volume")
         case .screenBrightness:
-            String(localized: "osd.domain.screenBrightness", defaultValue: "Screen brightness")
+            String(localized: "osd.domain.screenBrightness", defaultValue: "screen brightness")
         case .keyboardBrightness:
-            String(localized: "osd.domain.keyboardBrightness", defaultValue: "Keyboard brightness")
+            String(localized: "osd.domain.keyboardBrightness", defaultValue: "keyboard brightness")
         }
     }
 
@@ -260,7 +270,7 @@ struct CremaMenu: View {
         case .reactivateLoginItem:
             String(localized: "menu.loginItem.reactivate", defaultValue: "Turn it back on")
         case .openLoginItemsSettings:
-            String(localized: "menu.loginItem.openSettings", defaultValue: "Open Login Items settings…")
+            String(localized: "menu.loginItem.openSettings", defaultValue: "Open Login Items Settings…")
         }
     }
 

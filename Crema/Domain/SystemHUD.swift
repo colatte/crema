@@ -36,10 +36,23 @@ struct SystemHUD: Equatable, Sendable {
         case display(DisplayUUID)
     }
 
+    /// Whether this level was READ off the system, or is what the app itself
+    /// asked for, echoed back so the bar follows the finger. The two travel the
+    /// same stream — the neighbour's source yields the app's own echo because the
+    /// neighbour never reports levels third parties set — and only a reading is
+    /// evidence: an echo of a level still owed a write is what once let a failed
+    /// drag "settle home" on a brightness no display ever went to
+    /// (docs/DECISIONS.md: the-bar-never-outruns-the-screen).
+    enum Provenance: Equatable, Sendable {
+        case reading
+        case echo
+    }
+
     var kind: Kind
     /// Normalized to 0...1; sources convert whatever scale the system uses.
     var value: Double
     var isMuted: Bool = false
+    var provenance: Provenance = .reading
     /// Which screen this reading is about. Three distinct facts a single
     /// `DisplayUUID?` used to fold into one, and folding "the built-in" into
     /// "nobody said which screen" is what drew the built-in panel's bar on EVERY
@@ -75,6 +88,14 @@ struct SystemHUD: Equatable, Sendable {
     func by(_ authority: Authority) -> Self {
         var copy = self
         copy.authority = authority
+        return copy
+    }
+
+    /// The same level marked as the app's own echo — what a drag hands back for
+    /// the bar, never for the record.
+    func echoed() -> Self {
+        var copy = self
+        copy.provenance = .echo
         return copy
     }
 }

@@ -16,13 +16,25 @@ struct MockEventTapRegistry: EventTapRegistry {
 extension EventTapEntry {
     /// A rival that can take our keys unless position says otherwise: enabled,
     /// filtering, and asking for the same events we do.
-    static func contender(pid: pid_t, atHIDLocation: Bool = false) -> EventTapEntry {
+    ///
+    /// The last two parameters are the ways a neighbour is INNOCENT by the
+    /// documented pipeline rather than by position — downstream of the session
+    /// point, or scoped to one process — so a test that wants a real rival
+    /// leaves them alone and a test about clearing someone sets one.
+    static func contender(
+        pid: pid_t,
+        atHIDLocation: Bool = false,
+        atAnnotatedSessionLocation: Bool = false,
+        tapping: pid_t? = nil
+    ) -> EventTapEntry {
         EventTapEntry(
             pid: pid,
             isEnabled: true,
             canConsume: true,
             mask: MediaKeyTranslation.systemDefinedMask,
-            precedesSessionTaps: atHIDLocation
+            precedesSessionTaps: atHIDLocation,
+            followsSessionTaps: atAnnotatedSessionLocation,
+            processBeingTapped: tapping
         )
     }
 }

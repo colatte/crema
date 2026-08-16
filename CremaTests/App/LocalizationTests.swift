@@ -19,9 +19,25 @@ struct LocalizationTests {
         }
 
         #expect(try value("menu.quit", in: "en") == "Quit Crema")
-        #expect(try value("menu.quit", in: "pt-BR") == "Encerrar o Crema")
-        #expect(try value("style.card", in: "en") == "Card")
-        #expect(try value("style.card", in: "pt-BR") == "Cartão")
+        // No article, which is Apple's own shape for this menu item: Music.app
+        // ships "Encerrar Música" and TV.app "Encerrar TV". Pinned so it is not
+        // put back.
+        #expect(try value("menu.quit", in: "pt-BR") == "Encerrar Crema")
+
+        // The sample has to be a key whose two values DIFFER, or it stops
+        // testing the thing it is named for. `style.card` used to sit here and
+        // stopped qualifying the day the style names became product names in
+        // both languages (CLAUDE.md: one name per concept) — "Card" == "Card"
+        // would have kept this green against a bundle that ignored the language
+        // argument entirely.
+        #expect(try value("style.notch.description", in: "en") == "Blends into the notch")
+        #expect(try value("style.notch.description", in: "pt-BR") == "Funde-se com o notch")
+
+        // And the styles themselves, pinned as deliberately UNtranslated: the
+        // rule is easy to undo by helpfully translating one of them back.
+        for style in ["style.notch", "style.card", "style.classic"] {
+            #expect(try value(style, in: "en") == value(style, in: "pt-BR"))
+        }
     }
 
     /// The whole catalog, not a sample: both compiled tables carry the same

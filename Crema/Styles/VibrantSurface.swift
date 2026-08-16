@@ -66,6 +66,7 @@ extension View {
 /// SurfaceAnimation's — what must survive a retune is the shape of the border,
 /// not any single number (docs/DECISIONS.md: surface-border-2026).
 enum SurfaceChrome {
+
     /// The rim as a white component (0 is black) plus its opacity — one number
     /// for how dark, one for how present. It reads as a shadow of an edge
     /// rather than an edge: over a bright desktop that is the only thing that
@@ -137,6 +138,7 @@ private struct VibrancyMaterial: NSViewRepresentable {
     }
 
     func updateNSView(_ view: NSVisualEffectView, context: Context) {
+        view.material = .hudWindow
         view.state = .active
     }
 }

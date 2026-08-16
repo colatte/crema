@@ -2,10 +2,12 @@ import AppKit
 import SwiftUI
 
 /// Accent tone derived from the album cover — the Apple restraint model: one
-/// contained tone on the highlight elements (waveform bars, scrubber fill),
-/// everything else neutral. Extraction is pure over downsampled pixels so the
-/// picking policy is unit-testable; nil means "no usable tone" and every
-/// consumer falls back to its neutral style.
+/// contained tone on a single highlight element, the waveform bars, and
+/// everything else neutral. The scrubber is deliberately NOT a consumer: the bar
+/// is a control, and a control reads white (docs/DECISIONS.md:
+/// hud-capsule-track). Extraction is pure over downsampled pixels so the picking
+/// policy is unit-testable; nil means "no usable tone" and the one consumer falls
+/// back to its neutral style.
 enum ArtworkAccent {
     /// The picked tone: hue and saturation already clamped; brightness is kept
     /// raw and resolved into the single display band. One band suffices because
@@ -51,14 +53,33 @@ enum ArtworkAccent {
     /// the surface) — a bare snap read as a flicker against the ghost.
     static let toneFadeDuration: Double = 0.25
 
+    /// Under Reduce Motion the tone arrives without the fade — nil is
+    /// `withAnimation`'s own "no animation". The gate belongs here for the same
+    /// reason every animated leaf carries one (MG5): the preference is a standing
+    /// request over the whole app, and a tint sliding in on a surface that sits
+    /// over the menu bar is motion like any other. Same shape as
+    /// `CapsuleTrack.knobReveal`, which answers nil and lets the knob snap.
+    static func toneFade(reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : .easeInOut(duration: toneFadeDuration)
+    }
+
     /// Full pipeline from raw artwork bytes: bounded decode (the same ImageIO
     /// thumbnail path the ArtworkView uses), downsample, pick. Nil anywhere
     /// (no bytes, undecodable, monochrome) means neutral.
     static func extract(from data: [UInt8]?) -> Tone? {
-        guard let image = ArtworkDecoding.thumbnail(from: data, maxSide: sampleSide),
-              let pixels = rgbaPixels(from: image, side: sampleSide) else {
+        guard let image = ArtworkDecoding.thumbnail(from: data, maxSide: sampleSide) else {
             return nil
         }
+        return extract(from: image)
+    }
+
+    /// The same pipeline from a cover already decoded — today only the step the
+    /// byte overload above delegates to (the surface that paid for one decode
+    /// across several slots is gone). `rgbaPixels` redraws into a `sampleSide`
+    /// box either way, so a 1024 px source gives the same answer as a freshly
+    /// thumbnailed one.
+    private static func extract(from image: CGImage) -> Tone? {
+        guard let pixels = rgbaPixels(from: image, side: sampleSide) else { return nil }
         return tone(fromRGBA: pixels)
     }
 
@@ -116,7 +137,7 @@ enum ArtworkAccent {
 
     /// Border: the cover drawn into a tiny RGBA grid — all the pixels the
     /// picker ever sees, so extraction cost is independent of cover size.
-    static func rgbaPixels(from cgImage: CGImage, side: Int) -> [UInt8]? {
+    private static func rgbaPixels(from cgImage: CGImage, side: Int) -> [UInt8]? {
         var pixels = [UInt8](repeating: 0, count: side * side * 4)
         let drawn: Bool = pixels.withUnsafeMutableBytes { buffer in
             guard let context = CGContext(
@@ -176,8 +197,8 @@ extension EnvironmentValues {
 }
 
 extension View {
-    /// Derives the accent from the artwork bytes and injects it for the
-    /// shared components (WaveformGlyph, ScrubberRow) below. Applied above
+    /// Derives the accent from the artwork bytes and injects it for the one
+    /// component that tints with it below (`WaveformGlyph`). Applied above
     /// the crossfading branches (one instance per skin view), so the state
     /// survives compact↔expanded and extraction truly runs once per cover —
     /// keyed on the bytes, which position ticks never change — and off the
@@ -190,6 +211,7 @@ extension View {
 private struct ArtworkAccentModifier: ViewModifier {
     let data: [UInt8]?
     @State private var accent: ArtworkAccent.Tone?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
@@ -206,7 +228,7 @@ private struct ArtworkAccentModifier: ViewModifier {
                 // hopped-off work isn't cancelled with it (ImageIO never checks),
                 // and a slow old cover would land its tone over the successor's.
                 guard !Task.isCancelled else { return }
-                withAnimation(.easeInOut(duration: ArtworkAccent.toneFadeDuration)) {
+                withAnimation(ArtworkAccent.toneFade(reduceMotion: reduceMotion)) {
                     accent = tone
                 }
             }

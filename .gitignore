@@ -39,9 +39,6 @@ playground.xcworkspace
 .vscode/
 .idea/
 
-# local-only dev docs
-docs/internal/
-
 # secrets
 *.p12
 *.pfx

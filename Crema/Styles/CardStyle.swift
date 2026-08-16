@@ -72,19 +72,14 @@ enum CardMetrics {
     /// oversized for glance-level info. Issue #3's reference indicators are thin
     /// bars, roughly 4.5–5.5:1 width:height; 210×42 (5:1) sits mid-range. Both
     /// Card HUD variants lay out in it: the .slider row is the icon column
-    /// (hudIconColumnWidth) beside the capsule's 16 pt hit row
-    /// (HUDLevelSlider.trackHitHeight) centered in the 42 pt height with headroom
+    /// (CardHUDIndicator.hudIconColumnWidth) beside the capsule's 16 pt hit row
+    /// (CapsuleTrack.trackHitHeight) centered in the 42 pt height with headroom
     /// to spare, and the full-bleed .filled bar adapts by construction while its
     /// leading glyph stays legible at the shorter height. Width and height are
     /// separate calibration knobs.
     static let hudSystemWidth: CGFloat = 210
     static let hudSystemHeight: CGFloat = 42
     static let hudSystemSize = CGSize(width: hudSystemWidth, height: hudSystemHeight)
-    /// Fixed column for the .slider row's leading glyph: the volume family steps
-    /// through four symbols of different widths as the level moves
-    /// (HUDPresentation), and without a column of its own each swap would shift
-    /// the bar beside it — motion the level animation would then carry.
-    static let hudIconColumnWidth: CGFloat = 22
     /// Now-playing surface radius: generous, near half the compact height so the
     /// player reads as a soft block (never a capsule at its taller states).
     static let cornerRadius: CGFloat = 20
@@ -117,11 +112,14 @@ enum CardMetrics {
     /// half the card and left the rest floating in leftover space).
     static let expandedArtworkSide: CGFloat = 44
     static let expandedArtworkRadius: CGFloat = 10
-    /// Fixed row heights so the section sum above is honest: the scrubber row
-    /// centers the mini slider + time labels; the controls row is the transport
-    /// block's hit target.
-    static let scrubberRowHeight: CGFloat = 16
-    static let controlsHeight: CGFloat = 28
+    /// Fixed row heights so the section sum above is honest — and taken from the
+    /// components that fill them, never re-declared: the scrubber row IS the
+    /// capsule's hit row (the stock Slider's measured height, which the drag
+    /// target may not regress below) and the controls row IS the transport's
+    /// button. A literal here is a second copy that drifts the day either is
+    /// retuned, and the drift shows up as dead space inside the derived surface.
+    static let scrubberRowHeight: CGFloat = CapsuleTrack.trackHitHeight
+    static let controlsHeight: CGFloat = TransportControls.buttonSide
     static let contentPaddingHorizontal: CGFloat = 16
     static let contentPaddingVertical: CGFloat = 10
     /// One gap for rows and stacks alike — the card reads as one rhythm.
@@ -131,7 +129,4 @@ enum CardMetrics {
     /// visible sections (cover/text + scrubber) — the same "height is the sum of
     /// the sections" rule, now without the controls row.
     static let controlsSectionHeight: CGFloat = contentGap + controlsHeight
-    /// Title-over-artist gap, shared by compact and expanded — the stacked
-    /// text is the same element in both states.
-    static let textStackSpacing: CGFloat = 2
 }

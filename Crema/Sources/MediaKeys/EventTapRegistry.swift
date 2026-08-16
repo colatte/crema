@@ -21,6 +21,30 @@ struct EventTapEntry: Equatable, Sendable {
     /// (CGEventTapLocation: HID events enter the window server, and only then a
     /// login session).
     let precedesSessionTaps: Bool
+
+    /// True when this tap sits DOWNSTREAM of a session tap, so it can never take
+    /// an event before we do.
+    ///
+    /// `CGEventTapLocation` is an ordered pipeline — `kCGHIDEventTap = 0`,
+    /// `kCGSessionEventTap`, `kCGAnnotatedSessionEventTap` (`CGEventTypes.h`) —
+    /// and only the first two were modelled. Everything that was not HID landed
+    /// in one bucket where registry index order decided, so a neighbour tapping
+    /// at the annotated-session point could be NAMED as the app eating your
+    /// media keys purely for being listed earlier. The decision this feeds errs
+    /// toward silence for exactly that reason: a missing line costs a
+    /// diagnostic, a false line accuses a neighbour who is innocent by the
+    /// documented pipeline.
+    let followsSessionTaps: Bool
+
+    /// The pid this tap is scoped to, or nil for a session-wide one —
+    /// `processBeingTapped`, documented in the header as "Zero if not a
+    /// per-process tap".
+    ///
+    /// Dropping it made a per-PID tap indistinguishable from a session-wide one,
+    /// and apps routinely tap their OWN process. Such a tap sees only its
+    /// target's events, so it cannot be ahead of us for the media keys no
+    /// matter what its mask says.
+    let processBeingTapped: pid_t?
 }
 
 /// Reads the system's event-tap registry, behind a protocol so the chain
@@ -59,7 +83,9 @@ struct LiveEventTapRegistry: EventTapRegistry {
                 isEnabled: tap.enabled,
                 canConsume: tap.options == .defaultTap,
                 mask: tap.eventsOfInterest,
-                precedesSessionTaps: tap.tapPoint == .cghidEventTap
+                precedesSessionTaps: tap.tapPoint == .cghidEventTap,
+                followsSessionTaps: tap.tapPoint == .cgAnnotatedSessionEventTap,
+                processBeingTapped: tap.processBeingTapped == 0 ? nil : tap.processBeingTapped
             )
         }
     }

@@ -423,7 +423,7 @@ Tag **`v1.1.1`** · Title **`Crema 1.1.1`** · Assets **`Crema.dmg`** and
 gh release create v1.1.1 Crema.dmg Crema-1.1.1.dmg \
   --target main \
   --title "Crema 1.1.1" \
-  --notes-file docs/internal/release-notes-1.1.1.html \
+  --notes-file release-notes/1.1.1.html \
   --latest
 ```
 
@@ -431,8 +431,8 @@ gh release create v1.1.1 Crema.dmg Crema-1.1.1.dmg \
   resolve.
 - **`Crema-1.1.1.dmg`** → the **enclosure** `docs/appcast.xml` references at
   `releases/download/v1.1.1/Crema-1.1.1.dmg`. Without it, auto-update 404s.
-- `--notes-file` points at a file in `docs/internal/` (gitignored working notes;
-  the template is in §8). The **same file** feeds the Sparkle panel — GitHub
+- `--notes-file` points at a file in `release-notes/` (versioned; the template is
+  in §8). The **same file** feeds the Sparkle panel — GitHub
   renders the HTML subset it uses, so one file serves both. Or use
   `--notes "..."`, or omit it to open the editor.
 
@@ -460,6 +460,18 @@ git push
 > only goes live once that commit reaches `main` (merge/PR or direct push,
 > whichever your flow is). The enclosure has to be published in the Release
 > **first** — otherwise the app finds the item and 404s on the download.
+
+**The appcast commit is the last step, and it never parks on a branch.** If the
+Release is not published in the same sitting, revert the appcast commit
+(`git revert <sha>`) and regenerate it when the release actually goes out. The
+reason is that the commit does not need a release to reach the users: it goes
+live on the next push to `main` for *any* reason — a documentation merge, a
+README fix — and whoever runs that merge is not thinking about Sparkle. The
+feed then advertises a version whose Release does not exist, and every client
+that checks in that window downloads a 404. An entry left waiting is not a
+release half-done; it is a trap armed on someone else's branch, and the git
+history keeps it recoverable (`git show <sha>` restores the whole entry,
+signature included) at no cost.
 
 ### 5.5 Post-publication verification
 
@@ -680,8 +692,8 @@ problematic on hardware. In that case the Release would carry **three** assets
 ## 8. Release notes — template
 
 Public, in English (consistent with the README). Sober tone. Save as
-`docs/internal/release-notes-<version>.**html**` (gitignored working notes, and
-the first path `release.sh` looks for) and pass it to `--notes-file`; or paste
+`release-notes/<version>.**html**` (versioned, and the first path `release.sh`
+looks for) and pass it to `--notes-file`; or paste
 straight into the description (option B). On the **first** release use the full
 overview; afterwards, summarize **what changed** (new things, fixes).
 

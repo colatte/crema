@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The notch surface outline: a rounded rectangle whose bottom corners flare
-/// more than its top (design-reference §4.1 — the signature "liquid dripping
+/// more than its top (the signature "liquid dripping
 /// from the hardware" look; the top meets the bezel, the base rounds off).
 /// Radii are clamped so they never exceed the rect.
 struct NotchShape: Shape {

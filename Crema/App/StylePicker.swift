@@ -194,14 +194,18 @@ private struct StyleThumbnail: View {
             // place its numbers live: the real surface ramps a specular from the
             // top edge, and at this size a hairline that fades reads as no edge at
             // all, so the picture takes that ramp's brightest point
-            // (`SurfaceChrome.tileStrokeTopOpacity`) as a flat line. A literal here
+            // (`SurfaceChrome.tileStrokeTopOpacity`) as a flat line, at the
+            // specular's own width. Neither number is written out here: a literal
             // would be a second description of a border the app draws elsewhere,
             // in the one place a user compares the skins. Only the notch has none —
             // it camouflages with the cutout it covers, and that is the difference
             // a user names first when the three are side by side.
             .overlay {
                 if !shapes.surfaceIsOpaque {
-                    surfaceShape.strokeBorder(.white.opacity(SurfaceChrome.tileStrokeTopOpacity), lineWidth: 0.5)
+                    surfaceShape.strokeBorder(
+                        .white.opacity(SurfaceChrome.tileStrokeTopOpacity),
+                        lineWidth: SurfaceChrome.specularWidth
+                    )
                 }
             }
             .frame(width: surfaceSize.width, height: surfaceSize.height)

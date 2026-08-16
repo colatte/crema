@@ -158,6 +158,85 @@ struct BetterDisplayOSDSourceTests {
         #expect(collector.values.map(\.value) == [BrightnessConversion.normalize(0.42)])
     }
 
+    @Test func aReportedLevelSilencesAPressWhoseSampleHasNotLandedYet() async {
+        // The third ordering, and the one nothing above covers: the announcement
+        // arrives BEFORE the key's own `sample()`. It is reachable because the two
+        // calls come from different executors — the sample from the media-key
+        // router's task on the cooperative pool, the stand-down from the MainActor —
+        // so the sequence inside the tap buys no order between them. Same shape in
+        // the field for the suppressor's handback, which is announced for every key
+        // of a domain suspended over a dead write.
+        //
+        // Without the banked announcement, the sample re-arms the window the
+        // stand-down just spent: the poll a beat later then draws our hardware-scale
+        // bar on top of the feedback another authority is already giving.
+        let backend = FakeBrightnessBackend(value: 0.5)
+        let clock = TestSleepClock()
+        let polled = PolledBrightnessSource(
+            kind: .screenBrightness, backend: backend, clock: clock, pollInterval: 0.5,
+            now: { Date(timeIntervalSince1970: 1_000) }
+        )
+        let collector = Collector(polled.updates)
+        defer { collector.stop() }
+
+        let source = BetterDisplayOSDSource(
+            target: { $0 == 1 ? .display(DisplayUUID(rawValue: "BUILT-IN")) : nil },
+            onReport: { polled.standDown() }
+        )
+        await clock.waitForSleep()      // the cadence is parked before anything moves
+
+        source.handle(json: #"{"controlTarget":"combinedBrightness","maxValue":64,"value":32}"#)
+        backend.value = 0.34            // the neighbour applied: the hardware moves
+
+        let taken = backend.readCount
+        polled.sample()                 // the key, landing behind the report
+        #expect(await backend.awaitRead(after: taken))
+        clock.advance()                 // and the poll that sample would have armed
+        await clock.waitForSleep()
+
+        // Proven by what comes next rather than by silence alone — and this half is
+        // load-bearing twice over: an announcement silences ONE press, so a key with
+        // no report behind it must still draw, or the fix would have traded a double
+        // bar for a missing one.
+        backend.value = 0.42
+        polled.sample()
+        #expect(await eventually { collector.values.count == 1 })
+        #expect(collector.values.map(\.value) == [BrightnessConversion.normalize(0.42)])
+    }
+
+    @Test func anAnnouncementWithNoKeyBehindItExpiresInsteadOfSilencingALaterOne() async {
+        // The other half of the banked announcement, and the reason it is stamped
+        // rather than merely counted: the neighbour's own UI moved the level, so
+        // nothing of ours was pressed and the stand-down has no reading to spend
+        // itself on — the ORDINARY case, since the app whose OSD is being consumed
+        // is also the one the user drives directly. A credit that never expires
+        // would hand that silence to whatever key comes next, and a consumed key
+        // drawing nothing at all is the failure this app treats as the serious one.
+        let backend = FakeBrightnessBackend(value: 0.5)
+        let clock = TestSleepClock()
+        let now = ManualNow()
+        let polled = PolledBrightnessSource(
+            kind: .screenBrightness, backend: backend, clock: clock, pollInterval: 0.5,
+            keyActivityWindow: 1.5, now: { now.now }
+        )
+        let collector = Collector(polled.updates)
+        defer { collector.stop() }
+
+        let source = BetterDisplayOSDSource(
+            target: { $0 == 1 ? .display(DisplayUUID(rawValue: "BUILT-IN")) : nil },
+            onReport: { polled.standDown() }
+        )
+        await clock.waitForSleep()
+
+        source.handle(json: #"{"controlTarget":"combinedBrightness","maxValue":64,"value":32}"#)
+        now.advance(by: 2)              // past the window the key's own claim gets
+
+        backend.value = 0.42
+        polled.sample()
+        #expect(await eventually { collector.values.count == 1 })
+        #expect(collector.values.map(\.value) == [BrightnessConversion.normalize(0.42)])
+    }
+
     @Test func onlyADeliveredPayloadCountsAsAWorkingIntegration() {
         // Presence of the app proves nothing: its OSD notification setting can be
         // off with BetterDisplay running, so the menu must not claim otherwise.

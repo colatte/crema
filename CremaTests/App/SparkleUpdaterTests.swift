@@ -81,7 +81,11 @@ struct SparkleUpdaterTests {
 
     @Test func checkForUpdatesStringResolvesPerLanguage() throws {
         #expect(try value("menu.checkForUpdates", in: "en") == "Check for Updates…")
-        #expect(try value("menu.checkForUpdates", in: "pt-BR") == "Verificar Atualizações…")
+        // "Buscar", not "Verificar", and the pin exists so it is not helpfully
+        // corrected back: across 10,130 pt-BR strings extracted from macOS,
+        // "buscar atualizações" appears 6 times and "verificar atualizações"
+        // zero (2026-08-07).
+        #expect(try value("menu.checkForUpdates", in: "pt-BR") == "Buscar atualizações…")
     }
 
     /// The pending-update line and its button. Release-only on screen, but the
@@ -92,8 +96,8 @@ struct SparkleUpdaterTests {
     @Test func pendingUpdateStringsResolvePerLanguage() throws {
         #expect(try value("menu.update.available", in: "en") == "An update to Crema is available.")
         #expect(try value("menu.update.available", in: "pt-BR") == "Há uma atualização do Crema disponível.")
-        #expect(try value("menu.update.show", in: "en") == "Show the Update…")
-        #expect(try value("menu.update.show", in: "pt-BR") == "Mostrar a Atualização…")
+        #expect(try value("menu.update.show", in: "en") == "Show Update…")
+        #expect(try value("menu.update.show", in: "pt-BR") == "Mostrar atualização…")
     }
 
     private func value(_ key: String, in language: String) throws -> String {

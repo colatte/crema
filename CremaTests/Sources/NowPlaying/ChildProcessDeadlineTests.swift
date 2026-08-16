@@ -62,7 +62,7 @@ struct ChildProcessDeadlineTests {
     @Test func singleResumeDeliversTheFirstStashedResultOnly() async {
         // Both racers finish before begin installs the continuation: the first
         // result is stashed and delivered on begin; the loser no-ops.
-        let race = SingleResumeRace<Int>()
+        let race = SingleResumeRace<Int, Never>()
         race.finish(1)
         race.finish(2)
 
@@ -73,7 +73,7 @@ struct ChildProcessDeadlineTests {
     }
 
     @Test func singleResumeIgnoresALateFinishAfterBegin() async {
-        let race = SingleResumeRace<Int>()
+        let race = SingleResumeRace<Int, Never>()
         let waiter = Task {
             await withCheckedContinuation { (continuation: CheckedContinuation<Int, Never>) in
                 race.begin(continuation)

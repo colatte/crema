@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Calibratable animation values for the presentation surfaces, isolated in
-/// one place (design-reference §2.2/§2.3). Every value is a starting point to
+/// one place. Every value is a starting point to
 /// tune on hardware, not an absolute.
 ///
 /// All visible motion is SwiftUI's: the view morphs a sized surface inside a
@@ -11,7 +11,7 @@ import SwiftUI
 /// (the directional morph springs, appear/dismiss, the level glide calibrated
 /// against the HUD revert); a component's private affordance timing lives in
 /// the component (WaveformGlyph.freezeDuration, ArtworkAccent.toneFadeDuration,
-/// HUDLevelSlider.knobReveal).
+/// CapsuleTrack.knobReveal).
 enum SurfaceAnimation {
     /// Spring parameters. Open is livelier; close is critically damped — never
     /// overshoot on close, or the bounce against the static menu bar reads as
@@ -24,7 +24,12 @@ enum SurfaceAnimation {
     static let closeDamping: Double = 1.0
 
     /// Surface morph springs, chosen by direction: the destination state selects
-    /// the spring (see the views).
+    /// the spring (see the views). The appearance/disappearance opacity fade uses
+    /// the same pair, picked inline by each view from the destination state (open
+    /// when expanding, close otherwise) — and that fade is the one animation
+    /// Reduce Motion does NOT suppress: a cross-fade IS what the preference asks
+    /// for in place of motion, so gating it would swap the fade for a
+    /// single-frame pop, the thing the preference exists to avoid.
     static let open: Animation = .spring(response: openResponse, dampingFraction: openDamping)
     static let close: Animation = .spring(response: closeResponse, dampingFraction: closeDamping)
 
@@ -81,6 +86,23 @@ enum SurfaceAnimation {
     /// resize, the card's width hug) — no provenance branch, but the same Reduce
     /// Motion gate as the geometry/content springs: nil under the preference so
     /// the resize lands dry while its opacity/content still fades.
+    ///
+    /// Directionless ON PURPOSE, and the cost of that is quantified rather than
+    /// forbidden: the open spring's damping is deliberately under critical
+    /// (`openDamping` 0.8), so a return trip overshoots by roughly 1.5% of its
+    /// delta. Its clients here swing on the order of a hundred points — the
+    /// view-only band resize, the card's width hug — which puts the bounce under
+    /// 2 pt, and that is the shipped behaviour: at that size it reads as the
+    /// surface settling, not as a wobble.
+    ///
+    /// The warning is about SCALE, then, not about round trips as such. A large
+    /// geometry morph that goes one way and comes back the other wants a spring
+    /// chosen by the destination, because there the same 1.5% is a visible bounce
+    /// against the menu bar. A directional overload lived here for one commit, for
+    /// the lock card's expand/collapse; that state was removed and the overload
+    /// went with it rather than waiting in the file for a caller. The rule
+    /// survives its implementation: the destination picks the spring, which is
+    /// what `geometryAnimation` does from provenance.
     static func morph(reduceMotion: Bool) -> Animation? {
         reduceMotion ? nil : open
     }

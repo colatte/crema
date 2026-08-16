@@ -27,4 +27,25 @@ enum OSDApplyVerification {
         // proves the write path is alive.
         return (target - before) * (after - before) > 0
     }
+
+    /// Whether an unverified read looks like a write the HAL ACCEPTED but has
+    /// not published yet, rather than one that failed.
+    ///
+    /// Apple documents this as the general case, not an edge:
+    /// `AudioObjectSetPropertyData` — "the value of the property should not be
+    /// considered changed until the HAL has called the listeners as many
+    /// properties values are changed **asynchronously**" (AudioHardware.h:302).
+    /// Reading back on the next line and calling an unmoved value a failure
+    /// therefore accuses a healthy device: the domain suspends, the keys go back
+    /// to the system, and the menu tells the user Crema cannot change their
+    /// volume — on a Mac where it just did.
+    ///
+    /// The signature is NOTHING MOVED. A value that moved the wrong way, or
+    /// stopped short, is a real disagreement and stays a failure; only the exact
+    /// pre-write value is ambiguous, and only when the step actually asked for a
+    /// change. One more read is what resolves it — see the caller.
+    static func mayBeAsynchronous(before: Double, target: Double, after: Double?) -> Bool {
+        guard let after, target != before else { return false }
+        return after == before
+    }
 }

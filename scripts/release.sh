@@ -483,10 +483,23 @@ sleep 5
 if kill -0 "$SMOKE_PID" 2>/dev/null; then
     kill "$SMOKE_PID" 2>/dev/null || true
     wait "$SMOKE_PID" 2>/dev/null || true
+    # Killing the app is not killing what the app started. Crema spawns the
+    # mediaremote-adapter as a long-lived perl child; it does NOT die with its
+    # parent, launchd adopts it, and `rm -rf` below then deletes the bundle out
+    # from under a process that keeps running until the machine reboots.
+    # MEASURED on the release machine 2026-08-08: a smoke run from three minutes
+    # earlier still had its adapter alive, streaming, against a bundle path that
+    # no longer existed.
+    #
+    # Matched on the SMOKE_DIR path, which is a mktemp name and therefore cannot
+    # collide with the adapter belonging to the author's real installed copy —
+    # killing that one would take down the app they are using to test.
+    pkill -f "${SMOKE_DIR}/${APP_NAME}/Contents/Resources/mediaremote-adapter" 2>/dev/null || true
     rm -rf "$SMOKE_DIR"
     info "Launch smoke passed: the installed app survived 5 s."
 else
     SMOKE_STATUS=0; wait "$SMOKE_PID" 2>/dev/null || SMOKE_STATUS=$?
+    pkill -f "${SMOKE_DIR}/${APP_NAME}/Contents/Resources/mediaremote-adapter" 2>/dev/null || true
     printf '%s\n' "----- launch.log (tail) -----" >&2
     tail -n 12 "$SMOKE_DIR/launch.log" >&2 || true
     fail "launch smoke FAILED: the app from $DMG_NAME died within 5 s (exit $SMOKE_STATUS).
@@ -545,16 +558,15 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     # the notes are staged beside the dmg under the matching name.
     #
     # Source, in order: an explicit file (CREMA_RELEASE_NOTES), else
-    # docs/internal/release-notes-<version>.html, else the same name with .md,
-    # otherwise the commit subjects since the previous tag. The file lives under
-    # docs/internal/ because docs/ is the published Pages root — a notes file
-    # dropped there ships as a public page nobody linked, and the default used to
-    # point at docs/release-notes/, a directory that has never existed in this
-    # repository's history, so following the comment produced a file the script
-    # then ignored in silence. The fallback is not a placeholder: this repo writes
-    # subjects as sentences, so it reads as prose rather than as a changelog dump —
-    # and it can never be forgotten, which is the property a hand-written file
-    # lacks.
+    # release-notes/<version>.html, else the same name with .md, otherwise the
+    # commit subjects since the previous tag. The directory sits at the repository
+    # root, versioned — the text ships in the appcast and in the GitHub release
+    # anyway, so keeping it local only meant a shipped note nobody could recover —
+    # and deliberately NOT under docs/, which is the published Pages root: a notes
+    # file dropped there ships as a public page nobody linked. The fallback is not
+    # a placeholder: this repo writes subjects as sentences, so it reads as prose
+    # rather than as a changelog dump — and it can never be forgotten, which is the
+    # property a hand-written file lacks.
     #
     # .html is looked up FIRST because it is the only source that survives prose.
     # An .html file is copied verbatim; anything else is rendered one bullet per
@@ -567,10 +579,10 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     NOTES_HTML="$STAGING_DIR/Crema-$VERSION.html"
     if [[ -n "${CREMA_RELEASE_NOTES:-}" ]]; then
         NOTES_SRC="$CREMA_RELEASE_NOTES"
-    elif [[ -f "$REPO_ROOT/docs/internal/release-notes-$VERSION.html" ]]; then
-        NOTES_SRC="$REPO_ROOT/docs/internal/release-notes-$VERSION.html"
+    elif [[ -f "$REPO_ROOT/release-notes/$VERSION.html" ]]; then
+        NOTES_SRC="$REPO_ROOT/release-notes/$VERSION.html"
     else
-        NOTES_SRC="$REPO_ROOT/docs/internal/release-notes-$VERSION.md"
+        NOTES_SRC="$REPO_ROOT/release-notes/$VERSION.md"
     fi
     escape_html() { sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
     if [[ -f "$NOTES_SRC" && "$NOTES_SRC" == *.html ]]; then

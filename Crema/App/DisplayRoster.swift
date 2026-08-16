@@ -6,7 +6,7 @@ import Observation
 ///
 /// Reactive, and deliberately unlike its Settings neighbours: the seeded-once
 /// seeds its mirrors ONCE and re-reads only when its own picker writes — a
-/// pinned-latent tradeoff (docs/internal/archive/CONTRACTS-AUDIT.md: S4), which
+/// pinned-latent tradeoff (docs/CONTRACTS.md: S4), which
 /// costs a stale value there. A list whose rows ARE the displays cannot take that
 /// deal: a row surviving its monitor is a control over a screen the user cannot
 /// see, and a display plugged in with the window open would have no row at all

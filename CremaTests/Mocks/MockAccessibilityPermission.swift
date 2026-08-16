@@ -1,12 +1,11 @@
 import Foundation
 @testable import Crema
 
-/// Test fake: permission state controlled by the test; records requests.
+/// Test fake: permission state controlled by the test.
 /// Lock-protected — callable from any isolation.
 final class MockAccessibilityPermission: AccessibilityPermission, @unchecked Sendable {
     private let lock = NSLock()
     private var _granted: Bool
-    private var _requestCount = 0
     private var _mainThreadChecks = 0
 
     var granted: Bool {
@@ -14,7 +13,6 @@ final class MockAccessibilityPermission: AccessibilityPermission, @unchecked Sen
         set { lock.withLock { _granted = newValue } }
     }
 
-    var requestCount: Int { lock.withLock { _requestCount } }
     /// How many `isGranted()` reads landed on the MAIN thread. `AXIsProcessTrusted`
     /// is a blocking TCC round-trip, so a periodic reader (the tap's 2 s health
     /// poll) keeps it off the main thread; only the rare tick that actually
@@ -34,7 +32,8 @@ final class MockAccessibilityPermission: AccessibilityPermission, @unchecked Sen
         }
     }
 
-    func requestAccess() {
-        lock.withLock { _requestCount += 1 }
-    }
+    // Conformance only: prompting has no effect a test reads through this
+    // fake — the seam test that asserts the prompt records through its own
+    // double (AccessibilityRequestSeamTests).
+    func requestAccess() {}
 }

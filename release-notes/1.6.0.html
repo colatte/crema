@@ -1,0 +1,80 @@
+<h2>Crema 1.6.0</h2>
+
+<p>A polish release, and a large one: everything a round of bug hunting turned
+up across the three surfaces, the Settings window and the system border, plus
+the maintenance fixes that had been waiting since the last release. Nothing
+about how the app is set up changed.</p>
+
+<h3>Fixed</h3>
+<ul>
+  <li><strong>A track with no length no longer draws a full bar.</strong> Radio
+      and live streams showed the progress bar sweeping to 100% in the first
+      second and staying there, as if the track had ended; the bar now stays
+      empty for content that has no duration, and the elapsed time keeps one
+      shape instead of widening in place when a stream crosses an hour.</li>
+  <li><strong>The compact player still says "playing" under Reduce Motion or Low
+      Power Mode.</strong> With either on, the waveform stopped moving and lost
+      the only signal that distinguished playing from paused; it now holds a
+      still, staggered silhouette while playing and a flat one while paused.</li>
+  <li><strong>The notch surface sits exactly in the slit.</strong> One rule now
+      finds the slit from its edges, so the surface, the click zone and the slit
+      always coincide — half a point of the surface used to land on live menu-bar
+      pixels on some geometries. A display that reports a safe area but no
+      cutout is no longer treated as a notch, which used to hand the whole
+      menu bar's clicks to Crema while music played.</li>
+  <li><strong>The title column in the notch gained room.</strong> A spacer was
+      charging a double gap on the narrowest surface in the app; the title now
+      takes the flexible role and keeps eight to ten more points.</li>
+  <li><strong>The speaker icon stays put while the volume moves.</strong> The
+      glyph slid up to four points as the waves grew; it is anchored to its
+      leading edge now, in every style.</li>
+  <li><strong>Dragging a brightness bar backed by BetterDisplay is more
+      trustworthy.</strong> The bar only anchors to levels confirmed on the wire
+      — including its own echo on the way back round, which used to pass for a
+      reading — and if the channel fails mid-drag the fallback writes the exact
+      level your finger stopped at, never one it passed through. Crema also
+      listens to BetterDisplay in a mode the system cannot hold back while the
+      app is inactive.</li>
+  <li><strong>When Crema hands a key back to the system, its own bar stands down
+      too</strong> — one keypress, one indicator, whichever order the two
+      arrive in.</li>
+  <li><strong>A failed mute read during volume-up no longer leaves the Mac muted
+      while the bar keeps rising.</strong></li>
+  <li><strong>Clicks land exactly on the visible surface while it appears</strong>,
+      matching hover — clicks in the dead margin no longer fall through — and a
+      completed hover gesture no longer re-routes a later interaction in styles
+      that commit immediately.</li>
+  <li><strong>The menu stays its width</strong> when two or three indicators are
+      suspended at once; the warning used to widen the whole menu.</li>
+  <li><strong>A MacBook on its own can turn the player off.</strong> The
+      Displays section, with its "Show the player here" switch, is now offered
+      for every connected display, a lone built-in one included.</li>
+  <li>The Classic style now shows the track's total length; a disabled progress
+      bar dims like the buttons beside it; a VoiceOver adjustment on a HUD bar no
+      longer leaves it stuck; and a level the app itself asked for is never
+      taken as a reading.</li>
+</ul>
+
+<h3>Improved</h3>
+<ul>
+  <li><strong>VoiceOver.</strong> Play/Pause is announced by name, the HUD's icon
+      no longer repeats the slider's label, and each display's row in Settings
+      is one group carrying the display's name.</li>
+  <li><strong>Escape</strong> leaves the welcome tour and the Accessibility
+      onboarding. The tour's Indicators step offers the grant right beside the
+      switch, and no longer teaches a shortcut that only works with the menu
+      open.</li>
+  <li>The Now Playing tab says when nothing is reporting.</li>
+  <li>Brazilian Portuguese revised to the system's own register throughout —
+      sentence case in menus and buttons, and one name per concept in both
+      languages: the surface is the <em>player</em>. The three style names —
+      Notch, Card, Classic — are product names and stay in English.</li>
+</ul>
+
+<p><strong>Requirements:</strong> macOS 14 (Sonoma) or later · Apple Silicon or Intel.</p>
+
+<p>Crema isn't notarized by Apple, so a fresh install needs one extra step on first
+launch — see <a href="https://github.com/colatte/crema#first-launch">First launch</a>
+in the README. Updating from 1.2.0 or later happens on its own.</p>
+
+<p>Free and open source under GPL-3.0.</p>

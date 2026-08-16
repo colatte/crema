@@ -51,7 +51,7 @@ struct TileBackdrop: View {
     /// recognisably the user's own desk rather than a grey rectangle. Raised
     /// from the first cut's 0.28 on a field verdict: over a pale sky that wash
     /// barely existed and the tiles read washed-out rather than staged.
-    static let veilOpacity = 0.35
+    private static let veilOpacity = 0.35
 
     /// The drawn desk, for when there is no readable one. Flat and dim on
     /// purpose: it stands in for scenery, so it must not become the subject.

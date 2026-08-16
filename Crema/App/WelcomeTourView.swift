@@ -42,12 +42,15 @@ struct WelcomeTourView: View {
     init(core: AppCore, dismiss: @escaping () -> Void) {
         self.core = core
         self.dismiss = dismiss
-        _style = State(initialValue: core.declaredStyle())
-        _rendersCard = State(initialValue: core.rendersAnywhere(.card))
-        _rendersNotch = State(initialValue: core.rendersAnywhere(.notch))
-        _wallpaper = State(initialValue: core.tileWallpaper())
-        _launchesAtLogin = State(initialValue: core.loginItem.isEnabled || core.loginItem.requiresApproval)
-        _loginNeedsApproval = State(initialValue: core.loginItem.requiresApproval)
+        // One seed rule for both windows that carry this section — the reads and
+        // their why live in StyleSectionSeed, never respelled here.
+        let seed = StyleSectionSeed(core: core)
+        _style = State(initialValue: seed.style)
+        _rendersCard = State(initialValue: seed.rendersCard)
+        _rendersNotch = State(initialValue: seed.rendersNotch)
+        _wallpaper = State(initialValue: seed.wallpaper)
+        _launchesAtLogin = State(initialValue: seed.launchesAtLogin)
+        _loginNeedsApproval = State(initialValue: seed.loginNeedsApproval)
     }
 
     var body: some View {
@@ -88,7 +91,11 @@ struct WelcomeTourView: View {
             // already says the tour is over and a second way out beside it would
             // only ask the person to choose between two identical exits.
             if WelcomeTourFlow.next(after: step) != nil {
+                // Esc leaves, the way it does out of every macOS sheet: this is the
+                // first thing a new install shows and nothing in it is required, so
+                // the platform's own way out has to reach the button that takes it.
                 Button(String(localized: "tour.skip", defaultValue: "Skip")) { dismiss() }
+                    .keyboardShortcut(.cancelAction)
             }
             Spacer()
             if let previous = WelcomeTourFlow.previous(before: step) {
@@ -164,7 +171,12 @@ struct WelcomeTourView: View {
                 .foregroundStyle(.primary)
                 .padding(10)
                 .background(.quaternary, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            Text(String(localized: "tour.window.title", defaultValue: "Welcome to Crema"))
+            // Its own key, deliberately not the window's title: every step carries a
+            // heading and this is the first one, but the two strings answer to
+            // different constraints — a title bar is sized by the window and this
+            // line by the step — and sharing one made a change to either silently
+            // rewrite the other.
+            Text(String(localized: "tour.welcome.title", defaultValue: "Welcome to Crema"))
                 .font(.title2.bold())
             Text(String(
                 localized: "tour.welcome.body",
@@ -192,7 +204,7 @@ struct WelcomeTourView: View {
             Text(String(
                 localized: "onboarding.body",
                 // swiftlint:disable:next line_length
-                defaultValue: "Crema uses the Accessibility permission to capture the volume and brightness keys so it can show its own indicators. Without it the app keeps working — it just can't react to those keys."
+                defaultValue: "Crema uses the Accessibility permission to capture the volume and brightness keys so it can show its own indicators. Without it the app keeps working — it just can’t react to those keys."
             ))
             .foregroundStyle(.secondary)
             // The grant lands while this window is open — the monitor polls, so the
@@ -207,7 +219,7 @@ struct WelcomeTourView: View {
             } else {
                 Text(String(
                     localized: "onboarding.grantDetection",
-                    defaultValue: "Granting is picked up automatically — no relaunch needed. If capture still doesn't start, relaunch Crema."
+                    defaultValue: "Granting is picked up automatically — no relaunch needed. If capture still doesn’t start, relaunch Crema."
                 ))
                 .font(.footnote)
                 .foregroundStyle(.tertiary)
@@ -267,7 +279,7 @@ struct WelcomeTourView: View {
                 }
                 Text(String(
                     localized: "tour.step.style.body",
-                    defaultValue: "You can give a single display its own style later, in Settings › General."
+                    defaultValue: "You can give a single display its own style later, in Settings → General."
                 ))
             }
             .font(.footnote)
@@ -314,20 +326,44 @@ struct WelcomeTourView: View {
             .disabled(!canSuppress)
             .onChange(of: suppressesNativeOSD) { _, new in core.setNativeOSDSuppression(new) }
 
+            // The house rule, the same one the Indicators tab follows: the fix sits
+            // BESIDE the control it unblocks, never in its place. Without it this
+            // step showed a dead switch and a sentence naming a permission, to a
+            // person whose only way to grant it was to walk back a step.
+            if !core.permissionMonitor.isGranted {
+                Button(String(
+                    localized: "settings.permissions.grant",
+                    defaultValue: "Grant Accessibility Access…"
+                )) {
+                    core.requestAccessibilityAccess()
+                }
+            }
+
             VStack(spacing: 6) {
                 Text(String(
                     localized: "settings.hud.suppress.footer",
-                    defaultValue: "Hides the system volume and brightness indicators and shows Crema's instead."
+                    defaultValue: "Hides the system volume and brightness indicators and shows Crema’s instead."
                 ))
                 Text(String(
                     localized: "settings.hud.suppress.footer.brightnessScope",
                     // swiftlint:disable:next line_length
                     defaultValue: "Screen brightness is replaced only on the built-in display, while the pointer is on it — a key aimed at any other display is left to the system."
                 ))
-                if !canSuppress {
+                // Split for the reason the Indicators tab states it: the joint gate
+                // told someone who HAD granted Accessibility that the grant was
+                // missing, which is an accusation rather than a diagnosis. The
+                // second branch is the honest sentence for a Mac with nothing to
+                // engage.
+                if !core.permissionMonitor.isGranted {
                     Text(String(
                         localized: "settings.hud.suppress.needsPermission",
-                        defaultValue: "Needs Accessibility access — until then the system's own indicators stay."
+                        defaultValue: "Needs Accessibility access — until then the system’s own indicators stay."
+                    ))
+                    .foregroundStyle(.orange)
+                } else if core.osdSuppressor == nil {
+                    Text(String(
+                        localized: "settings.hud.suppress.unavailable",
+                        defaultValue: "System indicator replacement isn’t available on this Mac."
                     ))
                     .foregroundStyle(.orange)
                 }
@@ -368,22 +404,42 @@ struct WelcomeTourView: View {
             .toggleStyle(.switch)
 
             if loginNeedsApproval {
+                // No written path, and a button instead — the tour's own rule
+                // (the-tour-configures-instead-of-pointing) applied to the one
+                // step that was still pointing. The path it used to spell,
+                // "System Settings › General › Login Items", macOS 15 renamed to
+                // "Login Items & Extensions"; the app supports 14+, so any
+                // written path is wrong on one of them.
                 Text(String(
                     localized: "settings.general.launchAtLogin.needsApproval",
-                    defaultValue: "Approve Crema in System Settings › General › Login Items to finish enabling this."
+                    defaultValue: "Approve Crema in System Settings to finish enabling this."
                 ))
                 .font(.footnote)
                 .foregroundStyle(.orange)
+                Button(String(
+                    localized: "settings.general.launchAtLogin.openSettings",
+                    defaultValue: "Open Login Items Settings…"
+                )) {
+                    core.openLoginItemsSettings()
+                }
+                .buttonStyle(.link)
+                .font(.footnote)
             }
 
-            // Where everything in this window lives afterwards, said in words: the
-            // shortcut is spelled out rather than offered as a button, because
-            // nothing outside the Settings scene can open that window — an
-            // accessory app has no supported call for it, so a button here would be
-            // one that does nothing (docs/DECISIONS.md: the-tour-configures-instead-of-pointing).
+            // Where everything in this window lives afterwards, said in words rather
+            // than offered as a button: nothing outside the Settings scene can open
+            // that window — an accessory app has no supported call for it, so a
+            // button here would be one that does nothing
+            // (docs/DECISIONS.md: the-tour-configures-instead-of-pointing).
+            //
+            // The menu bar is the whole answer, and Command-Comma is deliberately no
+            // longer part of it: a key equivalent belongs to the active app, and this
+            // one has no Dock tile and no window to become active by — so the
+            // shortcut fires only while the menu it was offered as an alternative to
+            // is already open.
             Text(String(
                 localized: "tour.step.finish.body",
-                defaultValue: "Crema lives in the menu bar — its icon opens the menu, and Settings is there too, or press Command-Comma."
+                defaultValue: "Crema lives in the menu bar — its icon opens the menu, and Settings is there too."
             ))
             .font(.callout)
             .foregroundStyle(.secondary)

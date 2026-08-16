@@ -14,7 +14,7 @@ enum MediaSourceFilter {
     /// Firefox is listed per-product (never "org.mozilla." wholesale):
     /// Thunderbird is org.mozilla.thunderbird — a mail app whose media must
     /// pass, per this module's own non-browser rule.
-    static let browserBundleIDPrefixes: [String] = [
+    private static let browserBundleIDPrefixes: [String] = [
         "com.apple.Safari",             // Safari + Technology Preview
         "com.apple.WebKit",             // WebKit helpers reported without a parent
         "com.google.Chrome",            // Chrome + Beta/Dev/Canary
@@ -38,7 +38,7 @@ enum MediaSourceFilter {
     /// under a browser's namespace but are deliberate app-like experiences,
     /// not feed noise. Safari Web Apps ("Add to Dock") are the user pinning
     /// a site as an app — media from one is as intentional as Spotify's.
-    static let nonBrowserExceptionPrefixes: [String] = [
+    private static let nonBrowserExceptionPrefixes: [String] = [
         "com.apple.Safari.WebApp",
     ]
 

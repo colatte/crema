@@ -60,7 +60,7 @@ final class WallpaperTileStore {
     /// picture and not one pixel more is decoded. The point is the ceiling
     /// itself: without it a 6K desktop becomes a full-size bitmap in memory to
     /// draw a thumbnail of.
-    static let thumbnailMaxPixelSize = 220
+    private static let thumbnailMaxPixelSize = 220
 
     /// Production decode. `CGImageSourceCreateThumbnailAtIndex` forces an eager
     /// decode bounded to `thumbnailMaxPixelSize`, where `NSImage(contentsOf:)`

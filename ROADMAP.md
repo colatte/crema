@@ -1,8 +1,12 @@
 # Roadmap
 
+> Directions and possibilities for Crema — never promises, never dated
+> commitments, and never an execution plan. What the app does today is
+> [SPEC.md](SPEC.md); the order the open work is taken in is
+> [PLAN.md](PLAN.md).
+
 Crema does a few things, and tries to do them well. This is where it might go
-next — directions and possibilities, not promises or dated commitments. If one of
-these matters to you, contributions are welcome; see
+next. If one of these matters to you, contributions are welcome; see
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## External displays
@@ -55,16 +59,8 @@ brightness-key-follows-the-pointer).
 
 ## Per-display styles — shipped ✓
 
-Each display can look the way you want it to. **Settings → General** declares the
-style for every display at once, and — whenever there is a per-display answer the
-declaration cannot give — a row per screen right below it gives any single one its
-own: _notch_ on the MacBook, _classic_ on the monitor, picked from a popup whose
-first item, "Follow all displays", hands the screen back to the declaration
-(declaring for all displays replaces the per-display picks, and says so). Each row
-also holds "Show now playing here", so the player can live on one screen while the
-HUDs appear where they belong. On a display without a notch, the _notch_ option is
-offered dimmed and cannot be picked for it — that screen would really draw the
-card, and the app never records a choice it will not honour.
+Shipped: **Settings → General** declares a style for all displays and overrides it
+per screen, including "Show now playing here" — see the [README](README.md#usage).
 
 ## The surface itself
 
@@ -81,11 +77,9 @@ Two directions the current surface points at, neither promised:
 
 ## Automatic updates — shipped in 1.2.0 ✓
 
-Since v1.2.0, Crema keeps itself current: release builds embed
-[Sparkle](https://sparkle-project.org), and the app checks a signed update feed
-on GitHub Pages — with your consent (Sparkle asks first), or on demand via
-**Check for Updates…** in the menu bar. What remains on this front is
-notarization, below.
+Shipped since v1.2.0: [Sparkle](https://sparkle-project.org) in release builds,
+checking a signed feed on GitHub Pages (docs/RELEASE-GUIDE.md records the cycle).
+What remains on this front is notarization, below.
 
 ## Signing and notarization
 

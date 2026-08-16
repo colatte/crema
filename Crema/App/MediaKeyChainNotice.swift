@@ -28,15 +28,26 @@ extension MediaKeyChainNotice {
     /// So a burst of rebuilds collapses into one reading
     /// (docs/DECISIONS.md: media-key-chain-contention).
     ///
-    /// A WINDOW and not a set of invalidation edges, deliberately. The edges that
-    /// change the answer are not enumerable from inside this process: a neighbour
-    /// can install or drop a tap while already running — that is exactly what
-    /// toggling its key handling does — with no notification behind it, so any edge
-    /// list would keep serving a stale line for an unbounded time. And the stale
-    /// line here is an ACCUSATION against a named neighbour, which is the direction
-    /// the decision above says to err away from. The window bounds both sides at
-    /// once: at most one reading per window, never more than one window stale, and
-    /// no wiring anyone can forget.
+    /// A WINDOW and not a set of invalidation edges, deliberately — but NOT
+    /// because the edges do not exist. They do: CoreGraphics posts
+    /// `kCGNotifyEventTapAdded` and `kCGNotifyEventTapRemoved` through notify(3)
+    /// (`CGEventTypes.h`), so a neighbour installing or dropping a tap while
+    /// already running is observable. This comment used to claim the opposite,
+    /// and a design defended by a false fact is one nobody can re-judge.
+    ///
+    /// The real reason is the cost of the READ, not the absence of a trigger.
+    /// `CGGetEventTapList` zeroes the min/max latencies of every tap in the
+    /// system on each call (see the decision above), so the reading has to be
+    /// rare and tied to someone actually looking. Subscribing to the edges would
+    /// invert that: a neighbour toggling its key handling would make this process
+    /// re-read — and reset every other app's latency counters — while nobody has
+    /// the menu open. The window keeps the read where the question is asked, and
+    /// bounds staleness at one window; the stale line here is an ACCUSATION
+    /// against a named neighbour, which is the direction the decision above says
+    /// to err away from.
+    ///
+    /// Reopening gate: if the read ever stops being destructive, the edges are
+    /// there and named.
     ///
     /// The neighbour's delivered payload is a different kind of input — a free local
     /// flag that can flip with no notification at all — so it is part of the memo

@@ -7,9 +7,14 @@ import Foundation
 /// with suppression on the app consumes the keys, suppresses the native OSD,
 /// applies the writes itself, and draws no HUD of its own over the lock shield —
 /// the user gets zero feedback. "Draws no" rather than "cannot": no window level
-/// reaches the shield, but the shield is a SPACE and a private SkyLight path over
-/// it is proven on hardware too (the file's "The reopening"). What keeps the app
-/// out is a decision nobody has made, not a wall. The fix: while locked (or off-console),
+/// reaches the shield, but the shield is a SPACE, and a private SkyLight path
+/// over it is proven on hardware (docs/DECISIONS.md: the-lock-screen-is-a-space).
+/// The app does not take it. It did for a while — an opt-in now-playing widget
+/// drew there — and that surface was removed, so what keeps the HUDs out is
+/// again a decision rather than a wall. The trade has not changed and is why
+/// the decision would still go this way: a HUD fires several times a day on a
+/// security surface, which is a different proposition from one window somebody
+/// asked for. The fix: while locked (or off-console),
 /// suppression is *suspended* — keys flow back to the system, the native OSD
 /// returns. On return, suppression re-engages if and only if the user
 /// preference is on.

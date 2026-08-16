@@ -145,6 +145,16 @@ final class MockOSDChannel: OSDChannel, @unchecked Sendable {
     /// domain, so nothing else can be blamed for an escalation.
     var readBackReturnsNilOnce = false
 
+    /// The HAL took the write but has not published it yet: the first read-back
+    /// after each apply returns the PRE-write value, and only that one.
+    ///
+    /// Apple documents this as the general case, not an exotic device
+    /// (`AudioObjectSetPropertyData`, AudioHardware.h:302). It is the shape that
+    /// used to suspend a healthy domain — nothing moved, so the verify called it
+    /// a failed write and handed the keys back with a menu warning.
+    var publishesWriteLate = false
+    private var lateValue: Double?
+
     private let hangLock = NSLock()
     private var readsSeen = 0
     private var swallowNextRead = false
@@ -174,7 +184,12 @@ final class MockOSDChannel: OSDChannel, @unchecked Sendable {
             swallowNextRead = false
             return pending
         }
-        return swallow ? nil : value
+        if swallow { return nil }
+        let stale: Double? = hangLock.withLock {
+            defer { lateValue = nil }
+            return lateValue
+        }
+        return stale ?? value
     }
 
     /// Frees one parked read so its orphaned detached task completes and its
@@ -189,11 +204,14 @@ final class MockOSDChannel: OSDChannel, @unchecked Sendable {
             return
         }
         if applyThrows { throw Failure() }
-        await MainActor.run {
+        let previous = await MainActor.run { () -> Double? in
+            let was = value
             applied.append(newValue)
             if !writeIsDead { value = newValue }
+            return was
         }
         if readBackReturnsNilOnce { hangLock.withLock { swallowNextRead = true } }
+        if publishesWriteLate { hangLock.withLock { lateValue = previous } }
     }
 }
 

@@ -30,9 +30,12 @@ struct BetterDisplayCommandChannelTests {
 
         let call = Task { try await channel.setBrightness(0.75, displayID: 2) }
         await clock.waitForSleep()                      // the deadline is armed
+        // #expect does not halt the test, so the subscript needs its own guard —
+        // a trap here would kill the host and every in-flight sibling.
+        let request = try #require(wire.posted.first)
         #expect(wire.posted.count == 1)
-        #expect(wire.posted[0].contains("\"brightness\":\"0.75\""))
-        #expect(wire.posted[0].contains("\"displayID\":\"2\""))
+        #expect(request.contains("\"brightness\":\"0.75\""))
+        #expect(request.contains("\"displayID\":\"2\""))
 
         channel.handle(response: #"{"uuid":"REQ-1","result":true}"#)
         try await call.value
@@ -106,6 +109,25 @@ struct BetterDisplayCommandTranslationTests {
         #expect(BetterDisplayCommandTranslation.setBrightnessRequest(uuid: "A", value: 5, displayID: 1)?
             .contains("\"brightness\":\"1.0\"") == true)
         #expect(BetterDisplayCommandTranslation.setBrightnessRequest(uuid: "A", value: -3, displayID: 1)?
+            .contains("\"brightness\":\"0.0\"") == true)
+    }
+
+    @Test func aValueThatIsNotANumberNeverReachesTheWire() {
+        // NaN compares false against everything, so the clamp passes it through
+        // intact and the request would have carried the string "nan" — nonsense the
+        // neighbour can only reject, arriving as a plausible command. Nil is a
+        // failed apply at the caller, which rolls the bar back to the level the
+        // screen still has.
+        #expect(BetterDisplayCommandTranslation.setBrightnessRequest(
+            uuid: "A", value: .nan, displayID: 1
+        ) == nil)
+
+        // The infinities are a different case and stay clamped: they saturate to the
+        // near end like any out-of-range reading, exactly as the domain's own
+        // conversions promise.
+        #expect(BetterDisplayCommandTranslation.setBrightnessRequest(uuid: "A", value: .infinity, displayID: 1)?
+            .contains("\"brightness\":\"1.0\"") == true)
+        #expect(BetterDisplayCommandTranslation.setBrightnessRequest(uuid: "A", value: -.infinity, displayID: 1)?
             .contains("\"brightness\":\"0.0\"") == true)
     }
 

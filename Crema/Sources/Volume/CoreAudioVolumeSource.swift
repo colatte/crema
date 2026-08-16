@@ -20,6 +20,30 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unch
     // both the volume and the mute address on the observed device.
     private var deviceBlock: AudioObjectPropertyListenerBlock?
     private var defaultDeviceBlock: AudioObjectPropertyListenerBlock?
+    private var serviceRestartBlock: AudioObjectPropertyListenerBlock?
+
+    /// The one property whose whole purpose is to say "everything you
+    /// registered is gone". CoreAudio's own header on
+    /// `kAudioHardwarePropertyServiceRestarted`: *"this property exists so that
+    /// clients can be informed when the service has been reset for some reason.
+    /// When a reset happens, any state the client has, such as cached data or
+    /// added listeners, must be re-established by the client."*
+    ///
+    /// Not covered by the device-switch listener, which is the trap: that one is
+    /// on the system object and therefore dies in the same reset. Without this,
+    /// a `coreaudiod` restart — routine, and the standard `killall coreaudiod`
+    /// fix people are told to run — leaves the source permanently deaf. Reads
+    /// and writes keep working (they are stateless per-call round trips), so
+    /// with suppression on the key is still swallowed and the write still lands
+    /// while the user sees no indicator at all, except at a scale boundary where
+    /// `sample()` re-reads. That is this app's "a consumed key always produces
+    /// feedback" rule failing silently, which is why it is worth a listener
+    /// rather than a poll.
+    private static let serviceRestartedAddress = AudioObjectPropertyAddress(
+        mSelector: kAudioHardwarePropertyServiceRestarted,
+        mScope: kAudioObjectPropertyScopeGlobal,
+        mElement: kAudioObjectPropertyElementMain
+    )
 
     init() {
         var continuation: AsyncStream<SystemHUD>.Continuation!
@@ -42,7 +66,56 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unch
             )
         }
 
+        installServiceRestartListener()
         observeCurrentDefaultDevice()
+    }
+
+    /// Re-establishes everything after a HAL reset, per the header quoted on
+    /// `serviceRestartedAddress`.
+    ///
+    /// The listener re-adds ITSELF first, and that ordering is the whole
+    /// difference between recovering once and recovering always: the restart
+    /// listener lives on the same system object as the others and died with
+    /// them, so a version that only re-armed the device listeners would survive
+    /// exactly one restart and be deaf to the second.
+    ///
+    /// Silent by design. Recovery is not a change the user made, so re-arming
+    /// emits nothing — the next real volume change does. A HUD popping up
+    /// because a daemon restarted would be the app reporting its own plumbing.
+    private func installServiceRestartListener() {
+        let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+            guard let self else { return }
+            logger.notice("coreaudiod restarted; re-establishing volume listeners")
+            installServiceRestartListener()
+            observeCurrentDefaultDevice()
+        }
+        let previous = lock.withLock {
+            let old = serviceRestartBlock
+            serviceRestartBlock = block
+            return old
+        }
+        var address = Self.serviceRestartedAddress
+        // The old block goes out before the new one goes in. On the recovery path
+        // this removal should find nothing — the header quoted above says the reset
+        // took every registration with it — and that is exactly why it is here: the
+        // code no longer DEPENDS on that premise. Were a listener ever to survive a
+        // restart, the surviving one plus the new one would both fire on the next
+        // one and register two more, and the doubling compounds per restart. A
+        // removal that matches nothing is a status we ignore, the same price the
+        // device path already pays.
+        if let previous {
+            AudioObjectRemovePropertyListenerBlock(
+                AudioObjectID(kAudioObjectSystemObject), &address, queue, previous
+            )
+        }
+        let status = AudioObjectAddPropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject), &address, queue, block
+        )
+        if status != noErr {
+            logger.error(
+                "service-restart listener registration failed (OSStatus \(status, privacy: .public)) — a coreaudiod restart will leave the volume HUD deaf"
+            )
+        }
     }
 
     deinit {
@@ -51,6 +124,12 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unch
         lock.unlock()
         if let block = defaultDeviceBlock {
             var address = CoreAudioSystemOutput.defaultOutputDeviceAddress
+            AudioObjectRemovePropertyListenerBlock(
+                AudioObjectID(kAudioObjectSystemObject), &address, queue, block
+            )
+        }
+        if let block = serviceRestartBlock {
+            var address = Self.serviceRestartedAddress
             AudioObjectRemovePropertyListenerBlock(
                 AudioObjectID(kAudioObjectSystemObject), &address, queue, block
             )

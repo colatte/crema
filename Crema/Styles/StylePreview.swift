@@ -145,7 +145,7 @@ enum StylePreview {
         let screen = geometry.frame
         // The safe area stands in for the bar wherever there is one: it is the
         // number the rules already agree on, and the 0.35 pt it differs from this
-        // panel's real 37 pt bar (docs/design-reference.md — the classic gotcha of
+        // panel's real 37 pt bar (menu bar ≠ slit — the classic gotcha of
         // this hardware) does not buy a second constant in the file whose whole
         // argument is derive, don't declare. A slitless panel reports no safe area
         // and still has a bar, and that one has to be declared or the tile for
@@ -153,7 +153,7 @@ enum StylePreview {
         let bar = geometry.safeTop > 0 ? geometry.safeTop : slitlessMenuBarPoints
         return StylePreviewShapes(
             surface: unit(rendered.frame(for: previewState, on: geometry), in: screen),
-            slit: rendered == .notch ? unit(slit(of: geometry), in: screen) : nil,
+            slit: rendered == .notch ? slit(of: geometry, in: screen) : nil,
             menuBar: fraction(bar, of: screen.height),
             surfaceIsOpaque: rendered == .notch,
             contentArrangement: rendered == .classic ? .coverAboveOneLine : .coverBesideTwoLines,
@@ -161,14 +161,16 @@ enum StylePreview {
         )
     }
 
-    /// The slit as a rect: the top `safeTop` band between the auxiliary areas.
-    private static func slit(of geometry: ScreenGeometry) -> CGRect {
-        CGRect(
-            x: geometry.frame.minX + geometry.auxLeft,
-            y: geometry.frame.maxY - geometry.safeTop,
-            width: geometry.frame.width - geometry.auxLeft - geometry.auxRight,
-            height: geometry.safeTop
-        )
+    /// The slit as a fraction of the screen, asked of the skin's own rule
+    /// (`NotchStyle.slit(on:)`) rather than derived a second time here. The
+    /// picture is of the cutout the surface is drawn over, so two derivations of
+    /// where that cutout is would eventually disagree — and on the reference
+    /// panel's measured asymmetry (663 left, 664 right) the two the app carried
+    /// already did, by half a point (docs/DECISIONS.md:
+    /// the-slit-is-found-from-its-edges). Nil is the answer for a display with no
+    /// slit, and the caller only asks where the notch skin renders.
+    private static func slit(of geometry: ScreenGeometry, in screen: CGRect) -> CGRect? {
+        NotchStyle.slit(on: geometry).map { unit($0, in: screen) }
     }
 
     /// One guarded division for the numbers that are not rects, so a degenerate

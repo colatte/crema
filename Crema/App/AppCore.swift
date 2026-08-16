@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import os
+import ServiceManagement
 import SwiftUI
 
 // The composition root wires every source, actuator, observer, and cross-object
@@ -74,7 +75,7 @@ final class AppCore {
     /// Menu signal for domains whose native-OSD suppression stayed
     /// unrecoverable long enough to escalate — a failed apply suspends only its
     /// own domain, not all three. (docs/DECISIONS.md: per-domain-suspension)
-    let osdSuppressionMonitor = OSDSuppressionMonitor()
+    private let osdSuppressionMonitor = OSDSuppressionMonitor()
     private let mediaKeys: any MediaKeySource
     /// Zero-latency brightness HUD via the tap; nil when on demo sources.
     private let mediaKeyRouter: MediaKeyHUDRouter?
@@ -119,6 +120,17 @@ final class AppCore {
     /// The task consuming the source, retained for the app lifetime like the wake
     /// observers.
     private var lowPowerConsumption: Task<Void, Never>?
+
+    /// Stored, not merely built: the source keeps no strong reference to itself
+    /// (weak self in both observers and in the settle task), and its only
+    /// consumer is `SuppressionLockController` — which is not built when the
+    /// brightness backends do not resolve, nor in the demo graph. Held as a
+    /// local it would deallocate at the end of `init` on exactly those paths,
+    /// making the source's lifetime depend on which graph was minted; stored,
+    /// it lives for the app lifetime on every path, like the wake observers.
+    /// (A lock-screen mirror that also read it shipped for one session and was
+    /// removed whole — docs/DECISIONS.md: the-lock-screen-was-built-and-taken-out.)
+    private let lockSource: any ScreenLockSource
     /// Kept past the merge so the menu can report whether the neighbour's OSD
     /// integration is actually feeding us; nil on demo sources.
     private let betterDisplaySource: BetterDisplayOSDSource?
@@ -287,6 +299,14 @@ final class AppCore {
         // cannot be pointed at a center nobody posts to by editing this line.
         wakeObservations = Self.wireWakeReinstall(reinstalling: tapSource)
 
+        // Built once, outside the suppressor block, and for two reasons. It is a
+        // fact about the session rather than a suppression concern; and the
+        // demo graph has no suppressor at all, which would have stranded the
+        // Assigned to the stored property, not a local: placing it out here made
+        // it REACHABLE on those paths without making it live, and the difference
+        // is the whole bug the property's own comment now records.
+        lockSource = DistributedNotificationScreenLockSource()
+
         if let consuming = mediaKeys as? any MediaKeyConsuming,
            let screenBackend = graph.screenBrightnessBackend,
            let keyboardBackend = graph.keyboardBrightnessBackend {
@@ -311,7 +331,7 @@ final class AppCore {
             // the lock path never touches the persisted opt-in.
             let lockController = SuppressionLockController(
                 suppressor: suppressor,
-                lockSource: DistributedNotificationScreenLockSource(),
+                lockSource: lockSource,
                 preferences: preferences
             )
             // Recover the ENABLED-but-deaf tap on the unlock edge: after a
@@ -433,7 +453,7 @@ final class AppCore {
     /// `NotificationCenter.default`, so wiring them to the wrong center arms
     /// nothing — and arms it silently, since a tap that stopped delivering looks
     /// identical to an idle one from inside this process.
-    static let wakeReinstallNames = [
+    private static let wakeReinstallNames = [
         NSWorkspace.screensDidWakeNotification,
         NSWorkspace.didWakeNotification,
     ]
@@ -561,7 +581,7 @@ final class AppCore {
 
     /// The picture for the style tiles, or nil for them to draw their own desk.
     /// Seeded at view construction — the deal those panes' other mirrors take
-    /// (docs/internal/archive/CONTRACTS-AUDIT.md: S4): SwiftUI re-runs the seed
+    /// (docs/CONTRACTS.md: S4): SwiftUI re-runs the seed
     /// per tab visit, the store's URL cache keeps that a dictionary hit, and a
     /// wallpaper changed with Settings open shows up on the next construction.
     func tileWallpaper() -> NSImage? {
@@ -894,10 +914,19 @@ extension AppCore {
     }
 
     /// Deep-links to the pane that owns the approval macOS is waiting for.
+    /// `SMAppService.openSystemSettingsLoginItems()` — the API for exactly this,
+    /// available since macOS 13 and therefore unconditionally on this app's 14+
+    /// target.
+    ///
+    /// It replaces a hand-built `x-apple.systempreferences:` URL naming
+    /// `com.apple.LoginItems-Settings.extension`. That identifier is an
+    /// undocumented internal pane ID, of the kind Apple has already renamed once
+    /// across the Preferences→Settings transition, and the old call discarded
+    /// `NSWorkspace.open`'s Bool: when the name eventually changes, the button
+    /// would do nothing at all and say nothing about it. Nothing here is worth
+    /// guessing a private string for.
     func openLoginItemsSettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension") {
-            NSWorkspace.shared.open(url)
-        }
+        SMAppService.openSystemSettingsLoginItems()
     }
 
     /// The build the app is running as — the generation stamp for the intent.
@@ -1010,7 +1039,7 @@ extension AppCore {
     /// REUSES it, and a second presentation shows the same window instead of
     /// building a second one. `closeWelcomeTour` is the programmatic way out, for
     /// the buttons inside the view.
-    func presentWelcomeTour() {
+    private func presentWelcomeTour() {
         if let welcomeTourWindow {
             welcomeTourWindow.makeKeyAndOrderFront(nil)
             NSApp.activate()
@@ -1032,7 +1061,7 @@ extension AppCore {
     /// through here (no delegate, as with the onboarding window above) and does not
     /// need to: nothing records a "finished", because the flag was committed before
     /// the window existed — leaving early and reaching the end are the same act.
-    func closeWelcomeTour() {
+    private func closeWelcomeTour() {
         welcomeTourWindow?.close()
         welcomeTourWindow = nil
     }

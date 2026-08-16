@@ -22,13 +22,15 @@ protocol NativeOSDSuppressor: AnyObject {
     var onApplied: (@MainActor (MediaKey) -> Void)? { get set }
 
     /// Fired when a key was handed back to the system instead of consumed, for
-    /// either reason there is: the pointer is on a display this app does not drive,
-    /// or the channel reports no such control on this route. Both mean somebody else
-    /// applies and draws that press, which is all the owner needs — it spends the
-    /// local bar's key window, so the poll that a merely OBSERVED key arms does not
-    /// draw our bar over an indicator somebody else just put up (the same
-    /// standing-down the neighbour's own report triggers; docs/DECISIONS.md:
-    /// betterdisplay-osd-source, absent-capability-hands-the-key-back).
+    /// any reason there is: the pointer is on a display this app does not drive,
+    /// the channel reports no such control on this route, or the key's domain is
+    /// suspended after a failed apply. All mean somebody else applies and draws
+    /// that press, which is all the owner needs — it spends the local bar's key
+    /// window, so the poll that a merely OBSERVED key arms does not draw our bar
+    /// over an indicator somebody else just put up (the same standing-down the
+    /// neighbour's own report triggers; docs/DECISIONS.md:
+    /// betterdisplay-osd-source, absent-capability-hands-the-key-back,
+    /// per-domain-suspension).
     var onHandedBackToTheSystem: (@MainActor (MediaKey) -> Void)? { get set }
 
     /// Domains that have failed long enough (with the channel present) to be

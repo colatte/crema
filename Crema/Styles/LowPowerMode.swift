@@ -8,9 +8,16 @@ import SwiftUI
 ///
 /// The write is guarded because the source emits a reading on every power-state
 /// edge, and the system posts one for any power-source change — the charger going
-/// in or out with Low Power Mode untouched. An unchanged write to an @Observable
-/// property still rebuilds every view reading it, and the reader here is a surface
-/// that redraws over the menu bar.
+/// in or out with Low Power Mode untouched. The reader here is a surface that
+/// redraws over the menu bar, so a rebuild per charger event is worth refusing.
+///
+/// The guard used to be justified with "an unchanged write to an @Observable
+/// property still rebuilds every view reading it". That stopped being true: the
+/// macro's generated setter now short-circuits on an equal value
+/// (`shouldNotifyObservers` before `withMutation`). The guard STAYS, because it
+/// makes the intent local and does not depend on which Swift compiled it, but
+/// it is a belt over braces rather than the only thing standing between the
+/// charger and a redraw.
 @Observable
 @MainActor
 final class LowPowerModeMirror {

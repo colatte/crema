@@ -125,6 +125,16 @@ the chain again. A per-domain chain would be the honest shape (the stated reason
 for the global order is per domain to begin with: volume and brightness never
 share a base value), and is not worth tripling the pending/generation state for a
 bounded 2 s worst case that already ends in a suspension the menu names.
+Amended (2026-08-08): a suspended domain is the THIRD reason this app hands a
+key back, and it carries the same feedback duty the other two
+(`brightness-key-follows-the-pointer`, `absent-capability-hands-the-key-back`)
+already pay — one press, one indicator, whoever drew it. The handback fires the
+same stand-down seam (`onHandedBackToTheSystem`): the tap keeps OBSERVING the
+key it passed, so without the seam the router's key-time poll reads the value
+macOS just moved and the app draws a second bar over the native indicator — on
+the very press whose feedback the suspension exists to return to the system.
+The press still kicks the recovery probe; suspension changes who recovers,
+never who owes the feedback.
 
 ### pref-sacred
 The only writer of the persisted `suppressesNativeOSD` preference is explicit
@@ -361,9 +371,10 @@ affordance-on-demand. The knob signal is per display
 (`SurfaceDisplayPolicy.pointerInside`): only the hovered surface reveals it,
 and an active drag keeps it. Scope: the knob belongs to the capsule
 (Notch/Card); Classic renders the pre-Tahoe bezel's
-16-segment bar filled by width (design-reference §4.4 — its documented
-identity) and stays bare; the now-playing scrubber deliberately keeps the stock
-Slider (precision gesture, wants a permanent grab handle).
+16-segment bar filled by width (its reverse-engineered identity — measured in design-reference.md, deleted 2026-08-08, in the git history)
+and stays bare; the now-playing scrubber kept the stock Slider
+(precision gesture, wants a permanent grab handle) — **retired 2026-08-07, see
+the third amendment below**.
 Two amendments from the hardware follow-up (2026-07-28): (1) the fill's end is
 now CURVED — a capsule, not the native flat cut — a deliberate deviation by
 author taste (the iOS Music/players language); the fill width floors at the
@@ -375,6 +386,28 @@ pointer — the jam reported from hardware at 0/100%. It now travels the inset
 track [halfKnob, width − halfKnob] linearly with the value (the native thumb
 mapping); the fill boundary never escapes the knob's own body
 (|boundary − center| ≤ halfKnob), so the capsule still reads as one piece.
+
+Third amendment (2026-08-07): **the now-playing scrubber joins the capsule.**
+The earlier scope line kept it on the stock `Slider`, reasoning that a precision
+gesture wants a permanent grab handle. Two rows apart in the lock card, the two
+bars read as a mistake rather than as two decisions: the HUD thumbless and
+white, the scrubber carrying a always-visible thumb and a fill tinted with the
+artwork accent. The author spotted it from the lock screen and described the
+right behaviour unprompted — no tip at rest, one on hover, white — which is this
+entry's own rule.
+
+So the drawing moved to `CapsuleTrack`, shared by both, and the reasoning
+inverts rather than disappears: the grab handle is still wanted *during the
+gesture*, and hover plus drag is exactly when it is there. What the scrubber
+gives up is a handle at REST, which was never precision — it was clutter on a
+surface that spends its life not being dragged.
+
+One difference stays, and it is not drift. The HUD's knob follows the
+per-surface pointer signal (`SurfaceDisplayPolicy.pointerInside`), because
+hovering a HUD holds it open and the affordance belongs to the whole surface.
+The scrubber's is LOCAL to the row: it sits inside a bigger card that hover does
+not hold, so the honest question there is whether the pointer is on the BAR —
+which is also what Control Center does.
 
 ### hud-fixed-dark-palette
 Every skin surface commits to one fixed dark palette, in every state and under
@@ -397,9 +430,12 @@ counting from the pre-seek anchor and pulled the thumb back until the
 player's echo landed, and PositionReconciliation ate deliberate
 sub-tolerance backward seeks as anchor jitter (J4 — the brightness drag's
 cousin). Decision (2026-07-28): the drag owns the gesture — a view-local
-draft shows under the finger, ONE seek fires on release, and a value set
-outside an edit session seeks immediately so tap-to-seek never depends on
-the stock Slider's callback order. On release the user's value takes
+draft shows under the finger, ONE seek fires on release, and a tap seeks
+immediately. (Until 2026-08-07 that last part was phrased against the stock
+Slider's callback order; the row now draws its own `CapsuleTrack` and a tap is
+simply a drag with no movement, so `onEnded` carries it and there is no
+callback order left to be independent of — see hud-capsule-track's third
+amendment.) On release the user's value takes
 authority: optimistic position write (S7-safe, position-only), the source
 re-anchors its ticker (`noteSeek`, a no-op default for sources with no
 local extrapolation), and a grace window holds stale echoes off until the
@@ -486,6 +522,14 @@ tightened 0.45→0.35. Two
 hypotheses stay deliberately unimplemented pending a hardware probe: the
 multi-display pointer mirror and mouseMoved delivery to an inactive accessory.
 
+Amended 2026-08-08: the CLICKABLE region now shares the apply-time rule. It
+used to take the frozen silhouette bare, so a hidden→HUD apply routed clicks
+across the dead margin of the last visible surface for about a frame —
+captured and swallowed where the contract promises pass-through. At apply time
+both hover and clicks err tight (silhouette ∩ the state's rule frame); a
+fresh size report still retargets both to the rendered truth. Pinned in
+`NSPanelPresentationPanelTests`.
+
 A last contract of the monitor itself, invisible until it had a suite of its own:
 disarming reports a PENDING exit. The Coordinator mirrors the pointer from these
 reports, so a display that stops being armed with the cursor on it must say so once
@@ -564,8 +608,9 @@ harder building the backend.
 
 ### login-item-intent
 The launch-at-login registration lives beyond the Background Task Management
-boundary, and macOS revokes it whenever the bundle's code identity changes — a
-rebuild, a reinstall, and, in one stroke for every installed user, the eventual
+boundary, and macOS revoked it when the bundle's code identity changed —
+observed on hardware; Apple does not document the rule — a rebuild, a
+reinstall, and, in one stroke for every installed user, the eventual
 move to Developer ID. Diagnosed on hardware: a boot where the app simply never
 launched, the system logged nothing at all, and a ghost record lingered until
 System Settings pruned it. With the system status as the ONLY source of truth,
@@ -739,6 +784,28 @@ plain forwarding read on the way up (`AppCore.betterDisplayIsReporting` is a com
 property over the source): caching it into a stored field anywhere on that path puts
 the staleness back.
 
+**Amendment (2026-08-15): the neighbour is heard the way the lock edges are, and
+the stand-down works from either side of the race.** Two things the probing did
+not settle. First, both registrations on the neighbour's names (the OSD payload
+and the command channel's answer) used the block-based cover, whose suspension
+behaviour defaults to Coalesce — held and collapsed by the server while the
+centre is suspended, which AppKit does whenever the app is not active, and an
+LSUIElement accessory essentially never is (`NSDistributedNotificationCenter.h`).
+The lock edges had already moved to selector registration with
+`.deliverImmediately` for exactly this; the neighbour's did not, and the
+asymmetry was ours: the request went out `deliverImmediately: true` while the
+answer came into a registration that could be held — a held answer being
+indistinguishable from silence at the deadline. Both now register through
+`DistributedPayloadRelay` with `.deliverImmediately`, so the integration no
+longer depends on how the neighbour chooses to post. Second, "stand the local key
+source down when the neighbour reports" assumed an order between the report and
+the local sample that does not exist: they arrive on different executors. A
+stand-down that finds no reading in flight now BANKS the announcement, and the
+next sample inside the key window consumes it (armed then disarmed under one
+lock) — stamped rather than counted, because an announcement with no key of ours
+behind it is the ordinary case, and an immortal credit would silence an
+unrelated later key. Pinned in `BetterDisplayOSDSourceTests`, both orderings.
+
 ### the-bar-never-outruns-the-screen
 The bar has no local value: it draws the last reading, and a drag publishes the
 new level BEFORE the write leaves so the fill follows the finger instead of
@@ -799,6 +866,48 @@ external's id, and the driving call must not echo it. The display-blind
 `lastWrittenValue` accessor went with the fix — nothing read it, and a "last written"
 with no screen attached is the same blindness under a friendlier name; the flick it
 documented lives on in the comment over the return value.
+
+**Amendment: the echo is not evidence, and an orphaned frame travels with the
+error.** Adversarial tracing found three ways the coalescing writer could break
+the "every level put on screen will be honoured" promise, all closed in one
+round. First, the drain's exit check and the in-flight reset were separate
+critical sections, so a frame slipping between them was queued, echoed as
+success, and drained by nobody — the decision to stop draining and the release
+of the in-flight flag now share ONE critical section, so no frame can sit queued
+without a driver and without an error. Second, a coalesced call echoed its value
+as a bare success BEFORE anything reached the wire, and the Coordinator recorded
+that echo as a confirmed write — so a failed gesture could roll the bar back to a
+level no display ever went to. The echo stays (contract 1: publish before the
+write, or the bar freezes under the finger) but is now marked for what it is
+(`BrightnessWriteEcho.coalesced` against `.written`), and only a level that
+actually reached the wire becomes rollback evidence. Third, when the channel
+threw, the newest queued frame died silently and the fallback wrote the DRIVING
+call's stale argument — the level a finger passed through, not the one it
+stopped at. Now the failure extracts that frame under the same lock that
+releases the drain and carries it out (`BrightnessWriteFailure.orphan`, value
+and display together), and the Coordinator's fallback writes THAT level on the
+display it was aimed at; if the fallback also refuses, the bar is marked
+unconfirmed and settles on the last real evidence. This is how the failure path
+honours the promise the happy path made. Pinned in
+`BetterDisplayScreenBrightnessControllerTests` (the exit race, the orphan in the
+error) and `CoordinatorNeighbourBrightnessTests` (the fallback writes the
+orphan; a coalesced echo alone never decides the settle).
+
+**Amendment (2026-08-15): the echo is not evidence on the way back either.** The
+guard above held at the write site and leaked one hop later. The app's own echo
+is delivered to the bar by yielding it into the neighbour's HUD stream (that
+source never reports what third parties set), and it came back into
+`handleHUDUpdate` on the same path as a spontaneous reading — where it was
+recorded as one: `confirmedScreenBrightness` took the coalesced 0.9, and a
+coalesced echo still in the pipe when a failure landed revived
+`externalBrightnessReachable`, so the next frame hit the neighbour's deadline
+again. So a `SystemHUD` now carries its provenance (`.reading` or `.echo`): the
+Coordinator marks everything it hands to `onBrightnessApplied` for the neighbour
+as an echo, and only a reading becomes evidence or recovers a channel — an echo
+moves the bar and nothing else. Pinned by the loop test
+(`aCoalescedEchoStaysNoEvidenceAfterTheRoundTripThroughTheHUDStream`), which is
+the seam-and-recorder pair that existed before with the loop actually closed
+through `AppCore.wireBrightnessEcho` and a real neighbour source.
 
 ### hud-belongs-to-its-display
 The app has ONE state and one panel per screen, so every panel drew every HUD.
@@ -938,26 +1047,19 @@ does not honour, by inheriting one; it may never be PUT there here. Refusing to
 inherit would be refusing the one answer that exists for every screen whatever it
 draws.
 
-And the list is now CONDITIONAL, gated by `DisplayStyleOptions.listIsOffered` —
-not a count of screens but the question "is there an answer per display that the
-section above cannot give?". Three clauses: more than one screen, the only
-arrangement in which per-display answers can differ from each other at all; a
-sole display that is NOT internal — the Mac mini class, where
-`Preferences.defaultShowsNowPlaying(isInternal:)` is literally `isInternal`, so
-the now-playing surface is born OFF there and no other control in the app can
-turn it on (the same class of hardware `rendered-style-gates-settings` was
-written about); and a sole display already carrying an override, a key some
-earlier arrangement wrote that nothing else can clear while the sweep footer goes
-on naming a per-display style nobody can see. An empty roster answers false
-rather than subscripting. On a lone laptop with no override every row would
-repeat the declaration, and a control that decides nothing still reads as one
-that does.
+And the list is gated by `DisplayStyleOptions.listIsOffered` — a rule of its
+own, because the question is not a count of screens but "is there an answer per
+display that the section above cannot give?". The answer is yes for every
+non-empty roster: the row is the app's ONLY switch for the now-playing surface,
+and the switch's default is a function of the display (the amendment below says
+why that strands a lone display of either kind). An empty roster answers false
+rather than subscripting.
 
 The sweep footer became deictic — "This also replaces the per-display styles
-below" — and it may point down, because the clause that makes it appear (an
-override among the connected displays) is also one of the clauses that opens the
-list: wherever that sentence is drawn, the section it names is drawn under it —
-an implication, not a coincidence, and pinned as one
+below" — and it may point down, because whenever there is a display to carry an
+override there is a list under the footer to show it: wherever that sentence is
+drawn, the section it names is drawn under it — an implication, not a
+coincidence, and pinned as one
 (`DisplayStyleListOfferTests.anOverrideAnywhereGuaranteesTheListThatShowsIt`).
 The welcome tour makes the same declaration with no list beneath it, and
 therefore carries its own wording (`tour.step.style.replacesPerDisplay`) rather
@@ -1087,6 +1189,20 @@ override — or a monitor plugged in — with the window open leaves the row on 
 previous answer until Settings is reopened. The list next to it is reactive
 because its rows ARE displays; this row is not a display, so it keeps the cheaper
 deal.
+
+**Amendment (2026-08-15): the per-display list is offered for every roster that
+is not empty.** It used to be gated — two displays, or a sole external, or an
+override somewhere — on the reasoning that a lone built-in panel's row would only
+repeat the declaration above it. That reasoning saw the style popup and missed
+the switch beside it: the row is the app's ONLY control for the now-playing
+surface, born from `defaultShowsNowPlaying(isInternal:)`, which is literally
+`isInternal`. The gate had a clause for the sole external (born OFF, nothing else
+turns it on) and none for its mirror — a sole internal panel, the most common
+Mac there is, born ON with nothing in the app able to turn it off. Both
+directions strand the user without a row, so the only roster that answers no is
+the empty one, which is a real state (Settings open across the last display
+going away), not a corner to trap on (`DisplayStyleOptions.listIsOffered`, pinned
+in `DisplayStyleOptionsTests`).
 
 ### sample-dont-integrate
 A UI ticker that adds a fixed step per tick is a clock that runs slow. Timers are
@@ -1320,12 +1436,20 @@ same as the user opening the menu, so a status block with more inputs means more
 rebuilds and, unbounded, more of those reads. `MediaKeyChainNotice.Cache` bounds
 them with a one-second **coalescing window**: a burst of rebuilds costs one
 reading, and the answer is never more than a window old. A window and not a set of
-invalidation edges, deliberately — the edges that change the answer are not
-enumerable from in here (a neighbour can install or drop a tap while already
-running, which is exactly what toggling its key handling does, with no notification
-behind it), so an edge list would serve a stale line for an unbounded time, and the
-stale line here is an ACCUSATION against a named neighbour — the direction
-`media-key-chain-contention` says to err away from. The neighbour's delivered
+invalidation edges, deliberately — **and the reason recorded here until 2026-08-07
+was false.** It claimed the edges are not enumerable from in here, that a
+neighbour installing or dropping a tap has no notification behind it. It does:
+CoreGraphics posts `kCGNotifyEventTapAdded` and `kCGNotifyEventTapRemoved`
+through notify(3) (`CGEventTypes.h`). The design is unchanged and the corrected
+reason is stronger: the cost is in the READ, not in the trigger. `CGGetEventTapList`
+zeroes the min/max latencies of every tap in the system on each call, so the
+reading must stay rare and tied to someone actually looking — subscribing to the
+edges would invert that, making a neighbour's toggle force a re-read (and reset
+every other app's counters) while nobody has the menu open. The window keeps the
+read where the question is asked and bounds staleness at one window; the stale
+line here is an ACCUSATION against a named neighbour — the direction
+`media-key-chain-contention` says to err away from. Reopening gate: if the read
+ever stops being destructive, the edges exist and are named. The neighbour's delivered
 payload is a different kind of input, a free local flag that can flip with no
 notification at all, so it is part of the memo KEY rather than of its age.
 Two things the window deliberately does not buy: freshness within the window, and
@@ -1435,6 +1559,25 @@ of the menu's gating: `MenuStatus` is built in `CremaMenu`'s body, whose every
 rebuild pull-reads the event-tap chain, so a gate over the media state would hang
 that system-wide probe off a value rewritten once a second — the whole thesis of
 `menu-reads-mirrors`.
+
+**Amendment (2026-08-15, fifth): the width ceiling counts what the hole fills
+with.** The third amendment put every menu line under about 72 characters and
+moved the breaks into the catalog; it measured the STATIC text and stopped there.
+The suspension warning interpolates a list of domains, and the line was written as
+if `%@` were worth nothing: with all three domains suspended, "volume, screen
+brightness, and keyboard brightness" is 50 characters on its own and the single
+line reached 85 — the wide menu the ceiling exists to prevent, reachable by
+turning the app on and having three channels fail. The rule the ceiling was
+missing: **a hole whose content comes from a CLOSED set is measured at its widest
+member, never at the empty string.** Where the content is closed the worst case is
+a fact, and the break goes wherever that fact needs it — here BEFORE the list, so
+the interpolation owns a line of its own and the ceiling holds at 52 (en) and 44
+(pt-BR) instead of 85 and 86. Both languages keep the same number of breaks, as
+the third amendment already required.
+The complement is stated so it is not read as a licence: a hole filled with
+EXTERNAL content — a track title, a neighbour app's name — has no worst case to
+measure, which is why the third amendment left the media block as data rather than
+chrome. What changes here is only the chrome whose holes the app itself fills.
 
 ### brightness-key-target-in-the-menu
 Correct behavior nobody can see reads as a bug: with an external monitor as the
@@ -1660,9 +1803,13 @@ stated as one rule.
 What is NOT here: applying on the external display, and any identity for it. The
 write half exists (`BetterDisplayScreenBrightnessController`, used by drags), but a
 stepped key also needs a LEVEL to step from and verify against, and the neighbour's
-brightness read (`neighbour-features-are-not-identifiers`) has no caller yet. Until
-it does, `.anotherDisplay` carries no UUID — a field nobody reads is a field that
-goes stale, and adding it back is one stored property.
+brightness read has none: the seam built for it never gained a caller and was
+removed in the 2026-08-08 pruning round. What the probing measured stays in
+`neighbour-features-are-not-identifiers` — identifier is the metadata door only; a
+feature is asked for by its own name as a valueless key — and whoever rebuilds the
+seam recovers its shape from the git history. Until then, `.anotherDisplay` carries
+no UUID — a field nobody reads is a field that goes stale, and adding it back is
+one stored property.
 What this does NOT fix, stated plainly so nobody reads more into it: with no
 neighbour behind us, the key handed back goes to macOS, which dims the built-in
 panel anyway and shows its own indicator. Crema stops being the one that dims the
@@ -2313,3 +2460,540 @@ picture of nothing.
 The residual is the seed-once deal the Settings mirrors already take (S4): the
 panes read the store when they are built, so a wallpaper changed with the window
 open shows up the next time it opens.
+
+### the-lock-screen-is-a-space
+~~**Superseded 2026-08-08: the widget this decision placed no longer exists.**
+The lock-screen surface shipped for one session and was removed whole, and with
+it went the app's only private window API (see
+the-lock-screen-was-built-and-taken-out). The entry stays because the hardware
+knowledge is the durable part and is not re-derivable from the code: no window
+LEVEL reaches the shield, the shield is a SPACE at absolute level 300, a
+private SkyLight space at 400 composites over it, and clicks reach it — all
+proven by probe before a line of surface code was written.~~
+
+Five window levels were swept over the lock shield — up to
+`kCGMaximumWindowLevel` — and every one of them lost. The file that recorded it
+(docs/LOCKSCREEN-INVESTIGATION.md) concluded there was no window path at all, and
+the sweep was sound. The inference was not: `NSWindow.level` orders windows
+**inside** a space, and the shield **is** a space, at absolute level 300. Holding
+the space at the default while varying only the level cannot tell "impossible"
+apart from "wrong knob" — all five readings were the same window in the same
+space, losing for a reason the sweep never varied.
+Decision: the lock-screen now-playing widget lives in a SkyLight space at
+absolute level 400, and that is the ONLY place in this app where a private
+window API is taken. Proven on hardware before a line of surface code was
+written (`scripts/probes/lockscreen-space.swift`), with the control that makes it
+mean something: two markers, one raised and one at `kCGMaximumWindowLevel`, both
+visible before the lock, only the raised one after. A second probe
+(`lockscreen-events.swift`) closed the two behaviour questions the first left
+open — clicks reach a raised-space window while locked (10 logged `LOCKED`
+against 5 unlocked as the control), and a screen-sized one behaves like the small
+one across three lock cycles.
+
+**Why this is not a precedent for the panel layer.**
+`NSPanelPresentationPanel` carries a line refusing SkyLight, and it still holds.
+The two are not the same trade: the panels draw a HUD several times a day on a
+surface the user is already looking at, and a WindowServer wedge there breaks the
+app's core function for everyone; this draws one opt-in window on a surface that
+otherwise shows nothing, and its total absence is a feature not appearing. Same
+API, different blast radius, and the refusal beside `NSPanelPresentationPanel`
+was amended in the same diff rather than left to read as forbidding the file next
+to it.
+
+**The four rules the edge follows**, each of which is why this is not a new
+category of risk for this codebase — it is the category the codebase is built on
+(DisplayServices, CoreBrightness, and now this):
+1. Behind a protocol (`RaisedSpace`) like every other system contact, so the
+   presenter and its tests never see a private symbol.
+2. **Every one of the five symbols checked** at dlsym time; any nil ⇒
+   `isAvailable == false`, the presenter refuses to build a panel, and Settings
+   says "not on this macOS" instead of offering a switch that does nothing.
+   Building anyway would put a window on the DESKTOP that the user never asked
+   for — the failure mode is not invisibility, it is a wrong window.
+3. The window's public half is load-bearing and easy to miss:
+   `canBecomeVisibleWithoutLogin = true`. Without it AppKit refuses to show the
+   window while no session is logged in, and the raised space alone does not save
+   you.
+4. Whether the space survives display sleep, wake or hotplug was NOT measured —
+   no such edge fired during the probe run, and the log says so rather than
+   guessing. Covered by action instead of by a read, per
+   `J7-estado-do-outro-lado`: the panel re-adopts its space unconditionally on
+   the same four edges the media-key tap reinstalls on (`preventive-reinstall`).
+   `adopt` is idempotent, so acting costs one cheap call; a local `isVisible`
+   read would answer "fine" either way and cost a surface that silently stopped
+   appearing.
+
+**The window over the shield takes no clicks it did not draw.** It is the size of
+the display, and transparency does NOT pass a click through — measured for the
+desktop panels, which carry the same machinery. So a clear window that size
+captures the password field, the avatar and the Cancel/Switch-User buttons.
+Nobody is locked out by that (keyboard delivery is unaffected and the field is
+focused by default, which is exactly why it survives a hardware test), but it is
+the worst thing this surface can do, so the panel is born `ignoresMouseEvents`
+and a cursor monitor opens it only over the card's RENDERED rect. Two rules make
+that safe rather than merely correct: the default is capture-nothing, so any
+failure of the routing costs a click on the card and never one on the login UI;
+and only the card ever captures, in BOTH states — expanded, the cover fills the
+display but stays click-through, with the card still there to collapse it, so the
+hidden login UI is never clickable-but-invisible.
+
+That the monitor is delivered over the shield at all is MEASURED
+(`scripts/probes/lockscreen-mouse-routing.swift`, 2026-08-07: 1092 global
+mouse-moved events while locked). It was worth measuring because Apple documents
+that a global monitor "would not be able to detect Command-Tab or a system
+alert" and the lock screen is loginwindow's UI — the restriction does not
+generalize. The same run found `NSEvent.mouseLocation` polling alive there, which
+is a standing fallback rather than a hypothesis: it is a question to the
+WindowServer instead of a subscription, so it survives if delivery ever stops.
+The run also carries a lesson about controls — the global monitor read ZERO
+unlocked, and an earlier verdict called the whole thing inconclusive for that
+reason. A control gives meaning to a silence; there was no silence on the side
+being measured, and a positive reading stands without one.
+
+**Where it sits is measured, and the measurement has an expiry the code names.**
+The card was first placed 96 pt off the bottom, from a mock, with a comment
+claiming that cleared the avatar and the password field. It did the opposite:
+macOS **Sonoma moved the login UI down** — clock to the top, user tile to the
+bottom section — so 96 pt is exactly where the password field now lives. Reported
+from hardware, then measured with a ruler drawn over the shield
+(`scripts/probes/lockscreen-geometry.swift`, 2026-08-07): a card at 96 pt lands
+on the avatar; a 300 pt square centred on the display touches nothing.
+
+Two things make a measured constant acceptable here, and both are the reason the
+obvious fix — read a number off the ruler and freeze it — was not enough on its
+own. The app requires **macOS 14+, and Sonoma IS the release that moved the
+login**, so every version in range shares this layout. And the axis that has
+moved between releases is the vertical one: horizontally the login has been
+centred in every version, which is what lets the surface stay centred without a
+second thought. The ruler is kept so the claim can be re-checked rather than
+re-guessed when a release moves the layout again.
+
+The same measurement forced the expanded state's shape: expanded is **one 300 pt
+tile** with the words and controls laid over the cover, which centres to exactly
+the rectangle that was measured clear. The reason recorded here for rejecting the
+alternative was wrong, and is corrected rather than deleted because it is the
+kind a reader reconstructs. It said cover (300) stacked over the card (152) is
+464 pt and "centring that puts its bottom edge back inside the login's strip";
+re-measured 2026-08-08, the stack centres to 259…723 on the real 1512×982 panel
+and clears the login — whose top is at or below 180 — by 79 pt. What is true is
+the other end: 723 leaves the 641 ceiling the ruler proved, putting a large
+picture where nobody has looked. And the interaction reason never depended on any
+of it, which is why it is the stronger one: only the drawn surface takes a click,
+so with the controls on the cover the cover IS the surface, where a separate hero
+above a card was a large picture that covered the login UI and then ignored every
+click aimed at it.
+
+**The backdrop's fade, and the fraction that never existed.** ~~Superseded by
+the-lock-surface-is-a-card: there is no backdrop and no fade. Kept because the
+anchoring argument below outlived them — `clearBandFloor` is still the one
+constant, now for the card and the tile — and because the fabricated fraction is
+exactly the kind of number that gets reconstructed from memory.~~ The expanded
+state's blurred backdrop took the whole display, which meant it also took the
+clock, the avatar and the password field. It cleared the band below
+`clearBandFloor` and ramped back to opaque over `backdropFadeBand` (180 pt,
+taste) above it — a hard edge there reads as a rendering bug. The anchor was that
+constant and not a new one: "where the card may rest" and "where the backdrop
+must stop" are one fact — the login owns everything below this line — and a
+second constant would be a second answer free to drift from the first.
+
+The rejected alternative is worth naming because it was almost shipped. This
+design was specified as a fade "between 50% and 72% of the height", with 72%
+described as where the ruler measured the login's top. It was not: it is
+1 − 250/900, off a private test fixture whose "about 250 pt" was a guess and
+whose attributed 1440×900 panel was not the machine that ran the probe. A
+fraction would also have given the app two contradictory answers to where the
+login begins — the collapsed card is placed with a screen-free constant, and the
+two models cross at a display height of 1071 pt and sit ~100 pt apart on a
+27-inch, which is reachable in clamshell. So no fraction of the display height
+appears in the surface at all, and the guarantee is structural rather than
+stated: the file has no screen-height source, so `0.72 * height` cannot be
+written there without plumbing a reviewer would see.
+
+Because that layer covers the system's clock, the surface draws **its own** — in
+the expanded state only, on the same condition as the backdrop, since one `if`
+for one fact is what keeps ours from ever appearing beside theirs. It answers to
+none of the drift vetoes, and the third one points the opposite way:
+`settlesAfter` exists because a picture still moving on an idle desk at 4 a.m. is
+wear, whereas a clock still running at 4 a.m. is the entire point of one. It also
+cannot ride the surface's 1 Hz position tick, which is installed only while
+something is PLAYING — pause, lock, walk away, and a clock riding it shows the
+minute of the pause all night.
+
+**Reopening gate.** A macOS release that removes or renames any of the five
+symbols degrades this to "not offered" on its own — that is the designed
+behaviour, not a reopening. What WOULD reopen it: Apple shipping a public path
+(the sanctioned one today is `SFAuthorizationPluginView`, an authorization
+plug-in, which is the wrong tool), or evidence that a raised space destabilises
+the WindowServer the way the panel layer's refusal anticipates. Neither is a
+reason to widen the API's use to the panels without measuring that separately.
+
+### the-cover-comes-from-the-archive-not-the-store
+~~**Superseded 2026-08-08: there is no cover lookup.** It fed the 300 pt expanded
+tile, that state was removed, and the largest artwork slot on the lock screen is
+now a 50 pt thumbnail — 100 px at 2x against the 300-600 px the player already
+hands over. A network request naming what somebody is listening to cannot be
+justified by a slot that was already oversupplied (see the-lock-surface-is-a-card).
+The entry stays because the reasoning that chose the source is the durable part
+and would otherwise be re-derived: Apple's terms are the reason the obvious
+endpoint is the wrong one, and that has not changed.~~
+
+The high-resolution cover lookup shipped against Apple's iTunes Search API,
+chosen because it needs no token, no account and no developer program — all
+true, and none of it the question that mattered. The Search API's terms grant
+the use of promotional content, *album art* named explicitly, only **(i)** on
+pages promoting that content, **(ii)** proximate to a "Download on iTunes"
+badge acting as a link to the purchase page, and **(v)** never "for independent
+entertainment value apart from its promotional purpose". A large cover filling
+a lock screen, with no badge and no link, is precisely that fifth thing.
+Decision (2026-08-08): the use is outside what the terms grant, and the fix is
+to change SOURCE rather than to add a purchase button to a lock screen or to
+drop the feature. The **Cover Art Archive** (MusicBrainz) exists for this use
+and imposes no badge. The swap is contained because `ArtworkLookup` was already
+a protocol with the endpoint behind it, and every failure on that path is
+already silence.
+
+Two things worth keeping straight for whoever revisits this. The rate limit was
+never the issue on the old endpoint — ~20 calls per minute, against one call per
+track identity. And this says nothing about the *technique*: rewriting the size
+in the returned artwork URL is how the store served a larger image, and the
+archive simply serves fixed sizes instead.
+
+**Shipped the same day (`CoverArtArchiveLookup`), and four things had to be
+measured first, because three of them are not what the obvious design assumes.**
+
+*The unit is the release GROUP, not the release.* `release/?query=…` for one
+album returns several pressings, each with its own art and no way to tell which
+carries any; `release-group/…/front-1200` is one cover per record. Measured:
+HTTP 200, 77 KB, two redirects into archive.org (500 → 18 KB). Missing art is a
+404 and a malformed identifier a 400 — both arrive as perfectly successful
+`URLSession` responses with a body, which is why the status is checked at the
+edge rather than inferred from the bytes.
+
+*Without an album there is no release-group search at all.* `recording:"…"`
+inside a release-group query returns **zero** results — the field does not exist
+there. The path in is `/ws/2/recording/`, whose answer carries the release groups
+inline, so it is still one request. This matters because the JXA fallback reports
+no album AND carries no bitmap: that path is not an upgrade there, it is the only
+cover the surface will ever get.
+
+*That path ranks bootlegs first, and one field separates them.* "Creep" by
+Radiohead returns eight live recordings ahead of *Pablo Honey* — every one a real
+release with real, wrong art. `secondary-types` is empty on exactly the studio
+record. So the guessed path demands an empty one and the album path must **not**:
+the filter exists to break a tie the app had to guess, and someone playing a live
+record asked for the live record. The asymmetry is the decision, not an oversight.
+
+*MusicBrainz is a guest relationship and it is written down.* One request per
+second per source IP, and a `User-Agent` naming the application and a way to
+reach its maintainers — without it the request is refused. Exceeding the limit
+costs a block for the shared address, so it is paid by users who never touched
+the feature; hence `RequestPacer`, whose slot is reserved in the same breath it
+is read (an actor releases isolation at every `await`, and read-then-sleep-then-
+record lets a burst leave together). The archive publishes neither requirement
+and its half goes straight out, carrying the header only out of courtesy.
+
+Reopening gate: an affiliate/partner arrangement that grants the use, or a
+surface where a purchase badge would genuinely belong. Neither is a lock screen.
+
+### animated-artwork-is-withheld-not-missing
+Motion covers keep being proposed for the lock surface, and the reason they
+cannot ship was recorded once as a property of the bridge — "only static art via
+MediaRemote". That framing invites the wrong fix: replace the bridge. There are
+three independent walls and any one is fatal, so this does not reopen when a new
+bridge appears.
+Decision: not implementable by a third party on this platform. Recorded so nobody
+re-researches it.
+1. **Apple withholds the data from every third party.** `editorialVideo`, where
+   motion artwork lives, is not exposed to third-party apps through the Apple
+   Music API — developer token or not. For albums the only extended attribute a
+   third party can load is `artistUrl`.
+2. **`MPMediaItemAnimatedArtwork` is a provider API** — how a music app hands
+   animation *to* the system. Crema observes whatever is playing and never
+   receives it. (This entry first added "and it is iOS-only", which is false:
+   Apple lists it on macOS 26 alongside every other platform. The provider half
+   is what makes it fatal for an observer, and it needed no help.)
+3. **The bridge carries no such key.** The vendored adapter emits 45 fields and
+   exactly one image (`artworkData` + `artworkMimeType`): no artwork identifier,
+   no URL, no animated variant. Apple Music's motion art never crosses the
+   MediaRemote boundary.
+
+The consequence is not a gap but a shape: the expanded state's slow drift on the
+blurred backdrop is the honest form of the idea here, and it carries the app's
+two standing animation vetoes (Reduce Motion, Low Power Mode) plus a third this
+surface invents — **time**. A HUD lives 1.5 s; this can sit lit all night, so the
+drift settles after three minutes. Battery, and OLED burn-in.
+
+The same boundary explains the **cover lookup**, which is a different question
+with a different answer. `MRMediaRemoteGetNowPlayingInfo` takes no options
+dictionary — there is no size to negotiate and the dimensions received are not
+even reported — so the roughly 300–600 px a player publishes is all there is, and
+a larger cover has to come from somewhere else entirely. The Cover Art Archive
+serves it addressed by release group, in fixed sizes, with no token and no
+account (measured: 500 → 18 KB, 1200 → 77 KB; which source, and why not the
+store, is `the-cover-comes-from-the-archive-not-the-store`).
+
+~~**Superseded 2026-08-08 for the cover-lookup half only: there is no lookup any
+more.** The lock surface it fed shipped for one session and was removed whole
+(the-lock-screen-was-built-and-taken-out), and the app makes no artwork request.
+The three walls above are untouched by the removal and still close the motion
+question; what follows described the lookup's opt-in gate and invariants and is
+kept as the reasoning a future lookup would need again.~~ It was **off by
+default** because it is a network request carrying what
+you are listening to — neither an account nor analytics, the two things the app
+promises it does not do, but traffic tied to listening all the same.
+
+Two invariants governed it, and each is a bug that would otherwise ship.
+**There is always something to draw**: the upgrade improves the player's own
+cover and never stands in for having one, so the surface is complete the instant
+it appears and an answer that arrives later only ever replaces a cover with a
+better one — nothing waits, nothing blanks, and every failure (no match, no
+network, a decode that did not fit) is the same silence.
+**Bytes never outlive the identity they belong to**: the fetched cover and the
+title+artist+album it answers are cleared together, because held past a track
+change they put one album's cover on the next song's surface — visible and wrong,
+where the absence would merely be absent. That identity is also why `album` was
+added to the domain: keyed on the snapshot instead, the 1 Hz position tick would
+re-ask the endpoint once a second for the same song.
+
+### the-lock-surface-is-a-card
+~~**Superseded 2026-08-08: the surface this decision shaped no longer exists.**
+The lock-screen card shipped for one session and was removed whole
+(the-lock-screen-was-built-and-taken-out). The entry stays because the chain of
+costs that ended the backdrop — the Mach band, the self-erasing clock, the
+safety obligations of covering the login — is the reasoning anyone proposing a
+lock-screen ground would otherwise re-derive.~~
+
+The lock-screen widget shipped with a full-screen blurred backdrop: the cover,
+scaled past the display, blurred at 46, drifting on a 26 s cycle, masked so its
+alpha reached zero over the bottom 300 pt the login owns. Because that layer
+also covered the system's clock, the surface drew a clock of its own. The whole
+composition existed to answer one wish — that the artwork reach all four edges.
+
+Decision: **the lock surface paints no ground.** Both states are bounded objects
+on the user's own wallpaper — the 340 pt card resting on `clearBandFloor`, and
+the 300 pt tile centred in the rectangle the ruler proved free. The backdrop,
+the clearance band, the fade and the clock are deleted rather than tuned.
+
+**What ended it was not taste, it was a chain of costs that only pointed one
+way.** The fade's boundary is a Mach band — a retinal artifact at a derivative
+discontinuity — so lengthening or softening the ramp cannot remove it and can
+isolate the two kinks instead; the accepted fixes all cost either a 15-stop
+eased table or a Metal shader, to mitigate an artifact the surface manufactures
+for itself. On a light cover the backdrop erased its own clock: The White Album
+measures 0.996 mean relative luminance, and white type over it is invisible,
+which means the clock the backdrop obliged could not be relied on to survive the
+thing that obliged it. And covering the login turns a cosmetic feature into a
+safety-critical one: a Crema wedged on the main thread leaves its window on
+screen with no code running, so any covering design owes a dead-man's mechanism,
+an idle signal proven to survive the shield, and vetoes for VoiceOver, Reduce
+Transparency, Increase Contrast, the Accessibility Keyboard and Switch Control —
+none of which the surface had.
+
+**Three independent precedents say the same thing, and all three were found
+rather than assumed.** The SkyLight level this window occupies is named
+`kSLSSpaceAbsoluteLevelNotificationCenterAtScreenLock`: Apple's own tenant there
+draws bounded cards, and Droppy, Alcove and boring.notch — the three shipping
+apps at the same level — all draw bounded cards too. Android built precisely
+this backdrop (`MediaArtworkProcessor`: downsample 6, blur 25, flooded with the
+extracted swatch at 70%), shipped it from Android 8 through 10, removed it in 11
+with a one-line justification, and has not restored it in five releases — from a
+position strictly better than ours, since their layer sat behind all system UI
+while ours sits in front of it. GNOME, Windows, elementary and Spotify each keep
+album art as a bounded image and derive the ground from something else.
+
+**The clock left with the backdrop, and that is the load-bearing consequence.**
+It only ever existed because the backdrop covered the system's. With no ground,
+the shield's clock is visible, and drawing a second one beside it is the
+two-clocks defect — the same defect that disqualified the one catalogue entry
+which tried to bloom colour over an uncovered wallpaper. One fact, one absence.
+
+**Not rejected, and available without reopening this**: the artwork reaching all
+four edges on a display that carries no credential cluster. Crema is
+main-display-only by decision and the login lives on the main display; a
+secondary display needs no clearance, no idle poll, no retreat and no
+dead-man's switch. That is a feature, not a workaround, and it is on the roadmap
+rather than in this entry because it changes what the surface is offered on, not
+what it draws.
+
+**Reopening gate, and it is a measurement rather than an argument.** Everything
+above concerns a window ABOVE the shield. Nobody has asked whether a SkyLight
+space at a level BELOW 300 composites behind it — the level was inherited from
+the widget's need to be seen, never from the backdrop's need to be a ground. If
+a lower space shows through, the system draws the login on top and the entire
+chain of costs above retires at once: no clearance, no clock, no wedge story, no
+accessibility veto. The probe that would answer it,
+`scripts/probes/lockscreen-space.swift`, took the level as a parameter and was
+removed with the surface — it lives only in git history (`bb7bb73^`), so
+reopening starts by recovering it from there and running it at 250 and 310
+before anyone re-argues this from taste. The other reopening is the reverse of the first: a macOS that stops
+drawing a lock-screen clock, which would make ours a replacement rather than a
+duplicate.
+
+
+### the-click-was-the-last-thing-holding-the-lookup-up
+An amendment to the-lock-surface-is-a-card rather than a new decision, recorded
+separately because the chain it describes is the kind nobody reconstructs.
+
+The lock surface lost its backdrop first, and kept its two states. Then the
+design round that followed measured what the expanded state actually cost, and
+the costs turned out to compound rather than sit side by side. **The tile was
+300 pt CENTRED**, so its bottom edge was `(H - 300) / 2` — a function of a
+display height the surface never read. On the author's 982 pt panel that is 341
+and everything clears, which is exactly why the measurement was written down as
+if it described the design. Below 900 pt the tile crosses `clearBandFloor`;
+below 660 pt it lands on the login. A 13-inch Air at its most-zoomed scaled
+setting is 1024x640. Not one of eleven proposed designs noticed, and the ruler
+that "proved 341..641 clear" proved it for one panel.
+
+Decision: **the surface has one state.** The click, the tile, the morph and the
+tap gesture are gone; the card rests on `bottomInset` and its placement is not a
+function of any height.
+
+**And the click was load-bearing for something two directories away.** The
+high-resolution cover lookup — `ArtworkLookup`, `CoverArtArchiveLookup`,
+`RequestPacer`, `LockArtworkResolver`, an opt-in preference, a Settings row and
+four test suites — existed to keep a 300 pt tile from showing a soft 400 px
+image. Nothing else in the app used it. With the largest slot on that surface
+back to a 50 pt thumbnail, the feature was fetching 1200 px over the network,
+paced against MusicBrainz's 1 req/s, to feed 100 px. Retiring it was not
+tidiness: keeping it would have been a network request tied to what somebody is
+listening to, carried by an app whose SPEC promises no accounts and no
+analytics, in exchange for nothing visible. `ArtworkDecoding.lockScreenMaxSide`
+went with it — a decode bound four times the largest remaining slot is cost
+nobody reads.
+
+**Two orphans were removed in the same diff rather than left waiting for a
+caller**, and both are worth naming because both were young.
+`SurfaceAnimation.morph(expanding:reduceMotion:)` was added one commit earlier,
+for this exact toggle; the rule it expressed (the destination picks the spring)
+survives in `geometryAnimation` and in the comment where the overload used to
+be. `MockArtworkLookup` went with its protocol.
+
+**What this does NOT settle**, and the distinction matters because the two are
+easy to merge: the surface no longer expands, and the surface no longer shows a
+large cover. The first is a placement decision with arithmetic behind it. The
+second is a consequence of the first, and it is the one a future round might
+want back — with an anchored geometry rather than a centred one, and with the
+lookup's cost re-argued from scratch rather than restored because it used to be
+there.
+
+### the-card-takes-the-material-it-was-refusing
+
+~~Superseded 2026-08-08: the material parameter left with the surface (the-lock-screen-was-built-and-taken-out); what outlived it — the Increase Contrast promotion in `TrackTextStack`, and the expired-comment lesson — ships and is recorded at its sites. Full entry in git (46212da and earlier).~~
+
+### the-card-was-thin-because-it-was-small
+
+~~Superseded 2026-08-08: the card this entry enlarged no longer exists (the-lock-screen-was-built-and-taken-out). Full entry — the sibling measurements and the refusal to grow the shared scrubber — in git (46212da and earlier).~~
+
+### the-lock-card-is-light-and-lives-on-a-module
+
+~~Superseded 2026-08-08: the card, its light palette and the concentric size arithmetic left with the surface (the-lock-screen-was-built-and-taken-out); the module discipline survives as `Sources/`' layout, and the full entry is in git (46212da and earlier).~~
+
+### the-lock-screen-was-built-and-taken-out
+The whole lock-screen surface was designed, proven on hardware, built, shipped
+into a signed build, redesigned four times and then removed in the same session.
+This entry exists so the removal reads as a decision rather than as a gap
+somebody should fill.
+
+**What was removed:** the surface (`LockWidgetView`, `LockWidgetMetrics`,
+`SourceBadge`), its window (`LockScreenPanel`, `LockScreenPresenter`), its
+click-through rule, the SkyLight bridge and the `RaisedSpace` protocol behind
+it, the `LockScreenMirror` second reader on the lock source, the preference and
+its Settings section, five hardware probes, and roughly fourteen test suites.
+The app now has **no private window API at all**, which it had exactly one of.
+
+**The reason is the author's and it is about return, not about correctness.**
+Everything in it worked. The surface drew, the clicks routed, the geometry was
+measured rather than guessed, the suite was green at every step. What did not
+hold was the ratio: four rounds of design research — 130, 123 and 156 findings,
+three adversarial critics, three artifacts — converged on a card that still read
+as thin, and each round's fix exposed the next round's problem. "Não está
+compensando" is a complete argument for stopping and it does not require the
+work to have been wrong.
+
+**Removed surgically rather than by reverting the range**, and the distinction
+matters if anyone reads the history. The forty commits touching this feature
+also carried i18n corrections, an audit queue, the progress bar joining the
+HUD bar's decision, and three SDK claims that were wrong — a blanket revert
+would have taken all of it. One commit removes the feature from the tree
+instead.
+
+**What the shared files gave back.** `TrackTextStack` returns to one type ramp:
+the `.glance` scale existed for a surface read at two or three metres and went
+with it, rather than waiting in the file for a caller. `SurfaceChrome` loses the
+light palette for the same reason, and `vibrantSurface` loses the material and
+palette parameters it grew — the desktop skins never passed either. This is the
+same discipline the round applied to `SurfaceAnimation.morph(expanding:)` a day
+earlier: an API with no caller is removed in the diff that orphans it.
+
+**What is kept, deliberately.** `docs/LOCKSCREEN-INVESTIGATION.md`, with a
+status banner at the top so nobody reads it as current. The knowledge in it is
+expensive and is not recoverable from a codebase that no longer contains the
+feature: no window LEVEL reaches the shield; the shield is a SPACE at absolute
+level 300; a private SkyLight space at 400 composites over it; clicks reach; a
+screen-sized window behaves; the login's top edge sits at or below 180 pt on a
+1512×982 panel. The anchors that recorded design findings stay too — the
+concentric radius rule, the Mach band diagnosis, the measured contrast
+arithmetic — because none of them are about the lock screen specifically.
+
+**What a future attempt owes before writing any code**, and it is the one
+question four rounds never asked: whether a SkyLight space BELOW level 300
+composites BEHIND the shield. Every design assumed level 400 because that is
+what the widget needed to be seen; nothing needed the artwork to be above the
+login, only behind it. If a lower space shows through, the system draws the
+login on top and the entire chain of difficulty — the clearance band, the clock
+the backdrop obliged, the wedge story, the accessibility vetoes, the panel-height
+arithmetic — retires at once. `lockscreen-space.swift` took the level as a
+parameter and it was never run at 250.
+
+**The reopening gate is not a measurement, it is a scope.** The thing that made
+this expensive was not the private API and not the geometry: it was that the
+surface had to be beautiful, legible at three metres, safe over a credential
+field, and correct on every panel size, all at once, on a display the app does
+not own. Anyone proposing it again should say which of those four they are
+dropping.
+
+### the-slit-is-found-from-its-edges
+The app carried **two rules for finding the same cutout**. The click-invoke zone
+and the Settings picture built the slit from its edges — `frame.minX + auxLeft`,
+`frame.width − auxLeft − auxRight`. The surface built it from the display's
+centre: `topAnchored` laid the rule width around `geometry.frame.midX`. The two
+agree only while `auxLeft == auxRight`, and diverge by `(auxRight − auxLeft) / 2`
+when they do not.
+
+They do not. The 14" panel this app was built on measures **663 pt left of the
+slit and 664 right** — the app's own reference geometry says so
+(`StylePreview.notchedReference`, and `StylePreviewTests` already called that
+asymmetry "the hardware's, not ours to round away"). So the display's centre is
+756 and the cutout's is 755.5, and the surface claimed x ∈ [663.5, 848.5] against
+a cutout ending at 848: **half a point of antialiased edge sitting on live
+menu-bar pixels**, on the default scale mode, on the author's own machine. That
+is precisely what `NotchMetrics.lateralInset`'s calibration forbids — its whole
+argument is that the edges land flush on pixel boundaries so the height morph has
+no fringe to re-rasterize, and it is written never to overhang even at rest.
+
+Decision: **one rule, `NotchStyle.slit(on:)`, and it is built from the two edges
+the API hands over.** The centre is derived from the rect, never the rect from a
+centre — a centre is an inference that the hardware is symmetric, and nothing in
+`NSScreen` promises that. Every reader asks that one function: the frame rule
+(which centres the surface in the slit's own midX), the click-invoke zone (which
+IS its rect), `StylePreview` (which pictures it), and `Style.resolved(on:)`. The
+zone matters most: the panel takes the mouse inside it, so a zone reaching a
+pixel the surface disowns captures clicks over live menu bar.
+
+**The same rule answers "is there a notch at all", and `safeTop` alone does not.**
+`NSScreen.h` documents both auxiliary rects as *"empty if there are no additional
+unobscured areas"*, so a top safe area with `auxLeft == auxRight == 0` describes a
+display whose obscured strip spans the full width — not a cutout. Read as one, the
+slit became the whole screen: a display-wide black surface welded to the top edge,
+and an invoke zone over the entire menu bar, captured by the panel and then handed
+to `Coordinator.invoke`, which refuses most clicks (it acts only from `.hidden`
+with something playing). Every menu-bar click in that state is swallowed and does
+nothing. So the criterion is now that the slit be **narrower than the display**,
+and a geometry that fails it resolves notch→card like any slitless panel.
+
+**Where the criterion stops, deliberately.** One empty auxiliary rect and one
+populated would pass — a slit flush against a screen edge. No Mac reports that,
+the header's sentence is about both rects together, and inventing a rule for
+hardware nobody ships is how the centre-inference got in. If such a panel ever
+appears, the rule is re-derived from a measurement of it, not guessed here.

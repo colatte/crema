@@ -8,6 +8,17 @@ import os
 /// it never sits dead lying about availability. When nothing is available it
 /// retries on an interval, so a recovered adapter is picked back up.
 ///
+/// The self-healing has one confirmed, OPEN blind spot: it rests entirely on
+/// the active source's EOF, and the promotion probe only ever examines the
+/// higher-priority CANDIDATE — nothing audits the source that is currently
+/// active. A MediaRemote subscription dying quietly while the Perl bridge stays
+/// alive would freeze the old track on screen with the local ticker advancing
+/// over it. An idle-timeout watchdog is refuted (the stream emits only on
+/// changes, so long silence during a long track is the normal state); the sound
+/// fix — an independent one-shot read compared against the snapshot — is gated
+/// on a hardware experiment nobody has run
+/// (docs/DECISIONS.md: adapter-stale-nowplaying-latch).
+///
 /// It also preempts: while a lower-priority source is active it probes the
 /// preferred one periodically and, when it recovers, promotes at the next quiet
 /// boundary — never mid-track (docs/DECISIONS.md: promotion-quiet-boundary).
