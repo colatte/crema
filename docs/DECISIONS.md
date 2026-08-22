@@ -3008,9 +3008,10 @@ It bit the media refresh — a whole showcase reshot on a new desktop, sitting o
 `dev`, invisible to every visitor.
 
 Decision: **`main` accepts a documentation-only merge outside a release, and the
-test is the diff, not the intent.** If the merge touches nothing but `docs/`,
-`README`, `CONTRIBUTING` and their assets, it carries no code into what the next
-release stamps, and the release ritual has nothing to do: no version bump, no
+test is the diff, not the intent.** If the merge touches nothing but the
+repository's prose — `docs/` and its assets, and the root documents `README.md`,
+`CONTRIBUTING.md`, `CLAUDE.md`, `SPEC.md`, `PLAN.md`, `ROADMAP.md` — it carries
+no code into what the next release stamps, and the release ritual has nothing to do: no version bump, no
 build number, no release notes, no appcast, no signature. The published site
 stops being hostage to the release cadence.
 
