@@ -86,6 +86,12 @@ crema/                       # repository root
 
 ## Running locally
 
+Work happens on a branch cut from `dev` — one per task or fix, named as
+[CONTRIBUTING.md](CONTRIBUTING.md) "Branches" says (a PLAN task carries its id
+first: `t10.2-quantized-verify`) — and lands through a pull request that
+"Build & test" gates; `dev` reaches `main` only as a release. The branch and
+merge rules live there, not here.
+
 ```bash
 # open in Xcode and run with ⌘R (Crema scheme)
 open Crema.xcodeproj

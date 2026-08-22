@@ -34,9 +34,15 @@ Branch off `dev`, and name the branch for what it does:
 - `feature/short-description` — a new capability
 - `fix/short-description` — a bug fix
 - `docs/short-description` — documentation
+- `t<id>-short-description` — a task from [PLAN.md](PLAN.md), the id first
+  (`t10.2-quantized-verify`): the id is the thread tying the branch to the
+  task, the same reason the PLAN never renumbers one.
 
 Keep it lowercase, hyphenated, and descriptive — for example
-`fix/scrubber-jump-on-pause` or `feature/spanish-localization`.
+`fix/scrubber-jump-on-pause` or `feature/spanish-localization`. One branch per
+task or fix, cut from `dev` and gone at the merge; nothing lands on `dev`
+directly. Merges are merge commits, never squashes — the commits on `dev` are
+written to tell the change, and a squash throws that away.
 
 ## Submitting a pull request
 
