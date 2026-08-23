@@ -494,8 +494,9 @@
     <p class="eyebrow reveal" data-reveal-on-load style="--reveal-delay:0ms">for macOS 14+ · free &amp; open source</p>
     <h1 class="reveal" data-reveal-on-load style="--reveal-delay:80ms">A quiet companion for your Mac's <em>notch</em>.</h1>
     <p class="tagline reveal" data-reveal-on-load style="--reveal-delay:160ms">Crema shows <b>what's playing</b> — artwork,
-    a touch of its color, the controls you reach for — and gives <b>volume and brightness</b>
-    their own indicators, optionally replacing the system's. Native, and out of the way.</p>
+    a touch of its color, the controls you reach for — and gives <b>volume, brightness and the
+    keyboard backlight</b> indicators of their own, optionally replacing the system's. Native,
+    and out of the way.</p>
     <div class="cta reveal" data-reveal-on-load style="--reveal-delay:240ms">
       <a class="btn cream" href="https://github.com/colatte/crema/releases/latest/download/Crema.dmg">
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.6v9m0 0L4.4 7M8 10.6 11.6 7M2 12.6v.8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -518,9 +519,9 @@
                    poster="assets/video/crema-teaser-poster.jpg"
                    width="1600" height="1040"
                    autoplay muted loop playsinline
-                   aria-label="Crema in motion: the notch expands with the playing track, the volume capsule is dragged, a style switch lands live, and the classic block appears"></video>
+                   aria-label="Crema in motion: volume keys fill the capsule at the notch, the bar is dragged by hand, the notch opens with the playing track — artwork, scrubber and transports — and the style is switched in Settings, Card to Classic, on tiles drawn over the same wallpaper"></video>
           </div>
-          <figcaption>one take, uncut — styles switched live</figcaption>
+          <figcaption>one take, uncut — volume, the player, a style switch</figcaption>
         </figure>
       </div>
     </div>
@@ -542,8 +543,9 @@
         <p class="cap">01 · notch</p>
         <h3>Blends into the cutout</h3>
         <p>The surface is the notch — black on black, flush with the bezel, as if
-        the hardware had always known. Click it and the track opens; on a Mac
-        without a cutout, it gracefully becomes the Card.</p>
+        the hardware had always known. A new track shows a sliver — title and
+        waveform — then tucks away; click the cutout and the track opens. On a
+        Mac without one, it gracefully becomes the Card.</p>
       </div>
     </div>
 
@@ -553,7 +555,9 @@
         <p class="cap">02 · card</p>
         <h3>Floats below the menu bar</h3>
         <p>A translucent panel below the menu bar. Dark rim, light on top —
-        the edge reads on a bright desk and disappears on a dark one.</p>
+        the edge reads on a bright desk and disappears on a dark one. Its
+        indicator is yours to pick: a thin line, or the whole card filling
+        to the level.</p>
       </div>
     </div>
 
@@ -577,10 +581,10 @@
       <svg class="spk" width="22" height="18" viewBox="0 0 22 18" fill="none" aria-hidden="true"><path d="M2 6h4l5-4v14l-5-4H2z" fill="var(--cream)"/><path d="M14 5.5a5 5 0 0 1 0 7M16.5 3a8.5 8.5 0 0 1 0 12" stroke="var(--cream)" stroke-width="1.6" stroke-linecap="round"/></svg>
       <span class="capsule"><i></i><s></s></span>
     </div>
-    <p class="lead reveal" style="--reveal-delay:180ms">Flip one switch and Crema replaces the system's volume and
-    brightness indicators with its own. Same voice as the player, on every
-    screen. Off by default. Reversible any time. Quit, and the native HUDs are
-    back — you never get locked in.</p>
+    <p class="lead reveal" style="--reveal-delay:180ms">Flip one switch and Crema replaces the system's volume,
+    brightness and keyboard-backlight indicators with its own. Same voice as the
+    player, on every screen. Off by default. Reversible any time. Quit, and the
+    native HUDs are back — you never get locked in.</p>
     <div class="keys">
       <div class="reveal"><h3>Honest with your keys</h3><p>A key Crema can't honour — a display it
         doesn't drive, a device with no volume — goes back to the system whole,
@@ -589,10 +593,13 @@
         steps aside; it re-engages by itself when the device returns, and the menu
         bar tells you if it doesn't.</p></div>
       <div class="reveal" style="--reveal-delay:160ms"><h3>Follows your pointer</h3><p>A brightness key acts on the display
-        under your cursor. Dimming a screen you aren't looking at is not an
-        improvement on the system HUD.</p></div>
+        under your cursor — the built-in panel Crema drives itself; any other,
+        it hands the key whole to whoever does. Dimming a screen you aren't
+        looking at is not an improvement on the system HUD.</p></div>
       <div class="reveal" style="--reveal-delay:240ms"><h3>Shares with BetterDisplay</h3><p>Its brightness curve, Crema's HUD —
-        external monitors included, each bar drawn on its own screen.</p></div>
+        external monitors included, each bar drawn on the screen it belongs to,
+        and a drag on it written back through BetterDisplay, on the very scale it
+        reported.</p></div>
     </div>
     <div class="specimens">
       <figure class="reveal"><img src="assets/web/hud-notch.webp" width="760" height="507" loading="lazy" alt="Volume capsule at the notch"><figcaption>volume · notch</figcaption></figure>
@@ -631,8 +638,10 @@
         <a href="https://github.com/colatte/crema/releases">Releases</a>.</p></div>
       <div class="reveal" style="--reveal-delay:90ms"><p class="n">STEP 02</p><h3>Drag into Applications</h3><p>Crema lives in the
         menu bar — look up top, not in the Dock.</p></div>
-      <div class="reveal" style="--reveal-delay:180ms"><p class="n">STEP 03</p><h3>Grant Accessibility</h3><p>That's what lets it
-        handle your volume and brightness keys. It runs fine without, too.</p></div>
+      <div class="reveal" style="--reveal-delay:180ms"><p class="n">STEP 03</p><h3>Grant Accessibility</h3><p>Crema asks on first
+        launch, in a short welcome tour that also sets your style and indicators —
+        every step skippable. The permission is what lets it handle your volume and
+        brightness keys; it runs fine without, too.</p></div>
     </div>
     <div class="warn reveal"><b>First launch:</b> Crema isn't notarized by Apple yet, so
     macOS warns about an “unidentified developer”. Open <b>System Settings →
