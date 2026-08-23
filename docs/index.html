@@ -8,6 +8,7 @@
 <script>document.documentElement.className="js"</script>
 <title>Crema — a quiet companion for your Mac's notch</title>
 <meta name="description" content="Crema shows what's playing at the notch and gives volume and brightness their own HUDs. Native, quiet, free and open source. macOS 14+.">
+<meta name="author" content="Colatte — colatte.io">
 <meta name="theme-color" content="#060402">
 <link rel="canonical" href="https://colatte.github.io/crema/">
 <meta property="og:type" content="website">
@@ -431,8 +432,21 @@
   footer a{color:var(--ink-3);text-decoration:none;padding:9px 0;
            transition:color .2s var(--ease)}
   footer a:hover{color:var(--cream)}
-  footer .kofi{margin-left:auto}
-  @media (max-width:640px){footer .kofi{margin-left:0}}
+  /* The house endorsement ("Crema by colatte."), per the Colatte credits kit:
+     `colatte.` is the official lettering — an SVG tinted by currentColor,
+     never the word typed in a font — and the host text before it is the
+     product's name as the product writes it. The credit is a guest: it takes
+     this row's font, size and ink, hover goes to the row's own cream, and it
+     closes the page's last line at the right, no larger than its neighbours.
+     The kit's resting opacity (.6) is deliberately NOT applied: --ink-3 is
+     already an alpha (.55), and composing the two lands at .33 — under the
+     .38 this page measured at 2.97:1 and rejected above. The wordmark is
+     baseline-aligned and sized to the ascender (.82em), so its l and t meet
+     the top of the text beside it. */
+  footer .colatte-credit{margin-left:auto;display:inline-flex;align-items:baseline;gap:.34em;white-space:nowrap}
+  footer .colatte-credit svg{display:block;height:.82em;width:auto;flex:none}
+  footer .colatte-credit:focus-visible{outline:1px solid currentColor;outline-offset:.35em;border-radius:2px}
+  @media (max-width:640px){footer .colatte-credit{margin-left:0}}
 
   /* ---- reading progress: the Classic's own 16 segments ------------------- */
   .meter{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:55;
@@ -467,6 +481,7 @@
 </style>
 </head>
 <body>
+<!-- Crema by colatte. — colatte.io -->
 <div class="sky" aria-hidden="true"></div>
 <div class="grain" aria-hidden="true"></div>
 <div class="spot" id="spot" aria-hidden="true"></div>
@@ -667,11 +682,11 @@
 
 <footer>
   <div class="wrap row">
-    <a href="https://colatte.io"><b style="color:var(--cream)">Colatte</b></a>
     <a href="https://github.com/colatte/crema">GitHub</a>
     <a href="https://github.com/colatte/crema/blob/main/LICENSE">GPL-3.0</a>
     <a href="https://github.com/colatte/crema/blob/main/docs/README.md">Docs</a>
-    <a class="kofi" href="https://ko-fi.com/colatteio">Support on Ko-fi</a>
+    <a href="https://ko-fi.com/colatteio">Support on Ko-fi</a>
+    <a class="colatte-credit" href="https://colatte.io" target="_blank" rel="noopener">Crema by <svg viewBox="0 0 1000 202.24" fill="currentColor" role="img" aria-label="colatte."><path d="M354.33 202.15L354.33 0L334.6 0L334.6 202.15Z"/><path d="M180.83 101.45L284.57 101.45L284.57 159.99L261.29 182.71L201.33 182.71L178.06 159.99L178.06 101.45ZM227.89 202.15L269.13 202.15L304.01 168.09L304.01 82.01L158.62 82.01L158.62 168.09L193.52 202.15Z"/><path d="M112.36 165C108.91 169.88 104.52 173.85 99.48 176.7C93.65 179.97 87.01 181.77 80.02 181.77L59.96 181.77C49.05 181.77 39.17 177.34 32.01 170.18C24.85 163.03 20.4 153.16 20.4 142.27L20.4 129.19L46.82 102.76L80.02 102.76C82.03 102.76 84.04 102.92 86.02 103.21C87.97 103.5 89.9 103.95 91.77 104.52C96.24 105.9 100.03 107.99 103.21 110.35C106.39 112.7 108.95 115.31 110.94 117.75L127.43 105.71C124.35 101.81 120.25 97.53 115.02 93.69C110.28 90.23 104.58 87.13 97.86 85.02C94.99 84.14 92.03 83.48 89.04 83.03C86.09 82.6 83.07 82.37 80.02 82.37L38.41 82.37L0 120.72L0 142.27C0 158.78 6.73 173.75 17.57 184.6C28.42 195.45 43.39 202.15 59.9 202.15L80.02 202.15C90.64 202.15 100.75 199.47 109.55 194.48C117.56 189.97 124.54 183.53 129.85 175.54Z"/><path d="M411.98 141.93C412.98 141.27 414.03 140.7 415.09 140.2C416.2 139.71 417.37 139.3 418.56 138.97C419.73 138.67 420.94 138.44 422.15 138.34C423.6 138.19 425.08 138.19 426.56 138.32C428.01 138.46 429.47 138.75 430.86 139.16C432.22 139.57 433.59 140.12 434.9 140.82C436.17 141.49 437.38 142.29 438.53 143.24L481.21 178.24L475.46 183.84L417.47 183.84L410.17 177.85C409.02 176.91 408 175.86 407.1 174.76C406.13 173.59 405.31 172.38 404.65 171.13C403.98 169.83 403.4 168.48 402.99 167.07C402.56 165.69 402.28 164.24 402.13 162.74C401.95 160.83 401.97 159.05 402.19 157.39C402.4 155.69 402.83 154.11 403.42 152.63C404.02 151.13 404.82 149.72 405.78 148.32C406.69 146.99 407.77 145.66 409 144.3L409.17 144.12C410.03 143.32 410.97 142.6 411.98 141.93ZM518.38 185.91L508.27 177.3L516.95 168.83L516.95 82.35L384 82.35L384 114.14L402.3 114.14L402.3 100.65L498.66 100.65L498.66 161.2L494.33 165.43L450.1 129.17C448.01 127.45 445.79 125.95 443.49 124.74C441.16 123.49 438.7 122.49 436.15 121.71C433.59 120.93 430.96 120.41 428.36 120.17C425.72 119.9 423.03 119.92 420.36 120.17C417.78 120.43 415.22 120.93 412.71 121.67C410.27 122.4 407.85 123.37 405.54 124.58C403.28 125.75 401.13 127.14 399.12 128.74C397.13 130.32 395.26 132.1 393.56 134.09L393.44 134.22C392.95 134.73 392.37 135.45 391.84 136.12L390.85 137.33L390.85 137.6L390.4 138.3C389.17 140.16 388.13 142.13 387.24 144.12C386.32 146.19 385.6 148.3 385.05 150.37C384.48 152.67 384.09 155.01 383.9 157.41C383.74 159.81 383.76 162.19 383.98 164.52C384.23 167.11 384.74 169.67 385.48 172.17C386.2 174.63 387.18 177.03 388.37 179.35C389.56 181.61 390.94 183.76 392.52 185.75C394.05 187.7 395.82 189.54 397.81 191.24L397.95 191.39C400.41 193.85 403.92 196.62 407.18 199.24L410.89 202.21C431.33 202.24 451.8 202.24 472.26 202.24L482.7 202.21L495.11 190.16L506.53 199.86Z"/><path d="M667.9 174.82C666.63 175.68 665.29 176.48 663.92 177.2C661.7 178.35 659.43 179.29 657.13 180.01C655.12 180.62 653.09 181.09 651.06 181.4C648.99 181.71 646.9 181.87 644.83 181.87L618.29 181.87L592 155.56L592 102.94L649.15 102.94L649.15 82.72L592 82.72L592 36.36L571.78 36.36L571.78 82.72L544.45 82.72L544.45 102.94L571.78 102.94L571.78 163.97L609.88 202.07L644.83 202.07C647.94 202.07 651.02 201.85 654.03 201.39C657.11 200.92 660.17 200.23 663.16 199.32C666.67 198.24 670.03 196.82 673.23 195.16C675.65 193.89 678.01 192.45 680.28 190.85Z"/><path d="M951.09 104.79C947.89 100.87 943.67 96.61 938.25 92.85C933.72 89.7 928.39 86.91 922.18 84.98C919.29 84.08 916.35 83.4 913.4 82.97C910.45 82.54 907.43 82.31 904.38 82.31L862.67 82.31L824.28 120.7L824.28 142.27C824.28 158.8 831.01 173.79 841.85 184.64C852.72 195.51 867.71 202.24 884.24 202.24L904.38 202.24C913.77 202.24 922.77 200.1 930.79 196.17C938.6 192.35 945.53 186.79 951.09 179.82L951.09 173.71L936.72 165.02C933.27 169.92 928.84 173.87 923.8 176.73C917.99 180.03 911.33 181.81 904.38 181.81L884.24 181.81C878.25 181.81 872.55 180.48 867.45 178.08C862.18 175.6 857.54 171.99 853.87 167.54L851.25 164.36L951.09 133.09ZM844.7 141.23L844.7 129.19L871.16 102.74L904.38 102.74C906.37 102.74 908.38 102.88 910.39 103.19C912.27 103.48 914.18 103.91 916.05 104.5C919.29 105.46 922.18 106.82 924.72 108.42C927.26 109.98 929.46 111.76 931.36 113.54L934.81 116.78L844.7 145Z"/><path d="M970.49 172.73L1000 172.73L1000 202.24L970.49 202.24Z"/><path d="M803.2 174.82C801.93 175.68 800.59 176.48 799.22 177.2C797.01 178.35 794.73 179.29 792.43 180.01C790.42 180.62 788.39 181.09 786.36 181.4C784.29 181.71 782.2 181.87 780.13 181.87L753.59 181.87L727.3 155.56L727.3 102.94L784.46 102.94L784.46 82.72L727.3 82.72L727.3 36.36L707.08 36.36L707.08 82.72L679.75 82.72L679.75 102.94L707.08 102.94L707.08 163.97L745.21 202.07L780.13 202.07C783.25 202.07 786.32 201.85 789.34 201.39C792.41 200.92 795.47 200.23 798.46 199.32C801.97 198.24 805.33 196.82 808.53 195.16C810.95 193.89 813.31 192.45 815.58 190.85Z"/></svg></a>
   </div>
 </footer>
 
@@ -679,6 +694,9 @@
 
 <script>
 (function () {
+  /* The house signs once in the console too, as its credits kit does. */
+  console.log('%cCrema by colatte.%c colatte.io', 'font-weight:600', '');
+
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 
   /* Elements revealed by scroll position, in DOM order, drained as they
