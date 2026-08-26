@@ -5,22 +5,35 @@ contributions that keep it that way are the most welcome kind.
 
 ## Reporting a bug
 
-Open an [issue](../../issues) and include enough for someone to reproduce it:
-
-- Your macOS version and Mac model (and whether it has a notch).
-- Which style you're using (notch, card, or classic).
-- What you did, what you expected, and what happened instead.
-- A screenshot or short screen recording if the problem is visual.
-
-If it relates to the volume or brightness HUDs, mention whether Crema had the
-Accessibility permission and whether native-HUD replacement was on.
+Open an [issue](../../issues/new?template=bug.yml) — the form asks for what a
+reproduction needs: what happened, the steps, what you expected, and your setup
+(macOS version, Mac model, Crema version, style in use, displays, permission
+state). Most of Crema's behavior depends on that last list — the same bug can
+be real on one setup and impossible on another. A screenshot or a short screen
+recording helps whenever the problem is visual.
 
 ## Suggesting a feature
 
 Crema is deliberately narrow in scope (see _What Crema is_ in the
-[README](README.md)). Feature ideas are welcome, but the ones most likely to land
-are those that sharpen what's already here rather than broaden it. Open an issue
-to talk it through before writing code — it saves everyone effort.
+[README](README.md), and [ROADMAP.md](ROADMAP.md) for what's already on the
+way). Feature ideas are welcome, but the ones most likely to land are those
+that sharpen what's already here rather than broaden it. Open an
+[issue](../../issues/new?template=feature.yml) to talk it through before
+writing code — it saves everyone effort.
+
+## Issues and the docs
+
+An issue is **work**: what's wrong or missing, and when it's done. The rules
+live in the repository's documents — conventions in [CLAUDE.md](CLAUDE.md),
+design memory in [docs/DECISIONS.md](docs/DECISIONS.md) — and an issue points
+at them when one applies; no document cites an issue number back, because
+issues close and the number goes stale. The area labels (`now playing`,
+`indicators`, `styles`, …) are triage — don't worry about picking any when
+opening an issue, and blank issues are fine when neither form fits.
+
+An issue closes when the fix reaches **`main`** — the build users download —
+not at the merge to `dev`: GitHub's auto-close only fires from the default
+branch, so the release pull request closes what it carries.
 
 ## Branches
 
