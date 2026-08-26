@@ -29,7 +29,9 @@ design memory in [docs/DECISIONS.md](docs/DECISIONS.md) — and an issue points
 at them when one applies; no document cites an issue number back, because
 issues close and the number goes stale. The area labels (`now playing`,
 `indicators`, `styles`, …) are triage — don't worry about picking any when
-opening an issue, and blank issues are fine when neither form fits.
+opening an issue, and blank issues are fine when neither form fits. There is
+no Projects board: [PLAN.md](PLAN.md) is the living order of execution, and a
+board would be a second copy of it, aging.
 
 An issue closes when the fix reaches **`main`** — the build users download —
 not at the merge to `dev`: GitHub's auto-close only fires from the default
@@ -38,7 +40,10 @@ branch, so the release pull request closes what it carries.
 ## Branches
 
 - **`main`** — the stable, released branch: it's what users download, and every
-  merge into it is a release. Nothing lands here directly.
+  merge into it is a release — except a documentation-only merge, which may
+  reach it between releases when the diff touches nothing but the repository's
+  prose (docs/DECISIONS.md: main-takes-docs-outside-a-release). Nothing lands
+  here directly.
 - **`dev`** — the integration branch where work comes together. Pull requests
   target `dev`.
 
