@@ -1,0 +1,19 @@
+name: Feature idea
+description: Something Crema doesn't do, and maybe should.
+title: "<the idea, in one line>"
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: the-idea
+    attributes:
+      label: The idea
+      description: What it does, seen from the user's chair — what appears, where, and when.
+    validations:
+      required: true
+  - type: textarea
+    id: why-it-belongs
+    attributes:
+      label: Why it belongs in Crema
+      description: Crema is deliberately narrow — see "What Crema is" in the README, and ROADMAP.md for what's already on the way. The ideas most likely to land sharpen what's here rather than broaden it.
+    validations:
+      required: true

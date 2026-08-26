@@ -1,0 +1,47 @@
+name: Bug
+description: Crema did something it shouldn't have — or didn't do something it should.
+title: "<what happened, in one line>"
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: how-to-reproduce
+    attributes:
+      label: How to reproduce
+      description: Step by step. Name the style on screen (Notch, Card or Classic) and, with more than one display, which display the problem appeared on.
+      placeholder: |
+        1. Play something in Music
+        2. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: setup
+    attributes:
+      label: Your setup
+      description: Most of Crema's behavior depends on this list — the same bug can be real on one setup and impossible on another.
+      placeholder: |
+        - macOS version:
+        - Mac model (notch or not):
+        - Crema version (Settings → About):
+        - Style in use:
+        - Displays, and whether BetterDisplay manages any of them:
+        - Accessibility access granted:
+        - "Replace the system indicators" on:
+    validations:
+      required: true
+  - type: textarea
+    id: proof
+    attributes:
+      label: Proof
+      description: A screenshot or a short recording if the problem is visual; what Console.app shows for Crema if it isn't.
