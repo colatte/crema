@@ -111,7 +111,7 @@ func eventually(_ condition: @MainActor () -> Bool) async -> Bool {
 /// on MainActor progress must use `eventually` — and this one exists so the
 /// distinction is a choice, not a private copy per suite. Same wall-clock
 /// bound (see boundedWaitDeadline).
-func eventuallyOffActor(_ condition: () -> Bool) async -> Bool {
+func eventuallyOffActor(_ condition: @Sendable () -> Bool) async -> Bool {
     let clock = ContinuousClock()
     let deadline = clock.now.advanced(by: boundedWaitDeadline)
     var spins = 0

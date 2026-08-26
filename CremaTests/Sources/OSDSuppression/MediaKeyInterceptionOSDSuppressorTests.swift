@@ -252,9 +252,14 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         #expect(await eventually { suppressor.suspendedDomains.contains(.screenBrightness) })
 
         hang.release()   // the actuator finally returns, landing the write late
+        // The landing is the orphan's, off the MainActor — resume() only
+        // schedules the parked task back on its own executor (SE-0300), so the
+        // positive fact takes the off-actor wait. settle() drains only the
+        // MainActor and lost this race on the starved CI runner; it stays
+        // below, doing its documented job: giving a would-be onApplied hop its
+        // chance before the denials.
+        #expect(await eventuallyOffActor { hang.applied == [0.5 + OSDTest.step] })   // the honest residual
         await settle()
-
-        #expect(hang.applied == [0.5 + OSDTest.step])   // value moved: the honest residual
         // Box.count is a running counter, not a collection.
         // swiftlint:disable:next empty_count
         #expect(applied.count == 0)                     // but no HUD/onApplied fired
