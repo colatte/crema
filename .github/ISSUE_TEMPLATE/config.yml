@@ -1,0 +1,5 @@
+# Blank issues stay enabled: the two forms are the shape a bug report and a
+# feature idea usually have, not a fence. An issue is WORK — what's wrong or
+# missing, and when it's done; the RULES live in the repository's documents
+# (CLAUDE.md, docs/DECISIONS.md), and an issue points at them.
+blank_issues_enabled: true
