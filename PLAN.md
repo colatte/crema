@@ -73,4 +73,4 @@ Depends on: the author exporting the art in separate layers (background / pill /
 
 - [ ] **The format of Lunar's socket events** — the output of `lunar listen`, to be researched in the implementation (affects T7.4).
 
-<!-- rodada: polish-and-prune @ 3b2e01c -->
+<!-- rodada: the-tracker-takes-shape @ 7fb12c5 -->

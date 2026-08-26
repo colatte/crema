@@ -89,8 +89,9 @@ crema/                       # repository root
 Work happens on a branch cut from `dev` — one per task or fix, named as
 [CONTRIBUTING.md](CONTRIBUTING.md) "Branches" says (a PLAN task carries its id
 first: `t10.2-quantized-verify`) — and lands through a pull request that
-"Build & test" gates; `dev` reaches `main` only as a release. The branch and
-merge rules live there, not here.
+"Build & test" gates; `dev` reaches `main` as a release — or as a
+documentation-only merge (docs/DECISIONS.md: main-takes-docs-outside-a-release).
+The branch, merge and issue rules live there, not here.
 
 ```bash
 # open in Xcode and run with ⌘R (Crema scheme)
