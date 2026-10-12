@@ -27,7 +27,7 @@ struct LocalizationTests {
         // The sample has to be a key whose two values DIFFER, or it stops
         // testing the thing it is named for. `style.card` used to sit here and
         // stopped qualifying the day the style names became product names in
-        // both languages (CLAUDE.md: one name per concept) — "Card" == "Card"
+        // both languages (docs/INTERNATIONALIZATION.md: one name per concept) — "Card" == "Card"
         // would have kept this green against a bundle that ignored the language
         // argument entirely.
         #expect(try value("style.notch.description", in: "en") == "Blends into the notch")

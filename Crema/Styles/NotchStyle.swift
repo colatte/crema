@@ -10,7 +10,7 @@ struct NotchStyle: PresentationStyle {
     /// the overshoot pin admits because the lateral edges are static: the
     /// width is invariant across the VISIBLE states (the morph only travels
     /// height), and the empty crossing never travels geometry at all (a fade
-    /// at the final rect — CLAUDE.md, animation contract 1). Below, the band
+    /// at the final rect — docs/STATE-FLOW.md, animation contract 1). Below, the band
     /// hangs over app content (a little more forgiveness); the top edge is
     /// the screen edge — pinned, only reachable where another display stacks
     /// above, and the comfort band alone covers that rare crossing.

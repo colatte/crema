@@ -16,7 +16,7 @@ import Testing
 /// never the view sites that stroke them — deleting an overlay in
 /// `vibrantSurface` or hard-coding the old white 0.12 back into a body leaves
 /// this suite green. That is the confessed view-body class from the
-/// composition-root gap (CLAUDE.md), and the smoke item "borda 2026 em sala
+/// composition-root gap (AGENTS.md), and the smoke item "borda 2026 em sala
 /// clara/escura" is what covers the wiring.
 struct SurfaceChromeTests {
 

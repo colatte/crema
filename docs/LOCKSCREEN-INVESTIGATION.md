@@ -111,7 +111,7 @@ exist; see "The reopening".
 
 ## Stage 1 — the design (validated by the probes)
 - `ScreenLockSource` behind a protocol (edges + authoritative poll + onConsole
-  guard), mocked in tests — the source pattern of CLAUDE.md.
+  guard), mocked in tests — the source pattern of AGENTS.md.
 - Locked (or off the console): **suspend suppression** without touching the
   user's preference → the keys go back to the system → the native OSD appears →
   feedback restored. Unlocked: re-engage if (and only if) the preference is on.

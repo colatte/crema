@@ -6,7 +6,7 @@
 > nothing inside it as already shipping.
 >
 > Companion documents: [PLAN.md](PLAN.md) is the order of execution,
-> [CLAUDE.md](CLAUDE.md) is how the code is written, and
+> [AGENTS.md](AGENTS.md) is how the code is written, and
 > [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md) is the observable definition of
 > "correct" — the acceptance criteria live there and only there.
 
@@ -103,8 +103,8 @@ Architecture: one core, several views.
 ## Stack
 
 The technologies, and why each one is here. The versions, the deployment target
-and the SDK the build links against live in [CLAUDE.md](CLAUDE.md)'s Stack
-table, which owns them — a second copy here is the one nobody updates.
+and the SDK the build links against live in [AGENTS.md](AGENTS.md)'s Stack
+line (Conventions), which owns them — a second copy here is the one nobody updates.
 
 - **Swift + SwiftUI** — UI and animations.
 - **AppKit** — borderless NSPanel; accessory app (LSUIElement).

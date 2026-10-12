@@ -109,7 +109,7 @@ jobs:
         # The verdict is the "Test run with N tests" line, never xcodebuild's
         # exit: the app-hosted test host boots the real AppCore, whose pollers
         # hold the runloop, and its teardown can hang AFTER every test has
-        # reported (documented in CLAUDE.md; measured here — a fully green run
+        # reported (documented in AGENTS.md; measured here — a fully green run
         # sat mute from the verdict line to the 30-minute job timeout and was
         # reported "cancelled" with all tests passed). So the step watches the
         # log for the verdict, takes it, and only then kills the hung host.

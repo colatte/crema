@@ -2,7 +2,7 @@
 
 > The inventory of debts this project carries **on purpose**, each with the
 > reasoning that made it a decision rather than an oversight, the palliative
-> that stands in for the fix, and the gate that would reopen it. CLAUDE.md
+> that stands in for the fix, and the gate that would reopen it. AGENTS.md
 > lists these one line each; this file is the depth. A gap that gets closed
 > moves its lesson to the place that outlives it (a DECISIONS.md anchor, a test,
 > a comment at the site) and leaves this file.

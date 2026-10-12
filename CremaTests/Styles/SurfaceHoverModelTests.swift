@@ -196,7 +196,7 @@ struct SurfaceHoverModelTests {
     /// The exemption is per-edge, derived from the frame rule
     /// itself over the VISIBLE states — hidden is excluded on purpose: its
     /// rule width is 0, but geometry never travels across the empty boundary
-    /// (appearance/disappearance is a fade at the final rect — CLAUDE.md,
+    /// (appearance/disappearance is a fade at the final rect — docs/STATE-FLOW.md,
     /// animation contract 1), so that "width change" moves no edge. Notch and
     /// card are top-anchored (and the notch's top is the screen edge), but
     /// the bottom-anchored classic grows UPWARD — its top band must absorb

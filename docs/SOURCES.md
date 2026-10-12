@@ -1,10 +1,10 @@
 # The Sources layer — the system edge
 
-> The mechanism behind the rules CLAUDE.md states in one line each. Every point
+> The mechanism behind the rules AGENTS.md states in one line each. Every point
 > of contact with the system lives in `Crema/Sources/`, and each rule below was
 > paid for once — by a probe, a measurement, or a bug that shipped. Read this
 > before changing anything that talks to macOS, to a private framework or to a
-> neighbouring app; the rule in CLAUDE.md tells you what to do, this file tells
+> neighbouring app; the rule in AGENTS.md tells you what to do, this file tells
 > you why the obvious alternative does not work.
 
 ## The shape of a source

@@ -1,6 +1,6 @@
 # Testing — the discipline, and what each clause cost
 
-> The mechanism behind the rules CLAUDE.md states in one line each. Every clause
+> The mechanism behind the rules AGENTS.md states in one line each. Every clause
 > below exists because a test lied once: it went green without looking, hung the
 > whole suite, or failed for a reason foreign to its own thesis. Read this
 > before writing a wait, before constructing a type that carries a clock, and

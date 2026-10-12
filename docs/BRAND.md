@@ -35,7 +35,7 @@ inside it (below).
 | Identifiers                             | `crema` — bundle `com.colatte.crema`, `colatte/crema`, `colatte.github.io/crema` |
 | Page title                              | `Crema — a quiet companion for your Mac's notch` (em dash)   |
 | Article in pt-BR                        | **o** Crema — "o Crema mostra", "instalar o Crema"           |
-| The three styles                        | **Notch · Card · Classic** — product names, English in both languages (CLAUDE.md, Internationalization) |
+| The three styles                        | **Notch · Card · Classic** — product names, English in both languages (docs/INTERNATIONALIZATION.md) |
 
 Two things follow from the table. First, **"crema." — lowercase with a final
 dot — is not Crema's logotype.** That device belongs to `colatte.` and to
@@ -121,7 +121,7 @@ redistribute it. Raleway at 700 with tight tracking stands in for display, and
 the result is that the landing reads as the house's site with a lighter voice,
 which is what a house product's page should do. The two fonts load from Google
 Fonts — the landing is one self-contained HTML, self-hosted except for them,
-as CLAUDE.md's folder tree records.
+as docs/README.md records.
 
 The eyebrow is the house's mono kicker — small caps, wide tracking, one accent
 colour — **without the house's parentheses**. `( assim )` is the signature of
@@ -150,13 +150,13 @@ belong to the platform's type, not to a brand.
   a shouted word, never a second colour.
 - **English is the base language; pt-BR is a translation** with the same
   shape (same breaks, same specifiers, same names for the same concepts —
-  CLAUDE.md, Internationalization). Media titles and artists are content and
+  docs/INTERNATIONALIZATION.md). Media titles and artists are content and
   are never translated.
 - **The voice is the house's: sober with warmth, short sentences, zero
   marketing jargon.** "Honest" appears in the copy more than "powerful" ever
   will ("one honest warning", "honest with your keys"). A claim about the
   product is checkable on a running Crema or it is not made; a claim about
-  somebody else's API carries its source (CLAUDE.md).
+  somebody else's API carries its source (AGENTS.md).
 
 ## The house endorsement and the invisible credits
 
