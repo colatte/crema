@@ -130,7 +130,7 @@ design/           # icon and badge sources; catalogs generated, never by hand
 ## Known gaps
 
 - G1 — `AppCore.init` is mostly unpinned by decision; the 5 wirings that
-  matter are `wire*` seams killed by mutation (`AppCoreWiringSeamTests`).
+  matter are `wire*` seams killed by mutation, in three App test suites.
 - G2 — `BrightnessConversion` and `VolumeConversion` hold eight identical
   lines on purpose; reopens with a third domain or the first divergence.
 - G3 — The waveform carries no time veto; reopens with a power measurement.

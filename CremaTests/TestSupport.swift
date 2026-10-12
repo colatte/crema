@@ -36,8 +36,7 @@ let boundedWaitHotSpins = 2000
 /// forever, and a parked test does not fail — it holds the whole suite until
 /// an outer timeout kills the run with no name attached (measured on CI: two
 /// suites never reported and the job died mute at the 30-minute limit; the
-/// unbounded-continuation deadlock is the same class round1-a1-a3 already
-/// ruled on). Timeout and upstream-finish both return nil, so the assertion
+/// unbounded-continuation deadlock is the same class). Timeout and upstream-finish both return nil, so the assertion
 /// right after fails loud with the test's own name.
 ///
 /// A pump task consumes the stream eagerly into a buffer; `next()` polls it

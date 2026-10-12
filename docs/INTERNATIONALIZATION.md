@@ -8,7 +8,7 @@
 
 ## The catalog is the only source of visible text
 
-- **Never a UI string literal in a view** — all visible text comes from the String Catalog (`Crema/Localizable.xcstrings`) via `String(localized:defaultValue:)` (or `LocalizedStringKey`). **Semantic** keys (`menu.quit`, `style.stub.title`), never the literal text as the key; the `defaultValue` is the source text.
+- **Never a UI string literal in a view** — all visible text comes from the String Catalog (`Crema/Localizable.xcstrings`) via `String(localized:defaultValue:)` (or `LocalizedStringKey`). **Semantic** keys (`menu.quit`, `style.notch.description`), never the literal text as the key; the `defaultValue` is the source text.
 - **Base language: English** (keys and source text in English in the code); `pt-BR` is an additional translation in the catalog. Languages configured in the project: `en` (source) + `pt-BR`.
 - **Number/date/time formatting always via locale-aware `FormatStyle`** (`.formatted()`, `Duration…formatted(.time(…))`, `.percent`) — never manual digit interpolation (the 0.8 vs 0,8 decimal separator follows the locale on its own).
 - Media data (title/artist) is never translated — it is external content; what gets localized is the UI chrome and composition formats.

@@ -90,12 +90,11 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
     }
 
     /// Real wiring: runs the adapter with --no-diff (every line a full snapshot,
-    /// so translation stays stateless). Artwork flows since the visual-richness
-    /// round: the base64 fattens each line (~100–500 KB), which the line
-    /// buffer takes in stride, and the views decode once per cover
-    /// (ArtworkView/ArtworkAccent key their work on the bytes) — the original
-    /// reasons for --no-artwork are both retired. The debug observer keeps the
-    /// flag so raw-line logging stays readable. Probes availability via the
+    /// so translation stays stateless). Artwork is requested: the base64 fattens
+    /// each line (~100–500 KB), which the line buffer takes in stride, and the
+    /// views decode once per cover (ArtworkView/ArtworkAccent key their work on
+    /// the bytes). The debug observer keeps --no-artwork so raw-line logging
+    /// stays readable. Probes availability via the
     /// `test` command.
     convenience init(paths: MediaRemoteAdapterPaths, clock: any SleepClock = ContinuousSleepClock()) {
         // --micros: whole-second ISO timestamps would defeat the anchor

@@ -51,7 +51,7 @@ A presence assertion on it (`!= nil`, a nil×nil partition) is a tautology that 
 
 ## CI runs the suite serial, and the verdict is a line
 
-`-parallel-testing-enabled NO`, there only: 3 vCPU / 7 GB (macos-15 arm64) cannot carry 115 parallel suites — the GCD global pool has a per-QoS ceiling, the tests that model hangs park real threads in it by design, and an apply's pre-read sat in the queue for 75 s with the write never starting.
+`-parallel-testing-enabled NO`, there only: 3 vCPU / 7 GB (macos-15 arm64) cannot carry the suites in parallel (they run parallel locally, serial in CI) — the GCD global pool has a per-QoS ceiling, the tests that model hangs park real threads in it by design, and an apply's pre-read sat in the queue for 75 s with the write never starting.
 
 The job is ruled by the `Test run with N tests` line via a watchdog in `ci.yml`: the host teardown hangs with everything green, so the line is the verdict, never xcodebuild's exit. **Absence of a verdict is always failure**, including when xcodebuild exits 0 — a run that never reported is a run whose result nobody has, and deferring to its exit would invert the very rule (measured: the step went green). Since the step's shell is `bash -e`, the no-verdict branch's `wait` captures the status with `|| status=$?` — the raw `wait; status=$?` aborted the step BEFORE the diagnostic that branch exists to print.
 
@@ -67,11 +67,4 @@ Locally, concurrent `xcodebuild test` runs fight over the build-system lock in t
 - The now-playing fallback chain, with availability driven by the mocks (adapter ok / JXA only / none).
 - Graceful degradation: an absent external integration does not affect the essential flows.
 
-**Not unit** (thin edge; manual/smoke validation): the real adapter process, Core Audio, the event tap, OSDUIHelper, the real `DistributedNotificationCenter`. The rule is to keep those edges thin enough that all the interesting logic lives above them — and is testable.
-
-Minimum focus (living checklist):
-
-- [ ] Coordinator: state transitions, HUD priority, timer revert (with mocked sources, without touching a system API)
-- [ ] Window rules (`windowFrame`) per style, including the notch computation
-- [ ] Now-playing fallback when the adapter is unavailable
-- [ ] Integration source: decode the OSD notification and map it to the correct `SystemHUD`; the app works normally when the integration is absent (graceful degradation)
+**Not unit** (thin edge; manual/smoke validation): the real adapter process, Core Audio, the event tap, the real `DistributedNotificationCenter`. The rule is to keep those edges thin enough that all the interesting logic lives above them — and is testable.

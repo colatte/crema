@@ -9,7 +9,7 @@ import Testing
 /// flagged, so a wedge surfaces as a bounded assertion failure — never a hung
 /// suite (waitForSleep/eventually are all capped).
 ///
-/// Naming: `MUST_PASS_` marks the Round-1 happy paths that pin correct behavior;
+/// Naming: `MUST_PASS_` marks the pinned happy paths;
 /// `HUNT_` marks the wedge probes.
 @MainActor
 struct OSDSuppressionUnlockRegressionTests {
@@ -188,9 +188,7 @@ struct OSDSuppressionUnlockRegressionTests {
         #expect(h.screen.applied.last == h.screen.value)   // the write finally moved the value
     }
 
-    // MARK: - Burst kicks against the async probe (provenance: the V3 hunt,
-
-    // priority e)
+    // MARK: - Burst kicks against the async probe
 
     // Hammer immediate-probe kicks while the recovery probe's read is genuinely
     // async (parked on a real GCD hop / read-deadline), interleaved with backoff
@@ -304,7 +302,7 @@ struct OSDSuppressionUnlockRegressionTests {
 
     // MARK: - V2d · the retry button clears a latched write-dead warning
 
-    // corretude-1: once a write-dead channel escalates and the read-only probe
+    // Once a write-dead channel escalates and the read-only probe
     // re-engages it, the domain is no longer suspended but its menu warning stays
     // latched (writeStillUnconfirmed). retrySuspendedNow's suspended-only loop
     // could not reach it, so the "Try to reactivate now" button was a dead no-op
@@ -340,7 +338,7 @@ struct OSDSuppressionUnlockRegressionTests {
     // MARK: - V7 · MUST PASS: write-dead escalation through the real lock cycle
 
     // The write-health axis is born healthy again after the disengage.
-    // design-testes-2: the cravado write-dead regression driven through the real
+    // The pinned write-dead regression driven through the real
     // SuppressionLockController (lock → unlock), not a bare setEngaged; plus a pin
     // on the disengage clearing the write-health axis. With the axis carried over,
     // the first flap after unlock would re-escalate instantly instead of taking a

@@ -216,7 +216,7 @@ final class Coordinator {
     /// nil. The per-display knob reads the panel-local
     /// `SurfaceDisplayPolicy.pointerInside` instead.
     ///
-    /// UNVERIFIED hypothesis (hover round, kept deliberately unimplemented):
+    /// UNVERIFIED hypothesis, deliberately unimplemented:
     /// on multi-display setups every panel's monitor writes this single global
     /// mirror, and the last writer could in principle mask another display's
     /// state. Needs a two-panel hardware probe before any change — no
@@ -260,7 +260,7 @@ final class Coordinator {
     /// Monotonic scrub counter: a seek's failure callback rolls back only if
     /// no newer scrub has taken over the grace and the source anchor since —
     /// a stale failure acting unconditionally would tear down state a newer
-    /// actor owns (the superseded-actor class the tap/probe rounds closed).
+    /// actor owns.
     @ObservationIgnored private var seekEpoch = 0
 
     @ObservationIgnored private let logger = Logger.crema("Coordinator")

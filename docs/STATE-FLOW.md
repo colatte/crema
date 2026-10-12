@@ -16,7 +16,7 @@ The nine:
 - the Accessibility and the Automation permission monitors;
 - the suppression and the now-playing ones;
 - the per-panel `SurfaceDisplayPolicy`;
-- the `LowPowerModeMirror` each panel carries along into its view's environment — guarded write, like the other mirrors: the power-state edge arrives on any power-source change, and an identical write still rebuilds every view that reads it (here, a surface drawn over the menu bar);
+- the `LowPowerModeMirror` each panel carries along into its view's environment — guarded write, like the other mirrors, to keep the intent at the call site: the power-state edge arrives on any power-source change, and the surface it would redraw sits over the menu bar;
 - the `SettingsNavigation` — a one-shot tab request that the reader consumes and clears, because a request that lingers becomes a mode and drags the window back to the tab the user just left;
 - the `DisplayRoster` — the roster of connected displays that the General tab's per-display list reads, **reactive on purpose** (unlike the global declaration's mirrors, at the top of the same tab, seeded once, by decision): its rows ARE the displays, so a display plugged in with the window open would have no row until the window reopened, and a row that outlived its monitor would be control over a screen the user does not see. Fed by the SAME edge reading that builds the panels, never by a second `describeAll()`; the MENU never reads it, because every rebuild of its status block pays a `CGGetEventTapList` (docs/DECISIONS.md: one-screen-reading-per-edge);
 - the evidence of the neighbour's integration (`BetterDisplayOSDSource.hasReported`) — the only observable that lives **in a source**: the Settings line that shows it is read from a body SwiftUI has already built, and whoever reads it is usually the person flipping the switch in the other app, so a claim that only flips on the next open answers "no" to the very person who just made it true. Guarded write, like the other mirrors.
@@ -66,7 +66,7 @@ Card and Classic pin `.environment(\.colorScheme, .dark)` **wrapping** the `vibr
 
 ## Animation contracts
 
-Audited and pinned by test; the full audit is docs/ANIMATION-CONTRACTS.md.
+Audited and pinned by test.
 
 1. Crossing `hidden` — appearing or vanishing — is an **opacity fade at the final rect**: geometry (frame and corner radius) never travels across the empty↔visible boundary, and the rule governs **all** layers of the surface (outer frame, radius, material clip, opacity), not just the outermost.
 2. Visible↔visible morphs use a **directional spring chosen by the destination** — open when expanding, close (critically damped, no overshoot against the menu bar) when collapsing.

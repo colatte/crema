@@ -104,7 +104,8 @@
 18. With version N installed and N+1 published in the appcast, the app offers the
     update and applies it.
 19. The first launch of a clean install opens the welcome tour (five steps;
-    the Accessibility step advances on its own when the grant lands). Finishing
+    the Accessibility step flips to Continue live when the grant lands and never
+    advances on its own). Finishing
     it — or closing the window — and relaunching shows nothing: the tour runs
     once per install. An install that already carries the Accessibility grant
     still sees it once; the menu's "Grant Accessibility Access…" button remains

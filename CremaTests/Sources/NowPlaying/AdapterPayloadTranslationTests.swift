@@ -33,8 +33,7 @@ struct AdapterPayloadTranslationTests {
     }
 
     @Test func aMissingOrEmptyAlbumIsNilRatherThanABlankSearchTerm() throws {
-        // Its only reader is the cover lookup, which joins the terms into a query
-        // — an empty string there is not a narrower search, it is a worse one.
+        // An empty string in a search term is not a narrower search, it is a worse one.
         let missing = #"{"type":"data","diff":false,"payload":{"title":"Solo","playing":true,"elapsedTime":0,"duration":100}}"#
         let blank = #"{"type":"data","diff":false,"payload":{"title":"Solo","album":"","playing":true,"elapsedTime":0,"duration":100}}"#
         #expect(try #require(translate(missing)).album == nil)

@@ -18,7 +18,7 @@ enum SurfaceAnimation {
     /// instability.
     static let openResponse: Double = 0.42
     static let openDamping: Double = 0.8
-    // 0.35 from the hover round's release-latency budget (t90 279 → 217 ms);
+    // 0.35 measured against the release-latency budget (t90 279 → 217 ms);
     // damping stays 1.0 — still no overshoot against the menu bar.
     static let closeResponse: Double = 0.35
     static let closeDamping: Double = 1.0

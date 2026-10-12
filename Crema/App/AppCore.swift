@@ -299,12 +299,8 @@ final class AppCore {
         // cannot be pointed at a center nobody posts to by editing this line.
         wakeObservations = Self.wireWakeReinstall(reinstalling: tapSource)
 
-        // Built once, outside the suppressor block, and for two reasons. It is a
-        // fact about the session rather than a suppression concern; and the
-        // demo graph has no suppressor at all, which would have stranded the
-        // Assigned to the stored property, not a local: placing it out here made
-        // it REACHABLE on those paths without making it live, and the difference
-        // is the whole bug the property's own comment now records.
+        // Built on every graph, suppressor or not; the property's doc says why it
+        // is stored rather than held as a local.
         lockSource = DistributedNotificationScreenLockSource()
 
         if let consuming = mediaKeys as? any MediaKeyConsuming,

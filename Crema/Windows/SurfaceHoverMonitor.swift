@@ -10,7 +10,7 @@ import AppKit
 /// the cursor (`NSEvent.mouseLocation` in production) and forwards transitions.
 /// Real NSEvent monitors are a border — smoke-tested on hardware.
 ///
-/// UNVERIFIED hypothesis (hover round, kept deliberately unimplemented): while
+/// UNVERIFIED hypothesis, deliberately unimplemented: while
 /// the panel is interactive (ignoresMouseEvents == false) and the app is an
 /// inactive accessory, macOS may throttle mouseMoved delivery to the global
 /// monitor. Confirm with counters on hardware before adding any safety

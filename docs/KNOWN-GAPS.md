@@ -11,7 +11,7 @@
 
 Audit of the `App` layer: **224 wiring points, 181 with no test at all**, a single root cause already confessed in a comment in the suite itself — *no test constructs an `AppCore`*, because the `init` touches ~8 system edges outside the `SystemGraph` (the AX permission and its poll, the event tap, `SMAppService`, the lock source, workspace observers, real `NSPanel`s, `UserDefaults`).
 
-Closed the **5** where a wiring mistake **compiles, runs and produces a plausibly wrong app** — the brightness echo routed by authority, the post-apply poke, the escalation mirror the menu reads, the neighbour's source and its local sibling, and the notification center of the 4th trigger — each extracted into a `wire*` and killed by mutation (`AppCoreWiringSeamTests`).
+Closed the **5** where a wiring mistake **compiles, runs and produces a plausibly wrong app** — the brightness echo routed by authority, the post-apply poke, the escalation mirror the menu reads, the neighbour's source and its local sibling, and the notification center of the 4th trigger — each extracted into a `wire*` and killed by mutation (`AppCoreWiringSeamTests`, `AppCoreHandbackWiringTests`, `SuppressionUnlockReinstallSeamTests`).
 
 The rest **stays**, in five classes:
 
@@ -21,7 +21,7 @@ The rest **stays**, in five classes:
 4. What sits behind `#if DEBUG` and the duplicated construction in the `#else` — a real risk (the Debug-hosted suite does not compile the Release copy), but the fix is dedup, not a test.
 5. The idea of an `AppCore` over doubles, which **moves** the hole instead of closing it — and an end-to-end test of the graph is less mutation-sensitive per line than the `wire*` seams, which fails the house criterion outright.
 
-Two named survivors, accepted: `MenuInformation` (a 4-action switch — a button could re-register the login item under the re-enable-suppression label; the fix asks for a new protocol, more structure than the risk pays for) and `AppCoreAutomation:14` (a boolean inversion that would erase the Permissions line and leave a blocking consent poll running forever). A residue every `wire*` shares, and one still worth stating: they pin the **wiring**, not the `init` line that installs it.
+Two named survivors, accepted: `MenuStatus.Action` (a 5-case switch — a button could re-register the login item under the re-enable-suppression label; the fix asks for a new protocol, more structure than the risk pays for) and `AppCoreAutomation:14` (a boolean inversion that would erase the Permissions line and leave a blocking consent poll running forever). A residue every `wire*` shares, and one still worth stating: they pin the **wiring**, not the `init` line that installs it.
 
 What generalises, proven twice on a since-removed surface: rules killed by mutation while their call sites were reachable from no test, and extracting a seam refused as merely moving the untested line by one — this entry's verdict covers those cases too.
 
@@ -55,4 +55,4 @@ Reopening gate: a reproduction on hardware — a session where the backlight HUD
 
 ## SwiftLint's analyzer rules are off, so nothing in CI looks for dead code
 
-`analyzer_rules` is empty in `.swiftlint.yml`; `unused_declaration` and `unused_import` need a compiler log (`swiftlint analyze --compiler-log-path`), which means CI would build twice and gain a step that can break on its own. Measured by hand instead: zero unused `private` declarations across the whole tree, and the four internal types with no cross-file reference each have a use in their own file. The gap is that this was a one-off sweep, not a gate — a declaration that dies tomorrow dies unnoticed, and so does one born dead in a file added since. The palliative is that sweep, and the decision to spend CI minutes on it is the maintainer's.
+`.swiftlint.yml` declares no `analyzer_rules`; `unused_declaration` and `unused_import` need a compiler log (`swiftlint analyze --compiler-log-path`), which means CI would build twice and gain a step that can break on its own. Measured by hand instead: zero unused `private` declarations across the whole tree, and the four internal types with no cross-file reference each have a use in their own file. The gap is that this was a one-off sweep, not a gate — a declaration that dies tomorrow dies unnoticed, and so does one born dead in a file added since. The palliative is that sweep, and the decision to spend CI minutes on it is the maintainer's.

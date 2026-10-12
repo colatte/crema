@@ -72,7 +72,7 @@ struct BrightnessControllerTests {
     @Test func screenControllerSurfacesAFailureWhenTheAppliedWriteIsRejected() async {
         // Available backend whose applied write does not take. Apply-and-verify
         // must surface a failure (writeFailed, distinct from unavailable) so the
-        // suppressor auto-disengages instead of silently swallowing the key.
+        // suppressor suspends the domain instead of silently swallowing the key.
         let backend = FakeBrightnessBackend(available: true, writeSucceeds: false)
         let controller = DisplayServicesScreenBrightnessController(backend: backend)
 

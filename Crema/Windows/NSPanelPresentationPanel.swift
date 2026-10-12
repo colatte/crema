@@ -317,9 +317,6 @@ final class NSPanelPresentationPanel: PresentationPanel {
         return tight.isEmpty ? .zero : tight
     }
 
-    /// Fallback for a window-filling view: per-state window frames. Mapping a
-    /// previously ordered-out window waits for the render commit — it still
-    /// holds the previous state's contents and would flash them for a frame.
     /// Render context into the view's policy box. Each flag is written only when
     /// it changes — a habit rather than a necessity now: the @Observable macro's
     /// setter short-circuits on an equal value since Swift 6.2, so the runtime
@@ -356,6 +353,9 @@ final class NSPanelPresentationPanel: PresentationPanel {
         return hostingView.sizingOptions.isEmpty
     }
 
+    /// Fallback for a window-filling view: per-state window frames. Mapping a
+    /// previously ordered-out window waits for the render commit — it still
+    /// holds the previous state's contents and would flash them for a frame.
     private func applyDirectFrame(_ frame: CGRect) {
         if frame.isEmpty {
             panel.setFrame(frame, display: false)

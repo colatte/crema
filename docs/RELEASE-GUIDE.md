@@ -135,8 +135,8 @@ The script signs with that certificate (including the **nested Sparkle**, see
 **regenerates the appcast**. Out comes a `Crema.dmg` signed with a stable
 identity, a `Crema-1.1.1.dmg` (the enclosure) and a fresh `docs/appcast.xml`.
 
-> **Self-signed NEVER carries the hardened runtime** (release-guard round; a
-> throwaway local build paid to find this crash): the runtime turns on dyld's
+> **Self-signed NEVER carries the hardened runtime** (a throwaway local build
+> paid to find this crash): the runtime turns on dyld's
 > _library validation_,
 > which demands a **real and matching Team ID** between the process and every
 > non-platform library — a self-signed certificate **has no Team**, so the app
@@ -369,9 +369,7 @@ An unsigned feed here means the app no longer carries `SURequireSignedFeed`, or
 the signing key is not reachable — either way, every already-updated client would
 reject this appcast. (The script already hard-fails on exactly this before its
 summary prints, so a green run cannot leave the count at 0 — the manual grep is
-belt and suspenders. And run it against a **freshly generated** feed only: the
-committed `docs/appcast.xml` predates the signing keys until the first release
-generated after them, so grepping the checked-in file proves nothing.)
+belt and suspenders.)
 
 What is left in the repo root (both gitignored by `*.dmg`):
 
@@ -638,7 +636,7 @@ EdDSA**, install and **relaunch** the app.
 - **The gentle reminder is exercised.** With a newer version in the feed, let the
   **scheduled** check run with Crema in the background (do not use "Check for
   Updates…", which is user-initiated and deliberately does not light the line):
-  the menu bar must show "An update to Crema is available." with the "Show the
+  the menu bar must show "An update to Crema is available." with the "Show
   Update…" button right below it, and the line must disappear once the alert has
   received attention or the session ends (docs/DECISIONS.md:
   the-update-alert-nobody-sees).
