@@ -88,3 +88,35 @@ The `SystemHUD` carries the **authority** that produced it, and the drag goes ba
 3. **Failure degrades, it does not die** — fall back to the system actuator within the same drag, stop asking until the neighbour reports again (evidence, never a timer), and never retry mid-gesture.
 4. **A drag no actuator honoured rolls back** — publishing before writing promises that every shown level will be honoured; when neither the neighbour nor the fallback writes, the bar returns to the last level with evidence (a read that arrived on its own, or a confirmed write) at the END of the gesture, which the view reports — "the hand let go" cannot be deduced from the numbers, and a quiescence guess would make the fill jump under a finger that merely paused.
 5. **A queued level carries the display it belongs to** — coalescing outlives the call that resolved the target (a write drains the frames that arrived after it), so a bare number in the queue leaves with the id of whoever was driving: the neighbour darkens a screen nobody is dragging, in silence, because the bar that asked is on another panel. For the same reason each call echoes only what reached the wire **for the display IT named** — the drain's last frame may belong to another bar, and echoing it would publish on this one a level that nothing wrote to it (docs/DECISIONS.md: the-bar-never-outruns-the-screen).
+
+## Reading Apple's documentation by machine
+
+A claim about an Apple API carries its primary source, and two questions hide
+behind "what does the app get": what a symbol **requires** is availability,
+what the app **gets** is linkage. `MACOSX_DEPLOYMENT_TARGET` answers the first
+and `xcrun --sdk macosx --show-sdk-version` the second. Measured here: the
+project targets macOS 14 and builds against the macOS 26 SDK, and the
+platform's current design is granted on LINKAGE — *"absence of the key, or
+`NO`, is the default value for apps linking against the latest SDKs"*
+(`UIDesignRequiresCompatibility`, ignored once the app is built against the
+macOS 27 SDK). So one binary renders standard components with Liquid Glass on
+Tahoe and without it on Sonoma, with nobody having chosen it, and nobody has
+compared the two side by side.
+
+The fetch fails silently, which is why the mechanics are written down:
+`developer.apple.com` renders client-side, so an ordinary request returns the
+page title and nothing else, indistinguishable from an empty page. The DocC
+JSON behind it carries the content: swap `/documentation/` for
+`/tutorials/data/documentation/` and append `.json` (the HIG lives under
+`/tutorials/data/design/` instead).
+
+```
+https://developer.apple.com/tutorials/data/documentation/swiftui/glasseffectcontainer.json
+https://developer.apple.com/tutorials/data/design/human-interface-guidelines/materials.json
+```
+
+`metadata.platforms` is the authoritative availability list — name,
+`introducedAt` and a `beta` flag — which settles "is this symbol reachable at
+our floor?" in one call. The prose sits in `abstract` and
+`primaryContentSections` as nested `text`/`codeVoice` nodes that need
+flattening.
