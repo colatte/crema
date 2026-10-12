@@ -1,6 +1,6 @@
 # Internationalization — the catalog, the vocabulary and the ceilings
 
-> The mechanism behind the rules CLAUDE.md states in one line each. The app
+> The mechanism behind the rules AGENTS.md states in one line each. The app
 > ships in two languages from one String Catalog, and the interesting part is
 > not the translation: it is what the catalog gate enforces (because Xcode
 > enforces nothing), which words are reserved, and the two physical ceilings a

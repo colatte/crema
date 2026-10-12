@@ -3010,7 +3010,7 @@ It bit the media refresh — a whole showcase reshot on a new desktop, sitting o
 Decision: **`main` accepts a documentation-only merge outside a release, and the
 test is the diff, not the intent.** If the merge touches nothing but the
 repository's prose — `docs/` and its assets, the root documents `README.md`,
-`CONTRIBUTING.md`, `CLAUDE.md`, `SPEC.md`, `PLAN.md`, `ROADMAP.md`, and the
+`CONTRIBUTING.md`, `AGENTS.md`, `CLAUDE.md`, `SPEC.md`, `PLAN.md`, `ROADMAP.md`, and the
 issue forms and pull-request template under `.github/` (`ISSUE_TEMPLATE/`,
 `pull_request_template.md` — prose GitHub serves from the default branch, so a
 form parked on `dev` leaves the issue page bare exactly the way the site went

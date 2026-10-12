@@ -8,7 +8,7 @@ import Testing
 /// app hooks the right end to the right end. An audit of the App layer found 224
 /// wiring points with 181 unpinned; these are the ones where a mis-wire COMPILES,
 /// RUNS, and produces a wrong-but-plausible app rather than a crash or a type
-/// error. The rest are recorded as an accepted gap in CLAUDE.md.
+/// error. The rest are recorded as an accepted gap in AGENTS.md.
 ///
 /// The sibling suite AppCoreHandbackWiringTests measured the whole class: deleting
 /// one arm of the hand-back switch left all 900-odd tests green.

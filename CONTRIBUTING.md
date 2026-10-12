@@ -24,7 +24,7 @@ writing code — it saves everyone effort.
 ## Issues and the docs
 
 An issue is **work**: what's wrong or missing, and when it's done. The rules
-live in the repository's documents — conventions in [CLAUDE.md](CLAUDE.md),
+live in the repository's documents — conventions in [AGENTS.md](AGENTS.md),
 design memory in [docs/DECISIONS.md](docs/DECISIONS.md) — and an issue points
 at them when one applies; no document cites an issue number back, because
 issues close and the number goes stale. The area labels (`now playing`,
@@ -80,7 +80,7 @@ away (the squash and rebase buttons are switched off at the repository level).
    and its teardown can hang after every test has already reported, so the
    xcodebuild exit is not the signal.
 4. Match the surrounding code. The conventions are written up in
-   [`CLAUDE.md`](CLAUDE.md) — architecture, naming, concurrency, and how the
+   [`AGENTS.md`](AGENTS.md) — architecture, naming, concurrency, and how the
    layers talk to each other.
 5. Open the pull request against **`dev`** with a clear description of what
    changed and why.

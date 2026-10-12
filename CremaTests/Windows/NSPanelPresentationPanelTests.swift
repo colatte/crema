@@ -8,7 +8,7 @@ import Testing
 /// pinned, and everything this class *binds* was invisible: two mutations, one
 /// handing SwiftUI the power to size the window and one dropping the fixed frame
 /// altogether, both left all 729 tests green. Those are the same two invariants
-/// CLAUDE.md names in "Never do" as the cure for a whole family of
+/// AGENTS.md names in "Never do" as the cure for a whole family of
 /// intermittent blinks, so they get a witness here.
 @MainActor
 struct NSPanelPresentationPanelTests {

@@ -2,7 +2,7 @@
 
 > The inventory of debts this project carries **on purpose**, each with the
 > reasoning that made it a decision rather than an oversight, the palliative
-> that stands in for the fix, and the gate that would reopen it. CLAUDE.md
+> that stands in for the fix, and the gate that would reopen it. AGENTS.md
 > lists these one line each; this file is the depth. A gap that gets closed
 > moves its lesson to the place that outlives it (a DECISIONS.md anchor, a test,
 > a comment at the site) and leaves this file.
@@ -24,38 +24,6 @@ The rest **stays**, in five classes:
 Two named survivors, accepted: `MenuInformation` (a 4-action switch — a button could re-register the login item under the re-enable-suppression label; the fix asks for a new protocol, more structure than the risk pays for) and `AppCoreAutomation:14` (a boolean inversion that would erase the Permissions line and leave a blocking consent poll running forever). A residue every `wire*` shares, and one still worth stating: they pin the **wiring**, not the `init` line that installs it.
 
 What generalises, proven twice on a since-removed surface: rules killed by mutation while their call sites were reachable from no test, and extracting a seam refused as merely moving the untested line by one — this entry's verdict covers those cases too.
-
-## CLAUDE.md exceeds the grammar's soft limit, and the remainder is a decision
-
-The four largest area sections were extracted on 2026-08-10 (the system edge, state flow, the test discipline and i18n — each now a rule in CLAUDE.md and a mechanism in `docs/`), and this file took the Known gaps' detail in the same round; together they took CLAUDE.md from 101 KB to 66 KB. `Stack`, `Folder structure` and `Never do` stay inline by decision, because they are read on arrival rather than looked up. The residue is real and measured: every session pays for what is left, and the checker's report of it stays a warning rather than a violation for exactly that reason.
-
-## Three grammar checks are suppressed, because the checker is Portuguese-keyed and the doc-set is English
-
-`docscheck` verifies the mechanical invariants of the house grammar, and it recognises the structural
-positions by their Portuguese names: the golden rule by a heading `Regra de ouro`, the present/future
-frontier by a section `Planejado`, the module tree by a section `Estrutura`/`Módulos`. Crema's documents
-are English — a decision, not an accident: this is a public GPL-3.0 repository whose README, ROADMAP and
-CONTRIBUTING address contributors in English, and CLAUDE.md is the file any of them opens first.
-
-So `C1` (CLAUDE.md), `F1` (SPEC.md) and `T3` (PLAN.md) are suppressed at their sites, each with its reason
-on the line, which is what keeps a suppression auditable rather than silent. What is **not** suppressed is
-`T2`: the task metadata field is spelled `· módulo:`, one Portuguese token in an English document, because
-it is a field label rather than prose and it buys back the check that every task names a module — the
-omission most likely to actually happen when a task is added.
-
-The reason for suppressing instead of renaming is that the alternative costs prose, not tokens: `## Regra
-de ouro` and `## Estrutura` are among the most-read lines of the two most-read documents, and a contributor
-meets them before anything else. The reason for suppressing instead of ignoring the tool is that a gate
-which always exits 1 is a gate nobody reads — the same failure `check-catalog-selftest.py` exists to
-prevent — and with the baseline green a genuinely new violation is visible on the next run.
-
-The palliative for `T3` specifically: the module names are verified against CLAUDE.md's `Folder structure`
-tree by hand, and the suppression's reason names all four so the claim can be re-checked in seconds.
-
-Reopening gate: the kit learning the English keywords. That fix belongs in the kit's own repository, not
-here — `~/.claude/bin/docscheck.mjs` is overwritten by its `install.sh`, so a local patch would revert
-silently, which is worse than the suppression. When the kit recognises both languages, all four lines come
-out and `· módulo:` goes back to `· module:`.
 
 ## `BrightnessConversion` and `VolumeConversion` hold eight byte-identical lines, and that is the decision
 

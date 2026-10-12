@@ -6,11 +6,11 @@
 > that ships is described, in the present, by [SPEC.md](SPEC.md). Phase 1 is
 > the current one.
 
-<!-- docscheck: ignore T3 — the four module names resolve in CLAUDE.md's "Folder structure" tree (Sources and App under Crema/, plus docs/ and design/), verified by hand; the checker reads the tree only from a section literally titled "Estrutura"/"Módulos", and renaming that heading would put Portuguese in the most-read line of an English document -->
+<!-- docscheck: ignore T3 — the four module names resolve in AGENTS.md's "Structure" tree (Sources and App under Crema/, plus docs/ and design/), verified by hand; the checker reads the tree only from a section literally titled "Estrutura"/"Módulos", and renaming that heading would put Portuguese in the most-read line of an English document -->
 
 ## Conventions
 
-- Each task carries an id (e.g. T7.1), the responsible module (matching the folder structure in [CLAUDE.md](CLAUDE.md)), the tests or the verification that define it, and its acceptance. The field is spelled `· módulo:` — the one Portuguese token in an English document, because it is what the grammar checker reads to verify that no task is added without naming a module. That the named module *exists* is checked by hand: the checker's own rule for it is suppressed above, for the reason stated there.
+- Each task carries an id (e.g. T7.1), the responsible module (matching the Structure in [AGENTS.md](AGENTS.md)), the tests or the verification that define it, and its acceptance. The field is spelled `· módulo:` — the one Portuguese token in an English document, because it is what the grammar checker reads to verify that no task is added without naming a module. That the named module *exists* is checked by hand: the checker's own rule for it is suppressed above, for the reason stated there.
 - A phase starts only when the previous one's checkboxes are all ticked, except phases marked optional, which may be skipped.
 - Detail per task covers the current phase and the next; phases beyond that carry only an objective and their dependencies until they come close.
 - **Task ids are never renumbered and never reused.** T7.1, T10.2 and T12.2 sit inside phases numbered 1 to 4 because the id — not the phase — is the thread tying a residue to the round that opened it; closing the numeric gaps would cut that thread and buy nothing. A retired task takes its id with it: the number is not returned to the pool.

@@ -1,6 +1,6 @@
 # State flow — from the Coordinator to the pixels
 
-> The mechanism behind the rules CLAUDE.md states in one line each. What is
+> The mechanism behind the rules AGENTS.md states in one line each. What is
 > observable, what is a mirror, what animates and what never travels: the app
 > has exactly one observable of presentation state, and every other reactive
 > value in it is a read mirror for views. Read this before adding an

@@ -55,7 +55,7 @@ struct HUDLevelSlider: View {
 
     /// True while the user is dragging: the spring is suspended so the fill
     /// (and knob) track the finger 1:1 rather than rubber-banding behind it.
-    /// Purely visual-ephemeral state, which CLAUDE.md permits in @State.
+    /// Purely visual-ephemeral state, which docs/STATE-FLOW.md permits in @State.
     @State private var isEditing = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.layoutDirection) private var layoutDirection
