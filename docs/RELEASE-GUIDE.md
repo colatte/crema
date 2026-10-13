@@ -57,8 +57,9 @@ yourself.
   signs the enclosure — **you never type or paste that key**. To confirm it is
   reachable on this machine (this prints **only the public half**):
   ```bash
-  SPARKLE_BIN="$(find ~/Library/Developer/Xcode/DerivedData \
-    -path '*/SourcePackages/artifacts/sparkle/Sparkle/bin' -type d 2>/dev/null | head -1)"
+  BUILD_DIR="$(xcodebuild -project Crema.xcodeproj -scheme Crema -showBuildSettings 2>/dev/null \
+    | awk -F' = ' '/^ *BUILD_DIR = /{print $2; exit}')"
+  SPARKLE_BIN="${BUILD_DIR%/Build/Products}/SourcePackages/artifacts/sparkle/Sparkle/bin"
   "$SPARKLE_BIN/generate_keys" -p
   # must print exactly:  AWufPX9SoMRSSmTVmoLNaoXyHJuRHOKx+BxrSfazfmQ=
   ```
@@ -66,10 +67,12 @@ yourself.
   **byte for byte**. If `generate_keys -p` prints nothing, the private key is not
   in this keychain (new machine, replaced keychain) — restore it from the backup
   below before attempting a release.
-  > `$SPARKLE_BIN` comes from Sparkle's SPM checkout inside DerivedData; the path
-  > carries a per-project hash, so we locate it by glob. If `find` comes up
-  > empty, build Crema once (Xcode or `xcodebuild build`) so SPM resolves
-  > Sparkle.
+  > `$SPARKLE_BIN` is Sparkle's SPM checkout inside THIS project's DerivedData,
+  > located through `-showBuildSettings` rather than a glob over every project:
+  > `generate_keys` reads the private key, so it must be the copy this project
+  > resolved, never whichever project on the machine resolved one last. If the
+  > folder is missing, build Crema once (Xcode or `xcodebuild build`) so SPM
+  > resolves Sparkle.
 
 ### Back the private key up — once, and off this machine
 
@@ -77,8 +80,13 @@ A normal release never touches the private key, which is exactly why it is easy
 to forget that the login keychain is its **only** copy. Export it once:
 
 ```bash
-"$SPARKLE_BIN/generate_keys" -x sparkle-eddsa-private-key.txt
+"$SPARKLE_BIN/generate_keys" -x "$HOME/sparkle-eddsa-private-key.txt"
 ```
+
+Into your home folder, never the repository: an export in the repo folder is one
+`git add -A` away from the public history, where anyone could sign updates every
+installation accepts. `.gitignore` carries `sparkle-eddsa-private-key*` as the
+second net, not the first.
 
 Store that file **outside the release machine** — a password manager entry, or
 offline media — and delete the exported copy from disk afterwards. Restoring on
@@ -577,8 +585,9 @@ That left `Crema-1.90.1.dmg` in the repo root. Now a **test** appcast pointing a
 the local server (do NOT use the production `docs/appcast.xml` here):
 
 ```bash
-SPARKLE_BIN="$(find ~/Library/Developer/Xcode/DerivedData \
-  -path '*/SourcePackages/artifacts/sparkle/Sparkle/bin' -type d 2>/dev/null | head -1)"
+BUILD_DIR="$(xcodebuild -project Crema.xcodeproj -scheme Crema -showBuildSettings 2>/dev/null \
+  | awk -F' = ' '/^ *BUILD_DIR = /{print $2; exit}')"
+SPARKLE_BIN="${BUILD_DIR%/Build/Products}/SourcePackages/artifacts/sparkle/Sparkle/bin"
 
 E2E=/tmp/crema-e2e
 rm -rf "$E2E"; mkdir -p "$E2E"

@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  Deliberately empty: Crema needs no hardened-runtime exceptions (strongest notarization posture).
-  disable-library-validation: not needed — the brightness dlopens are Apple-signed system frameworks (DisplayServices, CoreBrightness); library validation allows Apple code.
+  Deliberately empty, for the Developer ID path (release.sh), the only one that carries the
+  hardened runtime: there Crema needs no runtime exceptions (strongest notarization posture).
+  The self-signed build that ships today carries NO hardened runtime, so none of the protections
+  below apply to it: dyld honours DYLD_* variables for it (docs/DECISIONS.md:
+  signed-without-hardened-runtime).
+  disable-library-validation: not needed on the Developer ID path — the brightness dlopens are Apple-signed system frameworks (DisplayServices, CoreBrightness); library validation allows Apple code.
   allow-dyld-environment-variables: not needed — dlopen by absolute path, no DYLD_* set.
   allow-jit / allow-unsigned-executable-memory: not needed — no JIT, no writable-executable memory.
   automation.apple-events: not needed — the osascript subprocess sends the events, not Crema.
