@@ -16,7 +16,11 @@ concurrency:
 jobs:
   test:
     name: Build & test
-    runs-on: macos-15 # Sequoia image ships Xcode 16 (needed for Swift Testing)
+    # The image that links what the release machine links: Xcode 27 on macOS 27
+    # (a public preview image). On Xcode 26.3 the build linked SDK 26 and could not
+    # see a launch abort the macOS 27 SDK raises (docs/DECISIONS.md:
+    # the-composition-root-draws-a-turn-later).
+    runs-on: xcode-27
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -30,7 +34,7 @@ jobs:
         # nothing in the diff to explain it. Raise this deliberately.
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "26.3"
+          xcode-version: "27.0"
 
       - name: Toolchain versions
         run: |
