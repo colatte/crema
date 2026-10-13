@@ -1182,9 +1182,24 @@ extension AppCore {
     /// local sibling to silence is a real construction, and the tests do it.
     static func makeNeighbourSource(
         target: ((Int) -> SystemHUD.Target?)? = nil,
-        standingDown local: any ManuallySampledSource
+        standingDown local: any ManuallySampledSource,
+        builtInDisplay: @escaping @MainActor () -> DisplayUUID? = { ScreenTranslation.builtInDisplayUUID() }
     ) -> BetterDisplayOSDSource {
-        BetterDisplayOSDSource(target: target, onReport: { local.standDown() })
+        BetterDisplayOSDSource(target: target, onReport: { reported in
+            if reportNamesTheLocalDisplay(reported, builtIn: builtInDisplay()) { local.standDown() }
+        })
+    }
+
+    /// The local screen source reads the built-in panel and nothing else, so only a
+    /// report about that panel is the neighbour answering the press the local
+    /// source would also draw. Anything else standing it down would silence the
+    /// feedback of a key Crema swallowed, and anyone in the session can post here.
+    static func reportNamesTheLocalDisplay(_ target: SystemHUD.Target, builtIn: DisplayUUID?) -> Bool {
+        switch target {
+        case .builtIn: true
+        case .display(let uuid): uuid == builtIn
+        case .noDisplay: false
+        }
     }
 
     /// The post-apply poke: with the key consumed, the app's own write lands AFTER

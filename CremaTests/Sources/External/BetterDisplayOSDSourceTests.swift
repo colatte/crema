@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import Testing
 @testable import Crema
@@ -33,8 +34,11 @@ struct BetterDisplayOSDSourceTests {
         func stop() { task?.cancel(); task = nil }
     }
 
-    private func makeSource() -> BetterDisplayOSDSource {
-        BetterDisplayOSDSource(target: { $0 == 1 ? .display(DisplayUUID(rawValue: "BUILT-IN")) : nil })
+    private func makeSource(neighbourRunning: Bool = true) -> BetterDisplayOSDSource {
+        BetterDisplayOSDSource(
+            target: { $0 == 1 ? .display(DisplayUUID(rawValue: "BUILT-IN")) : nil },
+            isNeighbourRunning: { neighbourRunning }
+        )
     }
 
     @Test func aDeliveredPayloadBecomesAHUDOnTheStream() async {
@@ -60,7 +64,7 @@ struct BetterDisplayOSDSourceTests {
         source.handle(json: "garbage")
         // One good payload after the rejects proves the source stayed alive
         // rather than merely staying quiet.
-        source.handle(json: #"{"controlTarget":"combinedBrightness","maxValue":64,"value":64}"#)
+        source.handle(json: #"{"controlTarget":"combinedBrightness","displayID":1,"maxValue":64,"value":64}"#)
 
         #expect(await eventually { collector.values.count == 1 })
         #expect(collector.values.map(\.value) == [1])
@@ -91,12 +95,12 @@ struct BetterDisplayOSDSourceTests {
 
         let source = BetterDisplayOSDSource(
             target: { $0 == 1 ? .display(DisplayUUID(rawValue: "BUILT-IN")) : nil },
-            onReport: { polled.standDown() }
+            onReport: { _ in polled.standDown() }
         )
 
         polled.sample()                 // the observed key arms the window
         await clock.waitForSleep()
-        source.handle(json: #"{"controlTarget":"combinedBrightness","maxValue":64,"value":32}"#)
+        source.handle(json: #"{"controlTarget":"combinedBrightness","displayID":1,"maxValue":64,"value":32}"#)
 
         // The neighbour applied it: the hardware value moves a beat later, and
         // the armed poll would emit it on top of the bar already drawn.
@@ -130,7 +134,7 @@ struct BetterDisplayOSDSourceTests {
 
         let source = BetterDisplayOSDSource(
             target: { $0 == 1 ? .display(DisplayUUID(rawValue: "BUILT-IN")) : nil },
-            onReport: { polled.standDown() }
+            onReport: { _ in polled.standDown() }
         )
 
         let held = DispatchSemaphore(value: 0)
@@ -142,7 +146,7 @@ struct BetterDisplayOSDSourceTests {
         polled.sample()                 // the observed key: its reading parks
         #expect(await backend.awaitReadStarted(after: started))
 
-        source.handle(json: #"{"controlTarget":"combinedBrightness","maxValue":64,"value":32}"#)
+        source.handle(json: #"{"controlTarget":"combinedBrightness","displayID":1,"maxValue":64,"value":32}"#)
         backend.value = 0.34            // the neighbour applied: the hardware moves
 
         backend.readGate = nil
@@ -181,11 +185,11 @@ struct BetterDisplayOSDSourceTests {
 
         let source = BetterDisplayOSDSource(
             target: { $0 == 1 ? .display(DisplayUUID(rawValue: "BUILT-IN")) : nil },
-            onReport: { polled.standDown() }
+            onReport: { _ in polled.standDown() }
         )
         await clock.waitForSleep()      // the cadence is parked before anything moves
 
-        source.handle(json: #"{"controlTarget":"combinedBrightness","maxValue":64,"value":32}"#)
+        source.handle(json: #"{"controlTarget":"combinedBrightness","displayID":1,"maxValue":64,"value":32}"#)
         backend.value = 0.34            // the neighbour applied: the hardware moves
 
         let taken = backend.readCount
@@ -224,11 +228,11 @@ struct BetterDisplayOSDSourceTests {
 
         let source = BetterDisplayOSDSource(
             target: { $0 == 1 ? .display(DisplayUUID(rawValue: "BUILT-IN")) : nil },
-            onReport: { polled.standDown() }
+            onReport: { _ in polled.standDown() }
         )
         await clock.waitForSleep()
 
-        source.handle(json: #"{"controlTarget":"combinedBrightness","maxValue":64,"value":32}"#)
+        source.handle(json: #"{"controlTarget":"combinedBrightness","displayID":1,"maxValue":64,"value":32}"#)
         now.advance(by: 2)              // past the window the key's own claim gets
 
         backend.value = 0.42
@@ -246,11 +250,27 @@ struct BetterDisplayOSDSourceTests {
         source.handle(json: #"{"controlTarget":"contrast","maxValue":64,"value":32}"#)
         #expect(!source.hasReported)                     // arrived, but not ours to draw
 
-        source.handle(json: #"{"controlTarget":"combinedBrightness","maxValue":64,"value":32}"#)
+        source.handle(json: #"{"controlTarget":"combinedBrightness","displayID":1,"maxValue":64,"value":32}"#)
         #expect(source.hasReported)
 
         source.noteBetterDisplayTerminated()
         #expect(!source.hasReported)                     // the claim never outlives its source
+    }
+
+    @Test func aPayloadWhileBetterDisplayIsNotRunningClaimsNothing() {
+        // Any process in the session can post on this channel, and the header says
+        // to treat the data as untrusted. Evidence of a working integration takes a
+        // delivered payload AND the neighbour running.
+        let source = makeSource(neighbourRunning: false)
+        source.handle(json: #"{"controlTarget":"combinedBrightness","displayID":1,"maxValue":64,"value":32}"#)
+        #expect(!source.hasReported)
+    }
+
+    @Test func aDisplayIDNoDisplayCanHaveIsDroppedInsteadOfTrapping() {
+        // A forged payload chooses this integer, and a plain conversion traps.
+        #expect(BetterDisplayOSDSource.wireDisplayID(-1) == nil)
+        #expect(BetterDisplayOSDSource.wireDisplayID(Int(UInt32.max) + 1) == nil)
+        #expect(BetterDisplayOSDSource.wireDisplayID(5) == 5)
     }
 
     @Test func theWorkingIntegrationClaimIsObservable() {
@@ -315,13 +335,13 @@ struct BetterDisplayOSDSourceTests {
         // was the only one. A `count == 1` would fail on the author's desk and pass
         // on CI, which is the worst shape a test can have.
         //
-        // No displayID, so the payload names no screen and the reading stays
-        // `.noDisplay` — which is why this holds on any machine: it asserts the
-        // DELIVERY, never which panel ends up drawing it
+        // It names the main display, the one screen every machine running this
+        // suite has, because a payload naming no display is dropped; the assertion
+        // is still about DELIVERY, never which panel ends up drawing it
         // (docs/DECISIONS.md: hud-target-is-a-role).
         DistributedNotificationCenter.default().postNotificationName(
             Notification.Name(BetterDisplayOSDSource.notificationName),
-            object: #"{"controlTarget":"combinedBrightness","maxValue":1024,"value":333}"#,
+            object: #"{"controlTarget":"combinedBrightness","displayID":\#(CGMainDisplayID()),"maxValue":1024,"value":333}"#,
             userInfo: nil,
             deliverImmediately: true
         )

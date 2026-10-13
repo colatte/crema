@@ -82,4 +82,13 @@ struct MenuLineWidthTests {
         case .keyboardBrightness: "osd.domain.keyboardBrightness"
         }
     }
+
+    @Test func aPublishedTitleIsCutAtTheCeiling() {
+        #expect(NowPlayingMenuSection.lineCeiling == ceiling)
+        let long = String(repeating: "x", count: 500)
+        let fitted = NowPlayingMenuSection.fitted(long)
+        #expect(fitted.count == ceiling)
+        #expect(fitted.hasSuffix("…"))
+        #expect(NowPlayingMenuSection.fitted("Breathe") == "Breathe")
+    }
 }

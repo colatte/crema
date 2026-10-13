@@ -544,6 +544,7 @@ pending exit passed the whole suite. The border is otherwise untouched — the N
 monitors stay real (SurfaceHoverMonitorTests).
 
 ### signed-without-hardened-runtime
+Superseded for the app's own executable by `self-signed-runtime-without-library-validation`: the self-signed app now carries the runtime with library validation off. What follows stays the record of why validation cannot stay on.
 Self-signed distribution must NOT enable the hardened runtime. `--options
 runtime` turns on dyld library validation, which demands a real matching Team
 ID between the process and every non-platform library it maps — a self-signed
@@ -1883,11 +1884,9 @@ bar would throw where it used to write.
 Known gaps, stated rather than sold as fixed. A mirror set is a coin flip: the one
 `NSScreen` AppKit reports may or may not be the internal one, and when it is not,
 the bar falls open to every display plus a log line. And a payload from the
-neighbour that names no display stays `.noDisplay` and still draws everywhere — it
-has never been observed, and calling it the built-in would be a guess that also
-routes a later drag to a panel it may not have meant, which
-`betterdisplay-osd-source` already rules against ("drop rather than guess"); it is
-also the payload shape the local source's stand-down depends on seeing. The trigger
+neighbour that names no display is dropped: drawn everywhere, a drag on it would
+resolve to the built-in panel, a guess `betterdisplay-osd-source` rules against
+("drop rather than guess"), and anyone in the session can post one. The trigger
 that reopens this decision: the day the app can read a SECOND Apple-controlled
 panel, `.builtIn` stops naming exactly one screen and the producer has to name the
 display it read.
@@ -2128,7 +2127,10 @@ hdiutil BEFORE its EdDSA signature was checked — mounting bytes nobody had vou
 for, on the one path where the app runs code it did not build. `SURequireSignedFeed`
 was absent too, which leaves the appcast itself unauthenticated: an attacker who
 controls the served feed still cannot forge a download (the enclosure signature holds)
-but can lie about which version is newest — freeze or downgrade.
+but can lie about which version is newest and freeze clients where they are; a
+downgrade Sparkle refuses on its own (2.9.4's installer rejects an older version).
+Signing closes the lie, not a replay: a feed signed in its day can be served again
+later and freezes clients at that version (docs/KNOWN-GAPS.md).
 Decision: both are YES, and they travel together because Sparkle enforces it —
 `SPUUpdater` refuses to START the updater when the feed requirement is on without
 verify-before-extraction, so shipping one without the other takes the whole update
@@ -2140,7 +2142,7 @@ block and prepending its own warning comment. `release.sh` regenerates into a FR
 file every release, so the feed's signedness follows the newest archive's plist and
 nothing else — which also means the day that key leaves Info.plist, the feed silently
 stops being signed while every client that already shipped it rejects the appcast.
-The consequence that outlives this entry: docs/appcast.xml authenticates itself from the first feed generated with the key in the packaged app onward — the committed feed of 1.4.0 predates the keys and carries no signature block, so today the promise is armed, not yet in force.
+The consequence that outlives this entry: docs/appcast.xml authenticates itself, and every feed since 1.5.0 carries the signature block (1.2.0 and 1.4.0, before the keys, did not).
 It was already "regenerated, never hand-edited"; from here a hand edit is not untidy,
 it is an outage — clients carrying the key fail every check for 20 days, Sparkle's
 default `SUSignedFeedFailureExpirationInterval`, before falling back to unsigned
@@ -3096,4 +3098,33 @@ The CI image ran Xcode 26.3, linked against SDK 26, and could not see this class
 Reopening gate: none for the deferral itself — an SDK that tolerates the nesting again
 does not make it safe to move back inline. Any new window the init would show inherits
 the same turn.
+
+### self-signed-runtime-without-library-validation
+`signed-without-hardened-runtime` turned the runtime off on the self-signed path to
+stop a crash, and recorded only that reason. Its price went unwritten: without the
+runtime, dyld honours `DYLD_*` variables (`man dyld`: they are ignored only for
+binaries protected by System Integrity Protection; Apple's Hardened Runtime page:
+it prevents "code injection, dynamically linked library (DLL) hijacking"), so any
+process of the same user could launch Crema with `DYLD_INSERT_LIBRARIES` and run
+code inside the process that holds the Accessibility grant.
+Measured with Xcode 27.0 on macOS 27.0.1, one Release build signed three ways with
+the real self-signed identity and launched for 6 s with `DYLD_PRINT_LIBRARIES=1`
+(a variable that only makes dyld print what it loads): today's shape (no runtime)
+stayed alive, mapped Sparkle and printed 1239 dyld lines; the runtime alone aborted
+(exit 134, "different Team IDs" loading `@rpath/Sparkle.framework`), reproducing the
+recorded crash; the runtime with `com.apple.security.cs.disable-library-validation`
+stayed alive, mapped Sparkle and printed nothing.
+Decision: on the self-signed path the app's own executable is signed with
+`--options runtime` and `Crema-SelfSigned.entitlements`, which carries that one
+exception. The Developer ID path is unchanged (a real Team ID satisfies validation).
+The nested code (Sparkle's helpers, the vendored adapter) keeps the signature it
+shipped with: it holds no grant, and the update path it runs is left as it was.
+What it does not close: turning validation off lets the process load a library of
+any signer from its own bundle, so whoever can replace files inside `Crema.app`
+still runs code in it, the same class docs/KNOWN-GAPS.md records for the adapter.
+Never add `allow-dyld-environment-variables`: it reopens what the runtime closes.
+The designated requirement does not read the runtime flag, so the Accessibility
+grant should survive the update; not measured on an updated install.
+Reopening gate: a Developer ID account, which makes validation pass with a real
+Team ID and lets the exception go.
 

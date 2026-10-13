@@ -40,6 +40,8 @@ playground.xcworkspace
 .idea/
 
 # secrets
+# the Sparkle EdDSA key backup, if exported into the repo by mistake (docs/RELEASE-GUIDE.md)
+sparkle-eddsa-private-key*
 *.p12
 *.pfx
 *.cer

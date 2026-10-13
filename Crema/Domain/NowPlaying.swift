@@ -29,3 +29,18 @@ struct NowPlaying: Equatable, Sendable {
     /// doesn't report it (the JXA fallback).
     var supportsSkip: Bool = true
 }
+
+extension NowPlaying {
+    /// The longest position the app represents: a day, the same bound the
+    /// adapter's duration sanitizer keeps. Whoever publishes now-playing chooses
+    /// this number (any app, and websites when browser media is on), and past
+    /// Int64's seconds the time label's `Duration` traps (measured: 1e19 s
+    /// aborts), so every border bounds a position before the domain carries it.
+    static let maximumPosition: Double = 24 * 60 * 60
+
+    /// A position in `0...(duration ?? maximumPosition)`; NaN reads as 0.
+    static func bounded(position: Double, duration: Double?) -> Double {
+        guard !position.isNaN else { return 0 }
+        return min(max(position, 0), duration ?? maximumPosition)
+    }
+}

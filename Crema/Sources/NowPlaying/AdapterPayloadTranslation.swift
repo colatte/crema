@@ -75,15 +75,12 @@ enum AdapterPayloadTranslation {
         // dropped by `durationSeconds`).
         guard let anchor = payload.elapsedSeconds else { return 0 }
         guard payload.playing ?? false, let anchorDate = payload.anchorDate else {
-            return anchor
+            return NowPlaying.bounded(position: anchor, duration: payload.durationSeconds)
         }
         // A future-dated anchor (clock skew) must not rewind: it contributes 0.
         let age = max(0, now.timeIntervalSince(anchorDate))
         let advanced = anchor + age * (payload.playbackRate ?? 1)
-        if let duration = payload.durationSeconds {
-            return min(advanced, duration)
-        }
-        return advanced
+        return NowPlaying.bounded(position: advanced, duration: payload.durationSeconds)
     }
 
     private struct Envelope: Decodable {

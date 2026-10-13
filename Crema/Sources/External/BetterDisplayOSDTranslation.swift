@@ -58,16 +58,15 @@ enum BetterDisplayOSDTranslation {
               let value = payload.value,
               payload.lock != true,
               isBrightness(payload),
-              // A payload that names no display is genuinely unnamed, and stays
-              // that way. The neighbour has named a display on every delivery ever
-              // observed, so this path is unmeasured — and calling it the built-in
-              // would be a guess that also routes a later drag to a panel it may
-              // not have meant, which is what "drop rather than guess" rules out
-              // (docs/DECISIONS.md: betterdisplay-osd-source). Dropping it outright
-              // is the other honest option, rejected only because nothing has ever
-              // seen this shape and dropping would also silence the stand-down the
-              // local source needs when the neighbour speaks.
-              let resolved = payload.displayID.map(target) ?? .noDisplay
+              // A payload that names no display is dropped. The neighbour has named
+              // one on every delivery ever observed, and an unnamed bar would show
+              // on every screen while a drag on it resolves to the built-in panel,
+              // so anyone posting on this channel could turn a drag on a monitor
+              // into a write on the laptop: drop rather than guess
+              // (docs/DECISIONS.md: betterdisplay-osd-source). The local source's
+              // stand-down loses nothing: it only follows reports about its panel.
+              let displayID = payload.displayID,
+              let resolved = target(displayID)
         else { return nil }
 
         // The scale is BetterDisplay's own (observed: 0...64 on a built-in

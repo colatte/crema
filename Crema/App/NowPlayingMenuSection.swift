@@ -71,10 +71,20 @@ struct NowPlayingMenuSection: View {
         case .nothing:
             String(localized: "menu.nowPlaying.nothing", defaultValue: "Nothing playing")
         case .title(let title):
-            title
+            Self.fitted(title)
         case let .titleAndArtist(title, artist):
-            String(localized: "menu.nowPlaying.titleAndArtist", defaultValue: "\(title) — \(artist)")
+            Self.fitted(String(localized: "menu.nowPlaying.titleAndArtist", defaultValue: "\(title) — \(artist)"))
         }
+    }
+
+    /// The menu's line ceiling. An NSMenu is as wide as its widest item, and a
+    /// title is whatever the player published, so a row past this would open the
+    /// whole menu across the screen (docs/DECISIONS.md: menu-status-before-warnings).
+    nonisolated static let lineCeiling = 72
+
+    /// The row as it fits: cut at the ceiling, with an ellipsis standing for the rest.
+    nonisolated static func fitted(_ row: String) -> String {
+        row.count <= lineCeiling ? row : String(row.prefix(lineCeiling - 1)) + "…"
     }
 
     /// Play vs Pause off `mediaActive`, which flips only on a real play/pause edge —

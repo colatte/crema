@@ -72,4 +72,10 @@ struct AdapterLineStreamTests {
         }
         #expect(lines.isEmpty)
     }
+
+    @Test func aLinePastTheCeilingIsDroppedWholeAndTheNextOneSurvives() {
+        var buffer = AdapterLineStream.LineBuffer(maxLineBytes: 8)
+        #expect(buffer.push(Array("0123456789".utf8)).isEmpty)
+        #expect(buffer.push(Array("rest of it\nok\n".utf8)) == ["ok"])
+    }
 }
