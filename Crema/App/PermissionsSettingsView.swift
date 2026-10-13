@@ -61,7 +61,7 @@ struct PermissionsSettingsView: View {
             } footer: {
                 Text(String(
                     localized: "settings.permissions.footer",
-                    // swiftlint:disable:next line_length
+                    // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
                     defaultValue: "Crema needs Accessibility access to capture the media keys — for its volume and brightness indicators and to replace the system’s. Without it the app still runs; it just can’t react to those keys. Granting is picked up automatically, no relaunch needed."
                 ))
                 .settingsFootnote()
@@ -111,7 +111,7 @@ struct PermissionsSettingsView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(String(
                         localized: "settings.permissions.automation.footer",
-                        // swiftlint:disable:next line_length
+                        // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
                         defaultValue: "Only Crema’s backup reader needs this — it asks \(musicApps) what is playing. The usual reader needs no permission, so Now Playing works either way."
                     ))
                     automationDetail

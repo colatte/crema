@@ -105,7 +105,7 @@ private struct GeneralSettingsView: View {
     /// beside the style tiles rather than in the Indicators tab because the choice
     /// is a picture of a bar, and the only place that picture means anything is
     /// next to the picture of the surface the bar sits on.
-    @AppStorage(Preferences.hudIndicatorStyleKey) private var indicatorStyle = HUDIndicatorStyle.slider.rawValue
+    @AppStorage(Preferences.hudIndicatorStyleKey) private var indicatorStyle = HUDIndicatorStyle.shippedDefault.rawValue
     /// The desk both tile rows stand on, read once when this pane is built. Asked
     /// of the core rather than of each row, so the two rows in one Section cannot
     /// end up on different desks.
@@ -129,11 +129,8 @@ private struct GeneralSettingsView: View {
         _loginNeedsApproval = State(initialValue: seed.loginNeedsApproval)
     }
 
-    /// Notch is what the user declared, and nothing on screen is honouring it.
-    /// Deliberately not `!rendersNotch` alone: with Card or Classic declared there
-    /// is no fallback to report, and the generic sentence is the right one.
     private var fallbackIsInEffect: Bool {
-        style == .notch && !rendersNotch && rendersCard
+        Style.fallsBackToCard(declared: style, rendersNotch: rendersNotch, rendersCard: rendersCard)
     }
 
     /// Whether any connected display carries a style of its own. Read where it is
@@ -194,7 +191,7 @@ private struct GeneralSettingsView: View {
                         Text(String(localized: "settings.hud.indicator", defaultValue: "Card indicator"))
                     }
                     .onChange(of: indicatorStyle) { _, new in
-                        core.setHUDIndicatorStyle(HUDIndicatorStyle(rawValue: new) ?? .slider)
+                        core.setHUDIndicatorStyle(HUDIndicatorStyle(rawValue: new) ?? .shippedDefault)
                     }
                 }
             } header: {
@@ -312,9 +309,9 @@ private struct GeneralSettingsView: View {
 
 private struct NowPlayingSettingsView: View {
     let core: AppCore
-    @AppStorage(Preferences.reactiveNowPlayingKey) private var reactive = true
-    @AppStorage(Preferences.showsPlaybackControlsKey) private var showsControls = true
-    @AppStorage(Preferences.includesBrowserMediaKey) private var includesBrowsers = false
+    @AppStorage(Preferences.reactiveNowPlayingKey) private var reactive = Preferences.defaultReactiveNowPlaying
+    @AppStorage(Preferences.showsPlaybackControlsKey) private var showsControls = Preferences.defaultShowsPlaybackControls
+    @AppStorage(Preferences.includesBrowserMediaKey) private var includesBrowsers = Preferences.defaultIncludesBrowserMedia
 
     var body: some View {
         Form {
@@ -340,7 +337,7 @@ private struct NowPlayingSettingsView: View {
             } footer: {
                 Text(String(
                     localized: "settings.nowPlaying.source.footer",
-                    // swiftlint:disable:next line_length
+                    // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
                     defaultValue: "Crema reads what’s playing from the system. With nothing reporting, the player stays hidden and the options below have nothing to act on."
                 ))
                 .settingsFootnote()
@@ -380,7 +377,7 @@ private struct NowPlayingSettingsView: View {
             } footer: {
                 Text(String(
                     localized: "settings.nowPlaying.browsers.footer",
-                    // swiftlint:disable:next line_length
+                    // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
                     defaultValue: "Includes music playing in Safari, Chrome, and other browsers. This can make the player appear for autoplay videos on websites."
                 ))
                 .settingsFootnote()

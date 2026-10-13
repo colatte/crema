@@ -28,7 +28,7 @@ struct AccessibilityOnboardingView: View {
 
             Text(String(
                 localized: "onboarding.body",
-                // swiftlint:disable:next line_length
+                // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
                 defaultValue: "Crema uses the Accessibility permission to capture the volume and brightness keys so it can show its own indicators. Without it the app keeps working — it just can’t react to those keys."
             ))
             .multilineTextAlignment(.center)

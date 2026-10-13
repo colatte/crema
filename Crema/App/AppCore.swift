@@ -48,12 +48,12 @@ final class AppCore {
     //
     // `preferences` being private does NOT mean this core is the only writer — the
     // Settings view writes five of them straight through @AppStorage, and
-    // Preferences exposes those raw keys on purpose for exactly that. The real
-    // contract is the other way round: the persisted key is the source of truth,
-    // @AppStorage does the writing, and a setter here exists to apply the LIVE
-    // effect the write cannot. Which is why every new Settings control owes an
-    // `.onChange` calling into this core — without it the value persists and
-    // nothing happens until relaunch.
+    // Preferences exposes those raw keys on purpose for exactly that. The persisted
+    // key is the source of truth, and it is written twice: @AppStorage writes it,
+    // then the setter here writes the same value again before applying the LIVE
+    // effect the @AppStorage write cannot. The second write is idempotent. Which is
+    // why every new Settings control owes an `.onChange` calling into this core —
+    // without it the value persists and nothing happens until relaunch.
     private let windowManager: WindowManager
     private let preferences: Preferences
     let permissionMonitor: AccessibilityPermissionMonitor
@@ -190,20 +190,14 @@ final class AppCore {
             graph = Self.makeDemoGraph(demo)
         } else {
             self.demo = nil
-            let builtChain = Self.makeNowPlayingChain(onActiveChange: onNowPlayingActive)
-            chain = builtChain
-            graph = Self.makeRealGraph(
-                nowPlayingSource: builtChain,
-                nowPlayingController: RoutingNowPlayingController(activeChannel: { builtChain.activeCommandChannel() })
-            )
+            let production = Self.makeProductionGraph(onNowPlayingActive: onNowPlayingActive)
+            chain = production.chain
+            graph = production.graph
         }
         #else
-        let builtChain = Self.makeNowPlayingChain(onActiveChange: onNowPlayingActive)
-        chain = builtChain
-        graph = Self.makeRealGraph(
-            nowPlayingSource: builtChain,
-            nowPlayingController: RoutingNowPlayingController(activeChannel: { builtChain.activeCommandChannel() })
-        )
+        let production = Self.makeProductionGraph(onNowPlayingActive: onNowPlayingActive)
+        chain = production.chain
+        graph = production.graph
         #endif
         nowPlayingChain = chain
 
@@ -723,6 +717,20 @@ final class AppCore {
     /// The now-playing chain: adapter first (covers browsers), JXA fallback
     /// (Spotify/Music only), else off. Each candidate is a factory so the chain
     /// can rebuild a dead source on self-heal.
+    /// The production graph and the chain it reads, wired once: the Debug-real
+    /// and Release branches both call this, because the Debug-hosted suite never
+    /// compiles the Release one and a copy there would drift unseen.
+    private static func makeProductionGraph(
+        onNowPlayingActive: @escaping @Sendable (Bool) -> Void
+    ) -> (chain: ChainedNowPlayingSource, graph: SystemGraph) {
+        let chain = makeNowPlayingChain(onActiveChange: onNowPlayingActive)
+        let graph = makeRealGraph(
+            nowPlayingSource: chain,
+            nowPlayingController: RoutingNowPlayingController(activeChannel: { chain.activeCommandChannel() })
+        )
+        return (chain, graph)
+    }
+
     private static func makeNowPlayingChain(onActiveChange: @escaping @Sendable (Bool) -> Void) -> ChainedNowPlayingSource {
         var candidates: [NowPlayingCandidate] = []
 
@@ -920,11 +928,14 @@ extension AppCore {
     /// available since macOS 13 and therefore unconditionally on this app's 14+
     /// target.
     ///
-    /// Never a hand-built `x-apple.systempreferences:` URL: that pane ID is an
-    /// undocumented internal identifier, of the kind Apple has already renamed
-    /// once across the Preferences→Settings transition, and a URL that stops
+    /// No hand-built `x-apple.systempreferences:` URL for this pane, because it has a
+    /// public opener: the pane ID is an undocumented internal identifier, of the
+    /// kind Apple has already renamed once across the Preferences→Settings
+    /// transition, and a URL that stops
     /// resolving does nothing and says nothing about it. Nothing here is worth
-    /// guessing a private string for.
+    /// guessing a private string for. The Privacy panes have no public opener (the
+    /// SDK's only `openSystemSettings…` is this one) and do build the URL by hand,
+    /// a recorded debt (docs/KNOWN-GAPS.md).
     func openLoginItemsSettings() {
         SMAppService.openSystemSettingsLoginItems()
     }
@@ -1106,7 +1117,7 @@ extension AppCore {
     /// names who won and leaves the choice to the user, which is the only place
     /// it can be made (docs/DECISIONS.md: media-key-chain-contention).
     func mediaKeyChainNotice() -> MediaKeyChainNotice {
-        chainNoticeCache.notice(betterDisplayIsFeedingUs: betterDisplaySource?.hasReported ?? false) { feeding in
+        chainNoticeCache.notice(betterDisplayIsFeedingUs: betterDisplayIsReporting) { feeding in
             Self.mediaKeyChainNotice(
                 registry: eventTapRegistry,
                 ourPID: ProcessInfo.processInfo.processIdentifier,
@@ -1331,7 +1342,9 @@ extension AppCore {
             // with no slit the shipped default declares Notch while every panel
             // draws Card, and a lone "Style: Notch" beside a Card-shaped HUD is the
             // contradiction Settings already learned to name out loud.
-            fallsBackToCard: style == .notch && !rendersAnywhere(.notch) && rendersAnywhere(.card),
+            fallsBackToCard: Style.fallsBackToCard(
+                declared: style, rendersNotch: rendersAnywhere(.notch), rendersCard: rendersAnywhere(.card)
+            ),
             accessibilityGranted: permissionMonitor.isGranted,
             suppressionEnabled: suppressionEnabled,
             // The wish is not the fact: with no permission, or no suppressor in the

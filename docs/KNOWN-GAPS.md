@@ -18,7 +18,7 @@ The rest **stays**, in five classes:
 1. Constructor arguments the type already decides, where the only conformer is the production one and a test would assert a distinction no observer makes.
 2. Edges whose only honest observer is the real system (`SMAppService`, a live cursor, `describeAll()`, Settings URLs, Info.plist keys) — there a test is either tautology or a trip to hardware, and a mistake shows up on first launch.
 3. `start()` and the retention guard, which break **loudly** on the build's first run, not silently.
-4. What sits behind `#if DEBUG` and the duplicated construction in the `#else` — a real risk (the Debug-hosted suite does not compile the Release copy), but the fix is dedup, not a test.
+4. What sits behind `#if DEBUG`, the demo graph. The production graph is wired once, in `makeProductionGraph`, which the Debug-real and the Release branch both call, so the branch the Debug-hosted suite never compiles carries no wiring of its own.
 5. The idea of an `AppCore` over doubles, which **moves** the hole instead of closing it — and an end-to-end test of the graph is less mutation-sensitive per line than the `wire*` seams, which fails the house criterion outright.
 
 Two named survivors, accepted: `MenuStatus.Action` (a 5-case switch — a button could re-register the login item under the re-enable-suppression label; the fix asks for a new protocol, more structure than the risk pays for) and `AppCoreAutomation:14` (a boolean inversion that would erase the Permissions line and leave a blocking consent poll running forever). A residue every `wire*` shares, and one still worth stating: they pin the **wiring**, not the `init` line that installs it.
