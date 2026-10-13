@@ -61,10 +61,10 @@ struct ScrubberRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Text(timeLabel(draft ?? position, showsHours: showsHours))
+            Text(Self.timeLabel(draft ?? position, showsHours: showsHours))
             track
             if showsDuration, let duration {
-                Text(timeLabel(duration, showsHours: showsHours))
+                Text(Self.timeLabel(duration, showsHours: showsHours))
             }
         }
         .font(.caption2)
@@ -173,8 +173,10 @@ struct ScrubberRow: View {
     /// The pattern is chosen by the TRACK's length, not by the value being
     /// printed, so the elapsed and total labels always have the same shape: a
     /// 1h20m recording reads `0:05:00 / 1:20:00`, never `5:00 / 1:20:00`.
-    private func timeLabel(_ seconds: Double, showsHours: Bool) -> String {
-        let value = Duration.seconds(max(0, seconds))
+    /// Bounded again here, not only at the borders: `Duration.seconds` traps past
+    /// Int64's seconds, and a draft or any future source reaches this label too.
+    nonisolated static func timeLabel(_ seconds: Double, showsHours: Bool) -> String {
+        let value = Duration.seconds(NowPlaying.bounded(position: seconds, duration: nil))
         return showsHours
             ? value.formatted(.time(pattern: .hourMinuteSecond))
             : value.formatted(.time(pattern: .minuteSecond))

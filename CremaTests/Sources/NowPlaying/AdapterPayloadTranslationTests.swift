@@ -204,6 +204,18 @@ struct AdapterPayloadTranslationTests {
         let np = try #require(translate(fullLine, at: anchor.addingTimeInterval(10)))
         #expect(np.position == 52.5)
     }
+
+    /// Any app publishing now-playing chooses these numbers, and the time label's
+    /// `Duration` traps on a position past Int64's seconds (measured: 1e19 aborts),
+    /// so the border bounds the position before the domain carries it.
+    @Test func aPositionThePublisherChoseIsBoundedAtTheBorder() throws {
+        let paused = #"{"type":"data","diff":false,"payload":{"title":"X","playing":false,"elapsedTimeMicros":1e26}}"#
+        #expect(try #require(translate(paused)).position == NowPlaying.maximumPosition)
+
+        let racing = #"{"type":"data","diff":false,"payload":{"title":"X","playing":true,"playbackRate":1e300,"elapsedTimeMicros":0,"timestampEpochMicros":1000000000000}}"#
+        let aged = try #require(translate(racing, at: Date(timeIntervalSince1970: 1_000_100)))
+        #expect(aged.position == NowPlaying.maximumPosition)
+    }
 }
 
 // swiftlint:enable line_length

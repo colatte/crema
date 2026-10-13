@@ -36,4 +36,11 @@ struct JXANowPlayingTranslationTests {
         #expect(JXANowPlayingTranslation.nowPlaying(fromJSON: "not json") == nil)
         #expect(JXANowPlayingTranslation.nowPlaying(fromJSON: "") == nil)
     }
+
+    @Test func aPositionOrDurationThePlayerChoseIsBounded() throws {
+        let json = #"{"title":"X","duration":1e30,"position":1e26,"playing":false}"#
+        let np = try #require(JXANowPlayingTranslation.nowPlaying(fromJSON: json))
+        #expect(np.duration == nil)
+        #expect(np.position == NowPlaying.maximumPosition)
+    }
 }
