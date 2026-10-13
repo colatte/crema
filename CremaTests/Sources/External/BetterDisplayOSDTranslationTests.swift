@@ -8,9 +8,9 @@ struct BetterDisplayOSDTranslationTests {
 
     private let externalUUID = DisplayUUID(rawValue: "UUID-FOR-99")
     /// The built-in panel is named like any other display: the neighbour reports it
-    /// by ID and the border resolves it to a UUID, so every payload here carries
-    /// `.display(_)` — except one that named no display at all, which stays
-    /// `.noDisplay` rather than being guessed into the built-in
+    /// by ID and the border resolves it to a UUID, so every payload here names one.
+    /// The negative fixtures name it too, so each is refused for its own rule and
+    /// not for the missing display, which is refused on its own
     /// (docs/DECISIONS.md: hud-target-is-a-role).
     private let builtInUUID = DisplayUUID(rawValue: "UUID-FOR-1")
 
@@ -40,7 +40,7 @@ struct BetterDisplayOSDTranslationTests {
 
     @Test func everyBrightnessFlavourIsTheSameBarToTheUser() {
         for target in ["combinedBrightness", "hardwareBrightness", "softwareBrightness"] {
-            let hud = translate(#"{"controlTarget":"\#(target)","maxValue":64,"value":32}"#)
+            let hud = translate(#"{"displayID":1,"controlTarget":"\#(target)","maxValue":64,"value":32}"#)
             #expect(hud?.kind == .screenBrightness)
             #expect(hud?.value == 0.5)
         }
@@ -70,59 +70,56 @@ struct BetterDisplayOSDTranslationTests {
     @Test func volumeAndMuteAreLeftToCoreAudio() {
         // BetterDisplay reports them, but Core Audio already emits for every
         // volume change whoever caused it — translating these would draw twice.
-        #expect(translate(#"{"controlTarget":"volume","systemIconID":3,"maxValue":100,"value":50}"#) == nil)
-        #expect(translate(#"{"controlTarget":"mute","systemIconID":4,"maxValue":1,"value":0}"#) == nil)
+        #expect(translate(#"{"displayID":1,"controlTarget":"volume","systemIconID":3,"maxValue":100,"value":50}"#) == nil)
+        #expect(translate(#"{"displayID":1,"controlTarget":"mute","systemIconID":4,"maxValue":1,"value":0}"#) == nil)
     }
 
     @Test func controlsWithNoHUDOfOursStayInvisible() {
         // Contrast, gamma, temperature and friends ride the same notification.
         for target in ["contrast", "gamma", "temperature", "blueLight", "underscan"] {
-            #expect(translate(#"{"controlTarget":"\#(target)","maxValue":64,"value":40}"#) == nil)
+            #expect(translate(#"{"displayID":1,"controlTarget":"\#(target)","maxValue":64,"value":40}"#) == nil)
         }
     }
 
     @Test func withoutATargetTheIconDecides() {
         // Every field is optional in the published format.
-        #expect(translate(#"{"systemIconID":1,"maxValue":64,"value":16}"#)?.value == 0.25)
-        #expect(translate(#"{"systemIconID":3,"maxValue":64,"value":16}"#) == nil)
-        #expect(translate(#"{"maxValue":64,"value":16}"#) == nil)
+        #expect(translate(#"{"displayID":1,"systemIconID":1,"maxValue":64,"value":16}"#)?.value == 0.25)
+        #expect(translate(#"{"displayID":1,"systemIconID":3,"maxValue":64,"value":16}"#) == nil)
+        #expect(translate(#"{"displayID":1,"maxValue":64,"value":16}"#) == nil)
     }
 
-    @Test func aPayloadNamingNoDisplayStaysUnnamedRatherThanGuessed() {
-        // The neighbour has named a display on every delivery ever observed, so
-        // this path is unmeasured — and calling it the built-in would be a guess
-        // that also routes a later drag to a panel it may not have meant, which
-        // "drop rather than guess" rules out (docs/DECISIONS.md:
-        // betterdisplay-osd-source). Unnamed keeps today's behaviour: the bar shows
-        // on every display, the honest reading of "nobody said which screen".
-        let hud = translate(#"{"controlTarget":"combinedBrightness","maxValue":64,"value":64}"#)
-        #expect(hud?.value == 1)
-        #expect(hud?.target == .noDisplay)
+    @Test func aPayloadNamingNoDisplayIsDropped() {
+        // The neighbour has named a display on every delivery ever observed, and an
+        // unnamed bar would show on every screen while a drag on it resolves to the
+        // built-in panel: anyone posting on this channel could turn a drag on the
+        // monitor into a write on the laptop. Drop rather than guess
+        // (docs/DECISIONS.md: betterdisplay-osd-source).
+        #expect(translate(#"{"controlTarget":"combinedBrightness","maxValue":64,"value":64}"#) == nil)
     }
 
     @Test func aBrokenPayloadIsIgnoredRatherThanGuessed() {
         #expect(translate("not json at all") == nil)
         #expect(translate("{}") == nil)
-        #expect(translate(#"{"controlTarget":"combinedBrightness"}"#) == nil)          // no value
-        #expect(translate(#"{"controlTarget":"combinedBrightness","maxValue":0,"value":40}"#) == nil)
+        #expect(translate(#"{"displayID":1,"controlTarget":"combinedBrightness"}"#) == nil)          // no value
+        #expect(translate(#"{"displayID":1,"controlTarget":"combinedBrightness","maxValue":0,"value":40}"#) == nil)
     }
 
     @Test func aPayloadWithNoScaleIsDroppedRatherThanGivenOne() {
         // Guessing a maximum would draw a confidently wrong bar, and with the
         // neighbour's own OSD switched off that bar is the only feedback there is.
-        #expect(translate(#"{"controlTarget":"combinedBrightness","value":40}"#) == nil)
-        #expect(translate(#"{"controlTarget":"combinedBrightness","maxValue":-64,"value":40}"#) == nil)
+        #expect(translate(#"{"displayID":1,"controlTarget":"combinedBrightness","value":40}"#) == nil)
+        #expect(translate(#"{"displayID":1,"controlTarget":"combinedBrightness","maxValue":-64,"value":40}"#) == nil)
     }
 
     @Test func aLockedControlIsNotDrawnAsAnOrdinaryBar() {
         // BetterDisplay marks controls the user cannot move; a bar that refuses
         // to budge reads as a broken HUD.
-        #expect(translate(#"{"controlTarget":"combinedBrightness","maxValue":64,"value":40,"lock":true}"#) == nil)
-        #expect(translate(#"{"controlTarget":"combinedBrightness","maxValue":64,"value":40,"lock":false}"#) != nil)
+        #expect(translate(#"{"displayID":1,"controlTarget":"combinedBrightness","maxValue":64,"value":40,"lock":true}"#) == nil)
+        #expect(translate(#"{"displayID":1,"controlTarget":"combinedBrightness","maxValue":64,"value":40,"lock":false}"#) != nil)
     }
 
     @Test func aValueOutsideItsScaleIsClampedNotDrawnPastTheEnds() {
-        #expect(translate(#"{"controlTarget":"combinedBrightness","maxValue":64,"value":80}"#)?.value == 1)
-        #expect(translate(#"{"controlTarget":"combinedBrightness","maxValue":64,"value":-5}"#)?.value == 0)
+        #expect(translate(#"{"displayID":1,"controlTarget":"combinedBrightness","maxValue":64,"value":80}"#)?.value == 1)
+        #expect(translate(#"{"displayID":1,"controlTarget":"combinedBrightness","maxValue":64,"value":-5}"#)?.value == 0)
     }
 }

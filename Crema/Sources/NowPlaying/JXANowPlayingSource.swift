@@ -109,6 +109,7 @@ final class JXANowPlayingSource: NowPlayingSource, StoppableSource, @unchecked S
     private static func runProbeScript() async -> String? {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.environment = ChildProcessEnvironment.current
         process.arguments = ["-l", "JavaScript", "-e", probeSource]
         let pipe = Pipe()
         process.standardOutput = pipe

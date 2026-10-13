@@ -55,6 +55,7 @@ struct JXACommandChannel: NowPlayingCommandChannel {
     private func run(_ script: String) async throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.environment = ChildProcessEnvironment.current
         process.arguments = ["-l", "JavaScript", "-e", script]
         let pipe = Pipe()
         process.standardOutput = pipe

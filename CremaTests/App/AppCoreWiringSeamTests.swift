@@ -152,8 +152,9 @@ struct AppCoreWiringSeamTests {
         // press and the wrong value lands last.
         let screen = RecordingSampler(), keyboard = RecordingSampler()
         let source = AppCore.makeNeighbourSource(
-            target: { _ in .display(DisplayUUID(rawValue: "MONITOR-1")) },
-            standingDown: screen
+            target: { _ in .display(DisplayUUID(rawValue: "BUILT-IN")) },
+            standingDown: screen,
+            builtInDisplay: { DisplayUUID(rawValue: "BUILT-IN") }
         )
 
         source.handle(
@@ -162,5 +163,23 @@ struct AppCoreWiringSeamTests {
 
         #expect(screen.stoodDown == 1)
         #expect(keyboard.stoodDown == 0)
+    }
+
+    @Test func aReportAboutAnotherDisplayLeavesTheLocalSourceAlone() {
+        // The local source reads the built-in panel only. A report about a monitor
+        // (or a forged one, since anyone in the session can post on this channel)
+        // standing it down would silence the feedback of a key Crema swallowed.
+        let screen = RecordingSampler()
+        let source = AppCore.makeNeighbourSource(
+            target: { _ in .display(DisplayUUID(rawValue: "MONITOR-1")) },
+            standingDown: screen,
+            builtInDisplay: { DisplayUUID(rawValue: "BUILT-IN") }
+        )
+
+        source.handle(
+            json: #"{"controlTarget":"combinedBrightness","displayID":1,"maxValue":64,"systemIconID":1,"value":48}"#
+        )
+
+        #expect(screen.stoodDown == 0)
     }
 }
