@@ -224,7 +224,7 @@ final class ChainedNowPlayingSource: NowPlayingSource, StoppableSource, @uncheck
                 return armedPromotion
             }
             if armed, PromotionBoundary.isQuiet(nowPlaying, previous: previous) {
-                break // promote at this quiet boundary; drop the boundary snapshot
+                break
             }
             continuation.yield(nowPlaying)
             previous = nowPlaying

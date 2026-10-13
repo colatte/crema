@@ -254,8 +254,7 @@ struct HUDLevelSlider: View {
         appearance == .capsule && (isHovered || isEditing)
     }
 
-    /// Card's persisted choice → body (pinned by test): .slider is the
-    /// capsule, .filled the full-bleed bar.
+    /// Pinned by test.
     nonisolated static func appearance(for style: HUDIndicatorStyle) -> Appearance {
         style == .filled ? .filled : .capsule
     }

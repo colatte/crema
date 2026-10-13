@@ -44,7 +44,7 @@ enum Style: String, CaseIterable, Equatable, Sendable {
         }
     }
 
-    /// Stable hover regions for the active skin. Dispatch mirrors `frame`.
+    /// Stable hover regions for the active skin.
     func hoverRegions(on geometry: ScreenGeometry) -> SurfaceHoverRegions? {
         switch self {
         case .notch:
@@ -56,7 +56,7 @@ enum Style: String, CaseIterable, Equatable, Sendable {
         }
     }
 
-    /// Click-invoke zone for the active skin. Dispatch mirrors `frame`.
+    /// Click-invoke zone for the active skin.
     func invokeZone(on geometry: ScreenGeometry) -> CGRect? {
         switch self {
         case .notch:
@@ -68,7 +68,7 @@ enum Style: String, CaseIterable, Equatable, Sendable {
         }
     }
 
-    /// Per-state surface sizes for the active skin. Dispatch mirrors `frame`.
+    /// Per-state surface sizes for the active skin.
     func stateSizes(on geometry: ScreenGeometry) -> SurfaceStateSizes? {
         switch self {
         case .notch:

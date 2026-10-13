@@ -93,9 +93,7 @@ struct OSDSuppressionUnlockRegressionTests {
         var reengagedAfterFailure = 0
         for _ in 0..<(OSDTest.escalation * 4) {
             h.keys.press(.screenBrightnessUp)
-            // let the apply land and possibly suspend
             _ = await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) }
-            // advance whatever recovery probe is parked and let it re-engage
             let reengaged = await eventually {
                 h.clock.advance()
                 return !h.suppressor.suspendedDomains.contains(.screenBrightness)

@@ -57,8 +57,7 @@ final class UpdaterModel: NSObject, ObservableObject {
 
     override init() {
         super.init()
-        // Idiomatic modern setup: start the updater immediately, no updater
-        // delegate. Consent stays Sparkle's own — we set no
+        // Consent stays Sparkle's own — we set no
         // SUEnableAutomaticChecks/SUAutomaticallyUpdate defaults, so Sparkle
         // asks on the second launch and installs only on a user click.
         let controller = SPUStandardUpdaterController(

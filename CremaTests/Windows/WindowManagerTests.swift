@@ -711,8 +711,6 @@ struct WindowManagerTests {
         _ = await eventually { h.base.coordinator.state != .hidden }
 
         let state = PresentationState.nowPlaying(track, expanded: false)
-        // Internal, now flipped OFF: surface suppressed to the hidden frame,
-        // showsNowPlaying=false, and hover never arms (empty region).
         #expect(await eventually {
             h.recorder.panel(for: internalScreen.id)?.appliedFrames.last
                 == Style.card.frame(for: .hidden, on: internalScreen.geometry)
@@ -720,8 +718,6 @@ struct WindowManagerTests {
         #expect(h.recorder.panel(for: internalScreen.id)?.showsNowPlayingStates.last == false)
         #expect(h.recorder.panel(for: internalScreen.id)?.hoverArmedStates.last == false)
 
-        // External, now flipped ON: surface shown at the now-playing frame,
-        // showsNowPlaying=true, hover armed.
         #expect(await eventually {
             h.recorder.panel(for: externalScreen.id)?.appliedFrames.last
                 == Style.card.frame(for: state, on: externalScreen.geometry)

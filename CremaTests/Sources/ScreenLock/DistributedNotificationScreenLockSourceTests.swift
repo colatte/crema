@@ -105,7 +105,6 @@ struct DistributedNotificationScreenLockSourceTests {
         let source = makeSource(box, clock: clock)
         let emit = EmitCollector(source.updates)
 
-        // Lock: the edge reads locked → emit unsafe.
         box.locked = true
         source.handleEdge()
         #expect(await eventually { emit.values == [false] })
@@ -145,7 +144,6 @@ struct DistributedNotificationScreenLockSourceTests {
         let source = makeSource(box, clock: clock)
         let emit = EmitCollector(source.updates)
 
-        // Lock: the edge reads locked → emit unsafe.
         box.locked = true
         source.handleEdge()
         #expect(await eventually { emit.values == [false] })

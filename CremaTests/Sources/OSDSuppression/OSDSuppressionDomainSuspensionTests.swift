@@ -242,7 +242,6 @@ struct OSDSuppressionDomainSuspensionTests {
         }
         #expect(await eventually { h.suppressor.longSuspendedDomains.contains(.screenBrightness) })
 
-        // Heal it.
         h.screen.value = 0.5
         h.suppressor.retrySuspendedNow()
         #expect(await eventually { !h.suppressor.suspendedDomains.contains(.screenBrightness) })
@@ -258,7 +257,6 @@ struct OSDSuppressionDomainSuspensionTests {
         await settle()
         #expect(!h.suppressor.longSuspendedDomains.contains(.screenBrightness))
 
-        // The fifth escalates.
         await h.clock.waitForSleep()
         h.clock.advance()
         #expect(await eventually { h.suppressor.longSuspendedDomains.contains(.screenBrightness) })

@@ -215,7 +215,6 @@ final class AppCore {
             screenBrightnessController: graph.screenBrightnessController,
             keyboardBrightnessController: graph.keyboardBrightnessController,
             externalScreenBrightnessController: graph.externalScreenBrightnessController,
-            // Seed the live behavior from the persisted Settings.
             ignoresBrowserMedia: !preferences.includesBrowserMedia,
             reactiveNowPlaying: preferences.reactiveNowPlaying
         )
@@ -616,8 +615,6 @@ final class AppCore {
         windowManager.refreshStyles()
     }
 
-    /// Quiet vs reactive now playing — persisted and applied to the live
-    /// Coordinator at once.
     func setReactiveNowPlaying(_ reactive: Bool) {
         preferences.reactiveNowPlaying = reactive
         coordinator.setReactiveNowPlaying(reactive)
