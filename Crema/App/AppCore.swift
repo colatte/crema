@@ -717,20 +717,6 @@ final class AppCore {
     /// The now-playing chain: adapter first (covers browsers), JXA fallback
     /// (Spotify/Music only), else off. Each candidate is a factory so the chain
     /// can rebuild a dead source on self-heal.
-    /// The production graph and the chain it reads, wired once: the Debug-real
-    /// and Release branches both call this, because the Debug-hosted suite never
-    /// compiles the Release one and a copy there would drift unseen.
-    private static func makeProductionGraph(
-        onNowPlayingActive: @escaping @Sendable (Bool) -> Void
-    ) -> (chain: ChainedNowPlayingSource, graph: SystemGraph) {
-        let chain = makeNowPlayingChain(onActiveChange: onNowPlayingActive)
-        let graph = makeRealGraph(
-            nowPlayingSource: chain,
-            nowPlayingController: RoutingNowPlayingController(activeChannel: { chain.activeCommandChannel() })
-        )
-        return (chain, graph)
-    }
-
     private static func makeNowPlayingChain(onActiveChange: @escaping @Sendable (Bool) -> Void) -> ChainedNowPlayingSource {
         var candidates: [NowPlayingCandidate] = []
 
@@ -816,6 +802,27 @@ final class AppCore {
         }
     }
     #endif
+}
+
+// MARK: - The production graph
+
+/// An extension and not the class body, for the reason the others give: the
+/// body sits at the `type_body_length` ceiling the composition root leans on.
+@MainActor
+extension AppCore {
+    /// The production graph and the chain it reads, wired once: the Debug-real
+    /// and Release branches both call this, because the Debug-hosted suite never
+    /// compiles the Release one and a copy there would drift unseen.
+    private static func makeProductionGraph(
+        onNowPlayingActive: @escaping @Sendable (Bool) -> Void
+    ) -> (chain: ChainedNowPlayingSource, graph: SystemGraph) {
+        let chain = makeNowPlayingChain(onActiveChange: onNowPlayingActive)
+        let graph = makeRealGraph(
+            nowPlayingSource: chain,
+            nowPlayingController: RoutingNowPlayingController(activeChannel: { chain.activeCommandChannel() })
+        )
+        return (chain, graph)
+    }
 }
 
 // MARK: - Launch at login
