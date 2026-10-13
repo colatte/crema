@@ -1884,11 +1884,9 @@ bar would throw where it used to write.
 Known gaps, stated rather than sold as fixed. A mirror set is a coin flip: the one
 `NSScreen` AppKit reports may or may not be the internal one, and when it is not,
 the bar falls open to every display plus a log line. And a payload from the
-neighbour that names no display stays `.noDisplay` and still draws everywhere — it
-has never been observed, and calling it the built-in would be a guess that also
-routes a later drag to a panel it may not have meant, which
-`betterdisplay-osd-source` already rules against ("drop rather than guess"); it is
-also the payload shape the local source's stand-down depends on seeing. The trigger
+neighbour that names no display is dropped: drawn everywhere, a drag on it would
+resolve to the built-in panel, a guess `betterdisplay-osd-source` rules against
+("drop rather than guess"), and anyone in the session can post one. The trigger
 that reopens this decision: the day the app can read a SECOND Apple-controlled
 panel, `.builtIn` stops naming exactly one screen and the producer has to name the
 display it read.

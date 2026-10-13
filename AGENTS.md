@@ -18,14 +18,12 @@ swiftlint lint --strict && swiftformat --lint .        # CI pins 0.65.0, 0.62.1
 python3 scripts/check-catalog-selftest.py && python3 scripts/check-catalog.py .
 ```
 
-- The verdict of a test run is the `Test run with N tests` line, never
-  xcodebuild's exit: the app-hosted test target can hang in teardown after
-  every test has reported. Parallel runs need their own `-derivedDataPath`.
+- The verdict is the `Test run with N tests` line, never xcodebuild's exit
+  (teardown can hang after it); parallel runs need their own `-derivedDataPath`.
 - Debug adds a Demo menu (`DemoMenu`, `DemoSources`): fake sources, real
   pipeline. Sign dev builds with a stable certificate; TCC keys on signature.
-- One branch per task, cut from `dev`, named as CONTRIBUTING.md says, landed
-  by pull request; a direct push to `dev` or `main` is rejected, admins
-  included (docs/GITHUB.md). Merge commits, never squashes.
+- One branch per task from `dev`, named per CONTRIBUTING.md, landed by PR; no
+  direct push to `dev` or `main`, admins included (docs/GITHUB.md); no squash.
 
 ## Golden rule
 
@@ -123,10 +121,8 @@ design/           # icon and badge sources; catalogs generated, never by hand
 
 ## Gotchas
 
-- The native OSD on macOS 26 is rendered by ControlCenter, not OSDUIHelper;
-  suppression works by key interception.
-- The platform's new design is granted on LINKAGE: one binary renders Liquid
-  Glass on Tahoe and not on Sonoma; nobody has compared the two.
+- macOS 26 draws the OSD in ControlCenter, not OSDUIHelper: we intercept keys.
+- Liquid Glass is granted on LINKAGE: Tahoe renders it, Sonoma not; uncompared.
 - `AppCore.init` runs inside SwiftUI's scene update, so it shows no window
   inline: linked against the macOS 27 SDK the nesting aborts the launch
   (docs/DECISIONS.md: the-composition-root-draws-a-turn-later).
@@ -142,9 +138,13 @@ design/           # icon and badge sources; catalogs generated, never by hand
 - G7 — Declared-style adoption runs every launch; ends with pre-1.4 updates.
 - G8 — Privacy panes open by hand-built URL: the SDK has no public opener.
 - G9 — `noteAbsent`'s generation guard survives its mutation; no snapshot API.
+- G10 — The browser filter runs after translation; browsers known by prefix.
+- G11 — An older signed feed can be served again and freeze clients there.
+- G12 — No sender identity on BetterDisplay's channel: readings can be forged.
+- G13 — The vendored adapter's binaries carry no upstream commit or digest.
+- G14 — Whoever can write Crema.app swaps the adapter or a library in it.
 
 ## Open decisions
 
-None pending about how code is written. What is still open (the residues
-T10.2 and T11.5, the optional phases, and Lunar's socket format, which gates
-T7.4) lives in PLAN.md, one task per id, never renumbered.
+None pending about how code is written; PLAN.md holds what is open (T10.2,
+T11.5, the optional phases, Lunar's socket format for T7.4), ids never reused.
