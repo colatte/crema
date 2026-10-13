@@ -25,7 +25,7 @@ struct SymbolReplaceEffect: ViewModifier {
             // symbol (SwiftUI does not stack content transitions), so the icon
             // chases the latest state the way the native HUD settles — no debounce
             // needed.
-            .animation(reduceMotion ? nil : .default, value: symbolName)
+            .animation(SurfaceAnimation.respecting(reduceMotion: reduceMotion, .default), value: symbolName)
     }
 }
 

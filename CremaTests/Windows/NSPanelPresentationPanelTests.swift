@@ -122,7 +122,7 @@ struct NSPanelPresentationPanelTests {
         withExtendedLifetime(harness) {}
     }
 
-    @Test func anApplyOverAStaleSilhouetteClampsClicksToTheStatesRuleFrame() throws {
+    @Test func anApplyOverAStaleSilhouetteClampsClicksToTheStatesRuleFrame() {
         // The trace this pins: expanded card visible → hidden freezes the
         // silhouette (the view keeps reporting the last-visible size) → a HUD
         // keypress applies a much smaller frame. The apply-time refresh derives
@@ -151,9 +151,9 @@ struct NSPanelPresentationPanelTests {
         // A fresh report then retargets to the rendered truth, unclamped —
         // click keeps following the surface as drawn (hover-follows-the-eye).
         panel.surfaceSizeChanged(hud.size)
-        let rendered = try SurfaceClickThrough.surfaceRect(
+        let rendered = SurfaceClickThrough.surfaceRect(
             size: hud.size,
-            window: #require(Style.card.windowFrame(on: screen.geometry)),
+            window: Style.card.windowFrame(on: screen.geometry),
             anchor: Style.card.surfaceVerticalAnchor
         )
         #expect(panel.currentInteractiveRect == rendered)

@@ -46,7 +46,7 @@ struct HUDLevelSlider: View {
     /// hand let go" is not derivable from the values: a drag that stops on 0.4 and
     /// a drag still held at 0.4 send the same number, and only one of them may be
     /// corrected under the finger.
-    var onRelease: () -> Void = {}
+    let onRelease: () -> Void
     var appearance: Appearance = .capsule
     /// The panel-local pointer signal (SurfaceDisplayPolicy.pointerInside)
     /// that reveals the capsule knob — per display, so only the hovered
@@ -86,10 +86,7 @@ struct HUDLevelSlider: View {
             // its velocity preserved, so the fill chases the newest level without
             // stacking. The spring is off while dragging (it follows the finger)
             // and under Reduce Motion (the value jumps).
-                .animation(
-                    Self.animatesLevel(isEditing: isEditing, reduceMotion: reduceMotion) ? SurfaceAnimation.hudLevel : nil,
-                    value: value
-                )
+                .animation(Self.levelAnimation(isEditing: isEditing, reduceMotion: reduceMotion), value: value)
                 // Identity keyed on the kind: volume→brightness swaps to an unrelated
                 // 0…1 scale, so the level snaps there instead of gliding through
                 // meaningless in-between positions (the glide is for changes within one
@@ -240,8 +237,10 @@ struct HUDLevelSlider: View {
         onRelease()
     }
 
-    nonisolated static func animatesLevel(isEditing: Bool, reduceMotion: Bool) -> Bool {
-        !isEditing && !reduceMotion
+    /// Off while dragging (the fill follows the finger); the Reduce Motion half is
+    /// `SurfaceAnimation`'s.
+    nonisolated static func levelAnimation(isEditing: Bool, reduceMotion: Bool) -> Animation? {
+        isEditing ? nil : SurfaceAnimation.respecting(reduceMotion: reduceMotion, SurfaceAnimation.hudLevel)
     }
 
     /// Capsule-only, shown under the pointer or during a drag — the affordance

@@ -90,8 +90,8 @@ enum Style: String, CaseIterable, Equatable, Sendable {
     }
 
     /// Fixed window frame for the active skin (the view animates the surface
-    /// inside it). Same partition as `stateSizes`; dispatch mirrors `frame`.
-    func windowFrame(on geometry: ScreenGeometry) -> CGRect? {
+    /// inside it). Every skin has one, so the panel has no other window model.
+    func windowFrame(on geometry: ScreenGeometry) -> CGRect {
         switch self {
         case .notch:
             NotchStyle().windowFrame(on: geometry)

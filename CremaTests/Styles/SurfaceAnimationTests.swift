@@ -109,4 +109,16 @@ struct SurfaceAnimationTests {
         #expect(SurfaceAnimation.closeDamping >= 1.0)
         #expect(SurfaceAnimation.openDamping < 1.0)
     }
+
+    @Test func valueAnimationsLandDryUnderReduceMotion() {
+        #expect(SurfaceAnimation.respecting(reduceMotion: true, .default) == nil)
+        #expect(SurfaceAnimation.respecting(reduceMotion: false, .default) == .default)
+    }
+
+    @Test func aPerpetualAnimationRunsOnlyWithNeitherVeto() {
+        #expect(SurfaceAnimation.allowsPerpetualMotion(reduceMotion: false, lowPower: false))
+        #expect(!SurfaceAnimation.allowsPerpetualMotion(reduceMotion: true, lowPower: false))
+        #expect(!SurfaceAnimation.allowsPerpetualMotion(reduceMotion: false, lowPower: true))
+        #expect(!SurfaceAnimation.allowsPerpetualMotion(reduceMotion: true, lowPower: true))
+    }
 }

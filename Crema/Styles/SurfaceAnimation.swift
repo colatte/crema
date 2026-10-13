@@ -16,11 +16,15 @@ enum SurfaceAnimation {
     /// Spring parameters. Open is livelier; close is critically damped — never
     /// overshoot on close, or the bounce against the static menu bar reads as
     /// instability.
-    static let openResponse: Double = 0.42
+    private static let openResponse: Double = 0.42
     static let openDamping: Double = 0.8
-    // 0.35 measured against the release-latency budget (t90 279 → 217 ms);
-    // damping stays 1.0 — still no overshoot against the menu bar.
-    static let closeResponse: Double = 0.35
+    // 0.35, set 2026-07-27 (9dd6629) from the release-latency budget: t90 279 →
+    // 217 ms against the 0.45 it replaced, measured with the hover exit timing of
+    // that day (docs/DECISIONS.md: hover-follows-the-eye); no probe is kept in the
+    // tree. Invalidating signal: a change to the hover exit timing
+    // (`hoverExitRelinger`, the exit margins), or a close that reads late against
+    // the pointer on hardware. Damping stays 1.0 — no overshoot against the menu bar.
+    private static let closeResponse: Double = 0.35
     static let closeDamping: Double = 1.0
 
     /// Surface morph springs, chosen by direction: the destination state selects
@@ -52,8 +56,8 @@ enum SurfaceAnimation {
     /// Reduce Motion contract (app-wide, MG5): with the preference on every
     /// geometry/content/width morph resolves to nil so layouts land dry and only
     /// the opacity fades survive (a cross-fade is the accessibility-preferred
-    /// substitution) — one home for the rule the leaf components (HUDLevelSlider,
-    /// SymbolReplaceEffect, WaveformGlyph) already honor per-value.
+    /// substitution). The leaves' own value animations ask `respecting` below,
+    /// and the one perpetual animation asks `allowsPerpetualMotion`.
     static func geometryAnimation(fromEmpty: Bool, toEmpty: Bool, expanding: Bool, reduceMotion: Bool) -> Animation? {
         guard !reduceMotion else { return nil }
         guard !fromEmpty, !toEmpty else { return nil }
@@ -101,7 +105,23 @@ enum SurfaceAnimation {
     /// against the menu bar — the destination picks the spring, which is what
     /// `geometryAnimation` does from provenance.
     static func morph(reduceMotion: Bool) -> Animation? {
-        reduceMotion ? nil : open
+        respecting(reduceMotion: reduceMotion, open)
+    }
+
+    /// The Reduce Motion substitution for a value animation, made once for every
+    /// leaf (the level glide, the knob reveal, the tone fade, the symbol replace):
+    /// under the preference the value lands dry, nil being `.animation`'s and
+    /// `withAnimation`'s own "no animation". Each component keeps its own timing;
+    /// only this decision lives here.
+    static func respecting(reduceMotion: Bool, _ animation: Animation) -> Animation? {
+        reduceMotion ? nil : animation
+    }
+
+    /// Whether a perpetual animation may run: both vetoes, because Low Power is
+    /// the system asking that nothing be spent on movement, and a loop over the
+    /// menu bar is exactly that spend (docs/STATE-FLOW.md).
+    static func allowsPerpetualMotion(reduceMotion: Bool, lowPower: Bool) -> Bool {
+        !reduceMotion && !lowPower
     }
 
     /// HUD level-indicator spring (HUDLevelSlider): a fast glide with a barely
@@ -113,8 +133,8 @@ enum SurfaceAnimation {
     /// that it visibly wobbles). Scoped to the level
     /// value only, never the surface morph. Named apart from open/close so the
     /// author can tune it on hardware without perturbing the surface springs.
-    static let hudLevelResponse: Double = 0.28
-    static let hudLevelDamping: Double = 0.86
+    private static let hudLevelResponse: Double = 0.28
+    private static let hudLevelDamping: Double = 0.86
     static let hudLevel: Animation = .spring(response: hudLevelResponse, dampingFraction: hudLevelDamping)
 
     /// Headroom the fixed window keeps past the expanded frame (sideways and

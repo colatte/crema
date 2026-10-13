@@ -129,7 +129,7 @@ struct WaveformGlyph: View {
     ///
     /// It decides the PULSE and nothing else; the silhouette is `stillHeights`.
     static func dances(animating: Bool, reduceMotion: Bool, lowPower: Bool) -> Bool {
-        animating && !reduceMotion && !lowPower
+        animating && SurfaceAnimation.allowsPerpetualMotion(reduceMotion: reduceMotion, lowPower: lowPower)
     }
 
     /// The frozen equalizer, as fractions of the rest→peak span. One bar down,

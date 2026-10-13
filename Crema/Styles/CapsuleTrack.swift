@@ -43,7 +43,7 @@ struct CapsuleTrack: View {
     static let knobRevealDuration: Double = 0.15
 
     static func knobReveal(reduceMotion: Bool) -> Animation? {
-        reduceMotion ? nil : .easeOut(duration: knobRevealDuration)
+        SurfaceAnimation.respecting(reduceMotion: reduceMotion, .easeOut(duration: knobRevealDuration))
     }
 
     static func fillWidth(for value: Double, trackWidth: CGFloat) -> CGFloat {
