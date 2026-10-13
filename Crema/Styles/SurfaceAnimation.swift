@@ -18,7 +18,7 @@ enum SurfaceAnimation {
     /// instability.
     static let openResponse: Double = 0.42
     static let openDamping: Double = 0.8
-    // 0.35 from the hover round's release-latency budget (t90 279 → 217 ms);
+    // 0.35 measured against the release-latency budget (t90 279 → 217 ms);
     // damping stays 1.0 — still no overshoot against the menu bar.
     static let closeResponse: Double = 0.35
     static let closeDamping: Double = 1.0
@@ -98,11 +98,8 @@ enum SurfaceAnimation {
     /// The warning is about SCALE, then, not about round trips as such. A large
     /// geometry morph that goes one way and comes back the other wants a spring
     /// chosen by the destination, because there the same 1.5% is a visible bounce
-    /// against the menu bar. A directional overload lived here for one commit, for
-    /// the lock card's expand/collapse; that state was removed and the overload
-    /// went with it rather than waiting in the file for a caller. The rule
-    /// survives its implementation: the destination picks the spring, which is
-    /// what `geometryAnimation` does from provenance.
+    /// against the menu bar — the destination picks the spring, which is what
+    /// `geometryAnimation` does from provenance.
     static func morph(reduceMotion: Bool) -> Animation? {
         reduceMotion ? nil : open
     }

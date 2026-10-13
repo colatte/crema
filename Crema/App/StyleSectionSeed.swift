@@ -3,10 +3,9 @@ import AppKit
 /// One reading of everything the all-displays section seeds into `@State`.
 ///
 /// Two windows carry that section — the welcome tour and the General tab — and
-/// each used to spell the same six reads in its own `init`. Two copies of one
-/// seed rule diverge on the next adjustment (a future read added to one window
-/// and not the other is a section that behaves differently depending on where it
-/// was opened), so the reads live here once and both views seed from the result.
+/// both seed from here, because two copies of one seed rule diverge on the next
+/// adjustment (a read added to one window and not the other is a section that
+/// behaves differently depending on where it was opened).
 /// Capturing at view construction is part of the contract: these are the
 /// seeded-once mirrors both views document, not live bindings.
 @MainActor

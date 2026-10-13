@@ -23,11 +23,10 @@ enum PreviewContentArrangement: Equatable {
 /// anyone can repeat. The caller hands in the surface it has already placed, and
 /// gets back rects in that same space.
 ///
-/// The content deliberately does NOT fill the surface. The first cut let the
-/// cover take the whole inner height, and the owner's field verdict was that the
-/// tiles read as stuffed — the furniture is punctuation, and what makes a surface
-/// read as a SURFACE is the air around what it holds. Hence the proportional air
-/// and the cover capped well under the height, below.
+/// The content deliberately does NOT fill the surface: a cover at the whole
+/// inner height reads as stuffed — the furniture is punctuation, and what makes
+/// a surface read as a SURFACE is the air around what it holds. Hence the
+/// proportional air and the cover capped well under the height, below.
 ///
 /// There is deliberately no waveform here. The real surfaces draw one; the
 /// miniature does not, because at this size it is noise competing with the one
@@ -82,7 +81,7 @@ enum StylePreviewContent {
     /// gap between the two, are each a third of the cover, so the text block is
     /// exactly as tall as the cover and the two centre together without a second
     /// calculation. The lines stop short of the trailing edge on purpose: text
-    /// that touches the wall is what made the first cut read as stuffed.
+    /// that touches the wall reads as stuffed (see the type's header).
     private static func beside(in content: CGRect) -> Layout {
         let coverSide = min(content.height * coverHeightShare, content.width * coverWidthShare)
         let top = content.minY + (content.height - coverSide) / 2
@@ -139,7 +138,7 @@ enum StylePreviewContent {
     /// because the strips are magnified in the tile (26.4 by 14.7 pt for the
     /// notch, 40 by 12.3 for the card, against the shipping 108 pt tile): at
     /// those sizes a fixed point of margin lets the furniture crowd the walls,
-    /// which is what the owner's field verdict called stuffed.
+    /// which reads as stuffed (see the type's header).
     private static let airShare: CGFloat = 0.18
 
     /// The most of the inner height the cover may take in the strip arrangement.

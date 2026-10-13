@@ -323,7 +323,6 @@ struct PreferencesTests {
 
     @Test func nowPlayingBehaviorDefaultsAndPersists() {
         let preferences = Preferences(defaults: store.defaults)
-        // Reactive and show-controls default on; include-browsers defaults off.
         #expect(preferences.reactiveNowPlaying)
         #expect(preferences.showsPlaybackControls)
         #expect(!preferences.includesBrowserMedia)

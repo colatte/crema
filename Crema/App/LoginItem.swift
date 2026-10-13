@@ -37,8 +37,8 @@ extension LoginItemManaging {
 /// The three SMAppService calls are injected rather than called inline, so the
 /// MAPPING is testable without a real registration. That mapping is the part
 /// that can be quietly wrong — swap the two calls and "open at login" silently
-/// UNREGISTERS the app — and a fake standing in for the whole type (the earlier
-/// shape) proves nothing about it: it only proves the fake was called. Same
+/// UNREGISTERS the app — and a fake standing in for the whole type proves
+/// nothing about it: it only proves the fake was called. Same
 /// idiom as the tap source's `tapOps` and the lock source's `sessionReader`.
 @MainActor
 struct SMAppServiceLoginItem: LoginItemManaging {

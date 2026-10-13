@@ -215,7 +215,6 @@ final class AppCore {
             screenBrightnessController: graph.screenBrightnessController,
             keyboardBrightnessController: graph.keyboardBrightnessController,
             externalScreenBrightnessController: graph.externalScreenBrightnessController,
-            // Seed the live behavior from the persisted Settings.
             ignoresBrowserMedia: !preferences.includesBrowserMedia,
             reactiveNowPlaying: preferences.reactiveNowPlaying
         )
@@ -299,12 +298,8 @@ final class AppCore {
         // cannot be pointed at a center nobody posts to by editing this line.
         wakeObservations = Self.wireWakeReinstall(reinstalling: tapSource)
 
-        // Built once, outside the suppressor block, and for two reasons. It is a
-        // fact about the session rather than a suppression concern; and the
-        // demo graph has no suppressor at all, which would have stranded the
-        // Assigned to the stored property, not a local: placing it out here made
-        // it REACHABLE on those paths without making it live, and the difference
-        // is the whole bug the property's own comment now records.
+        // Built on every graph, suppressor or not; the property's doc says why it
+        // is stored rather than held as a local.
         lockSource = DistributedNotificationScreenLockSource()
 
         if let consuming = mediaKeys as? any MediaKeyConsuming,
@@ -553,13 +548,11 @@ final class AppCore {
 
     /// The value the all-displays picker seeds from: the DECLARATION, raw — the
     /// same key the menu's Style submenu binds, so the two surfaces of one
-    /// declaration cannot disagree. It used to answer with the leading display's
-    /// RESOLVED style, which let that display's own override show up selected in
-    /// the tiles that speak for every screen — the tiles claimed a declaration
-    /// nobody had made, one row above the row that already reported the override
-    /// as this display's own (docs/DECISIONS.md: global-style-default). Never
-    /// what any screen draws either: no geometry enters here, which is why a
-    /// style-scoped control gates on `rendersAnywhere` instead.
+    /// declaration cannot disagree. Never a display's RESOLVED style: an override
+    /// shown selected in tiles that speak for every screen claims a declaration
+    /// nobody made (docs/DECISIONS.md: global-style-default). Never what any
+    /// screen draws either: no geometry enters here, which is why a style-scoped
+    /// control gates on `rendersAnywhere` instead.
     ///
     /// A one-line delegate to a pinned resolver: the rule is proven at
     /// `Preferences.declaredStyle(fromRawValue:)`, and this carries the same
@@ -622,8 +615,6 @@ final class AppCore {
         windowManager.refreshStyles()
     }
 
-    /// Quiet vs reactive now playing — persisted and applied to the live
-    /// Coordinator at once.
     func setReactiveNowPlaying(_ reactive: Bool) {
         preferences.reactiveNowPlaying = reactive
         coordinator.setReactiveNowPlaying(reactive)
@@ -918,12 +909,10 @@ extension AppCore {
     /// available since macOS 13 and therefore unconditionally on this app's 14+
     /// target.
     ///
-    /// It replaces a hand-built `x-apple.systempreferences:` URL naming
-    /// `com.apple.LoginItems-Settings.extension`. That identifier is an
-    /// undocumented internal pane ID, of the kind Apple has already renamed once
-    /// across the Preferences→Settings transition, and the old call discarded
-    /// `NSWorkspace.open`'s Bool: when the name eventually changes, the button
-    /// would do nothing at all and say nothing about it. Nothing here is worth
+    /// Never a hand-built `x-apple.systempreferences:` URL: that pane ID is an
+    /// undocumented internal identifier, of the kind Apple has already renamed
+    /// once across the Preferences→Settings transition, and a URL that stops
+    /// resolving does nothing and says nothing about it. Nothing here is worth
     /// guessing a private string for.
     func openLoginItemsSettings() {
         SMAppService.openSystemSettingsLoginItems()
@@ -1011,10 +1000,9 @@ extension AppCore {
     /// The flag is written BEFORE `present()` runs: a crash or a force quit in the
     /// middle of the tour must not re-arm it, and a window that comes back after
     /// every bad launch is worse than one that was missed. And nothing here asks
-    /// about the Accessibility permission — the onboarding this replaces did, and
-    /// skipped exactly the installs that already had it, which include every
-    /// upgrade. An install that carries the grant is not one that was walked
-    /// through anything; it is usually one whose first launch went worst.
+    /// about the Accessibility permission: an install already carrying the grant
+    /// is usually an upgrade, and gating on it would skip exactly those — a grant
+    /// is not proof of having been walked through anything.
     ///
     /// Standalone and static so a test pins both rules without booting the graph
     /// (the reason the other AppCore seams are statics): reaching it through an
@@ -1318,9 +1306,7 @@ extension AppCore {
     /// Read-only, and that is the contract rather than a habit: the caller is a
     /// SwiftUI view body, rebuilt whenever SwiftUI invalidates it — the app does not
     /// choose when, and it is not tied to the user opening the menu — so a write
-    /// here would be domain mutation driven by rendering. The one write the
-    /// login-item reading used to do (forgetting an intent the user revoked
-    /// themselves) runs at a lifecycle edge instead (reconcileLoginItemIntent).
+    /// here would be domain mutation driven by rendering.
     ///
     /// `style` and `suppressionEnabled` come IN from the view: both are persisted
     /// preferences, and only an OBSERVED read (@AppStorage) rebuilds the menu when

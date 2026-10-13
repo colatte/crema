@@ -24,11 +24,10 @@ struct LocalizationTests {
         // put back.
         #expect(try value("menu.quit", in: "pt-BR") == "Encerrar Crema")
 
-        // The sample has to be a key whose two values DIFFER, or it stops
-        // testing the thing it is named for. `style.card` used to sit here and
-        // stopped qualifying the day the style names became product names in
-        // both languages (docs/INTERNATIONALIZATION.md: one name per concept) — "Card" == "Card"
-        // would have kept this green against a bundle that ignored the language
+        // The sample has to be a key whose two values DIFFER, or it stops testing
+        // the thing it is named for: the style names are product names, equal in
+        // both languages (docs/INTERNATIONALIZATION.md: one name per concept), and
+        // "Card" == "Card" stays green against a bundle that ignores the language
         // argument entirely.
         #expect(try value("style.notch.description", in: "en") == "Blends into the notch")
         #expect(try value("style.notch.description", in: "pt-BR") == "Funde-se com o notch")

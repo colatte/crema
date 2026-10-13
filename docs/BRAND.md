@@ -189,9 +189,8 @@ rule 2 and the one rule of theirs Crema can break by accident.
   else. A quiet companion does not wear a uniform.
 - **A palette beyond the landing's.** New surfaces (a release note, a badge, a
   screenshot frame) take the landing's tokens, not new ones.
-- **Social pieces of its own.** The launch campaign (August 2026) lives in the
-  Colatte archive (`Workspaces/colatte/design/campanhas/crema/`, and the Sklow
-  remaster beside it); it was set in Poppins, is closed, and is not a
+- **Social pieces of its own.** The campaign pieces live in the Colatte
+  archive (`Workspaces/colatte/design/campanhas/crema/`) and are not a
   template for anything here.
 
 ## State in the product

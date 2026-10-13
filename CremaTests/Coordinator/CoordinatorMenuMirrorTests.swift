@@ -10,9 +10,6 @@ import Testing
 /// pinned here — a guard that compares is one keystroke from a muzzle that never
 /// writes (docs/DECISIONS.md: menu-reads-mirrors).
 ///
-/// SETTLED, by measurement, and the answer was the first of the two possibilities
-/// this note used to leave open.
-///
 /// `thePositionTickTouchesNeitherMirror` does not detect the removal of the
 /// comparing guard in `Coordinator.publishTrackNames`, and that is correct rather
 /// than defective: the tick DOES reach the writer (Coordinator publishes the names

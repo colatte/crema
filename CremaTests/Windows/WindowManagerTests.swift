@@ -6,8 +6,6 @@ import Foundation
 import Testing
 @testable import Crema
 
-// Test fixtures force-unwrap known values (a nil means the test itself is broken).
-
 /// WindowManager logic over fake screens and panels: screen
 /// reconciliation, state-driven frames, per-display style resolution.
 @MainActor
@@ -693,17 +691,12 @@ struct WindowManagerTests {
         #expect(await eventually { h.recorder.panel(for: externalScreen.id)?.appliedFrames.last == Style.card.frame(for: .hud(hud), on: externalScreen.geometry) })
     }
 
-    // Provenance: the pinned-latent fence P5 from CONTRACTS-AUDIT — kept by
-    // behavior, named by behavior.
     @Test func setShowsNowPlayingIsHonoredLiveBothDirections() async {
-        // Pinned-latent fence: setShowsNowPlaying has no
-        // Settings writer yet, but WindowManager honors the pref LIVE. This pins
-        // the honored side by writing the pref DIRECTLY via Preferences (the
-        // path a future toggle will take) and asserting both directions:
-        // flipping it off suppresses the surface and disarms hover on a display
-        // that would otherwise show it; flipping it on surfaces one that
-        // wouldn't by default. If the reader is ever removed as "dead", this
-        // fails — proving the behavior is reachable and must not be dropped.
+        // WindowManager honours `showsNowPlaying` LIVE in both directions, written
+        // through Preferences the same way the Settings row writes it: off
+        // suppresses the surface and disarms hover on a display that would show
+        // it, on surfaces one that would not by default. If the reader is ever
+        // removed as dead, this fails (docs/CONTRACTS.md: P5).
         let h = Harness()
         let internalScreen = Self.screen("A", isInternal: true)   // defaults on
         let externalScreen = Self.screen("B", isInternal: false, frame: CGRect(x: 1000, y: 0, width: 1200, height: 800))   // defaults off
@@ -718,8 +711,6 @@ struct WindowManagerTests {
         _ = await eventually { h.base.coordinator.state != .hidden }
 
         let state = PresentationState.nowPlaying(track, expanded: false)
-        // Internal, now flipped OFF: surface suppressed to the hidden frame,
-        // showsNowPlaying=false, and hover never arms (empty region).
         #expect(await eventually {
             h.recorder.panel(for: internalScreen.id)?.appliedFrames.last
                 == Style.card.frame(for: .hidden, on: internalScreen.geometry)
@@ -727,8 +718,6 @@ struct WindowManagerTests {
         #expect(h.recorder.panel(for: internalScreen.id)?.showsNowPlayingStates.last == false)
         #expect(h.recorder.panel(for: internalScreen.id)?.hoverArmedStates.last == false)
 
-        // External, now flipped ON: surface shown at the now-playing frame,
-        // showsNowPlaying=true, hover armed.
         #expect(await eventually {
             h.recorder.panel(for: externalScreen.id)?.appliedFrames.last
                 == Style.card.frame(for: state, on: externalScreen.geometry)

@@ -89,10 +89,9 @@ struct NowPlayingMenuSection: View {
     }
 
     /// Paused media still commands — Play is what the user came for — so these are
-    /// the Coordinator's verdicts and nothing else. The `namesMedia` half they used
-    /// to carry moved up to the gate around the buttons: it decides whether the
-    /// items EXIST, and a copy of it here would be a second reading of the same fact,
-    /// still true only by accident the day one of them changes.
+    /// the Coordinator's verdicts and nothing else. Whether the items EXIST is the
+    /// gate around the buttons, and a copy of that fact here would be a second
+    /// reading of it, still true only by accident the day one of them changes.
     private var transportEnabled: Bool {
         coordinator.commandsAvailable
     }

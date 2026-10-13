@@ -69,8 +69,7 @@ final class NSPanelPresentationPanel: PresentationPanel {
     var currentHoverRegions: SurfaceHoverRegions? { hoverMonitor?.currentRegions }
 
     /// The click-interactive rect. Read-only, and it exists to pin where this rect
-    /// comes from: the rendered surface, from the first apply onward. That is what
-    /// showed the settle fallback was unreachable and let its machinery go.
+    /// comes from: the rendered surface, from the first apply onward.
     var currentInteractiveRect: CGRect { interactiveRect }
 
     /// Retargets requested on this panel's monitor — see the property of the same
@@ -102,16 +101,10 @@ final class NSPanelPresentationPanel: PresentationPanel {
         // window APIs (WindowServer instability on macOS 26). Shared by every
         // style; harmless for the card/classic surfaces.
         //
-        // The line holds and nothing in the app crosses it any more. A lock
-        // surface did for a while, on a different trade — its premise was the
-        // far side of the lock shield, which is a SPACE no window level can
-        // cross, and its blast radius was one opt-in window whose total absence
-        // is a feature not appearing. That surface is gone, so the app has no
-        // private window API at all again. The reason THIS panel would still
-        // refuse one is unchanged: it lives over the user's work, a public level
-        // does the job, and a WindowServer wedge here breaks the app's core
-        // function for everyone several times a day (docs/DECISIONS.md:
-        // the-lock-screen-is-a-space).
+        // No private window API here, whatever a level could buy: this panel
+        // lives over the user's work, a public level does the job, and a
+        // WindowServer wedge here breaks the app's core function for everyone
+        // several times a day (docs/DECISIONS.md: the-lock-screen-is-a-space).
         panel.level = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue + 3)
         panel.isOpaque = false
         panel.backgroundColor = .clear
@@ -317,14 +310,10 @@ final class NSPanelPresentationPanel: PresentationPanel {
         return tight.isEmpty ? .zero : tight
     }
 
-    /// Fallback for a window-filling view: per-state window frames. Mapping a
-    /// previously ordered-out window waits for the render commit — it still
-    /// holds the previous state's contents and would flash them for a frame.
     /// Render context into the view's policy box. Each flag is written only when
-    /// it changes — a habit rather than a necessity now: the @Observable macro's
-    /// setter short-circuits on an equal value since Swift 6.2, so the runtime
-    /// already suppresses what this guard was written to suppress. Kept because
-    /// it says the intent at the call site and costs a comparison.
+    /// it changes — belt-and-braces, since the @Observable setter short-circuits
+    /// an equal value (Swift 6.2+); the guard keeps the intent at the call site
+    /// for the cost of a comparison.
     private func updateDisplayPolicy(
         showsNowPlaying: Bool,
         showsHUD: Bool,
@@ -356,6 +345,9 @@ final class NSPanelPresentationPanel: PresentationPanel {
         return hostingView.sizingOptions.isEmpty
     }
 
+    /// Fallback for a window-filling view: per-state window frames. Mapping a
+    /// previously ordered-out window waits for the render commit — it still
+    /// holds the previous state's contents and would flash them for a frame.
     private func applyDirectFrame(_ frame: CGRect) {
         if frame.isEmpty {
             panel.setFrame(frame, display: false)

@@ -405,11 +405,9 @@ struct WelcomeTourView: View {
 
             if loginNeedsApproval {
                 // No written path, and a button instead — the tour's own rule
-                // (the-tour-configures-instead-of-pointing) applied to the one
-                // step that was still pointing. The path it used to spell,
-                // "System Settings › General › Login Items", macOS 15 renamed to
-                // "Login Items & Extensions"; the app supports 14+, so any
-                // written path is wrong on one of them.
+                // (the-tour-configures-instead-of-pointing): macOS 15 renamed
+                // the pane to "Login Items & Extensions" and the app supports
+                // 14+, so any written path is wrong on one of them.
                 Text(String(
                     localized: "settings.general.launchAtLogin.needsApproval",
                     defaultValue: "Approve Crema in System Settings to finish enabling this."
@@ -432,11 +430,10 @@ struct WelcomeTourView: View {
             // button here would be one that does nothing
             // (docs/DECISIONS.md: the-tour-configures-instead-of-pointing).
             //
-            // The menu bar is the whole answer, and Command-Comma is deliberately no
-            // longer part of it: a key equivalent belongs to the active app, and this
-            // one has no Dock tile and no window to become active by — so the
-            // shortcut fires only while the menu it was offered as an alternative to
-            // is already open.
+            // The menu bar is the whole answer, with no Command-Comma beside it: a key
+            // equivalent belongs to the active app, and this one has no Dock tile and
+            // no window to become active by — so the shortcut fires only while the
+            // menu is already open.
             Text(String(
                 localized: "tour.step.finish.body",
                 defaultValue: "Crema lives in the menu bar — its icon opens the menu, and Settings is there too."

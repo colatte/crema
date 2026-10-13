@@ -204,8 +204,6 @@ struct NotchView: View, SurfaceStyleBody {
             // card's rows follow.
             TrackTextStack(title: track.title, artist: nil)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            // Same live waveform as the other skins (one implementation):
-            // dancing while playing, frozen when paused.
             WaveformGlyph(animating: track.isPlaying)
         }
         .padding(.horizontal, NotchMetrics.contentPaddingHorizontal)

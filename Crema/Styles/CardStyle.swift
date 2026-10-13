@@ -68,8 +68,8 @@ enum CardMetrics {
     static let expandedMaxWidth: CGFloat = 280
     /// Dedicated system-HUD frame, deliberately smaller than the now-playing
     /// compact strip: that strip is sized around a 40 pt artwork the HUD never
-    /// shows, so reusing it (the old 260×64) left the volume/brightness bar
-    /// oversized for glance-level info. Issue #3's reference indicators are thin
+    /// shows, so reusing it leaves the volume/brightness bar oversized for
+    /// glance-level info. Issue #3's reference indicators are thin
     /// bars, roughly 4.5–5.5:1 width:height; 210×42 (5:1) sits mid-range. Both
     /// Card HUD variants lay out in it: the .slider row is the icon column
     /// (CardHUDIndicator.hudIconColumnWidth) beside the capsule's 16 pt hit row

@@ -61,8 +61,8 @@ struct StylePreviewShapes: Equatable {
     /// Read by the drawing to keep that ORDER visible. The magnitude cannot be: the
     /// card's real clearance is 3 pt on a 982 pt screen, which is a fifth of a point
     /// once scaled into a 70 pt picture, so a faithful rendering puts the two edges
-    /// on the same pixel and the card reads as welded — the exact complaint these
-    /// pictures came back with, twice. What is exaggerated is only the size of a gap
+    /// on the same pixel and the card reads as welded. What is exaggerated is only
+    /// the size of a gap
     /// that is really there; where a surface really does touch the top edge, it is
     /// still drawn touching it.
     var surfaceClearsTheMenuBar: Bool { surface.minY >= menuBar }
@@ -114,12 +114,10 @@ enum StylePreview {
     /// The default is what a picker speaking for every display asks for, and it is
     /// a NOTCHED panel on purpose: the card's own rule reads the safe area, so on a
     /// slitless one it anchors 8 pt from the top edge, under the bar, and the
-    /// picture said the card was welded to the bezel. On the hardware this app was
-    /// built for it is not — 32 pt of safe area plus its 8 pt margin puts it 40 pt
-    /// down, clear of a 37 pt bar — and the field reported that as the thing the
-    /// picture was getting wrong. Comparing three styles on three different screens
-    /// is what let it happen, so one panel answers for all three unless the caller
-    /// names a display.
+    /// picture reads as a card welded to the bezel — which it is not on a notched
+    /// Mac, where 32 pt of safe area plus the 8 pt margin puts it 40 pt down,
+    /// clear of a 37 pt bar. So one panel answers for all three styles unless the
+    /// caller names a display.
     ///
     /// Named a display, the picture is of the skin that display RESOLVES to, never
     /// the declared one: asked for the notch on a slitless panel it draws the card,

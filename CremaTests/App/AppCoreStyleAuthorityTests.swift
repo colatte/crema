@@ -4,21 +4,12 @@ import Testing
 
 /// The display order the upgrade migration reads
 /// (`AppCore.styleAuthorityOrder`): which legacy per-display override an install
-/// that predates the global declaration adopts as it. It once had a second
-/// reader — the all-displays picker's seed — until that seed was caught showing
-/// the leading display's own override as though it were the declaration; the
-/// seed now reads the declaration key itself, and this order speaks only for
-/// the one-time adoption (docs/DECISIONS.md: global-style-default). Pure over
+/// that predates the global declaration adopts as it. This order speaks only
+/// for the one-time adoption; the all-displays picker reads the declaration key
+/// itself (docs/DECISIONS.md: global-style-default). Pure over
 /// ScreenDescription values — no AppCore instance, no system API.
 ///
-/// The gap this file used to declare unfixable is closed, and the declaration was
-/// wrong: "reaching that method means constructing AppCore" is true of the INSTANCE
-/// method, and the repository already had five answers to that exact problem —
-/// `wireActiveSourceEnded`, the three `wire*Reinstall`, `reconcileLoginItemIntent`,
-/// all extracted as statics over constructible collaborators. `declareStyleEverywhere`
-/// is now the sixth, and `theAllDisplaysEntryDeclaresGloballyAndSweepsOverrides`
-/// below kills the old per-display loop.
-/// The residual is the one all six share, stated so nobody reads more into it: a
+/// The residual is the one every static seam shares, stated so nobody reads more into it: a
 /// mutation that removes the DELEGATION from the instance method is still not caught.
 /// (docs/DECISIONS.md: global-style-default)
 @MainActor

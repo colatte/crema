@@ -2,7 +2,7 @@ import AppKit
 import Testing
 @testable import Crema
 
-/// The real panel, instantiated — which until now nothing in the suite did.
+/// The real panel, instantiated.
 ///
 /// Everything above it (reconciliation, frame math, style resolution) is well
 /// pinned, and everything this class *binds* was invisible: two mutations, one
@@ -103,18 +103,12 @@ struct NSPanelPresentationPanelTests {
     }
 
     @Test func theClickRegionComesFromTheRenderedSurfaceNotTheRuleFrame() {
-        // This is the measurement that retired a whole settle mechanism. The rule
-        // frame was documented as the fallback for skins that do not report their
-        // size, with a union-then-tighten shrink path behind it and a calibrated
-        // constant to time it. But the hosting view reports during CONSTRUCTION, so
-        // the reported path already owns the rect when the very first apply lands —
-        // the fallback could not run, its constant was asserted only against another
-        // constant, and anyone calibrating click-during-close was turning a dial
-        // wired to nothing.
+        // The hosting view reports its size during CONSTRUCTION, so the reported
+        // rect already owns the click region at the very first apply; a rect equal
+        // to the rule frame would mean the surface never reported.
         //
         // Asserting the rect differs from the rule frame is what says "reported
-        // path". If a change ever makes the rule frame win, this fails and the
-        // deleted machinery is back on the table.
+        // path". If a change ever makes the rule frame win, this fails.
         let (panel, screen, harness) = self.panel()
         let track = CoordinatorHarness.playingTrack()
         let expanded = Style.card.frame(for: .nowPlaying(track, expanded: true), on: screen.geometry)

@@ -4,8 +4,7 @@ import Testing
 
 /// The level indicator's mechanics extracted pure: drag fraction (with the RTL
 /// mirror), fill width, spring gating, the hover knob's visibility/position and
-/// the Classic segment fill. These pins are new with the capsule — nothing
-/// pinned any interaction attribute of the old stock-Slider variant.
+/// the Classic segment fill.
 struct HUDLevelSliderTests {
 
     @Test func fractionClampsAtBothEnds() {

@@ -54,8 +54,7 @@ struct DisplayStyleRow: View {
             // Kept directly under the popup it qualifies, ahead of the toggle: the
             // sentence is about the STYLE this screen draws, and moving it below the
             // switch would leave a note about the popup nearer to a control it says
-            // nothing about. The grouping above is what removes the ambiguity the
-            // order used to carry.
+            // nothing about.
             ForEach(footnotes, id: \.self) { footnote in
                 Text(footnote).settingsFootnote()
             }

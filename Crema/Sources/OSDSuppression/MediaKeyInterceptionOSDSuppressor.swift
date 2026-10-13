@@ -28,9 +28,7 @@ import os
 ///   the native OSD gives the feedback, while the other domains keep being
 ///   suppressed. A cheap read-only probe on a backoff re-engages the domain
 ///   the moment the channel recovers — a device swap (AirPods dropping mid
-///   volume-key) heals in seconds, silently. This replaced a global
-///   auto-disengage that killed all three domains and persisted the opt-in off
-///   on any single-channel failure; no failure path writes the pref now.
+///   volume-key) heals in seconds, silently. No failure path writes the pref.
 ///   (docs/DECISIONS.md: per-domain-suspension / pref-sacred)
 /// - Both the writes and the border reads race a deadline off the MainActor
 ///   (mechanism in OSDApplyDeadline). A hung actuator (coreaudiod stall,
@@ -431,17 +429,15 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     /// healthy like every other axis (docs/DECISIONS.md:
     /// absent-capability-hands-the-key-back).
     ///
-    /// The log line is no longer deduplicated for the life of the process: once the
-    /// mark is set the key stops being swallowed, so no apply runs to log again, and
-    /// the recurring case worth seeing — a route that loses a control, gets it back
-    /// and loses it again — leaves one line per episode instead of one forever.
+    /// One log line per episode: once the mark is set the key stops being
+    /// swallowed, so no apply runs to log again, and a route that loses a control,
+    /// gets it back and loses it again is visible each time.
     private func noteAbsent(_ capability: OSDSuppressionCapability, generation: Int) {
-        // The only write in this file that lands AFTER an await without re-checking
-        // the generation, until now — and its clearing sibling (`runCapabilityRecheck`)
-        // already re-checks, which is the asymmetry that gave it away. An engage flip
-        // in the window between the guard and here means `reset()` already cleared
-        // this axis to honour "born healthy", and a stale apply would write the
-        // absence straight back into the NEW engagement.
+        // Re-checked after the await, like its clearing sibling
+        // (`runCapabilityRecheck`): an engage flip in the window between the guard
+        // and here means `reset()` already cleared this axis to honour "born
+        // healthy", and a stale apply would write the absence straight back into
+        // the NEW engagement.
         //
         // The price is real and worth stating: when the capability is still gone, the
         // key that would have shown a native HUD is swallowed and mute instead, while
@@ -517,8 +513,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
             // Raced like the volume guards: CoreBrightness answers this by
             // enumerating the backlight IDs over the private client's connection —
             // IPC, not a nil-check — and it is re-asked per call precisely because a
-            // cold boot can answer "no keyboard" before the service is up. Inline,
-            // this blocked the MainActor once per backlight key.
+            // cold boot can answer "no keyboard" before the service is up.
             guard try await readWithDeadline({ [keyboard] in keyboard.isAvailable() }) else {
                 noteAbsent(.keyboardBrightness, generation: generation); return .noOp
             }
@@ -618,8 +613,8 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         // wrong. Nothing moved is the signature of a write the HAL took and has
         // not published yet, which Apple documents as the general case
         // (`mayBeAsynchronous`) — so the healthy path never pays for this, and
-        // the path that does was previously suspending the domain and telling
-        // the user Crema could not change a volume it had just changed.
+        // one more read resolves the ambiguous one before suspending a healthy
+        // domain and telling the user Crema cannot change a volume it just did.
         if !OSDApplyVerification.verified(before: before, target: target, after: settled),
            OSDApplyVerification.mayBeAsynchronous(before: before, target: target, after: settled) {
             guard let second = try await readWithDeadline({ [channel] in channel.read() }) else {
@@ -801,8 +796,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
             case .keyboardBrightness:
                 // Unlike its screen sibling, CoreBrightness availability enumerates
                 // the backlight IDs over the private client's connection — IPC that
-                // can stall — so it is raced like the read beside it. Inline, it
-                // blocked the MainActor once per backoff cycle of this loop.
+                // can stall — so it is raced like the read beside it.
                 let present = try await readWithDeadline { [channel] in channel.isAvailable() }
                 let value = try await readWithDeadline { [channel] in channel.read() }
                 if value != nil { return .recovered }
@@ -879,13 +873,12 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
                 // read-only probe re-engaged the domain but its warning is latched
                 // pending a verified apply (a write-dead/hung channel). There is no
                 // live probe to kick and the domain is already suppressing again,
-                // so the kick branch above cannot reach it — that is exactly why
-                // the menu button was a no-op here. An explicit user retry clears
-                // the latch and lets the next real apply re-prove the write: if it
-                // is still dead it re-escalates on its own over the next flaps, but
-                // the button now does something and a warning left stale by a
-                // silently-healed write (verified apply never triggered because the
-                // user stopped pressing) is dismissible.
+                // so the kick branch above cannot reach it. An explicit user retry
+                // clears the latch and lets the next real apply re-prove the write:
+                // if it is still dead it re-escalates on its own over the next
+                // flaps, and a warning left stale by a silently-healed write
+                // (verified apply never triggered because the user stopped
+                // pressing) is dismissible.
                 clearWriteHealthLatch(domain)
             }
         }

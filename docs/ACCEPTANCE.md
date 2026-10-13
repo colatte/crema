@@ -5,13 +5,9 @@
 > plan: everything below describes the app as it ships today. Where a criterion
 > names something not yet built, it says so in place.
 >
-> This file is the **only home** of the criteria. The list once lived in two
-> places and the copies drifted — one carried a pair of criteria the other had
-> already retired — so [SPEC.md](../SPEC.md) points here instead of restating
-> them. The SPEC says what the app is and why; this list says how you check it.
-> Items 20–21 were added on 2026-08-07 with the lock-screen surface and retired
-> 2026-08-08 with it; while they stood, a default install satisfied them by
-> doing nothing.
+> This file is the **only home** of the criteria: [SPEC.md](../SPEC.md) points
+> here instead of restating them. The SPEC says what the app is and why; this
+> list says how you check it.
 
 1. With media playing (browser media only with the toggle on — it is filtered by
    default), now playing appears near the notch (or in the floating card, on a
@@ -104,15 +100,16 @@
 18. With version N installed and N+1 published in the appcast, the app offers the
     update and applies it.
 19. The first launch of a clean install opens the welcome tour (five steps;
-    the Accessibility step advances on its own when the grant lands). Finishing
+    the Accessibility step flips to Continue live when the grant lands and never
+    advances on its own). Finishing
     it — or closing the window — and relaunching shows nothing: the tour runs
     once per install. An install that already carries the Accessibility grant
     still sees it once; the menu's "Grant Accessibility Access…" button remains
     the manual path to the standalone permission window afterwards.
-20. ~~The lock-screen card.~~ **Retired 2026-08-08 with the whole surface**
-    (docs/DECISIONS.md: the-lock-screen-was-built-and-taken-out). The app draws
-    nothing over the lock shield; with music playing and the screen locked,
-    macOS looks exactly as it does without Crema installed. That is the only
-    thing left to check here, and it is checked by there being nothing to see.
-21. ~~The cover lookup.~~ **Retired the same day, with the expanded state it
-    fed.** Crema makes no artwork request of any kind.
+20. ~~The lock-screen card.~~ **Retired** (docs/DECISIONS.md:
+    the-lock-screen-was-built-and-taken-out). The app draws nothing over the
+    lock shield; with music playing and the screen locked, macOS looks exactly
+    as it does without Crema installed. That is the only thing left to check
+    here, and it is checked by there being nothing to see.
+21. ~~The cover lookup.~~ **Retired.** Crema makes no artwork request of any
+    kind.

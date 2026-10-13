@@ -73,9 +73,8 @@ enum ArtworkAccent {
         return extract(from: image)
     }
 
-    /// The same pipeline from a cover already decoded — today only the step the
-    /// byte overload above delegates to (the surface that paid for one decode
-    /// across several slots is gone). `rgbaPixels` redraws into a `sampleSide`
+    /// The same pipeline from a cover already decoded — the step the byte
+    /// overload above delegates to. `rgbaPixels` redraws into a `sampleSide`
     /// box either way, so a 1024 px source gives the same answer as a freshly
     /// thumbnailed one.
     private static func extract(from image: CGImage) -> Tone? {

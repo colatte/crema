@@ -70,13 +70,10 @@ struct PermissionsSettingsView: View {
             Section {
                 LabeledContent {
                     // No badge at all, which is the rule and not an omission: the
-                    // symbol column belongs to the permission the app REQUIRES. A
-                    // glyph here ranked an optional permission alongside it, and the
-                    // shapes ranked it WRONG — a refusal got a harsher mark (✗) than
-                    // the required grant's warning, and the resting state of a Mac
-                    // with no music app open got a question mark against a machine
-                    // where nothing is wrong. Words carry it, the way the other
-                    // optional integration already states "Receiving" one tab over.
+                    // symbol column belongs to the permission the app REQUIRES, and a
+                    // glyph here would rank an optional permission alongside it. Words
+                    // carry it, the way the other optional integration already states
+                    // "Receiving" one tab over.
                     Text(automationStatus)
                         .foregroundStyle(automation == .granted ? .primary : .secondary)
                 } label: {
@@ -106,9 +103,9 @@ struct PermissionsSettingsView: View {
                     EmptyView()
                 }
             } header: {
-                // With the badge gone, the word is what ranks the two sections —
-                // and a word survives a screenshot, greyscale and colour blindness,
-                // which an orange-versus-grey ranking does not.
+                // The word is what ranks the two sections — and a word survives a
+                // screenshot, greyscale and colour blindness, which an
+                // orange-versus-grey ranking does not.
                 Text(String(localized: "settings.permissions.automation.header", defaultValue: "Optional"))
             } footer: {
                 VStack(alignment: .leading, spacing: 4) {

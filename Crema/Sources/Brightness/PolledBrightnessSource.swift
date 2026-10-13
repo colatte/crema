@@ -62,11 +62,11 @@ final class PolledBrightnessSource: SystemHUDSource, ManuallySampledSource, @unc
     /// executors — the key's `sample()` from the media-key router's task on the
     /// cooperative pool, the stand-down from the MainActor (the suppressor's
     /// handback, the neighbour's OSD report) — so "the handback follows the key" is
-    /// a sequence inside the tap, never an order between these two calls. A
-    /// stand-down that wins that race used to be spent on nothing, and the sample
-    /// right behind it re-armed the window: the poll a beat later then drew our
-    /// hardware-scale bar over the very feedback the handback had just conceded to
-    /// the system — the double bar this whole mechanism exists to prevent, in the
+    /// a sequence inside the tap, never an order between these two calls. Without
+    /// it a stand-down that wins that race is spent on nothing and the sample
+    /// right behind it re-arms the window, so the poll a beat later draws our
+    /// hardware-scale bar over the very feedback the handback conceded to the
+    /// system — the double bar this whole mechanism exists to prevent, in the
     /// arrangement that reaches it every time (a domain suspended for a dead write
     /// hands back every key).
     ///
@@ -119,12 +119,11 @@ final class PolledBrightnessSource: SystemHUDSource, ManuallySampledSource, @unc
     /// Called at launch AND at the first key this channel sees, because
     /// availability is not a launch-time constant: the keyboard backlight is
     /// enumerated over a connection that may not be up yet at a cold boot, and a
-    /// channel that answered nothing at launch used to stay silent for the whole
+    /// channel that answers nothing at launch must not stay silent for the whole
     /// session. A key press is the evidence that the channel is alive — the same
     /// shape the suppressor uses when a user's press kicks a suspended domain's
     /// probe ahead of its backoff, and the reason this is not a retry timer:
-    /// hardware that genuinely has no backlight is never polled at all, which is
-    /// exactly what the original launch guard was protecting.
+    /// hardware that genuinely has no backlight is never polled at all.
     private func startPollingIfAvailable() {
         lock.lock()
         let armed = pollTask != nil

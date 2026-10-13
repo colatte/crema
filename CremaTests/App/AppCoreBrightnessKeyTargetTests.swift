@@ -8,10 +8,6 @@ import Testing
 /// (docs/DECISIONS.md: brightness-key-follows-the-pointer). Invisible while it
 /// works, which is what the menu row closes. The rule itself is pinned in
 /// BrightnessKeyTargetingTests; this suite covers only WHEN the row speaks.
-/// (The anchor cited here before, `external-brightness-is-write-only`, no longer
-/// exists in DECISIONS.md and its claim was retracted by
-/// `neighbour-features-are-not-identifiers` — a stale pointer this round removes
-/// rather than carries.)
 ///
 /// Pure over the census, the chain reading and the permission — no AppCore
 /// instance and no system API, the same reason `styleAuthorityOrder` is static

@@ -85,7 +85,7 @@ struct HUDLevelSlider: View {
             // echo to queue); each new value retargets the in-flight spring with
             // its velocity preserved, so the fill chases the newest level without
             // stacking. The spring is off while dragging (it follows the finger)
-            // and under Reduce Motion (the value jumps as it did before).
+            // and under Reduce Motion (the value jumps).
                 .animation(
                     Self.animatesLevel(isEditing: isEditing, reduceMotion: reduceMotion) ? SurfaceAnimation.hudLevel : nil,
                     value: value
@@ -254,8 +254,7 @@ struct HUDLevelSlider: View {
         appearance == .capsule && (isHovered || isEditing)
     }
 
-    /// Card's persisted choice → body (pinned by test): .slider is the
-    /// capsule, .filled the full-bleed bar.
+    /// Pinned by test.
     nonisolated static func appearance(for style: HUDIndicatorStyle) -> Appearance {
         style == .filled ? .filled : .capsule
     }

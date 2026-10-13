@@ -5,8 +5,7 @@ import Testing
 /// PolledBrightnessSource logic over the fake backend (no real API),
 /// parameterized over BOTH channels — screen and keyboard backlight share one
 /// implementation, and running every behavior for each kind is what pins that
-/// the sharing is real (the copies used to pin most behaviors on the screen
-/// side only). Availability follows the backend, launch is baselined (no HUD),
+/// the sharing is real. Availability follows the backend, launch is baselined (no HUD),
 /// changes emit deduped and clamped, a degraded backend never crashes or
 /// emits, and origin gates: a key (`sample()`) shows a HUD; the sensor — a
 /// poll-detected change with no recent key: auto-brightness on the display,

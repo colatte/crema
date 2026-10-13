@@ -217,8 +217,8 @@ struct CremaMenu: View {
     /// The trail out of the one dead end a user can act on. States the requirement,
     /// never a verdict: nothing here knows whether consent is the reason, and
     /// reading that state would put a poll behind a body whose rebuild costs the
-    /// tap-chain read. It stops AT the requirement and no longer names the tab —
-    /// the button right under it is the walk there.
+    /// tap-chain read. It stops AT the requirement; the button right under it is
+    /// the walk to the tab.
     private func text(for advice: MenuStatus.Advice) -> String {
         switch advice {
         case .automationForBackupReader:

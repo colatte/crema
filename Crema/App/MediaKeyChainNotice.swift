@@ -32,8 +32,7 @@ extension MediaKeyChainNotice {
     /// because the edges do not exist. They do: CoreGraphics posts
     /// `kCGNotifyEventTapAdded` and `kCGNotifyEventTapRemoved` through notify(3)
     /// (`CGEventTypes.h`), so a neighbour installing or dropping a tap while
-    /// already running is observable. This comment used to claim the opposite,
-    /// and a design defended by a false fact is one nobody can re-judge.
+    /// already running is observable.
     ///
     /// The real reason is the cost of the READ, not the absence of a trigger.
     /// `CGGetEventTapList` zeroes the min/max latencies of every tap in the

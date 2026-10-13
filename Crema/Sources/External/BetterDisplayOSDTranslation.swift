@@ -34,17 +34,13 @@ enum BetterDisplayOSDTranslation {
     /// `systemIconID` 1 = brightness (3 = volume, 4 = mute, 0 = no icon).
     private static let brightnessIconID = 1
 
-    // Where a reported level belongs is `SystemHUD.Target`, the domain's own word.
-    // This file used to keep a private copy of it and flatten it into a
-    // `DisplayUUID?` to cross the domain, and the FLATTENING was the bug: the
-    // built-in the neighbour had named became "nobody said which screen", which
-    // presentation reads as "draw on all of them". Field symptom: with the pointer
-    // on the laptop the bar appeared on BOTH displays, while with the pointer on
-    // the monitor it correctly appeared only there
-    // (docs/DECISIONS.md: hud-target-is-a-role). This border still resolves the
-    // neighbour's raw CGDirectDisplayID to a UUID — the numeric ID is reassigned
-    // across sessions and reconnections — and it names the built-in like any other
-    // display rather than collapsing it into a role.
+    // Where a reported level belongs is `SystemHUD.Target`, the domain's own word,
+    // never flattened into a `DisplayUUID?`: a built-in the neighbour named would
+    // collapse into "nobody said which screen", which presentation reads as "draw
+    // on all of them" (docs/DECISIONS.md: hud-target-is-a-role). This border
+    // resolves the neighbour's raw CGDirectDisplayID to a UUID — the numeric ID is
+    // reassigned across sessions and reconnections — and it names the built-in
+    // like any other display rather than collapsing it into a role.
 
     /// Decodes one payload. `target` resolves BetterDisplay's raw display ID —
     /// injected so this stays a pure function; the system call lives in the

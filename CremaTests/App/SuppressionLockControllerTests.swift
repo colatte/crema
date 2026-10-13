@@ -100,10 +100,8 @@ struct SuppressionLockControllerTests {
     // MARK: - The preference is only ever written by the user
 
     @Test func lockCycleNeverWritesThePref() async {
-        // A full suspend/re-engage cycle must not touch the persisted opt-in.
-        // The old auto-disengage path (a failed apply flipping the pref off,
-        // routed through this controller) is gone: the suppressor now suspends
-        // the failing domain in place and no failure path writes the pref.
+        // A full suspend/re-engage cycle must not touch the persisted opt-in: no
+        // failure path writes it, a failed apply suspends its own domain in place.
         // (docs/DECISIONS.md: pref-sacred)
         let h = Harness(prefOn: true)
         h.controller.start()
