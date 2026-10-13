@@ -544,6 +544,7 @@ pending exit passed the whole suite. The border is otherwise untouched — the N
 monitors stay real (SurfaceHoverMonitorTests).
 
 ### signed-without-hardened-runtime
+Superseded for the app's own executable by `self-signed-runtime-without-library-validation`: the self-signed app now carries the runtime with library validation off. What follows stays the record of why validation cannot stay on.
 Self-signed distribution must NOT enable the hardened runtime. `--options
 runtime` turns on dyld library validation, which demands a real matching Team
 ID between the process and every non-platform library it maps — a self-signed
@@ -3096,4 +3097,33 @@ The CI image ran Xcode 26.3, linked against SDK 26, and could not see this class
 Reopening gate: none for the deferral itself — an SDK that tolerates the nesting again
 does not make it safe to move back inline. Any new window the init would show inherits
 the same turn.
+
+### self-signed-runtime-without-library-validation
+`signed-without-hardened-runtime` turned the runtime off on the self-signed path to
+stop a crash, and recorded only that reason. Its price went unwritten: without the
+runtime, dyld honours `DYLD_*` variables (`man dyld`: they are ignored only for
+binaries protected by System Integrity Protection; Apple's Hardened Runtime page:
+it prevents "code injection, dynamically linked library (DLL) hijacking"), so any
+process of the same user could launch Crema with `DYLD_INSERT_LIBRARIES` and run
+code inside the process that holds the Accessibility grant.
+Measured with Xcode 27.0 on macOS 27.0.1, one Release build signed three ways with
+the real self-signed identity and launched for 6 s with `DYLD_PRINT_LIBRARIES=1`
+(a variable that only makes dyld print what it loads): today's shape (no runtime)
+stayed alive, mapped Sparkle and printed 1239 dyld lines; the runtime alone aborted
+(exit 134, "different Team IDs" loading `@rpath/Sparkle.framework`), reproducing the
+recorded crash; the runtime with `com.apple.security.cs.disable-library-validation`
+stayed alive, mapped Sparkle and printed nothing.
+Decision: on the self-signed path the app's own executable is signed with
+`--options runtime` and `Crema-SelfSigned.entitlements`, which carries that one
+exception. The Developer ID path is unchanged (a real Team ID satisfies validation).
+The nested code (Sparkle's helpers, the vendored adapter) keeps the signature it
+shipped with: it holds no grant, and the update path it runs is left as it was.
+What it does not close: turning validation off lets the process load a library of
+any signer from its own bundle, so whoever can replace files inside `Crema.app`
+still runs code in it, the same class docs/KNOWN-GAPS.md records for the adapter.
+Never add `allow-dyld-environment-variables`: it reopens what the runtime closes.
+The designated requirement does not read the runtime flag, so the Accessibility
+grant should survive the update; not measured on an updated install.
+Reopening gate: a Developer ID account, which makes validation pass with a real
+Team ID and lets the exception go.
 

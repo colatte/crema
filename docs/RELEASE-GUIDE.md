@@ -143,20 +143,21 @@ The script signs with that certificate (including the **nested Sparkle**, see
 **regenerates the appcast**. Out comes a `Crema.dmg` signed with a stable
 identity, a `Crema-1.1.1.dmg` (the enclosure) and a fresh `docs/appcast.xml`.
 
-> **Self-signed NEVER carries the hardened runtime** (a throwaway local build
-> paid to find this crash): the runtime turns on dyld's
-> _library validation_,
-> which demands a **real and matching Team ID** between the process and every
-> non-platform library — a self-signed certificate **has no Team**, so the app
-> **crashes at launch** loading `Sparkle.framework` ("mapping process and mapped
-> file (non-platform) have different Team IDs"), even with every component signed
-> by the same identity and `codesign --verify --deep --strict` green (verify
-> checks integrity, not load policy). `release.sh` only adds `--options runtime`
-> on the Developer ID branch; on top of that it validates the **identity
+> **Self-signed carries the hardened runtime only with library validation off**
+> (`Crema-SelfSigned.entitlements`, on the app's own executable). The runtime is
+> what makes dyld ignore `DYLD_*` variables, so no process of the same user can
+> inject code into the process that holds the Accessibility grant. But it also
+> turns on dyld's _library validation_, which demands a **real and matching Team
+> ID** between the process and every non-platform library, and a self-signed
+> certificate **has no Team**: with validation on, the app **crashes at launch**
+> loading `Sparkle.framework` ("mapping process and mapped file (non-platform)
+> have different Team IDs"), even with every component signed by the same
+> identity and `codesign --verify --deep --strict` green (verify checks
+> integrity, not load policy). Both halves are measured
+> (docs/DECISIONS.md: self-signed-runtime-without-library-validation). `release.sh` also validates the **identity
 > consistency** of every nested Mach-O and runs a **launch smoke** (installs from
 > the dmg and requires the process to stay alive for 5 s) in every mode — an
-> unlaunchable dmg never goes green again (docs/DECISIONS.md:
-> signed-without-hardened-runtime).
+> unlaunchable dmg never goes green again.
 
 What does **not** change for the user: Gatekeeper still asks for **"open
 anyway"** on the first launch (the **First launch** section of the README stays

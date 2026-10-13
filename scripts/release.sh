@@ -110,6 +110,7 @@ APPCAST="$REPO_ROOT/docs/appcast.xml"           # versioned; regenerated here, p
 SIGN_IDENTITY="${CREMA_SIGN_IDENTITY:-}"
 NOTARY_PROFILE="${CREMA_NOTARY_PROFILE:-CremaNotary}"
 ENTITLEMENTS="$REPO_ROOT/Crema.entitlements"
+SELF_SIGNED_ENTITLEMENTS="$REPO_ROOT/Crema-SelfSigned.entitlements"
 
 # Release gate — identity builds only
 #
@@ -271,25 +272,25 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     if [[ "$SIGN_IDENTITY" == "Developer ID Application"* ]]; then
         TIMESTAMP_FLAG=--timestamp   # Apple recommends a timestamp for Developer ID/notarization
         RUNTIME_FLAG="--options runtime"   # notarization requires hardened runtime; the real Team ID satisfies library validation
+        APP_RUNTIME_FLAG="$RUNTIME_FLAG"
+        APP_ENTITLEMENTS="$ENTITLEMENTS"
         info "Developer ID: $SIGN_IDENTITY"
     else
         TIMESTAMP_FLAG=--timestamp=none   # self-signed: a timestamp adds a network dependency with no Gatekeeper/notarization benefit
-        # NO hardened runtime for self-signed: the runtime flag turns on dyld
-        # library validation, which demands a REAL matching Team ID between the
-        # process and every non-platform library it maps — a self-signed cert
-        # has no Team ID, so the app CRASHES AT LAUNCH loading
-        # Sparkle.framework ("mapping process and mapped file (non-platform)
-        # have different Team IDs"), even with every component signed by the
-        # same identity. codesign --verify never checks this (it is load
-        # policy, not integrity) — the launch smoke below is what pins it
-        # (docs/DECISIONS.md: signed-without-hardened-runtime).
-        # The price is real: without the runtime, dyld honours DYLD_* variables
-        # (`man dyld`: ignored only for binaries protected by SIP), so a process
-        # of the same user can launch Crema with DYLD_INSERT_LIBRARIES and run
-        # code inside the process that holds the Accessibility grant. The TCC
-        # identity stability (the reason this mode exists) comes from the cert,
-        # not the runtime flag.
+        # The app's own executable carries the hardened runtime, with library
+        # validation turned off (Crema-SelfSigned.entitlements). The runtime is
+        # what makes dyld ignore DYLD_* variables, closing code injection into
+        # the process that holds the Accessibility grant; library validation is
+        # off because it wants a matching Team ID on every non-platform library,
+        # a self-signed cert has none, and the app would abort loading its own
+        # Sparkle.framework ("different Team IDs"). Measured both ways
+        # (docs/DECISIONS.md: self-signed-runtime-without-library-validation). The nested code keeps no runtime: it
+        # holds no grant, and the update path it runs stays as it shipped.
+        # codesign --verify never checks load policy; the launch smoke does.
+        [[ -f "$SELF_SIGNED_ENTITLEMENTS" ]] || fail "Entitlements file not found: $SELF_SIGNED_ENTITLEMENTS"
         RUNTIME_FLAG=""
+        APP_RUNTIME_FLAG="--options runtime"
+        APP_ENTITLEMENTS="$SELF_SIGNED_ENTITLEMENTS"
         info "Self-signed: $SIGN_IDENTITY"
         info "Signing with a self-signed identity (stable code identity, Accessibility grant persists across releases)."
         info "Skipping notarization (Apple only notarizes Developer ID; Gatekeeper first-launch flow still applies)."
@@ -333,8 +334,8 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
         codesign --force $RUNTIME_FLAG $TIMESTAMP_FLAG --sign "$SIGN_IDENTITY" "$item" \
             || fail "codesign failed on: $item"
     done
-    codesign --force $RUNTIME_FLAG $TIMESTAMP_FLAG \
-        --entitlements "$ENTITLEMENTS" --sign "$SIGN_IDENTITY" "$APP" \
+    codesign --force $APP_RUNTIME_FLAG $TIMESTAMP_FLAG \
+        --entitlements "$APP_ENTITLEMENTS" --sign "$SIGN_IDENTITY" "$APP" \
         || fail "codesign failed on $APP_NAME"
     codesign --verify --deep --strict --verbose=2 "$APP" \
         || fail "signature did not verify on $APP_NAME"
@@ -386,7 +387,7 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     if [[ "$SIGN_IDENTITY" == "Developer ID Application"* ]]; then
         info "Signed with Developer ID (hardened runtime + entitlements + timestamp)."
     else
-        info "Signed self-signed (entitlements, no hardened runtime, no timestamp)."
+        info "Signed self-signed (hardened runtime on the app, library validation off, no timestamp)."
     fi
 else
     info "Ad-hoc signing $APP_NAME (CREMA_SIGN_IDENTITY unset — local/testing build)."
@@ -456,8 +457,8 @@ fi
 # process to survive ~5 s. This is the only stage that exercises dyld's
 # LOAD-time policy (library validation, Team consistency): a bundle can pass
 # codesign --verify --deep --strict on every component and still be
-# unlaunchable — the self-signed + hardened-runtime combination shipped
-# exactly that once (dyld: "mapping process and mapped file (non-platform)
+# unlaunchable — the self-signed + hardened-runtime combination, with library
+# validation still on, shipped exactly that once (dyld: "mapping process and mapped file (non-platform)
 # have different Team IDs"). Runs in EVERY mode, after the dmg is final
 # (post-staple on Developer ID, since stapling rewrites the file).
 step "Launch smoke (install from $DMG_NAME, must survive 5 s)"

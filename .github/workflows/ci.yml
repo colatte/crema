@@ -191,8 +191,10 @@ jobs:
       - name: Reject ad-hoc plus hardened runtime
         # dyld's library validation refuses a hardened-runtime process mapping a
         # non-platform library whose Team ID differs, and an ad-hoc (or
-        # self-signed) signature has no Team at all — so this pairing yields an
-        # app that aborts at launch loading Sparkle.framework, which is how it
+        # self-signed) signature has no Team at all — so this pairing, without the
+        # library-validation exception release.sh adds on the self-signed path
+        # (Crema-SelfSigned.entitlements), yields an app that aborts at launch
+        # loading Sparkle.framework, which is how it
         # once shipped broken (docs/DECISIONS.md: signed-without-hardened-runtime).
         # `codesign --verify` passes that exact bundle, because it checks
         # integrity and not load policy; the flag pairing, however, is right there

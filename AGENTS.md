@@ -82,7 +82,8 @@ design/           # icon and badge sources; catalogs generated, never by hand
 - Never copy third-party code, any licence; neighbours lend ideas, never lines.
 - Never pre-set Sparkle's consent defaults, compile the updater in Debug, or
   hand-edit `docs/appcast.xml` (docs/DECISIONS.md: the-feed-signs-itself).
-- Never pair hardened runtime with self-signing; dyld then aborts on Sparkle.
+- Never self-sign with the runtime but library validation on (Sparkle aborts),
+  nor with allow-dyld-environment-variables (Crema-SelfSigned.entitlements).
 
 ## Conventions
 

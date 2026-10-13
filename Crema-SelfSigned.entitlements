@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  The self-signed path only (release.sh), on the app's own executable together with the hardened
+  runtime. The runtime is what makes dyld ignore DYLD_* variables, so no process of the same user
+  can launch Crema with DYLD_INSERT_LIBRARIES and run code inside the process that holds the
+  Accessibility grant. It also turns on library validation, which wants a matching Team ID on every
+  non-platform library, and a self-signed certificate has none: without this one exception the app
+  aborts loading its own Sparkle.framework ("different Team IDs"). Measured with Xcode 27.0 on
+  macOS 27.0.1 (docs/DECISIONS.md: self-signed-runtime-without-library-validation).
+  Never add allow-dyld-environment-variables: it reopens exactly what the runtime closes here.
+-->
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+</dict>
+</plist>
