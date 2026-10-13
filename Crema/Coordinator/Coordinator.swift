@@ -242,6 +242,7 @@ final class Coordinator {
     /// injected durations that happened to coincide would silently turn every
     /// re-linger into a full tail.
     @ObservationIgnored private var lingerIsInvoked = false
+
     /// The one writer of the pair above outside `init`: a linger and whether it is
     /// the invoked one always change together, so no site can set one and forget
     /// the other. A finished hover's cap (`commitHover`) shortens the linger in
@@ -250,6 +251,7 @@ final class Coordinator {
         currentLinger = seconds
         lingerIsInvoked = invoked
     }
+
     /// Whether the HUD interrupted a visible now-playing appearance (or a media
     /// event arrived during the HUD): the revert resurfaces it. A HUD over a
     /// tucked surface must revert to hidden, not resurrect the appearance.
