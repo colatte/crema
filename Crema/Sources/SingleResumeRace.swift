@@ -15,11 +15,11 @@ import Foundation
 /// installs the continuation is stashed and delivered on begin, so the
 /// continuation resumes exactly once — never lost, never twice.
 ///
-/// Ordering lesson, owned by the callers but recorded where every caller will
-/// find it: on timeout, commit the timed-out result through `finish` BEFORE any
-/// unwind of the abandoned operation (a kill, a cancel). Unwinding first lets
-/// the dying operation's own late `finish` race the timeout's for the single
-/// resume, leaking its value out of a timed-out race.
+/// Ordering lesson, owned by `armDeadline` below: on timeout, commit the
+/// timed-out result through `finish` BEFORE any unwind of the abandoned operation
+/// (a kill, a cancel). Unwinding first lets the dying operation's own late
+/// `finish` race the timeout's for the single resume, leaking its value out of a
+/// timed-out race.
 final class SingleResumeRace<T: Sendable, Failure: Error>: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<T, Failure>?
@@ -60,5 +60,31 @@ extension SingleResumeRace where Failure == Never {
     /// call sites than `.success(value)`.
     func finish(_ value: T) {
         finish(.success(value))
+    }
+}
+
+extension SingleResumeRace {
+    /// The deadline leg every race in the app arms, so its rules live once: after
+    /// `seconds` on `clock` it commits `timedOut`, and only then runs `onTimeout`
+    /// (the ordering lesson above). A cancelled sleep commits nothing — the
+    /// operation won, or the caller is tearing the race down — because a timeout
+    /// committed there would be stashed and resolve the race with a deadline
+    /// nobody reached. Detached, so the wait never pins the caller's actor; the
+    /// caller cancels the returned task once the race is decided.
+    func armDeadline(
+        seconds: Double,
+        on clock: any SleepClock,
+        committing timedOut: Result<T, Failure>,
+        then onTimeout: @escaping @Sendable () -> Void = {}
+    ) -> Task<Void, Never> {
+        Task.detached {
+            do {
+                try await clock.sleep(for: seconds)
+            } catch {
+                return
+            }
+            self.finish(timedOut)
+            onTimeout()
+        }
     }
 }

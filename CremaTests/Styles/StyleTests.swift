@@ -114,4 +114,12 @@ struct StyleTests {
             }
         }
     }
+
+    @Test func notchFallsBackToCardOnlyWhenDeclaredDrawnNowhereAndCardStandsIn() {
+        #expect(Style.fallsBackToCard(declared: .notch, rendersNotch: false, rendersCard: true))
+        #expect(!Style.fallsBackToCard(declared: .notch, rendersNotch: true, rendersCard: true))
+        #expect(!Style.fallsBackToCard(declared: .notch, rendersNotch: false, rendersCard: false))
+        #expect(!Style.fallsBackToCard(declared: .card, rendersNotch: false, rendersCard: true))
+        #expect(!Style.fallsBackToCard(declared: .classic, rendersNotch: false, rendersCard: true))
+    }
 }

@@ -99,6 +99,12 @@ final class Coordinator {
     /// Injection is intact: the Coordinator describes what it applied, never a
     /// concrete sampler.
     @ObservationIgnored var onBrightnessApplied: (@MainActor (SystemHUD) -> Void)?
+    /// Test seam, unset in production: fires once per screen-brightness drag write,
+    /// after the write, its fallback and any correction it owes have all run. A
+    /// negative claim about that write (nothing else was written, nothing was
+    /// corrected under the finger) needs an end-of-work barrier behind what it
+    /// denies, and this is the one point behind all of them (docs/TESTING.md).
+    @ObservationIgnored var onScreenBrightnessWriteFinished: (@MainActor () -> Void)?
 
     /// Synchronous presentation hook for the WindowManager, and it must stay
     /// synchronous: inside this callout the WindowManager derives hover arming,
@@ -236,6 +242,16 @@ final class Coordinator {
     /// injected durations that happened to coincide would silently turn every
     /// re-linger into a full tail.
     @ObservationIgnored private var lingerIsInvoked = false
+
+    /// The one writer of the pair above outside `init`: a linger and whether it is
+    /// the invoked one always change together, so no site can set one and forget
+    /// the other. A finished hover's cap (`commitHover`) shortens the linger in
+    /// place and leaves the provenance alone, on purpose.
+    private func oweLinger(_ seconds: Double, invoked: Bool) {
+        currentLinger = seconds
+        lingerIsInvoked = invoked
+    }
+
     /// Whether the HUD interrupted a visible now-playing appearance (or a media
     /// event arrived during the HUD): the revert resurfaces it. A HUD over a
     /// tucked surface must revert to hidden, not resurrect the appearance.
@@ -367,8 +383,7 @@ final class Coordinator {
         // monitor, whose immediate sample finds the pointer already inside
         // (the click that got here landed in that exact rect) and re-enters
         // the hover path — which must already see the invoked duration.
-        currentLinger = invokedLinger
-        lingerIsInvoked = true
+        oweLinger(invokedLinger, invoked: true)
         state = .nowPlaying(track, expanded: true)
         restartLingerTimer()
     }
@@ -510,8 +525,7 @@ final class Coordinator {
         isHovering = false
         pointerInside = false
         enteredViaHoverIntent = false
-        currentLinger = nowPlayingLinger
-        lingerIsInvoked = false
+        oweLinger(nowPlayingLinger, invoked: false)
         forgetTheBarUnderTheFinger()
     }
 
@@ -758,8 +772,7 @@ final class Coordinator {
             // self-surfaces, so the revert just returns to hidden.
             if surfacesReactively, reactiveNowPlaying {
                 resumeNowPlayingAfterHUD = true
-                currentLinger = nowPlayingLinger
-                lingerIsInvoked = false
+                oweLinger(nowPlayingLinger, invoked: false)
             }
             return
         }
@@ -782,8 +795,7 @@ final class Coordinator {
         // linger even over an invoked one. A mere content refinement
         // (artwork arriving) keeps the appearance's current duration.
         if surfacingEvent {
-            currentLinger = nowPlayingLinger
-            lingerIsInvoked = false
+            oweLinger(nowPlayingLinger, invoked: false)
         }
         state = .nowPlaying(update, expanded: surfacingEvent ? isHovering : (isHovering || wasExpanded))
         if isHovering {
@@ -1016,6 +1028,7 @@ final class Coordinator {
         let viaNeighbour = hud.authority == .betterDisplay && externalBrightnessReachable
         guard let external = externalScreenBrightnessController, viaNeighbour else {
             Task { @MainActor in
+                defer { onScreenBrightnessWriteFinished?() }
                 if await write(value, on: hud, through: screenBrightnessController, as: .system, "system") { return }
                 noteScreenBarUnconfirmed()
             }
@@ -1023,6 +1036,7 @@ final class Coordinator {
         }
 
         Task { @MainActor in
+            defer { onScreenBrightnessWriteFinished?() }
             switch await writeThroughNeighbour(value, on: hud, through: external) {
             case .honoured:
                 return

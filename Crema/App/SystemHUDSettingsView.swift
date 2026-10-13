@@ -55,7 +55,7 @@ struct SystemHUDSettingsView: View {
                     // (docs/DECISIONS.md: brightness-key-follows-the-pointer).
                     Text(String(
                         localized: "settings.hud.suppress.footer.brightnessScope",
-                        // swiftlint:disable:next line_length
+                        // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
                         defaultValue: "Screen brightness is replaced only on the built-in display, while the pointer is on it — a key aimed at any other display is left to the system."
                     ))
                     // Two different absences behind one disabled switch, and only one
@@ -115,7 +115,7 @@ struct SystemHUDSettingsView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(String(
                         localized: "settings.hud.betterDisplay.footer",
-                        // swiftlint:disable:next line_length
+                        // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
                         defaultValue: "With BetterDisplay 4.2.1 or newer, Crema can show the brightness indicator for an external display. Nothing to enable here."
                     ))
                     // Named as the two switches they are, in the neighbour's own
@@ -123,7 +123,7 @@ struct SystemHUDSettingsView: View {
                     // and the second is what stops two bars from appearing at once.
                     Text(String(
                         localized: "settings.hud.betterDisplay.howTo",
-                        // swiftlint:disable:next line_length
+                        // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
                         defaultValue: "In BetterDisplay, turn on Settings → Application → Integration → OSD notification, and turn its own OSD off in that same panel."
                     ))
                 }

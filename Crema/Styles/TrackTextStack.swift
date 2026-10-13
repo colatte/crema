@@ -6,19 +6,12 @@ import SwiftUI
 ///
 /// ONE ramp, and the sizes are not parameterised: a surface that set its own
 /// would be the first to break the siblinghood.
-///
-/// A caller may still vary the artist's WEIGHT, which stays because it costs no
-/// layout and Apple's own guidance asks for a medium weight or higher wherever
-/// text has to carry at a distance.
 struct TrackTextStack: View {
 
     let title: String
     let artist: String?
     var alignment: HorizontalAlignment = .leading
     var spacing: CGFloat = 2
-    /// Regular for the desktop skins, which are read at desk distance; a surface
-    /// read from afar raises it, for the reason the header gives.
-    var artistWeight: Font.Weight = .regular
 
     /// Read here rather than at each call site, because the promotion below is
     /// correct on every surface: a secondary label going primary is precisely
@@ -33,7 +26,7 @@ struct TrackTextStack: View {
                 .lineLimit(1)
             if let artist {
                 Text(artist)
-                    .font(.caption.weight(artistWeight))
+                    .font(.caption)
                     // `.secondary` is a hierarchical style on purpose: a literal
                     // `Color.white.opacity(0.55)` would switch OFF AppKit's
                     // vibrancy blend behind it, which is the thing making the ink

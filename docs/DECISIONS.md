@@ -3073,3 +3073,27 @@ count is required, because a one-person project cannot require a second person.
 Reopening gate for each: a second maintainer, or a suite that outgrows one
 runner.
 
+### the-composition-root-draws-a-turn-later
+`CremaApp` owns the composition root as `@State private var core = AppCore()`, and
+SwiftUI evaluates that initial value inside its scene update: the crash report puts
+`AppCore.init` under `AppGraph.sceneList`, called from
+`applicationWillFinishLaunching`. The init used to build every panel right there, and
+a panel's first `setFrame(display: true)` lays out its `NSHostingView` — a view-graph
+update nested inside the scene update. Linked against the macOS 27 SDK, AttributeGraph
+refuses the nesting and aborts ("precondition failure: setting value during update",
+SIGABRT) before the first test or the first frame; the same path linked against the
+26.5 SDK runs on macOS 27.0.1 without complaint (the installed 1.6.1). Measured with
+Xcode 27.0 on macOS 27.0.1: two suite runs, two aborts in `NSPanelPresentationPanel.init`;
+silencing the skins' size report, or deferring it one turn, still aborts; deferring
+the first panel roster one main-actor turn runs 1078 tests in 141 suites green.
+Decision: `AppCore.init` builds and shows no window synchronously. The first panel
+roster and the welcome tour's window wait one `Task { @MainActor }`; the tour's gate
+still writes `hasSeenWelcomeTour` inline, before any window, as its own rule requires.
+The turn is invisible on screen and costs nothing the roster did not already pay.
+Path not taken: moving the root out of `@State` (an app delegate owning it) would also
+leave the update, but it changes who owns the root's lifetime to fix one ordering.
+The CI image ran Xcode 26.3, linked against SDK 26, and could not see this class.
+Reopening gate: none for the deferral itself — an SDK that tolerates the nesting again
+does not make it safe to move back inline. Any new window the init would show inherits
+the same turn.
+

@@ -48,12 +48,12 @@ final class AppCore {
     //
     // `preferences` being private does NOT mean this core is the only writer — the
     // Settings view writes five of them straight through @AppStorage, and
-    // Preferences exposes those raw keys on purpose for exactly that. The real
-    // contract is the other way round: the persisted key is the source of truth,
-    // @AppStorage does the writing, and a setter here exists to apply the LIVE
-    // effect the write cannot. Which is why every new Settings control owes an
-    // `.onChange` calling into this core — without it the value persists and
-    // nothing happens until relaunch.
+    // Preferences exposes those raw keys on purpose for exactly that. The persisted
+    // key is the source of truth, and it is written twice: @AppStorage writes it,
+    // then the setter here writes the same value again before applying the LIVE
+    // effect the @AppStorage write cannot. The second write is idempotent. Which is
+    // why every new Settings control owes an `.onChange` calling into this core —
+    // without it the value persists and nothing happens until relaunch.
     private let windowManager: WindowManager
     private let preferences: Preferences
     let permissionMonitor: AccessibilityPermissionMonitor
@@ -190,20 +190,14 @@ final class AppCore {
             graph = Self.makeDemoGraph(demo)
         } else {
             self.demo = nil
-            let builtChain = Self.makeNowPlayingChain(onActiveChange: onNowPlayingActive)
-            chain = builtChain
-            graph = Self.makeRealGraph(
-                nowPlayingSource: builtChain,
-                nowPlayingController: RoutingNowPlayingController(activeChannel: { builtChain.activeCommandChannel() })
-            )
+            let production = Self.makeProductionGraph(onNowPlayingActive: onNowPlayingActive)
+            chain = production.chain
+            graph = production.graph
         }
         #else
-        let builtChain = Self.makeNowPlayingChain(onActiveChange: onNowPlayingActive)
-        chain = builtChain
-        graph = Self.makeRealGraph(
-            nowPlayingSource: builtChain,
-            nowPlayingController: RoutingNowPlayingController(activeChannel: { builtChain.activeCommandChannel() })
-        )
+        let production = Self.makeProductionGraph(onNowPlayingActive: onNowPlayingActive)
+        chain = production.chain
+        graph = production.graph
         #endif
         nowPlayingChain = chain
 
@@ -264,7 +258,14 @@ final class AppCore {
         // shipped default and swap them a beat later.
         // (docs/DECISIONS.md: global-style-default)
         preferences.adoptDeclaredStyleFromOverrides(preferring: Self.styleAuthorityOrder(screens))
-        Self.applyScreenRoster(screens, to: windowManager, mirroring: displayRoster)
+        // One main-actor turn later, never inline: this init runs INSIDE SwiftUI's
+        // scene update (`@State` evaluates `AppCore()` there), and a panel's first
+        // frame lays out its NSHostingView, nesting a view-graph update in that one.
+        // Linked against the macOS 27 SDK the nesting aborts the process at launch
+        // (docs/DECISIONS.md: the-composition-root-draws-a-turn-later).
+        Task { @MainActor [windowManager, displayRoster] in
+            Self.applyScreenRoster(screens, to: windowManager, mirroring: displayRoster)
+        }
 
         let windowManager = self.windowManager
         let displayRoster = self.displayRoster
@@ -350,7 +351,11 @@ final class AppCore {
             suppressionLockController = nil
         }
 
-        Self.presentWelcomeTourIfFirstLaunch(preferences: preferences) { self.presentWelcomeTour() }
+        // The gate's write stays here, before any window; the window waits a turn
+        // for the reason the panel roster above does.
+        Self.presentWelcomeTourIfFirstLaunch(preferences: preferences) {
+            Task { @MainActor [weak self] in self?.presentWelcomeTour() }
+        }
 
         // The one moment the persisted login-item intent is reconciled against
         // reality: an item the user removed themselves is forgotten here, at a
@@ -799,6 +804,27 @@ final class AppCore {
     #endif
 }
 
+// MARK: - The production graph
+
+/// An extension and not the class body, for the reason the others give: the
+/// body sits at the `type_body_length` ceiling the composition root leans on.
+@MainActor
+extension AppCore {
+    /// The production graph and the chain it reads, wired once: the Debug-real
+    /// and Release branches both call this, because the Debug-hosted suite never
+    /// compiles the Release one and a copy there would drift unseen.
+    private static func makeProductionGraph(
+        onNowPlayingActive: @escaping @Sendable (Bool) -> Void
+    ) -> (chain: ChainedNowPlayingSource, graph: SystemGraph) {
+        let chain = makeNowPlayingChain(onActiveChange: onNowPlayingActive)
+        let graph = makeRealGraph(
+            nowPlayingSource: chain,
+            nowPlayingController: RoutingNowPlayingController(activeChannel: { chain.activeCommandChannel() })
+        )
+        return (chain, graph)
+    }
+}
+
 // MARK: - Launch at login
 
 @MainActor
@@ -909,11 +935,14 @@ extension AppCore {
     /// available since macOS 13 and therefore unconditionally on this app's 14+
     /// target.
     ///
-    /// Never a hand-built `x-apple.systempreferences:` URL: that pane ID is an
-    /// undocumented internal identifier, of the kind Apple has already renamed
-    /// once across the Preferences→Settings transition, and a URL that stops
+    /// No hand-built `x-apple.systempreferences:` URL for this pane, because it has a
+    /// public opener: the pane ID is an undocumented internal identifier, of the
+    /// kind Apple has already renamed once across the Preferences→Settings
+    /// transition, and a URL that stops
     /// resolving does nothing and says nothing about it. Nothing here is worth
-    /// guessing a private string for.
+    /// guessing a private string for. The Privacy panes have no public opener (the
+    /// SDK's only `openSystemSettings…` is this one) and do build the URL by hand,
+    /// a recorded debt (docs/KNOWN-GAPS.md).
     func openLoginItemsSettings() {
         SMAppService.openSystemSettingsLoginItems()
     }
@@ -1095,7 +1124,7 @@ extension AppCore {
     /// names who won and leaves the choice to the user, which is the only place
     /// it can be made (docs/DECISIONS.md: media-key-chain-contention).
     func mediaKeyChainNotice() -> MediaKeyChainNotice {
-        chainNoticeCache.notice(betterDisplayIsFeedingUs: betterDisplaySource?.hasReported ?? false) { feeding in
+        chainNoticeCache.notice(betterDisplayIsFeedingUs: betterDisplayIsReporting) { feeding in
             Self.mediaKeyChainNotice(
                 registry: eventTapRegistry,
                 ourPID: ProcessInfo.processInfo.processIdentifier,
@@ -1320,7 +1349,9 @@ extension AppCore {
             // with no slit the shipped default declares Notch while every panel
             // draws Card, and a lone "Style: Notch" beside a Card-shaped HUD is the
             // contradiction Settings already learned to name out loud.
-            fallsBackToCard: style == .notch && !rendersAnywhere(.notch) && rendersAnywhere(.card),
+            fallsBackToCard: Style.fallsBackToCard(
+                declared: style, rendersNotch: rendersAnywhere(.notch), rendersCard: rendersAnywhere(.card)
+            ),
             accessibilityGranted: permissionMonitor.isGranted,
             suppressionEnabled: suppressionEnabled,
             // The wish is not the fact: with no permission, or no suppressor in the

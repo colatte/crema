@@ -57,13 +57,13 @@ struct FixedWindowFrameTests {
     }
 
     @Test func everyStyleDispatchesItsFixedWindowToItsOwnRule() {
-        // The rect is what a mis-wired switch fails; every skin's requirement
-        // returns a non-optional CGRect, so non-nil proves nothing about which
-        // skin a case is wired to. Checked for all three cases.
+        // The rect is what a mis-wired switch fails: every case returns a frame,
+        // so only its value tells which skin a case is wired to. Checked for all
+        // three cases.
         for style in Style.allCases {
             let geometry = style == .notch ? notched : plain
             #expect(style.windowFrame(on: geometry) == rule(for: style).windowFrame(on: geometry), "\(style)")
-            #expect(style.windowFrame(on: geometry)?.isEmpty == false, "\(style)")
+            #expect(!style.windowFrame(on: geometry).isEmpty, "\(style)")
         }
     }
 
@@ -107,12 +107,10 @@ struct FixedWindowFrameTests {
         // A skin sizes its surface inside its fixed window, so the two answers
         // must come from the SAME skin and every state must fit — a surface larger
         // than its window is the clip at the window edge that the fixed-window
-        // model exists to remove. Each enum accessor wraps a rule that always
-        // returns a value, so a nil-partition ("both present or both absent")
-        // could not fail in either direction.
+        // model exists to remove.
         for style in Style.allCases {
             for geometry in [plain, notched] {
-                let window = try #require(style.windowFrame(on: geometry), "\(style)")
+                let window = style.windowFrame(on: geometry)
                 let sizes = try #require(style.stateSizes(on: geometry), "\(style)")
                 #expect(sizes == rule(for: style).stateSizes(on: geometry), "\(style)")
                 for size in [sizes.compact, sizes.expanded, sizes.hud] {

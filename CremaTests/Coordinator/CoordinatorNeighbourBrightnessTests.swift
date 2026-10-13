@@ -9,19 +9,6 @@ import Testing
 @MainActor
 struct CoordinatorNeighbourBrightnessTests {
 
-    private func neighbourHUD(_ value: Double = 0.5) -> SystemHUD {
-        SystemHUD(kind: .screenBrightness, value: value, authority: .betterDisplay)
-    }
-
-    /// A bar the neighbour drew for a monitor that is not the built-in panel —
-    /// the only target no system actuator will take.
-    private func onExternalDisplay(_ value: Double) -> SystemHUD {
-        SystemHUD(
-            kind: .screenBrightness, value: value,
-            target: .display(DisplayUUID(rawValue: "MONITOR-1")), authority: .betterDisplay
-        )
-    }
-
     @Test func aDragOnTheNeighboursBarGoesBackToTheNeighbour() async {
         let h = CoordinatorHarness(withExternalBrightness: true)
         h.hudSource.emit(neighbourHUD())
@@ -29,7 +16,7 @@ struct CoordinatorNeighbourBrightnessTests {
 
         h.coordinator.hudSliderChanged(to: 0.8)
 
-        #expect(await eventually { h.external?.commands.isEmpty == false })
+        #expect(await eventually { h.finishedScreenWrites.count == 1 })   // the write task is over
         #expect(h.external?.commands == [.setBrightness(0.8, display: nil)])
         #expect(h.screen.commands.isEmpty)   // never on the system's own scale
     }
@@ -42,7 +29,8 @@ struct CoordinatorNeighbourBrightnessTests {
 
         h.coordinator.hudSliderChanged(to: 0.3)
 
-        #expect(await eventually { h.screen.commands.isEmpty == false })
+        #expect(await eventually { h.finishedScreenWrites.count == 1 })   // the write task is over
+        #expect(h.screen.commands.isEmpty == false)
         #expect(h.external?.commands.isEmpty == true)
     }
 
@@ -198,8 +186,8 @@ struct CoordinatorNeighbourBrightnessTests {
         #expect(await eventually { h.coordinator.state != .hidden })
 
         h.coordinator.hudSliderChanged(to: 0.9)
-        #expect(await eventually { h.screen.commands.count == 1 })   // the fallback declined too
-        await settle()
+        #expect(await eventually { h.finishedScreenWrites.count == 1 })   // both declined; the task is over
+        #expect(h.screen.commands.count == 1)   // the fallback declined too
 
         // Still under the finger, still where the finger put it.
         #expect(h.coordinator.state == .hud(onExternalDisplay(0.9)))
@@ -213,12 +201,16 @@ struct CoordinatorNeighbourBrightnessTests {
         // The correction reads the same state a working drag does, so a bar that
         // was honoured has to be left exactly where it was dropped. Releasing is
         // the moment it could be undone, so releasing is where this is asserted.
+        // Landed by construction: the release waits for the write task to end. A
+        // release that corrects without its guard is a no-op here (the confirmed
+        // level IS the dropped one) and is killed where the write has not landed
+        // yet, in aPendingCorrectionDoesNotOutliveTheBarItWasFor.
         let h = CoordinatorHarness(withExternalBrightness: true)
         h.hudSource.emit(neighbourHUD(0.5))
         #expect(await eventually { h.coordinator.state != .hidden })
 
         h.coordinator.hudSliderChanged(to: 0.9)
-        #expect(await eventually { h.external?.commands.count == 1 })
+        #expect(await eventually { h.finishedScreenWrites.count == 1 })
         h.coordinator.hudSliderReleased()
         await settle()
 
@@ -337,9 +329,9 @@ struct CoordinatorNeighbourBrightnessTests {
     CoalescingScreenBrightnessWriting, @unchecked Sendable {
         private let lock = NSLock()
         private var script: [Result<BrightnessWriteEcho, BrightnessWriteFailure>] = []
-        private var recorded: [CoalescedWrite] = []
+        private var recorded: [MockScreenBrightnessController.Command] = []
 
-        var commands: [CoalescedWrite] { lock.withLock { recorded } }
+        var commands: [MockScreenBrightnessController.Command] { lock.withLock { recorded } }
         func answers(_ next: Result<BrightnessWriteEcho, BrightnessWriteFailure>) {
             lock.withLock { script.append(next) }
         }
@@ -462,10 +454,4 @@ struct CoordinatorNeighbourBrightnessTests {
 
         #expect(await eventually { h.external?.commands.count == 2 })
     }
-}
-
-/// What the scripted coalescing fake records per call; file-scoped because the
-/// house lint caps type nesting at one level.
-private enum CoalescedWrite: Equatable {
-    case setBrightness(Double, display: DisplayUUID?)
 }

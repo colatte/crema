@@ -5,7 +5,7 @@ import Testing
 /// The actuator that sends a drag back to the app whose bar it was.
 struct BetterDisplayScreenBrightnessControllerTests {
 
-    private final class SpyChannel: BetterDisplayCommanding, @unchecked Sendable {
+    private final class SpyChannel: BrightnessCommandChannel, @unchecked Sendable {
         private let lock = NSLock()
         private var calls: [(value: Double, displayID: Int)] = []
         var written: [(value: Double, displayID: Int)] { lock.withLock { calls } }
@@ -65,7 +65,7 @@ struct BetterDisplayScreenBrightnessControllerTests {
 
     /// A channel that parks its first call until the test lets go, so a second
     /// write can arrive while the first is genuinely in flight.
-    private final class ParkingChannel: BetterDisplayCommanding, @unchecked Sendable {
+    private final class ParkingChannel: BrightnessCommandChannel, @unchecked Sendable {
         private let lock = NSLock()
         private var calls: [Double] = []
         private var release: CheckedContinuation<Void, Never>?
@@ -239,7 +239,7 @@ struct BetterDisplayScreenBrightnessControllerTests {
 
     /// A channel whose write suspends once, widening the interleaving between a
     /// drive winding down and a frame arriving — no wall clock involved.
-    private final class YieldingChannel: BetterDisplayCommanding, @unchecked Sendable {
+    private final class YieldingChannel: BrightnessCommandChannel, @unchecked Sendable {
         private let lock = NSLock()
         private var calls: [Double] = []
         var written: [Double] { lock.withLock { calls } }
@@ -328,7 +328,7 @@ struct BetterDisplayScreenBrightnessControllerTests {
     /// A channel that lets the test run code INSIDE the first write, so newer drag
     /// frames land while that write is in flight — the arrangement the coalescing
     /// exists for, reproduced without a semaphore or a race.
-    private final class ReentrantChannel: BetterDisplayCommanding, @unchecked Sendable {
+    private final class ReentrantChannel: BrightnessCommandChannel, @unchecked Sendable {
         private let lock = NSLock()
         private var calls: [(value: Double, displayID: Int)] = []
         var written: [Double] { lock.withLock { calls }.map(\.value) }

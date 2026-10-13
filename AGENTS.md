@@ -126,25 +126,24 @@ design/           # icon and badge sources; catalogs generated, never by hand
   suppression works by key interception.
 - The platform's new design is granted on LINKAGE: one binary renders Liquid
   Glass on Tahoe and not on Sonoma; nobody has compared the two.
+- `AppCore.init` runs inside SwiftUI's scene update, so it shows no window
+  inline: linked against the macOS 27 SDK the nesting aborts the launch
+  (docs/DECISIONS.md: the-composition-root-draws-a-turn-later).
 
 ## Known gaps
 
-- G1 — `AppCore.init` is mostly unpinned by decision; the 5 wirings that
-  matter are `wire*` seams killed by mutation, in three App test suites.
-- G2 — `BrightnessConversion` and `VolumeConversion` hold eight identical
-  lines on purpose; reopens with a third domain or the first divergence.
+- G1 — `AppCore.init` mostly unpinned by decision; 5 wirings are pinned seams.
+- G2 — Brightness and volume conversions share 8 lines on purpose (rule of 3).
 - G3 — The waveform carries no time veto; reopens with a power measurement.
 - G4 — A process ending is not its children's; `release.sh` reaps the adapter.
-- G5 — The keyboard-backlight client is resolved once and no edge re-creates
-  it; degradation is honest; reopens with a hardware reproduction.
+- G5 — Backlight client resolved once, never rebuilt; needs a hardware repro.
 - G6 — No dead-code gate in CI (SwiftLint analyzer rules off); a hand sweep.
-
-## In progress
-
-The open residues (T10.2, T11.5) and the optional phases live in PLAN.md, one
-task per id, never renumbered. Nothing there blocks a release.
+- G7 — Declared-style adoption runs every launch; ends with pre-1.4 updates.
+- G8 — Privacy panes open by hand-built URL: the SDK has no public opener.
+- G9 — `noteAbsent`'s generation guard survives its mutation; no snapshot API.
 
 ## Open decisions
 
-None pending about how code is written. The one open decision in the system,
-the format of Lunar's socket events, gates T7.4 and lives in PLAN.md.
+None pending about how code is written. What is still open (the residues
+T10.2 and T11.5, the optional phases, and Lunar's socket format, which gates
+T7.4) lives in PLAN.md, one task per id, never renumbered.
