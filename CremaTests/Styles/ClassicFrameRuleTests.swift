@@ -36,15 +36,12 @@ struct ClassicFrameRuleTests {
         #expect(expanded.contains(compact))
     }
 
-    /// Pinned-latent fence (docs/CONTRACTS.md: G2), kept past the shortcut it
-    /// was written against: ClassicStyle.windowFrame once built the fixed window
-    /// from ONLY the expanded state's rule frame, on the silent assumption that
-    /// expanded dominates compact AND hud on both axes (true by metric
-    /// coincidence: expanded 230×224 vs hud 200×200 vs compact 170×170). The
-    /// window now unions the three states, so nothing clips if the assumption
-    /// breaks — but the Classic's headroom and anchor arithmetic still assume
-    /// expanded is the tallest, so the fence stays loud: grow ClassicMetrics.hud
-    /// or .compact past expanded on either axis and this fails first.
+    /// Pinned-latent fence (docs/CONTRACTS.md: G2): the window unions the three
+    /// states, but the Classic's headroom and anchor arithmetic assume expanded
+    /// is the tallest (true by metric coincidence: expanded 230×224 vs hud
+    /// 200×200 vs compact 170×170), so the fence stays loud — grow
+    /// ClassicMetrics.hud or .compact past expanded on either axis and this
+    /// fails first.
     @Test func expandedDominatesEveryOtherStateFrame_pinnedLatentG2() {
         let expanded = style.frame(for: .nowPlaying(track, expanded: true), on: geometry)
         let others: [PresentationState] = [

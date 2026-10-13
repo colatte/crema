@@ -21,9 +21,25 @@ enum ArtworkDecoding {
     /// the decode is bounded no matter how large the source cover is.
     static let displayMaxSide = 256
 
+    /// What a cover may be before ImageIO decodes it. The bytes are whatever the
+    /// player published (any app, and websites when browser media is on), parsed
+    /// inside the process that holds Accessibility, so the gate narrows which
+    /// parsers they reach and how much they hand them: a known still format, a
+    /// byte ceiling, and pixel sides read from the header before the thumbnail is
+    /// asked for. A cover outside it shows the placeholder. WebP stays out on
+    /// purpose: no player observed here sends it, and it is a parser to keep closed.
+    static let allowedTypes: Set<String> = ["public.jpeg", "public.png", "public.heic", "public.heif"]
+    static let maxBytes = 4 * 1024 * 1024
+    static let maxSourceSide = 4096
+
     static func thumbnail(from bytes: [UInt8]?, maxSide: Int) -> CGImage? {
-        guard let bytes,
-              let source = CGImageSourceCreateWithData(Data(bytes) as CFData, nil) else {
+        guard let bytes, bytes.count <= maxBytes,
+              let source = CGImageSourceCreateWithData(Data(bytes) as CFData, nil),
+              let type = CGImageSourceGetType(source) as String?, allowedTypes.contains(type),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Int,
+              let height = properties[kCGImagePropertyPixelHeight] as? Int,
+              (1...maxSourceSide).contains(width), (1...maxSourceSide).contains(height) else {
             return nil
         }
         let options: [CFString: Any] = [

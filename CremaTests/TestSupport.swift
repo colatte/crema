@@ -1,4 +1,6 @@
 import Foundation
+import Testing
+@testable import Crema
 
 // A few test helpers force-unwrap known-good values (e.g. UserDefaults(suiteName:)).
 // swiftlint:disable force_unwrapping
@@ -36,8 +38,7 @@ let boundedWaitHotSpins = 2000
 /// forever, and a parked test does not fail — it holds the whole suite until
 /// an outer timeout kills the run with no name attached (measured on CI: two
 /// suites never reported and the job died mute at the 30-minute limit; the
-/// unbounded-continuation deadlock is the same class round1-a1-a3 already
-/// ruled on). Timeout and upstream-finish both return nil, so the assertion
+/// unbounded-continuation deadlock is the same class). Timeout and upstream-finish both return nil, so the assertion
 /// right after fails loud with the test's own name.
 ///
 /// A pump task consumes the stream eagerly into a buffer; `next()` polls it
@@ -191,6 +192,38 @@ final class Flag: @unchecked Sendable {
         get { lock.withLock { _value } }
         set { lock.withLock { _value = newValue } }
     }
+}
+
+/// A count a MainActor closure can bump: the finished screen-brightness writes
+/// the Coordinator harness counts, as the end-of-work barrier for a negative.
+@MainActor
+final class Tally {
+    var count = 0
+}
+
+/// A bar the neighbour (BetterDisplay) drew, naming no display. Shared by every
+/// Coordinator suite that drags one, so the rule it encodes changes for all of
+/// them at once.
+func neighbourHUD(_ value: Double = 0.5) -> SystemHUD {
+    SystemHUD(kind: .screenBrightness, value: value, authority: .betterDisplay)
+}
+
+/// A bar the neighbour drew for a monitor that is not the built-in panel: the one
+/// target no actuator in the app writes, so a drag on it can be declined all the
+/// way down and leave a correction owed.
+func onExternalDisplay(_ value: Double) -> SystemHUD {
+    SystemHUD(
+        kind: .screenBrightness, value: value,
+        target: .display(DisplayUUID(rawValue: "MONITOR-1")), authority: .betterDisplay
+    )
+}
+
+/// A string as the BUILT bundle resolves it for `language`, the place the catalog
+/// gate does not reach. "«missing»" comes back for a key the bundle lacks.
+func localizedInBuiltBundle(_ key: String, in language: String) throws -> String {
+    let path = try #require(Bundle.main.path(forResource: language, ofType: "lproj"))
+    let bundle = try #require(Bundle(path: path))
+    return bundle.localizedString(forKey: key, value: "«missing»", table: nil)
 }
 
 // swiftlint:enable force_unwrapping

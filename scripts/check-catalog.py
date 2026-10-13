@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks Crema/Localizable.xcstrings against the discipline CLAUDE.md states.
+"""Checks Crema/Localizable.xcstrings against the discipline AGENTS.md states.
 
 This exists because Xcode does not. Measured: with `extractionState: manual`,
 `xcstringstool sync` walks past an entry whose `en` has drifted from the code —

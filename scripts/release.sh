@@ -110,6 +110,7 @@ APPCAST="$REPO_ROOT/docs/appcast.xml"           # versioned; regenerated here, p
 SIGN_IDENTITY="${CREMA_SIGN_IDENTITY:-}"
 NOTARY_PROFILE="${CREMA_NOTARY_PROFILE:-CremaNotary}"
 ENTITLEMENTS="$REPO_ROOT/Crema.entitlements"
+SELF_SIGNED_ENTITLEMENTS="$REPO_ROOT/Crema-SelfSigned.entitlements"
 
 # Release gate — identity builds only
 #
@@ -271,23 +272,25 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     if [[ "$SIGN_IDENTITY" == "Developer ID Application"* ]]; then
         TIMESTAMP_FLAG=--timestamp   # Apple recommends a timestamp for Developer ID/notarization
         RUNTIME_FLAG="--options runtime"   # notarization requires hardened runtime; the real Team ID satisfies library validation
+        APP_RUNTIME_FLAG="$RUNTIME_FLAG"
+        APP_ENTITLEMENTS="$ENTITLEMENTS"
         info "Developer ID: $SIGN_IDENTITY"
     else
         TIMESTAMP_FLAG=--timestamp=none   # self-signed: a timestamp adds a network dependency with no Gatekeeper/notarization benefit
-        # NO hardened runtime for self-signed: the runtime flag turns on dyld
-        # library validation, which demands a REAL matching Team ID between the
-        # process and every non-platform library it maps — a self-signed cert
-        # has no Team ID, so the app CRASHES AT LAUNCH loading
-        # Sparkle.framework ("mapping process and mapped file (non-platform)
-        # have different Team IDs"), even with every component signed by the
-        # same identity. codesign --verify never checks this (it is load
-        # policy, not integrity) — the launch smoke below is what pins it
-        # (docs/DECISIONS.md: signed-without-hardened-runtime).
-        # Hardened runtime buys nothing here anyway: no notarization, and
-        # Gatekeeper treats self-signed as unidentified either way. The TCC
-        # identity stability (the reason this mode exists) comes from the
-        # cert, not the runtime flag.
+        # The app's own executable carries the hardened runtime, with library
+        # validation turned off (Crema-SelfSigned.entitlements). The runtime is
+        # what makes dyld ignore DYLD_* variables, closing code injection into
+        # the process that holds the Accessibility grant; library validation is
+        # off because it wants a matching Team ID on every non-platform library,
+        # a self-signed cert has none, and the app would abort loading its own
+        # Sparkle.framework ("different Team IDs"). Measured both ways
+        # (docs/DECISIONS.md: self-signed-runtime-without-library-validation). The nested code keeps no runtime: it
+        # holds no grant, and the update path it runs stays as it shipped.
+        # codesign --verify never checks load policy; the launch smoke does.
+        [[ -f "$SELF_SIGNED_ENTITLEMENTS" ]] || fail "Entitlements file not found: $SELF_SIGNED_ENTITLEMENTS"
         RUNTIME_FLAG=""
+        APP_RUNTIME_FLAG="--options runtime"
+        APP_ENTITLEMENTS="$SELF_SIGNED_ENTITLEMENTS"
         info "Self-signed: $SIGN_IDENTITY"
         info "Signing with a self-signed identity (stable code identity, Accessibility grant persists across releases)."
         info "Skipping notarization (Apple only notarizes Developer ID; Gatekeeper first-launch flow still applies)."
@@ -331,8 +334,8 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
         codesign --force $RUNTIME_FLAG $TIMESTAMP_FLAG --sign "$SIGN_IDENTITY" "$item" \
             || fail "codesign failed on: $item"
     done
-    codesign --force $RUNTIME_FLAG $TIMESTAMP_FLAG \
-        --entitlements "$ENTITLEMENTS" --sign "$SIGN_IDENTITY" "$APP" \
+    codesign --force $APP_RUNTIME_FLAG $TIMESTAMP_FLAG \
+        --entitlements "$APP_ENTITLEMENTS" --sign "$SIGN_IDENTITY" "$APP" \
         || fail "codesign failed on $APP_NAME"
     codesign --verify --deep --strict --verbose=2 "$APP" \
         || fail "signature did not verify on $APP_NAME"
@@ -374,10 +377,17 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     done
     info "All ${#CONSISTENCY_ITEMS[@]} nested binaries match the app: $APP_LEAF (team ${APP_TEAM:-none})"
 
+    # The leaf certificate's SHA-256, for the Release body: a first install happens outside
+    # Sparkle, so the EdDSA signature does not protect it, and "Open Anyway" accepts any
+    # certificate. Published beside the DMG's digest, it is what a person can check by hand.
+    codesign -d --extract-certificates="$BUILD_DIR/signing-cert" "$APP" >/dev/null 2>&1 \
+        || fail "could not extract the signing certificate from $APP_NAME"
+    CERT_SHA256="$(shasum -a 256 "$BUILD_DIR/signing-cert0" | cut -d' ' -f1)"
+
     if [[ "$SIGN_IDENTITY" == "Developer ID Application"* ]]; then
         info "Signed with Developer ID (hardened runtime + entitlements + timestamp)."
     else
-        info "Signed self-signed (entitlements, no hardened runtime, no timestamp)."
+        info "Signed self-signed (hardened runtime on the app, library validation off, no timestamp)."
     fi
 else
     info "Ad-hoc signing $APP_NAME (CREMA_SIGN_IDENTITY unset — local/testing build)."
@@ -447,8 +457,8 @@ fi
 # process to survive ~5 s. This is the only stage that exercises dyld's
 # LOAD-time policy (library validation, Team consistency): a bundle can pass
 # codesign --verify --deep --strict on every component and still be
-# unlaunchable — the self-signed + hardened-runtime combination shipped
-# exactly that once (dyld: "mapping process and mapped file (non-platform)
+# unlaunchable — the self-signed + hardened-runtime combination, with library
+# validation still on, shipped exactly that once (dyld: "mapping process and mapped file (non-platform)
 # have different Team IDs"). Runs in EVERY mode, after the dmg is final
 # (post-staple on Developer ID, since stapling rewrites the file).
 step "Launch smoke (install from $DMG_NAME, must survive 5 s)"
@@ -521,15 +531,15 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     cp "$DMG_OUT" "$DMG_VERSIONED"
 
     # generate_appcast / sign_update ship inside Sparkle's SPM artifact, which Xcode resolves under
-    # DerivedData (the archive above triggered the resolve). That folder name carries a per-project
-    # hash, so find the tools by glob (newest wins) rather than hardcoding the hash.
+    # THIS project's DerivedData (the archive above triggered the resolve). Located through
+    # -showBuildSettings, never a glob over every project: generate_appcast reads the EdDSA private
+    # key from the Keychain, so it must be the copy this project resolved, not whichever project on
+    # the machine resolved one last (another version, or any fork whose package is named sparkle).
+    PROJECT_PRODUCTS="$(xcodebuild -project "$PROJECT" -scheme Crema -showBuildSettings 2>/dev/null \
+        | awk -F' = ' '/^ *BUILD_DIR = /{print $2; exit}')" || true
+    SPARKLE_TOOLS="${PROJECT_PRODUCTS%/Build/Products}/SourcePackages/artifacts/sparkle/Sparkle/bin"
     find_sparkle_tool() {
-        local tool="$1" newest=''
-        while IFS= read -r p; do
-            [[ -z "$newest" || "$p" -nt "$newest" ]] && newest="$p"
-        done < <(find "$HOME/Library/Developer/Xcode/DerivedData" \
-            -path "*/SourcePackages/artifacts/sparkle/Sparkle/bin/$tool" -type f 2>/dev/null)
-        [[ -n "$newest" ]] && printf '%s' "$newest"
+        [[ -n "$PROJECT_PRODUCTS" && -x "$SPARKLE_TOOLS/$1" ]] && printf '%s' "$SPARKLE_TOOLS/$1"
     }
     # The assignment is split from its test on purpose, here and at the three
     # sites below: `set -e` aborts AT an assignment whose command substitution
@@ -537,7 +547,7 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     # the message that says what to do about it. `|| true` keeps the empty value
     # and hands the verdict to the check.
     GENERATE_APPCAST="$(find_sparkle_tool generate_appcast)" || true
-    [[ -n "$GENERATE_APPCAST" ]] || fail "generate_appcast not found under any DerivedData/…/SourcePackages/artifacts/sparkle/Sparkle/bin.
+    [[ -n "$GENERATE_APPCAST" ]] || fail "generate_appcast not found in this project's DerivedData ($SPARKLE_TOOLS).
     Build Crema once (Xcode or 'xcodebuild build') so SPM resolves Sparkle, then re-run."
 
     # Staging holds ONLY the new dmg and no prior appcast, and the feed is written to a FRESH path
@@ -693,8 +703,10 @@ step "Cleaning intermediates"
 rm -rf "$BUILD_DIR" "$STAGING_DIR"
 
 DMG_SIZE="$(du -h "$DMG_OUT" | cut -f1 | tr -d ' ')"
+DMG_SHA256="$(shasum -a 256 "$DMG_OUT" | cut -d' ' -f1)"
 printf '\n%s✓ %s ready%s\n' "$GREEN$BOLD" "$DMG_NAME" "$RESET"
 info "File:    $DMG_OUT ($DMG_SIZE)"
+info "SHA-256: $DMG_SHA256"
 info "Version: $VERSION (build $BUILD_NUMBER)   ·   Tag to publish: $TAG"
 
 if [[ -n "$SIGN_IDENTITY" ]]; then
@@ -705,8 +717,12 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     info "   gh release create $TAG \"$DMG_OUT\" \"$DMG_VERSIONED\" --target main --title \"Crema $VERSION\" --notes \"…\" --latest"
     info "     · Crema.dmg          → the README's releases/latest/download/Crema.dmg link"
     info "     · Crema-$VERSION.dmg → the appcast enclosure (its URL in docs/appcast.xml)"
-    info "3. Publish the appcast (a push to main; Pages serves /docs) — this script did NOT commit:"
-    info "   git add docs/appcast.xml && git commit -m \"chore(release): appcast $VERSION\" && git push"
+    info "   and put these two lines in the Release body, for whoever checks a first download by hand:"
+    info "     SHA-256 of Crema.dmg: $DMG_SHA256"
+    info "     SHA-256 of the signing certificate: ${CERT_SHA256:-}"
+    info "3. Publish the appcast (Pages serves /docs from main, and main takes no direct push — docs/GITHUB.md) — this script did NOT commit:"
+    info "   git checkout -b release/$VERSION && git add docs/appcast.xml && git commit -m \"chore(release): appcast $VERSION\""
+    info "   git push -u origin release/$VERSION && gh pr create --base main --title \"chore(release): appcast $VERSION\" --body \"…\" && gh pr checks --watch && gh pr merge --merge"
     info "4. Confirm it is live and points at this release:"
     info "   curl -fsS https://colatte.github.io/crema/appcast.xml | grep -E 'sparkle:version|Crema-$VERSION\\.dmg'"
 else

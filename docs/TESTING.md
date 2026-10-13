@@ -1,6 +1,6 @@
 # Testing — the discipline, and what each clause cost
 
-> The mechanism behind the rules CLAUDE.md states in one line each. Every clause
+> The mechanism behind the rules AGENTS.md states in one line each. Every clause
 > below exists because a test lied once: it went green without looking, hung the
 > whole suite, or failed for a reason foreign to its own thesis. Read this
 > before writing a wait, before constructing a type that carries a clock, and
@@ -37,6 +37,8 @@ The same class walks in through the constructor door: a clock parameter with a *
 
 "The consumer did not act" needs a POSITIVE signal that it has already passed the point — a sentinel emitted BEHIND what is being denied, on the same ordered stream, awaited by the bounded helper — otherwise the scheduler-slot budget runs out before the consumer ever runs and the test passes by never having looked (`MediaKeyHUDRouterTests.volumeKeysAreNotRouted`; one sentinel per channel, so that each channel's final count is assertive rather than transient).
 
+For a Coordinator screen-brightness drag, that sentinel is `onScreenBrightnessWriteFinished` (the harness counts it as `finishedScreenWrites`): a `defer` at the top of each write task fires it after the write, its fallback and any correction, so it sits behind every negative about that write — "never on the other scale", "not corrected under the finger". A positive `eventually` on one actuator is not that barrier: the task can still be running when it turns true.
+
 The negative wait that gives something-that-must-not-happen its chance **does not use the 5 s budget**: it is a SHORT wall-clock window that returns the instant the footprint appears (`footprintAppears`, in `ChainedNowPlayingSourceTests`) — the long budget exists so a positive wait does not expire early, and in a negative one expiring early can only pass wrongly, never fail wrongly.
 
 **A loop that hammers until the answer arrives leaves work of its own in the queue — and an `advance()` after it kills the wrong target**: `eventually { press; return !consumed }` proves the fact arrived, never that it SETTLED; each press before the answer enqueues one more apply on the chain, which drains after the loop, and the following advance expires THAT apply's deadline (a legitimate swallowed-key suspension) instead of what the test was measuring — failing at the assertion that exists to rule that suspension out (measured: green in isolation, 2/2 red in the parallel suite). The right barrier is an END-OF-WORK signal, not fact-arrival: an apply from another domain enqueued behind it (the chain is a single one) awaited via `onApplied` proves that everything before it finished and that the read clock is left with no sleeper.
@@ -51,7 +53,7 @@ A presence assertion on it (`!= nil`, a nil×nil partition) is a tautology that 
 
 ## CI runs the suite serial, and the verdict is a line
 
-`-parallel-testing-enabled NO`, there only: 3 vCPU / 7 GB (macos-15 arm64) cannot carry 115 parallel suites — the GCD global pool has a per-QoS ceiling, the tests that model hangs park real threads in it by design, and an apply's pre-read sat in the queue for 75 s with the write never starting.
+`-parallel-testing-enabled NO`, there only: 3 vCPU / 7 GB (measured on the macos-15 arm64 image) cannot carry the suites in parallel (they run parallel locally, serial in CI) — the GCD global pool has a per-QoS ceiling, the tests that model hangs park real threads in it by design, and an apply's pre-read sat in the queue for 75 s with the write never starting.
 
 The job is ruled by the `Test run with N tests` line via a watchdog in `ci.yml`: the host teardown hangs with everything green, so the line is the verdict, never xcodebuild's exit. **Absence of a verdict is always failure**, including when xcodebuild exits 0 — a run that never reported is a run whose result nobody has, and deferring to its exit would invert the very rule (measured: the step went green). Since the step's shell is `bash -e`, the no-verdict branch's `wait` captures the status with `|| status=$?` — the raw `wait; status=$?` aborted the step BEFORE the diagnostic that branch exists to print.
 
@@ -67,11 +69,4 @@ Locally, concurrent `xcodebuild test` runs fight over the build-system lock in t
 - The now-playing fallback chain, with availability driven by the mocks (adapter ok / JXA only / none).
 - Graceful degradation: an absent external integration does not affect the essential flows.
 
-**Not unit** (thin edge; manual/smoke validation): the real adapter process, Core Audio, the event tap, OSDUIHelper, the real `DistributedNotificationCenter`. The rule is to keep those edges thin enough that all the interesting logic lives above them — and is testable.
-
-Minimum focus (living checklist):
-
-- [ ] Coordinator: state transitions, HUD priority, timer revert (with mocked sources, without touching a system API)
-- [ ] Window rules (`windowFrame`) per style, including the notch computation
-- [ ] Now-playing fallback when the adapter is unavailable
-- [ ] Integration source: decode the OSD notification and map it to the correct `SystemHUD`; the app works normally when the integration is absent (graceful degradation)
+**Not unit** (thin edge; manual/smoke validation): the real adapter process, Core Audio, the event tap, the real `DistributedNotificationCenter`. The rule is to keep those edges thin enough that all the interesting logic lives above them — and is testable.

@@ -6,12 +6,6 @@ import Testing
 /// mapping, the fill it draws when there is no length to draw, the shape its
 /// labels hold, when it counts as a live control — and the look it shares with
 /// the HUD bar.
-///
-/// It had none of this: the row was a stock `Slider`, so its mapping was
-/// AppKit's and its look was the system control's — a thumb always visible,
-/// tinted with the artwork accent. Two rows above it in the lock card sat the
-/// HUD's own bar, thumbless and white, measured off the Tahoe banner and
-/// recorded as a decision. One card, two bars, opposite rules.
 struct ScrubberTrackTests {
 
     private let ltr = LayoutDirection.leftToRight

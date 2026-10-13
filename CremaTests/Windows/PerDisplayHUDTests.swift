@@ -52,9 +52,8 @@ struct PerDisplayHUDTests {
     @Test func aHUDOwnedByNoDisplayShowsEverywhere() async {
         // Volume belongs to the output device and no screen owns it, so its bar
         // belongs on every panel — scoping it would move feedback nobody asked to
-        // move. The built-in brightness used to read the same way and no longer
-        // does: it names the internal panel as a ROLE, and the two facts stopped
-        // sharing one spelling (docs/DECISIONS.md: hud-target-is-a-role).
+        // move. The built-in brightness names the internal panel as a ROLE instead,
+        // a different spelling (docs/DECISIONS.md: hud-target-is-a-role).
         let h = makeHarness()
         let hud = SystemHUD(kind: .volume, value: 0.5)
 

@@ -13,8 +13,7 @@ struct AXAccessibilityPermission: AccessibilityPermission {
         // that C global without concurrency annotations, so Swift 6 rejects any
         // reference to it. Apple documents the SYMBOL and never its value, so
         // this literal is MEASURED from the running framework rather than read
-        // off a reference page — the comment used to call it "the key's
-        // documented value", which promised a source that does not exist.
+        // off a reference page.
         let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
         AXIsProcessTrustedWithOptions(options)
     }

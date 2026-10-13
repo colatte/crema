@@ -39,14 +39,9 @@ struct MenuStatusTests {
     }
 
     @Test func theStatusBlockIsAbsentOnAHealthyMac() {
-        // The common shape, and the change this subtraction makes observable: a Mac
-        // where the declaration is honoured and no neighbour reports has no FACT left
-        // to state. "Crema opens at login" was the mirror of a checkbox the user
-        // reads in General, and the pointer scope is stated unconditionally in the
-        // Indicators tab, right under the switch that turns the replacement on — a
-        // row that restates another surface is not news, and it made the status block
-        // permanent. So the block is absent here rather than carrying a line nobody
-        // needs the menu to say.
+        // The common shape: a Mac where the declaration is honoured and no neighbour
+        // reports has no FACT left to state, so the block is absent rather than
+        // carrying a row nobody needs the menu to say.
         #expect(status().blocks == [.controls, .media])
         #expect(status().rows.isEmpty)
     }
@@ -77,13 +72,8 @@ struct MenuStatusTests {
     }
 
     @Test func aHealthyAppStatesNoFactAndWarnsAboutNothing() {
-        // Each row this used to hold left for the same reason, one round apart: the
-        // replacement claim because the menu's own Toggle states it checked, the
-        // login row because the General checkbox is where that fact is read AND
-        // changed. A sentence repeating a control the user can see is noise, and the
-        // control is the honest place for the fact — so a healthy app says nothing
-        // here and warns about nothing, which is the whole point of the block being
-        // conditional.
+        // A healthy app states no fact: a sentence repeating a control the user can
+        // already see is noise, so the block is conditional.
         #expect(status().rows.isEmpty)
         #expect(status().warnings.isEmpty)
     }
@@ -137,8 +127,7 @@ struct MenuStatusTests {
     }
 
     @Test func theNeighboursReportIsStatusAndNotAWarning() {
-        // The arrangement the app asked the user to make. It used to sit in the
-        // warning stack behind a checkmark, which is why it read as noise.
+        // The arrangement the app asked the user to make.
         let drawing = status(chainNotice: .drawingFromBetterDisplay)
         #expect(drawing.rows.contains(.brightnessFromBetterDisplay))
         #expect(drawing.warnings.isEmpty)
@@ -159,11 +148,9 @@ struct MenuStatusTests {
         // (docs/DECISIONS.md: brightness-key-target-in-the-menu).
         #expect(status(brightnessTarget: .noBuiltInDisplay).rows.contains(.brightnessNoBuiltIn))
         #expect(status(brightnessTarget: .noBuiltInDisplay).warnings.isEmpty)
-        // A built-in panel among others is now SILENT, and silent is not "says the
-        // other row": the pointer scope is stated unconditionally in the Indicators
-        // tab, so the menu copy was redundant — but mapping this target to the
-        // remaining row would tell a Mac that HAS a built-in display that Crema
-        // cannot control screen brightness, which is false.
+        // `.builtInAmongOthers` is silent, never mapped to the remaining row: that
+        // row would tell a Mac that HAS a built-in display that Crema cannot control
+        // screen brightness, which is false.
         #expect(status(brightnessTarget: .builtInAmongOthers).rows.isEmpty)
         // The composition upstream stands the target down for any chain answer but
         // `.quiet`, so the neighbour's row and the brightness row are mutually
@@ -175,10 +162,8 @@ struct MenuStatusTests {
 
     @Test func approvalPendingIsAWarningOfItsOwn() {
         // A non-throwing register() can park for approval: nothing opens at login
-        // yet. The half of this that pinned the absent row went with the row itself —
-        // the General checkbox is where that state is read now — and what survives is
-        // the half no other surface carries: a registration waiting on the user is a
-        // warning, with the walk to Login Items under it.
+        // yet. A registration waiting on the user is a warning, with the walk to
+        // Login Items under it, never a status row.
         let pending = status(loginOutcome: .needsApproval)
         #expect(pending.warnings == [.loginItemNeedsApproval])
         #expect(pending.rows.isEmpty)

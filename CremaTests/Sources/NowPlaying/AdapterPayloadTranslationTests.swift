@@ -33,8 +33,7 @@ struct AdapterPayloadTranslationTests {
     }
 
     @Test func aMissingOrEmptyAlbumIsNilRatherThanABlankSearchTerm() throws {
-        // Its only reader is the cover lookup, which joins the terms into a query
-        // — an empty string there is not a narrower search, it is a worse one.
+        // An empty string in a search term is not a narrower search, it is a worse one.
         let missing = #"{"type":"data","diff":false,"payload":{"title":"Solo","playing":true,"elapsedTime":0,"duration":100}}"#
         let blank = #"{"type":"data","diff":false,"payload":{"title":"Solo","album":"","playing":true,"elapsedTime":0,"duration":100}}"#
         #expect(try #require(translate(missing)).album == nil)
@@ -204,6 +203,18 @@ struct AdapterPayloadTranslationTests {
         let anchor = try #require(ISO8601DateFormatter().date(from: "2026-07-04T19:14:19Z"))
         let np = try #require(translate(fullLine, at: anchor.addingTimeInterval(10)))
         #expect(np.position == 52.5)
+    }
+
+    /// Any app publishing now-playing chooses these numbers, and the time label's
+    /// `Duration` traps on a position past Int64's seconds (measured: 1e19 aborts),
+    /// so the border bounds the position before the domain carries it.
+    @Test func aPositionThePublisherChoseIsBoundedAtTheBorder() throws {
+        let paused = #"{"type":"data","diff":false,"payload":{"title":"X","playing":false,"elapsedTimeMicros":1e26}}"#
+        #expect(try #require(translate(paused)).position == NowPlaying.maximumPosition)
+
+        let racing = #"{"type":"data","diff":false,"payload":{"title":"X","playing":true,"playbackRate":1e300,"elapsedTimeMicros":0,"timestampEpochMicros":1000000000000}}"#
+        let aged = try #require(translate(racing, at: Date(timeIntervalSince1970: 1_000_100)))
+        #expect(aged.position == NowPlaying.maximumPosition)
     }
 }
 

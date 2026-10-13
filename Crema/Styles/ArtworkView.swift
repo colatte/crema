@@ -48,8 +48,7 @@ struct ArtworkView: View {
 
     var body: some View {
         ArtworkFrame(image: image, side: side, cornerRadius: cornerRadius)
-            // Every slot decodes to the same bound (a per-caller bound existed
-            // once, for a removed 300 pt surface), so the bytes alone are the
+            // Every slot decodes to the same bound, so the bytes alone are the
             // decode's whole identity and the task keys on them directly.
                 .task(id: data) { [data] in
                     // ImageIO decoding is a blocking synchronous call, so it goes off the

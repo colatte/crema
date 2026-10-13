@@ -194,8 +194,6 @@ final class ChainedNowPlayingSource: NowPlayingSource, StoppableSource, @uncheck
             // deliberate promotion broke the loop. Its last snapshot is a ghost:
             // signal the consumer to drop it (docs/DECISIONS.md: ghost-discard);
             // the next selected source rebuilds the state from its own snapshots.
-            // Distinct from the older pinned-latent behavior, where a mid-chain
-            // failover left that ghost armed until quit.
             fireActiveSourceEnded()
 
             // Backoff before re-selecting: avoids a spawn spin when a source
@@ -226,7 +224,7 @@ final class ChainedNowPlayingSource: NowPlayingSource, StoppableSource, @uncheck
                 return armedPromotion
             }
             if armed, PromotionBoundary.isQuiet(nowPlaying, previous: previous) {
-                break // promote at this quiet boundary; drop the boundary snapshot
+                break
             }
             continuation.yield(nowPlaying)
             previous = nowPlaying

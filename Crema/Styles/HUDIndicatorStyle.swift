@@ -4,9 +4,13 @@ import Foundation
 /// keyboard brightness), chosen in Settings and scoped to the Card style —
 /// Notch always renders the capsule and Classic its segmented bar. Like Style,
 /// an enum whose raw value is the Preferences persistence format, so an
-/// unknown persisted rawValue degrades to `.slider` (the shipped default)
-/// rather than crashing.
+/// unknown persisted rawValue degrades to `shippedDefault` rather than crashing.
 enum HUDIndicatorStyle: String, CaseIterable, Equatable, Sendable {
+    /// Named once and read by every site that needs it: the Preferences getter,
+    /// both Settings readers and the panel's policy box. Here rather than on
+    /// Preferences because the policy box lives in Styles, which reads no App type.
+    static let shippedDefault: Self = .slider
+
     /// The native-style capsule track (HUDLevelSlider.Appearance.capsule). The
     /// rawValue keeps the retired stock-Slider body's name — it is persisted,
     /// so renaming it would silently reset users' choice.

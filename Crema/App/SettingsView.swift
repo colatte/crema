@@ -17,10 +17,9 @@ struct SettingsView: View {
         // Screenshot/dev harness: `-CremaSettingsInitialTab about` decides the
         // tab this window LANDS on when it opens (by ⌘, or the menu — nothing
         // opens it programmatically; the modern Settings scene has no
-        // supported selector for that). A name no longer in the enum — "displays",
-        // whose contents are now the first two sections of General — parses to nil
-        // and lands on General silently, which is the harness's contract: it steers
-        // a screenshot run, so a stale flag is worth a wrong tab and never a crash.
+        // supported selector for that). An unknown name parses to nil and lands on
+        // General silently, which is the harness's contract: it steers a screenshot
+        // run, so a stale flag is worth a wrong tab and never a crash.
         // DEBUG-only read; the selection state itself is ordinary TabView plumbing.
         if let raw = UserDefaults.standard.string(forKey: "CremaSettingsInitialTab"),
            let tab = SettingsTab(rawValue: raw) {
@@ -106,7 +105,7 @@ private struct GeneralSettingsView: View {
     /// beside the style tiles rather than in the Indicators tab because the choice
     /// is a picture of a bar, and the only place that picture means anything is
     /// next to the picture of the surface the bar sits on.
-    @AppStorage(Preferences.hudIndicatorStyleKey) private var indicatorStyle = HUDIndicatorStyle.slider.rawValue
+    @AppStorage(Preferences.hudIndicatorStyleKey) private var indicatorStyle = HUDIndicatorStyle.shippedDefault.rawValue
     /// The desk both tile rows stand on, read once when this pane is built. Asked
     /// of the core rather than of each row, so the two rows in one Section cannot
     /// end up on different desks.
@@ -130,11 +129,8 @@ private struct GeneralSettingsView: View {
         _loginNeedsApproval = State(initialValue: seed.loginNeedsApproval)
     }
 
-    /// Notch is what the user declared, and nothing on screen is honouring it.
-    /// Deliberately not `!rendersNotch` alone: with Card or Classic declared there
-    /// is no fallback to report, and the generic sentence is the right one.
     private var fallbackIsInEffect: Bool {
-        style == .notch && !rendersNotch && rendersCard
+        Style.fallsBackToCard(declared: style, rendersNotch: rendersNotch, rendersCard: rendersCard)
     }
 
     /// Whether any connected display carries a style of its own. Read where it is
@@ -195,7 +191,7 @@ private struct GeneralSettingsView: View {
                         Text(String(localized: "settings.hud.indicator", defaultValue: "Card indicator"))
                     }
                     .onChange(of: indicatorStyle) { _, new in
-                        core.setHUDIndicatorStyle(HUDIndicatorStyle(rawValue: new) ?? .slider)
+                        core.setHUDIndicatorStyle(HUDIndicatorStyle(rawValue: new) ?? .shippedDefault)
                     }
                 }
             } header: {
@@ -283,12 +279,11 @@ private struct GeneralSettingsView: View {
             } footer: {
                 if loginNeedsApproval {
                     // The sentence names no PATH, and that is the fix rather
-                    // than a shorter sentence. It used to read "System Settings
-                    // › General › Login Items", which macOS 15 renamed to "Login
-                    // Items & Extensions" (Apple: "Change Login Items &
-                    // Extensions settings on Mac"). The app supports 14+, so any
-                    // written path is wrong on one of them — and a button that
-                    // opens the pane cannot be wrong on either.
+                    // than a shorter sentence: macOS 15 renamed the pane to
+                    // "Login Items & Extensions" (Apple: "Change Login Items &
+                    // Extensions settings on Mac") and the app supports 14+, so
+                    // any written path is wrong on one of them — and a button
+                    // that opens the pane cannot be wrong on either.
                     Text(String(
                         localized: "settings.general.launchAtLogin.needsApproval",
                         defaultValue: "Approve Crema in System Settings to finish enabling this."
@@ -314,9 +309,9 @@ private struct GeneralSettingsView: View {
 
 private struct NowPlayingSettingsView: View {
     let core: AppCore
-    @AppStorage(Preferences.reactiveNowPlayingKey) private var reactive = true
-    @AppStorage(Preferences.showsPlaybackControlsKey) private var showsControls = true
-    @AppStorage(Preferences.includesBrowserMediaKey) private var includesBrowsers = false
+    @AppStorage(Preferences.reactiveNowPlayingKey) private var reactive = Preferences.defaultReactiveNowPlaying
+    @AppStorage(Preferences.showsPlaybackControlsKey) private var showsControls = Preferences.defaultShowsPlaybackControls
+    @AppStorage(Preferences.includesBrowserMediaKey) private var includesBrowsers = Preferences.defaultIncludesBrowserMedia
 
     var body: some View {
         Form {
@@ -342,7 +337,7 @@ private struct NowPlayingSettingsView: View {
             } footer: {
                 Text(String(
                     localized: "settings.nowPlaying.source.footer",
-                    // swiftlint:disable:next line_length
+                    // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
                     defaultValue: "Crema reads what’s playing from the system. With nothing reporting, the player stays hidden and the options below have nothing to act on."
                 ))
                 .settingsFootnote()
@@ -382,7 +377,7 @@ private struct NowPlayingSettingsView: View {
             } footer: {
                 Text(String(
                     localized: "settings.nowPlaying.browsers.footer",
-                    // swiftlint:disable:next line_length
+                    // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
                     defaultValue: "Includes music playing in Safari, Chrome, and other browsers. This can make the player appear for autoplay videos on websites."
                 ))
                 .settingsFootnote()
@@ -477,15 +472,14 @@ private struct AboutSettingsView: View {
 }
 
 // Internal rather than fileprivate: the panes and rows that dress their footers
-// with this are spread over several files (this one hit the 500-line ceiling with
-// no opt-out, so the bigger tabs and the per-display row moved out), and a
-// fileprivate helper would be copied into each of them instead.
+// with this are spread over several files, and a fileprivate helper would be
+// copied into each of them instead.
 extension View {
     /// The muted, small footnote style shared by every Settings section footer.
     ///
-    /// A step below `.callout`, which sat one point under the 13 pt control labels —
-    /// one point of separation for text three to four times longer, so every pane
-    /// read as paragraphs with a control in them rather than controls with notes.
+    /// `.subheadline`: one point under the 13 pt control labels is no separation
+    /// for text three to four times longer, and a pane without it reads as
+    /// paragraphs with a control in them rather than controls with notes.
     func settingsFootnote() -> some View {
         font(.subheadline)
             .foregroundStyle(.secondary)

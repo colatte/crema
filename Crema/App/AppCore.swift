@@ -48,12 +48,12 @@ final class AppCore {
     //
     // `preferences` being private does NOT mean this core is the only writer — the
     // Settings view writes five of them straight through @AppStorage, and
-    // Preferences exposes those raw keys on purpose for exactly that. The real
-    // contract is the other way round: the persisted key is the source of truth,
-    // @AppStorage does the writing, and a setter here exists to apply the LIVE
-    // effect the write cannot. Which is why every new Settings control owes an
-    // `.onChange` calling into this core — without it the value persists and
-    // nothing happens until relaunch.
+    // Preferences exposes those raw keys on purpose for exactly that. The persisted
+    // key is the source of truth, and it is written twice: @AppStorage writes it,
+    // then the setter here writes the same value again before applying the LIVE
+    // effect the @AppStorage write cannot. The second write is idempotent. Which is
+    // why every new Settings control owes an `.onChange` calling into this core —
+    // without it the value persists and nothing happens until relaunch.
     private let windowManager: WindowManager
     private let preferences: Preferences
     let permissionMonitor: AccessibilityPermissionMonitor
@@ -190,20 +190,14 @@ final class AppCore {
             graph = Self.makeDemoGraph(demo)
         } else {
             self.demo = nil
-            let builtChain = Self.makeNowPlayingChain(onActiveChange: onNowPlayingActive)
-            chain = builtChain
-            graph = Self.makeRealGraph(
-                nowPlayingSource: builtChain,
-                nowPlayingController: RoutingNowPlayingController(activeChannel: { builtChain.activeCommandChannel() })
-            )
+            let production = Self.makeProductionGraph(onNowPlayingActive: onNowPlayingActive)
+            chain = production.chain
+            graph = production.graph
         }
         #else
-        let builtChain = Self.makeNowPlayingChain(onActiveChange: onNowPlayingActive)
-        chain = builtChain
-        graph = Self.makeRealGraph(
-            nowPlayingSource: builtChain,
-            nowPlayingController: RoutingNowPlayingController(activeChannel: { builtChain.activeCommandChannel() })
-        )
+        let production = Self.makeProductionGraph(onNowPlayingActive: onNowPlayingActive)
+        chain = production.chain
+        graph = production.graph
         #endif
         nowPlayingChain = chain
 
@@ -215,7 +209,6 @@ final class AppCore {
             screenBrightnessController: graph.screenBrightnessController,
             keyboardBrightnessController: graph.keyboardBrightnessController,
             externalScreenBrightnessController: graph.externalScreenBrightnessController,
-            // Seed the live behavior from the persisted Settings.
             ignoresBrowserMedia: !preferences.includesBrowserMedia,
             reactiveNowPlaying: preferences.reactiveNowPlaying
         )
@@ -265,7 +258,14 @@ final class AppCore {
         // shipped default and swap them a beat later.
         // (docs/DECISIONS.md: global-style-default)
         preferences.adoptDeclaredStyleFromOverrides(preferring: Self.styleAuthorityOrder(screens))
-        Self.applyScreenRoster(screens, to: windowManager, mirroring: displayRoster)
+        // One main-actor turn later, never inline: this init runs INSIDE SwiftUI's
+        // scene update (`@State` evaluates `AppCore()` there), and a panel's first
+        // frame lays out its NSHostingView, nesting a view-graph update in that one.
+        // Linked against the macOS 27 SDK the nesting aborts the process at launch
+        // (docs/DECISIONS.md: the-composition-root-draws-a-turn-later).
+        Task { @MainActor [windowManager, displayRoster] in
+            Self.applyScreenRoster(screens, to: windowManager, mirroring: displayRoster)
+        }
 
         let windowManager = self.windowManager
         let displayRoster = self.displayRoster
@@ -299,12 +299,8 @@ final class AppCore {
         // cannot be pointed at a center nobody posts to by editing this line.
         wakeObservations = Self.wireWakeReinstall(reinstalling: tapSource)
 
-        // Built once, outside the suppressor block, and for two reasons. It is a
-        // fact about the session rather than a suppression concern; and the
-        // demo graph has no suppressor at all, which would have stranded the
-        // Assigned to the stored property, not a local: placing it out here made
-        // it REACHABLE on those paths without making it live, and the difference
-        // is the whole bug the property's own comment now records.
+        // Built on every graph, suppressor or not; the property's doc says why it
+        // is stored rather than held as a local.
         lockSource = DistributedNotificationScreenLockSource()
 
         if let consuming = mediaKeys as? any MediaKeyConsuming,
@@ -355,7 +351,11 @@ final class AppCore {
             suppressionLockController = nil
         }
 
-        Self.presentWelcomeTourIfFirstLaunch(preferences: preferences) { self.presentWelcomeTour() }
+        // The gate's write stays here, before any window; the window waits a turn
+        // for the reason the panel roster above does.
+        Self.presentWelcomeTourIfFirstLaunch(preferences: preferences) {
+            Task { @MainActor [weak self] in self?.presentWelcomeTour() }
+        }
 
         // The one moment the persisted login-item intent is reconciled against
         // reality: an item the user removed themselves is forgotten here, at a
@@ -553,13 +553,11 @@ final class AppCore {
 
     /// The value the all-displays picker seeds from: the DECLARATION, raw — the
     /// same key the menu's Style submenu binds, so the two surfaces of one
-    /// declaration cannot disagree. It used to answer with the leading display's
-    /// RESOLVED style, which let that display's own override show up selected in
-    /// the tiles that speak for every screen — the tiles claimed a declaration
-    /// nobody had made, one row above the row that already reported the override
-    /// as this display's own (docs/DECISIONS.md: global-style-default). Never
-    /// what any screen draws either: no geometry enters here, which is why a
-    /// style-scoped control gates on `rendersAnywhere` instead.
+    /// declaration cannot disagree. Never a display's RESOLVED style: an override
+    /// shown selected in tiles that speak for every screen claims a declaration
+    /// nobody made (docs/DECISIONS.md: global-style-default). Never what any
+    /// screen draws either: no geometry enters here, which is why a style-scoped
+    /// control gates on `rendersAnywhere` instead.
     ///
     /// A one-line delegate to a pinned resolver: the rule is proven at
     /// `Preferences.declaredStyle(fromRawValue:)`, and this carries the same
@@ -622,8 +620,6 @@ final class AppCore {
         windowManager.refreshStyles()
     }
 
-    /// Quiet vs reactive now playing — persisted and applied to the live
-    /// Coordinator at once.
     func setReactiveNowPlaying(_ reactive: Bool) {
         preferences.reactiveNowPlaying = reactive
         coordinator.setReactiveNowPlaying(reactive)
@@ -808,6 +804,27 @@ final class AppCore {
     #endif
 }
 
+// MARK: - The production graph
+
+/// An extension and not the class body, for the reason the others give: the
+/// body sits at the `type_body_length` ceiling the composition root leans on.
+@MainActor
+extension AppCore {
+    /// The production graph and the chain it reads, wired once: the Debug-real
+    /// and Release branches both call this, because the Debug-hosted suite never
+    /// compiles the Release one and a copy there would drift unseen.
+    private static func makeProductionGraph(
+        onNowPlayingActive: @escaping @Sendable (Bool) -> Void
+    ) -> (chain: ChainedNowPlayingSource, graph: SystemGraph) {
+        let chain = makeNowPlayingChain(onActiveChange: onNowPlayingActive)
+        let graph = makeRealGraph(
+            nowPlayingSource: chain,
+            nowPlayingController: RoutingNowPlayingController(activeChannel: { chain.activeCommandChannel() })
+        )
+        return (chain, graph)
+    }
+}
+
 // MARK: - Launch at login
 
 @MainActor
@@ -918,13 +935,14 @@ extension AppCore {
     /// available since macOS 13 and therefore unconditionally on this app's 14+
     /// target.
     ///
-    /// It replaces a hand-built `x-apple.systempreferences:` URL naming
-    /// `com.apple.LoginItems-Settings.extension`. That identifier is an
-    /// undocumented internal pane ID, of the kind Apple has already renamed once
-    /// across the Preferences→Settings transition, and the old call discarded
-    /// `NSWorkspace.open`'s Bool: when the name eventually changes, the button
-    /// would do nothing at all and say nothing about it. Nothing here is worth
-    /// guessing a private string for.
+    /// No hand-built `x-apple.systempreferences:` URL for this pane, because it has a
+    /// public opener: the pane ID is an undocumented internal identifier, of the
+    /// kind Apple has already renamed once across the Preferences→Settings
+    /// transition, and a URL that stops
+    /// resolving does nothing and says nothing about it. Nothing here is worth
+    /// guessing a private string for. The Privacy panes have no public opener (the
+    /// SDK's only `openSystemSettings…` is this one) and do build the URL by hand,
+    /// a recorded debt (docs/KNOWN-GAPS.md).
     func openLoginItemsSettings() {
         SMAppService.openSystemSettingsLoginItems()
     }
@@ -1011,10 +1029,9 @@ extension AppCore {
     /// The flag is written BEFORE `present()` runs: a crash or a force quit in the
     /// middle of the tour must not re-arm it, and a window that comes back after
     /// every bad launch is worse than one that was missed. And nothing here asks
-    /// about the Accessibility permission — the onboarding this replaces did, and
-    /// skipped exactly the installs that already had it, which include every
-    /// upgrade. An install that carries the grant is not one that was walked
-    /// through anything; it is usually one whose first launch went worst.
+    /// about the Accessibility permission: an install already carrying the grant
+    /// is usually an upgrade, and gating on it would skip exactly those — a grant
+    /// is not proof of having been walked through anything.
     ///
     /// Standalone and static so a test pins both rules without booting the graph
     /// (the reason the other AppCore seams are statics): reaching it through an
@@ -1107,7 +1124,7 @@ extension AppCore {
     /// names who won and leaves the choice to the user, which is the only place
     /// it can be made (docs/DECISIONS.md: media-key-chain-contention).
     func mediaKeyChainNotice() -> MediaKeyChainNotice {
-        chainNoticeCache.notice(betterDisplayIsFeedingUs: betterDisplaySource?.hasReported ?? false) { feeding in
+        chainNoticeCache.notice(betterDisplayIsFeedingUs: betterDisplayIsReporting) { feeding in
             Self.mediaKeyChainNotice(
                 registry: eventTapRegistry,
                 ourPID: ProcessInfo.processInfo.processIdentifier,
@@ -1165,9 +1182,24 @@ extension AppCore {
     /// local sibling to silence is a real construction, and the tests do it.
     static func makeNeighbourSource(
         target: ((Int) -> SystemHUD.Target?)? = nil,
-        standingDown local: any ManuallySampledSource
+        standingDown local: any ManuallySampledSource,
+        builtInDisplay: @escaping @MainActor () -> DisplayUUID? = { ScreenTranslation.builtInDisplayUUID() }
     ) -> BetterDisplayOSDSource {
-        BetterDisplayOSDSource(target: target, onReport: { local.standDown() })
+        BetterDisplayOSDSource(target: target, onReport: { reported in
+            if reportNamesTheLocalDisplay(reported, builtIn: builtInDisplay()) { local.standDown() }
+        })
+    }
+
+    /// The local screen source reads the built-in panel and nothing else, so only a
+    /// report about that panel is the neighbour answering the press the local
+    /// source would also draw. Anything else standing it down would silence the
+    /// feedback of a key Crema swallowed, and anyone in the session can post here.
+    static func reportNamesTheLocalDisplay(_ target: SystemHUD.Target, builtIn: DisplayUUID?) -> Bool {
+        switch target {
+        case .builtIn: true
+        case .display(let uuid): uuid == builtIn
+        case .noDisplay: false
+        }
     }
 
     /// The post-apply poke: with the key consumed, the app's own write lands AFTER
@@ -1318,9 +1350,7 @@ extension AppCore {
     /// Read-only, and that is the contract rather than a habit: the caller is a
     /// SwiftUI view body, rebuilt whenever SwiftUI invalidates it — the app does not
     /// choose when, and it is not tied to the user opening the menu — so a write
-    /// here would be domain mutation driven by rendering. The one write the
-    /// login-item reading used to do (forgetting an intent the user revoked
-    /// themselves) runs at a lifecycle edge instead (reconcileLoginItemIntent).
+    /// here would be domain mutation driven by rendering.
     ///
     /// `style` and `suppressionEnabled` come IN from the view: both are persisted
     /// preferences, and only an OBSERVED read (@AppStorage) rebuilds the menu when
@@ -1334,7 +1364,9 @@ extension AppCore {
             // with no slit the shipped default declares Notch while every panel
             // draws Card, and a lone "Style: Notch" beside a Card-shaped HUD is the
             // contradiction Settings already learned to name out loud.
-            fallsBackToCard: style == .notch && !rendersAnywhere(.notch) && rendersAnywhere(.card),
+            fallsBackToCard: Style.fallsBackToCard(
+                declared: style, rendersNotch: rendersAnywhere(.notch), rendersCard: rendersAnywhere(.card)
+            ),
             accessibilityGranted: permissionMonitor.isGranted,
             suppressionEnabled: suppressionEnabled,
             // The wish is not the fact: with no permission, or no suppressor in the

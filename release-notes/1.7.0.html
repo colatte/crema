@@ -1,0 +1,43 @@
+<h2>Crema 1.7.0</h2>
+
+<p>A hardening release. Crema now builds with Apple's macOS 27 tools, runs with
+the hardened runtime, and no longer takes the numbers other apps hand it on
+trust. Nothing about how the app is set up changed.</p>
+
+<h3>Fixed</h3>
+<ul>
+  <li><strong>Ready for the macOS 27 tools.</strong> Built with the macOS 27 SDK,
+      Crema aborted the moment it opened, before its first window; 1.7.0 is
+      built with that SDK and opens normally. The 1.6.1 you may be running was
+      built with the earlier SDK and was not affected.</li>
+  <li><strong>What another app publishes can no longer stop Crema.</strong> A
+      track position no clock could reach, an oversized cover, or a malformed
+      brightness notification from another app could crash Crema or make it hold
+      memory without limit. Positions are now bounded, a reading longer than
+      8 MB is dropped, and a cover is checked before it is decoded: JPEG, PNG or
+      HEIC, up to 4 MB and 4096 pixels a side, or the placeholder shows instead.
+      A very long track title no longer stretches the menu across the screen.</li>
+</ul>
+
+<h3>Security</h3>
+<ul>
+  <li><strong>Crema runs with the hardened runtime.</strong> Without it, another
+      program running as you could start Crema with code of its own inside and
+      use the Accessibility permission you granted to Crema. That door is
+      closed.</li>
+  <li>A brightness report from another app must name a real display, and the
+      menu says the BetterDisplay integration is live only while BetterDisplay is
+      running.</li>
+</ul>
+
+<p><strong>After updating, macOS may ask for the Accessibility permission
+again.</strong> If the media keys stop working, open Crema's menu: it says when
+the permission is missing and takes you to grant it.</p>
+
+<p><strong>Requirements:</strong> macOS 14 (Sonoma) or later · Apple Silicon or Intel.</p>
+
+<p>Crema isn't notarized by Apple, so a fresh install needs one extra step on first
+launch — see <a href="https://github.com/colatte/crema#first-launch">First launch</a>
+in the README. Updating from 1.2.0 or later happens on its own.</p>
+
+<p>Free and open source under GPL-3.0.</p>

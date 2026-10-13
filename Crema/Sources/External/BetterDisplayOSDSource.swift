@@ -50,9 +50,11 @@ final class BetterDisplayOSDSource: SystemHUDSource {
 
     @ObservationIgnored private let continuation: AsyncStream<SystemHUD>.Continuation
     @ObservationIgnored private let target: (Int) -> SystemHUD.Target?
-    /// Called after each reported level, so the polled brightness source can spend
-    /// the window a merely-observed key opened (see `ManuallySampledSource`).
-    @ObservationIgnored private let onReport: @MainActor () -> Void
+    /// Called after each reported level with the display it names, so the polled
+    /// brightness source can spend the window a merely-observed key opened (see
+    /// `ManuallySampledSource`) when, and only when, the report is about its screen.
+    @ObservationIgnored private let onReport: @MainActor (SystemHUD.Target) -> Void
+    @ObservationIgnored private let isNeighbourRunning: @MainActor () -> Bool
     /// Written only in `init` and read only in `deinit`, after every other access
     /// has ended — the lifecycle brackets rule out the concurrent access the
     /// attribute waives; a nonisolated deinit cannot see that bracket, and
@@ -77,10 +79,14 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     /// source's injected session reader.
     init(
         target: ((Int) -> SystemHUD.Target?)? = nil,
-        onReport: @escaping @MainActor () -> Void = {}
+        onReport: @escaping @MainActor (SystemHUD.Target) -> Void = { _ in },
+        isNeighbourRunning: (@MainActor () -> Bool)? = nil
     ) {
         self.target = target ?? Self.resolveTarget
         self.onReport = onReport
+        self.isNeighbourRunning = isNeighbourRunning ?? {
+            !NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleID).isEmpty
+        }
 
         var cont: AsyncStream<SystemHUD>.Continuation!
         // Newest-bounded: a held brightness key emits once per step, and a
@@ -112,13 +118,16 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     /// Internal so a test can feed a captured payload without a real notification.
     func handle(json: String) {
         guard let hud = BetterDisplayOSDTranslation.systemHUD(fromJSON: json, target: target) else { return }
-        if !hasReported {
+        // The claim takes the neighbour RUNNING as well as a delivered payload: any
+        // process in the session can post here, and NSDistributedNotificationCenter.h
+        // says to treat the data as untrusted. Presence is still not proof on its own.
+        if !hasReported, isNeighbourRunning() {
             hasReported = true
             logger.info("BetterDisplay OSD integration is live — drawing screen brightness from it")
         }
         logger.debug("BetterDisplay OSD: brightness \(hud.value, format: .fixed(precision: 2), privacy: .public)")
         continuation.yield(hud)
-        onReport()
+        onReport(hud.target)
     }
 
     /// BetterDisplay went away: whatever it told us stops being true, and the app
@@ -149,14 +158,13 @@ final class BetterDisplayOSDSource: SystemHUDSource {
         // for suspensionBehavior = NSNotificationSuspensionBehaviorCoalesce"), and
         // a coalesced registration is HELD while the centre is suspended — which
         // AppKit does on its own whenever the app is not active. Crema is an
-        // LSUIElement accessory: it is essentially never active, so the brightness
-        // bar was asking for the delivery mode that waits for a moment which may
-        // never come. Whether it arrives anyway is then the POSTER's choice — the
-        // same header says a `deliverImmediately:` post is received as if every
-        // registrant had asked for immediate delivery — and the poster here is
-        // another app, which is exactly why this side must not depend on it.
-        // `.deliverImmediately` is the documented opt-out; the screen-lock edges
-        // were moved off the block-based cover for the same reason.
+        // LSUIElement accessory: it is essentially never active, so a coalesced
+        // registration here waits for a moment that may never come. Whether it
+        // arrives anyway is then the POSTER's choice — the same header says a
+        // `deliverImmediately:` post is received as if every registrant had asked
+        // for immediate delivery — and the poster here is another app, which is
+        // exactly why this side must not depend on it. `.deliverImmediately` is
+        // the documented opt-out.
         let relay = DistributedPayloadRelay { [weak self] json in self?.handle(json: json) }
         DistributedNotificationCenter.default().addObserver(
             relay,
@@ -190,6 +198,13 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     /// is dropped: a bar for a screen the app cannot name is one it can neither
     /// place nor send a drag back to.
     private static func resolveTarget(_ displayID: Int) -> SystemHUD.Target? {
-        ScreenTranslation.displayUUID(for: CGDirectDisplayID(displayID)).map { .display($0) }
+        wireDisplayID(displayID).flatMap { ScreenTranslation.displayUUID(for: $0) }.map { .display($0) }
+    }
+
+    /// The wire's integer as a display ID, or nil: anyone in the session can post
+    /// on this channel and chooses the number, and a plain conversion traps on a
+    /// negative or oversized one, which would let a single notification kill the app.
+    static func wireDisplayID(_ displayID: Int) -> CGDirectDisplayID? {
+        CGDirectDisplayID(exactly: displayID)
     }
 }

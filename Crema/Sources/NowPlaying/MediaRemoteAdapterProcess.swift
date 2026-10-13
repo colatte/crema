@@ -58,6 +58,7 @@ final class MediaRemoteAdapterProcess: @unchecked Sendable {
         self.continuation = continuation
 
         process.executableURL = URL(fileURLWithPath: Self.perlPath)
+        process.environment = ChildProcessEnvironment.current
         process.arguments = [paths.script, paths.framework] + streamArguments
         process.standardOutput = stdout
         process.standardError = FileHandle.nullDevice

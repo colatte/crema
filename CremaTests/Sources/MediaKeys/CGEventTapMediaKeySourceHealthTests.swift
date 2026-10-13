@@ -33,7 +33,6 @@ struct CGEventTapMediaKeySourceHealthTests {
         #expect(ops.isInstalled)
         #expect(ops.isCurrentlyEnabled)
 
-        // The system disables the tap with no callback delivered.
         ops.simulateSystemDisable()
         #expect(!ops.isCurrentlyEnabled)
 
@@ -93,14 +92,12 @@ struct CGEventTapMediaKeySourceHealthTests {
 
         ops.simulateSystemInvalidate()
 
-        // Next poll iteration: it finds the port invalid and reinstalls.
         clock.advance()
         await clock.waitForSleep()
 
         #expect(ops.installCount == 2)
         #expect(ops.isInstalled)
         #expect(ops.isCurrentlyEnabled)
-        // A fresh token, not the dead one re-enabled.
         #expect(ops.currentToken !== firstToken)
         // The reinstall pointed the fresh port back at the same source, so its
         // dynamically-read consumer is preserved — never re-enabled, never

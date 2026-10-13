@@ -9,12 +9,10 @@ import Foundation
 /// the user gets zero feedback. "Draws no" rather than "cannot": no window level
 /// reaches the shield, but the shield is a SPACE, and a private SkyLight path
 /// over it is proven on hardware (docs/DECISIONS.md: the-lock-screen-is-a-space).
-/// The app does not take it. It did for a while — an opt-in now-playing widget
-/// drew there — and that surface was removed, so what keeps the HUDs out is
-/// again a decision rather than a wall. The trade has not changed and is why
-/// the decision would still go this way: a HUD fires several times a day on a
-/// security surface, which is a different proposition from one window somebody
-/// asked for. The fix: while locked (or off-console),
+/// The app does not take it, by decision rather than by wall: a HUD fires
+/// several times a day on a security surface, which is a different
+/// proposition from one window somebody asked for. The fix: while locked (or
+/// off-console),
 /// suppression is *suspended* — keys flow back to the system, the native OSD
 /// returns. On return, suppression re-engages if and only if the user
 /// preference is on.
@@ -23,13 +21,11 @@ import Foundation
 /// preference. A user with suppression off sees zero change anywhere; a user
 /// with it on keeps it on through any number of lock cycles.
 ///
-/// No failure path writes the preference at all anymore: a failed apply used to
-/// flip the persisted opt-in off through `onAutoDisengage`, the only non-user
-/// write in the codebase. That write is gone — the suppressor now suspends the
-/// failing *domain* in place (keys fall back to the native OSD, a probe
-/// re-engages on recovery) and the pref stays the user's intent. This controller
-/// therefore has nothing to guard against on the failure side; the lock invariant
-/// is all that remains. (docs/DECISIONS.md: pref-sacred / per-domain-suspension)
+/// No failure path writes the preference: a failed apply suspends the failing
+/// *domain* in place (keys fall back to the native OSD, a probe re-engages on
+/// recovery) and the pref stays the user's intent, so this controller has
+/// nothing to guard against on the failure side; the lock invariant is all it
+/// holds. (docs/DECISIONS.md: pref-sacred / per-domain-suspension)
 ///
 /// Second responsibility: the unlock/return-to-console edge is also where the
 /// media-key tap is physically recovered. After a lock/display-sleep/unlock the

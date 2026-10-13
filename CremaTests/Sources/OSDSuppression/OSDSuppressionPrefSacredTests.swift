@@ -5,8 +5,8 @@ import Testing
 /// pref-sacred). Each of the four documented triggers (throwing apply, failed
 /// verification,
 /// unreadable read, deadline timeout) is fired through the real suppressor
-/// wired to the real lock controller — the only object that ever wrote the pref
-/// (via the now-removed auto-disengage). If any path writes it, these catch it.
+/// wired to the real lock controller: a failed apply suspends its own domain,
+/// and no failure path writes the opt-in. If any path writes it, these catch it.
 /// Uses the shared OSDSuppressorLockHarness (CremaTests/Mocks/), whose separate
 /// readClock keeps a future read-path case deterministic instead of falling
 /// back to the production clock.

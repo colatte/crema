@@ -180,7 +180,7 @@ struct WelcomeTourView: View {
                 .font(.title2.bold())
             Text(String(
                 localized: "tour.welcome.body",
-                // swiftlint:disable:next line_length
+                // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
                 defaultValue: "Crema shows what’s playing near the top of your screen and can replace the system’s volume and brightness indicators with its own."
             ))
             .foregroundStyle(.secondary)
@@ -203,7 +203,7 @@ struct WelcomeTourView: View {
             .font(.title3.bold())
             Text(String(
                 localized: "onboarding.body",
-                // swiftlint:disable:next line_length
+                // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
                 defaultValue: "Crema uses the Accessibility permission to capture the volume and brightness keys so it can show its own indicators. Without it the app keeps working — it just can’t react to those keys."
             ))
             .foregroundStyle(.secondary)
@@ -288,12 +288,8 @@ struct WelcomeTourView: View {
         .multilineTextAlignment(.center)
     }
 
-    /// Notch is what was picked and nothing on screen is honouring it — the
-    /// all-displays section's gate, copied whole. Deliberately not `!rendersNotch`
-    /// alone: with Card or Classic picked there is no fallback to report and the
-    /// generic sentence is the true one.
     private var fallbackIsInEffect: Bool {
-        style == .notch && !rendersNotch && rendersCard
+        Style.fallsBackToCard(declared: style, rendersNotch: rendersNotch, rendersCard: rendersCard)
     }
 
     /// Whether any connected display carries a style of its own. Read where it is
@@ -346,7 +342,7 @@ struct WelcomeTourView: View {
                 ))
                 Text(String(
                     localized: "settings.hud.suppress.footer.brightnessScope",
-                    // swiftlint:disable:next line_length
+                    // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
                     defaultValue: "Screen brightness is replaced only on the built-in display, while the pointer is on it — a key aimed at any other display is left to the system."
                 ))
                 // Split for the reason the Indicators tab states it: the joint gate
@@ -405,11 +401,9 @@ struct WelcomeTourView: View {
 
             if loginNeedsApproval {
                 // No written path, and a button instead — the tour's own rule
-                // (the-tour-configures-instead-of-pointing) applied to the one
-                // step that was still pointing. The path it used to spell,
-                // "System Settings › General › Login Items", macOS 15 renamed to
-                // "Login Items & Extensions"; the app supports 14+, so any
-                // written path is wrong on one of them.
+                // (the-tour-configures-instead-of-pointing): macOS 15 renamed
+                // the pane to "Login Items & Extensions" and the app supports
+                // 14+, so any written path is wrong on one of them.
                 Text(String(
                     localized: "settings.general.launchAtLogin.needsApproval",
                     defaultValue: "Approve Crema in System Settings to finish enabling this."
@@ -432,11 +426,10 @@ struct WelcomeTourView: View {
             // button here would be one that does nothing
             // (docs/DECISIONS.md: the-tour-configures-instead-of-pointing).
             //
-            // The menu bar is the whole answer, and Command-Comma is deliberately no
-            // longer part of it: a key equivalent belongs to the active app, and this
-            // one has no Dock tile and no window to become active by — so the
-            // shortcut fires only while the menu it was offered as an alternative to
-            // is already open.
+            // The menu bar is the whole answer, with no Command-Comma beside it: a key
+            // equivalent belongs to the active app, and this one has no Dock tile and
+            // no window to become active by — so the shortcut fires only while the
+            // menu is already open.
             Text(String(
                 localized: "tour.step.finish.body",
                 defaultValue: "Crema lives in the menu bar — its icon opens the menu, and Settings is there too."

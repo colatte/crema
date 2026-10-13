@@ -105,7 +105,6 @@ struct DistributedNotificationScreenLockSourceTests {
         let source = makeSource(box, clock: clock)
         let emit = EmitCollector(source.updates)
 
-        // Lock: the edge reads locked → emit unsafe.
         box.locked = true
         source.handleEdge()
         #expect(await eventually { emit.values == [false] })
@@ -145,7 +144,6 @@ struct DistributedNotificationScreenLockSourceTests {
         let source = makeSource(box, clock: clock)
         let emit = EmitCollector(source.updates)
 
-        // Lock: the edge reads locked → emit unsafe.
         box.locked = true
         source.handleEdge()
         #expect(await eventually { emit.values == [false] })
@@ -305,14 +303,13 @@ struct DistributedNotificationScreenLockSourceTests {
     /// The failure the launch tail closes (docs/DECISIONS.md: settle-rereads): a
     /// session locks but its very first `screenIsLocked` notification is DROPPED
     /// (DistributedNotificationCenter is best-effort, no redundancy for a plain
-    /// lock), so no edge ever fires. Before the tail was armed from init, the
-    /// settle re-reads were edge-gated — nothing re-verified until a future
-    /// edge — so `isSuppressionSafe` stayed latched true and suppression engaged
-    /// over the lock shield, the exact outcome the lock-aware policy exists to
-    /// prevent. Now the slow tail runs from construction (parity with the tap's
-    /// health-check poll): with the clock advanced it re-reads the authoritative
-    /// session, sees the lock, flips the source, and the consumer suspends — all
-    /// with no edge. Driven end to end through the real SuppressionLockController.
+    /// lock), so no edge ever fires. Edge-gated re-reads would leave
+    /// `isSuppressionSafe` latched true and suppression engaged over the lock
+    /// shield, the exact outcome the lock-aware policy exists to prevent — so the
+    /// slow tail is armed from init (parity with the tap's health-check poll):
+    /// with the clock advanced it re-reads the authoritative session, sees the
+    /// lock, flips the source, and the consumer suspends — all with no edge.
+    /// Driven end to end through the real SuppressionLockController.
     @Test func launchTailSuspendsTheConsumerOnAFirstLockWithNoEdge() async {
         let box = SessionBox(locked: false, onConsole: true)   // unlocked at launch
         let clock = TestSleepClock()

@@ -1,10 +1,10 @@
 # The Sources layer — the system edge
 
-> The mechanism behind the rules CLAUDE.md states in one line each. Every point
+> The mechanism behind the rules AGENTS.md states in one line each. Every point
 > of contact with the system lives in `Crema/Sources/`, and each rule below was
 > paid for once — by a probe, a measurement, or a bug that shipped. Read this
 > before changing anything that talks to macOS, to a private framework or to a
-> neighbouring app; the rule in CLAUDE.md tells you what to do, this file tells
+> neighbouring app; the rule in AGENTS.md tells you what to do, this file tells
 > you why the obvious alternative does not work.
 
 ## The shape of a source
@@ -65,15 +65,15 @@ Crema **does not contest the position** — re-inserting in a loop is an arm-wre
 
 And three scoping rules, all with the same why — **with the neighbour's OSD off, Crema's bar is the user's only feedback**:
 
-- Only emit a target the app can **name** — a displayID that does not resolve to a UUID is discarded, because a bar for a nameless screen has nowhere to appear and nowhere to send the drag back to (`BetterDisplayOSDTranslation`). The earlier gate, "only what can be actuated", died when the neighbour's channel started writing to externals — today `externalDisplayUnsupported` exists only in the system actuators.
+- Only emit a target the app can **name** — a displayID that does not resolve to a UUID is discarded, and so is one outside `CGDirectDisplayID`'s range or a payload naming no display at all, because a bar for a nameless screen has nowhere to appear and nowhere to send the drag back to, and an unnamed one drawn everywhere would route a drag on a monitor to the built-in panel (`BetterDisplayOSDTranslation`). Anyone in the session can post on this channel, and `NSDistributedNotificationCenter.h` says to treat its data as untrusted. The gate is nameability, never actuation — `externalDisplayUnsupported` lives only in the system actuators.
 - **Discard instead of guessing** — a payload without `maxValue` gets no invented scale; a payload with `lock` does not become a normal bar.
-- When the neighbour reports, **the local key source stands down** (`standDown()` spends the origin gate's window **and marks as already-spoken the reads the key requested that are still in flight** — the read executes off the requester's thread, so ordering alone no longer protects the keypress) — otherwise, with suppression off, a merely *observed* key arms the local poll and the two sources draw for the same keypress, with the wrong read arriving last.
+- When the neighbour reports about the built-in panel, **the local key source stands down** (`standDown()` spends the origin gate's window **and marks as already-spoken the reads the key requested that are still in flight** — the read executes off the requester's thread, so ordering alone no longer protects the keypress) — otherwise, with suppression off, a merely *observed* key arms the local poll and the two sources draw for the same keypress, with the wrong read arriving last. A report about any other display leaves it alone: the local source reads only the built-in panel, and standing it down there would silence the feedback of a key Crema swallowed.
 
 **Integration feedback is by evidence, never by presence**: the neighbour's app running does not prove its integration is on — only a delivered payload proves it, and the claim dies when the app terminates. The menu confirms when it is receiving and, when the neighbour is right there and mute, says **what to do**. The claim is **observable, with a guarded write**: it flips while the Settings window is open (it is read from an already-built body), and a `false` over `false` — the neighbour quitting with the integration off, the common case — invalidates no view. Neighbour-app identity is compared by **bundle ID**, never by localized name.
 
 ## A HUD that names a display appears only on it
 
-The app has a single state and one panel per screen, so every panel used to draw every HUD — harmless while nothing named a display, wrong the instant something did (the external monitor's bar drawn on the notebook is control over a screen the user is not looking at, and the drag would darken the neighbouring screen in silence). The decision lives in `WindowManager.effectiveState`, which is already the per-display policy seam; a panel that is not the owner treats the state as `.hidden`, which also disarms hover there.
+The app has a single state and one panel per screen, so a HUD drawn on every panel is wrong the instant something names a display (the external monitor's bar drawn on the notebook is control over a screen the user is not looking at, and the drag would darken the neighbouring screen in silence). The decision lives in `WindowManager.effectiveState`, which is already the per-display policy seam; a panel that is not the owner treats the state as `.hidden`, which also disarms hover there.
 
 The HUD **does not name a UUID, it names a role** (`SystemHUD.Target`: `.noDisplay` / `.builtIn` / `.display(uuid)`) and whoever holds the panel roster resolves it: the producer says only what it knows (`BrightnessBackend.target` is a constant of the technology — the screen bridge governs the built-in panel and no other; the backlight belongs to no screen), and the `WindowManager` asks its own roster which panel is the internal one (`isInternal`), never matching a UUID from the ACTIVE display list against the roster — the two lists disagree by design, and every disagreement would become "bar on no screen at all".
 
@@ -88,3 +88,35 @@ The `SystemHUD` carries the **authority** that produced it, and the drag goes ba
 3. **Failure degrades, it does not die** — fall back to the system actuator within the same drag, stop asking until the neighbour reports again (evidence, never a timer), and never retry mid-gesture.
 4. **A drag no actuator honoured rolls back** — publishing before writing promises that every shown level will be honoured; when neither the neighbour nor the fallback writes, the bar returns to the last level with evidence (a read that arrived on its own, or a confirmed write) at the END of the gesture, which the view reports — "the hand let go" cannot be deduced from the numbers, and a quiescence guess would make the fill jump under a finger that merely paused.
 5. **A queued level carries the display it belongs to** — coalescing outlives the call that resolved the target (a write drains the frames that arrived after it), so a bare number in the queue leaves with the id of whoever was driving: the neighbour darkens a screen nobody is dragging, in silence, because the bar that asked is on another panel. For the same reason each call echoes only what reached the wire **for the display IT named** — the drain's last frame may belong to another bar, and echoing it would publish on this one a level that nothing wrote to it (docs/DECISIONS.md: the-bar-never-outruns-the-screen).
+
+## Reading Apple's documentation by machine
+
+A claim about an Apple API carries its primary source, and two questions hide
+behind "what does the app get": what a symbol **requires** is availability,
+what the app **gets** is linkage. `MACOSX_DEPLOYMENT_TARGET` answers the first
+and `xcrun --sdk macosx --show-sdk-version` the second. Measured here: the
+project targets macOS 14 and builds against the macOS 26 SDK, and the
+platform's current design is granted on LINKAGE — *"absence of the key, or
+`NO`, is the default value for apps linking against the latest SDKs"*
+(`UIDesignRequiresCompatibility`, ignored once the app is built against the
+macOS 27 SDK). So one binary renders standard components with Liquid Glass on
+Tahoe and without it on Sonoma, with nobody having chosen it, and nobody has
+compared the two side by side.
+
+The fetch fails silently, which is why the mechanics are written down:
+`developer.apple.com` renders client-side, so an ordinary request returns the
+page title and nothing else, indistinguishable from an empty page. The DocC
+JSON behind it carries the content: swap `/documentation/` for
+`/tutorials/data/documentation/` and append `.json` (the HIG lives under
+`/tutorials/data/design/` instead).
+
+```
+https://developer.apple.com/tutorials/data/documentation/swiftui/glasseffectcontainer.json
+https://developer.apple.com/tutorials/data/design/human-interface-guidelines/materials.json
+```
+
+`metadata.platforms` is the authoritative availability list — name,
+`introducedAt` and a `beta` flag — which settles "is this symbol reachable at
+our floor?" in one call. The prose sits in `abstract` and
+`primaryContentSections` as nested `text`/`codeVoice` nodes that need
+flattening.

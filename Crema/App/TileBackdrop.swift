@@ -6,8 +6,7 @@ import SwiftUI
 /// It is the user's own desktop picture, because these tiles are pictures OF A
 /// PLACE: each one says "the surface looks like this, up there on your screen",
 /// and a screen wearing a wallpaper nobody has ever seen is a picture of somebody
-/// else's Mac. What stood here before was a flat gradient, for two reasons that
-/// both survive — in the VEIL, not in the substitute:
+/// else's Mac. It goes under a veil, for two reasons:
 ///
 /// - The subject is the black shape, not the scenery. A wallpaper at full
 ///   contrast competes with the one thing these pictures exist to compare, so it
@@ -48,9 +47,9 @@ struct TileBackdrop: View {
 
     /// How dark the wash is. Enough that a white desktop still reads as
     /// background behind a black surface; light enough that the picture stays
-    /// recognisably the user's own desk rather than a grey rectangle. Raised
-    /// from the first cut's 0.28 on a field verdict: over a pale sky that wash
-    /// barely existed and the tiles read washed-out rather than staged.
+    /// recognisably the user's own desk rather than a grey rectangle. Lighter,
+    /// and over a pale sky the wash barely exists and the tiles read washed-out
+    /// rather than staged.
     private static let veilOpacity = 0.35
 
     /// The drawn desk, for when there is no readable one. Flat and dim on

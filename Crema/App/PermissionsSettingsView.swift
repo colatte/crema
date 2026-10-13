@@ -61,7 +61,7 @@ struct PermissionsSettingsView: View {
             } footer: {
                 Text(String(
                     localized: "settings.permissions.footer",
-                    // swiftlint:disable:next line_length
+                    // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
                     defaultValue: "Crema needs Accessibility access to capture the media keys — for its volume and brightness indicators and to replace the system’s. Without it the app still runs; it just can’t react to those keys. Granting is picked up automatically, no relaunch needed."
                 ))
                 .settingsFootnote()
@@ -70,13 +70,10 @@ struct PermissionsSettingsView: View {
             Section {
                 LabeledContent {
                     // No badge at all, which is the rule and not an omission: the
-                    // symbol column belongs to the permission the app REQUIRES. A
-                    // glyph here ranked an optional permission alongside it, and the
-                    // shapes ranked it WRONG — a refusal got a harsher mark (✗) than
-                    // the required grant's warning, and the resting state of a Mac
-                    // with no music app open got a question mark against a machine
-                    // where nothing is wrong. Words carry it, the way the other
-                    // optional integration already states "Receiving" one tab over.
+                    // symbol column belongs to the permission the app REQUIRES, and a
+                    // glyph here would rank an optional permission alongside it. Words
+                    // carry it, the way the other optional integration already states
+                    // "Receiving" one tab over.
                     Text(automationStatus)
                         .foregroundStyle(automation == .granted ? .primary : .secondary)
                 } label: {
@@ -106,15 +103,15 @@ struct PermissionsSettingsView: View {
                     EmptyView()
                 }
             } header: {
-                // With the badge gone, the word is what ranks the two sections —
-                // and a word survives a screenshot, greyscale and colour blindness,
-                // which an orange-versus-grey ranking does not.
+                // The word is what ranks the two sections — and a word survives a
+                // screenshot, greyscale and colour blindness, which an
+                // orange-versus-grey ranking does not.
                 Text(String(localized: "settings.permissions.automation.header", defaultValue: "Optional"))
             } footer: {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(String(
                         localized: "settings.permissions.automation.footer",
-                        // swiftlint:disable:next line_length
+                        // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
                         defaultValue: "Only Crema’s backup reader needs this — it asks \(musicApps) what is playing. The usual reader needs no permission, so Now Playing works either way."
                     ))
                     automationDetail

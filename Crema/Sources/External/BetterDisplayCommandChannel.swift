@@ -1,6 +1,16 @@
 import Foundation
 import os
 
+/// Applies a brightness level through the neighbour app that owns a display, and
+/// waits for its verdict. The capability, not the technology: BetterDisplay's
+/// channel below is today's one conformer, and Lunar would be the next.
+protocol BrightnessCommandChannel: Sendable {
+    /// Sets brightness (0...1) on the display the neighbour knows by `displayID`.
+    /// Throws when the app refuses or does not answer in time; the caller treats
+    /// that like any other failed apply.
+    func setBrightness(_ value: Double, displayID: Int) async throws
+}
+
 /// Asks BetterDisplay to apply a level, and waits for its verdict.
 ///
 /// A distributed notification is a broadcast, not a call: the request carries a
@@ -8,21 +18,17 @@ import os
 /// pairing is ours to do. And an app that is not running, or is busy, simply
 /// never answers — hence a deadline, without which a swallowed key would wait
 /// forever on a neighbour that may not exist.
-protocol BetterDisplayCommanding: Sendable {
-    /// Sets brightness (0...1) on the display BetterDisplay knows by `displayID`.
-    /// Throws when the app refuses or does not answer in time; the caller treats
-    /// that like any other failed apply.
-    func setBrightness(_ value: Double, displayID: Int) async throws
-}
-
 @MainActor
-final class BetterDisplayCommandChannel: BetterDisplayCommanding {
+final class BetterDisplayCommandChannel: BrightnessCommandChannel {
     enum CommandError: Error, Equatable {
         /// No answer inside the deadline: BetterDisplay is gone, wedged, or its
         /// integration is switched off.
         case unanswered
         /// It answered, and the answer was no.
         case refused
+        /// The request could not be encoded (a level that is not a number), so it
+        /// never left the process: not the neighbour's no.
+        case unencodable
     }
 
     private static let requestName = "pro.betterdisplay.BetterDisplay.request"
@@ -50,13 +56,21 @@ final class BetterDisplayCommandChannel: BetterDisplayCommanding {
 
     private let logger = Logger.crema("External")
 
+    /// How long a command waits for the neighbour's verdict before it counts as
+    /// unanswered. NOT measured: no probe has timed BetterDisplay's answer, so the
+    /// number is a choice, pinned by test so that it changes only on purpose.
+    /// Invalidating signal: a drag whose bar rolls back while the screen did move
+    /// (the "did not answer … in time" line beside a brightness change), or a
+    /// probe that puts the round-trip near this bound.
+    static let defaultTimeout: Double = 1.5
+
     /// A custom `post` means a test drives the channel: it captures the request
     /// and hands the answer back through `handle(response:)`, so no real
     /// notification is involved. Same idiom as the screen-lock source's injected
     /// session reader.
     init(
         clock: any SleepClock = ContinuousSleepClock(),
-        timeout: Double = 1.5,
+        timeout: Double = BetterDisplayCommandChannel.defaultTimeout,
         newUUID: (@MainActor () -> String)? = nil,
         post: (@MainActor (String) -> Void)? = nil
     ) {
@@ -84,19 +98,15 @@ final class BetterDisplayCommandChannel: BetterDisplayCommanding {
         let uuid = newUUID()
         guard let json = BetterDisplayCommandTranslation.setBrightnessRequest(
             uuid: uuid, value: value, displayID: displayID
-        ) else { throw CommandError.refused }
+        ) else { throw CommandError.unencodable }
 
         let race = SingleResumeRace<Bool?, Never>()
         pending[uuid] = race
         defer { pending[uuid] = nil }
 
-        // The deadline runs detached so the wait never pins this actor, and it
-        // commits its value rather than cancelling anything: there is nothing to
-        // unwind — the answer either arrives or it does not.
-        let deadline = Task.detached { [clock, timeout] in
-            try? await clock.sleep(for: timeout)
-            race.finish(nil)
-        }
+        // The deadline commits nil (nobody answered) and unwinds nothing: the
+        // answer either arrives or it does not.
+        let deadline = race.armDeadline(seconds: timeout, on: clock, committing: .success(nil))
         defer { deadline.cancel() }
 
         post(json)

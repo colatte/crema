@@ -5,17 +5,39 @@ enum AdapterLineStream {
     /// Accumulates bytes and hands back complete lines. Newline-terminated;
     /// bare carriage returns are dropped so CRLF collapses to one line.
     struct LineBuffer {
+        /// The longest line kept. A line carries a cover as base64 (observed 100–500
+        /// KB), and its size is whatever the player published, so past this the
+        /// line is dropped whole: the bytes up to the next newline are discarded
+        /// instead of buffered, and the buffer never holds more than this.
+        static let defaultMaxLineBytes = 8 * 1024 * 1024
+
+        private let maxLineBytes: Int
         private var pending: [UInt8] = []
+        private var discarding = false
+
+        init(maxLineBytes: Int = Self.defaultMaxLineBytes) {
+            self.maxLineBytes = maxLineBytes
+        }
 
         /// Pushes one byte; returns a completed line when a newline is reached.
         mutating func push(_ byte: UInt8) -> String? {
             switch byte {
             case 0x0A:
+                if discarding {
+                    discarding = false
+                    return nil
+                }
                 defer { pending.removeAll(keepingCapacity: true) }
                 return String(decoding: pending, as: UTF8.self)
             case 0x0D:
                 return nil
             default:
+                guard !discarding else { return nil }
+                guard pending.count < maxLineBytes else {
+                    pending.removeAll(keepingCapacity: true)
+                    discarding = true
+                    return nil
+                }
                 pending.append(byte)
                 return nil
             }

@@ -4,8 +4,7 @@ import Testing
 
 /// The level indicator's mechanics extracted pure: drag fraction (with the RTL
 /// mirror), fill width, spring gating, the hover knob's visibility/position and
-/// the Classic segment fill. These pins are new with the capsule — nothing
-/// pinned any interaction attribute of the old stock-Slider variant.
+/// the Classic segment fill.
 struct HUDLevelSliderTests {
 
     @Test func fractionClampsAtBothEnds() {
@@ -44,9 +43,9 @@ struct HUDLevelSliderTests {
     }
 
     @Test func springSuspendsWhileEditingAndUnderReduceMotion() {
-        #expect(HUDLevelSlider.animatesLevel(isEditing: false, reduceMotion: false))
-        #expect(!HUDLevelSlider.animatesLevel(isEditing: true, reduceMotion: false))
-        #expect(!HUDLevelSlider.animatesLevel(isEditing: false, reduceMotion: true))
+        #expect(HUDLevelSlider.levelAnimation(isEditing: false, reduceMotion: false) == SurfaceAnimation.hudLevel)
+        #expect(HUDLevelSlider.levelAnimation(isEditing: true, reduceMotion: false) == nil)
+        #expect(HUDLevelSlider.levelAnimation(isEditing: false, reduceMotion: true) == nil)
     }
 
     @Test func knobTravelsTheInsetTrackAndMirrors() {

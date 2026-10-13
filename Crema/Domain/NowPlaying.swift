@@ -6,14 +6,11 @@ struct NowPlaying: Equatable, Sendable {
     var artist: String?
     /// Raw encoded image bytes (PNG/JPEG); decoded by the view layer.
     var artworkData: [UInt8]?
-    /// The album, when the source reports one. No reader today: the
-    /// high-resolution artwork lookup that consumed it (album turned a fuzzy
-    /// two-term search into an accurate three-term one) went out whole with
-    /// the 300 pt tile (docs/DECISIONS.md:
-    /// the-click-was-the-last-thing-holding-the-lookup-up), and nothing
-    /// renders it — the surfaces show title and artist, and a third line
-    /// would crowd them. It stays as the seed of the cover upgrade that
-    /// anchor says a future round might want back.
+    /// The album, when the source reports one. Unread by any view — the
+    /// surfaces show title and artist, and a third line would crowd them — and
+    /// kept as the seed of the cover upgrade, where album turns a fuzzy
+    /// two-term search into an accurate three-term one (docs/DECISIONS.md:
+    /// the-click-was-the-last-thing-holding-the-lookup-up).
     var album: String?
     var isPlaying: Bool
     /// Playback position in seconds (drives scrubbing).
@@ -31,4 +28,19 @@ struct NowPlaying: Equatable, Sendable {
     /// the failure-driven degradation never sees it. True when the source
     /// doesn't report it (the JXA fallback).
     var supportsSkip: Bool = true
+}
+
+extension NowPlaying {
+    /// The longest position the app represents: a day, the same bound the
+    /// adapter's duration sanitizer keeps. Whoever publishes now-playing chooses
+    /// this number (any app, and websites when browser media is on), and past
+    /// Int64's seconds the time label's `Duration` traps (measured: 1e19 s
+    /// aborts), so every border bounds a position before the domain carries it.
+    static let maximumPosition: Double = 24 * 60 * 60
+
+    /// A position in `0...(duration ?? maximumPosition)`; NaN reads as 0.
+    static func bounded(position: Double, duration: Double?) -> Double {
+        guard !position.isNaN else { return 0 }
+        return min(max(position, 0), duration ?? maximumPosition)
+    }
 }

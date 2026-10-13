@@ -12,31 +12,24 @@ struct LocalizationTests {
     }
 
     @Test func semanticKeysResolvePerLanguage() throws {
-        func value(_ key: String, in language: String) throws -> String {
-            let path = try #require(Bundle.main.path(forResource: language, ofType: "lproj"))
-            let bundle = try #require(Bundle(path: path))
-            return bundle.localizedString(forKey: key, value: "«missing»", table: nil)
-        }
-
-        #expect(try value("menu.quit", in: "en") == "Quit Crema")
+        #expect(try localizedInBuiltBundle("menu.quit", in: "en") == "Quit Crema")
         // No article, which is Apple's own shape for this menu item: Music.app
         // ships "Encerrar Música" and TV.app "Encerrar TV". Pinned so it is not
         // put back.
-        #expect(try value("menu.quit", in: "pt-BR") == "Encerrar Crema")
+        #expect(try localizedInBuiltBundle("menu.quit", in: "pt-BR") == "Encerrar Crema")
 
-        // The sample has to be a key whose two values DIFFER, or it stops
-        // testing the thing it is named for. `style.card` used to sit here and
-        // stopped qualifying the day the style names became product names in
-        // both languages (CLAUDE.md: one name per concept) — "Card" == "Card"
-        // would have kept this green against a bundle that ignored the language
+        // The sample has to be a key whose two values DIFFER, or it stops testing
+        // the thing it is named for: the style names are product names, equal in
+        // both languages (docs/INTERNATIONALIZATION.md: one name per concept), and
+        // "Card" == "Card" stays green against a bundle that ignores the language
         // argument entirely.
-        #expect(try value("style.notch.description", in: "en") == "Blends into the notch")
-        #expect(try value("style.notch.description", in: "pt-BR") == "Funde-se com o notch")
+        #expect(try localizedInBuiltBundle("style.notch.description", in: "en") == "Blends into the notch")
+        #expect(try localizedInBuiltBundle("style.notch.description", in: "pt-BR") == "Funde-se com o notch")
 
         // And the styles themselves, pinned as deliberately UNtranslated: the
         // rule is easy to undo by helpfully translating one of them back.
         for style in ["style.notch", "style.card", "style.classic"] {
-            #expect(try value(style, in: "en") == value(style, in: "pt-BR"))
+            #expect(try localizedInBuiltBundle(style, in: "en") == localizedInBuiltBundle(style, in: "pt-BR"))
         }
     }
 

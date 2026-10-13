@@ -80,12 +80,12 @@ struct SparkleUpdaterTests {
     // MARK: - Menu strings
 
     @Test func checkForUpdatesStringResolvesPerLanguage() throws {
-        #expect(try value("menu.checkForUpdates", in: "en") == "Check for Updates…")
+        #expect(try localizedInBuiltBundle("menu.checkForUpdates", in: "en") == "Check for Updates…")
         // "Buscar", not "Verificar", and the pin exists so it is not helpfully
         // corrected back: across 10,130 pt-BR strings extracted from macOS,
         // "buscar atualizações" appears 6 times and "verificar atualizações"
         // zero (2026-08-07).
-        #expect(try value("menu.checkForUpdates", in: "pt-BR") == "Buscar atualizações…")
+        #expect(try localizedInBuiltBundle("menu.checkForUpdates", in: "pt-BR") == "Buscar atualizações…")
     }
 
     /// The pending-update line and its button. Release-only on screen, but the
@@ -94,15 +94,9 @@ struct SparkleUpdaterTests {
     /// never made it into the .lproj still reads clean there and serves English to
     /// the pt-BR user.
     @Test func pendingUpdateStringsResolvePerLanguage() throws {
-        #expect(try value("menu.update.available", in: "en") == "An update to Crema is available.")
-        #expect(try value("menu.update.available", in: "pt-BR") == "Há uma atualização do Crema disponível.")
-        #expect(try value("menu.update.show", in: "en") == "Show Update…")
-        #expect(try value("menu.update.show", in: "pt-BR") == "Mostrar atualização…")
-    }
-
-    private func value(_ key: String, in language: String) throws -> String {
-        let path = try #require(Bundle.main.path(forResource: language, ofType: "lproj"))
-        let bundle = try #require(Bundle(path: path))
-        return bundle.localizedString(forKey: key, value: "«missing»", table: nil)
+        #expect(try localizedInBuiltBundle("menu.update.available", in: "en") == "An update to Crema is available.")
+        #expect(try localizedInBuiltBundle("menu.update.available", in: "pt-BR") == "Há uma atualização do Crema disponível.")
+        #expect(try localizedInBuiltBundle("menu.update.show", in: "en") == "Show Update…")
+        #expect(try localizedInBuiltBundle("menu.update.show", in: "pt-BR") == "Mostrar atualização…")
     }
 }

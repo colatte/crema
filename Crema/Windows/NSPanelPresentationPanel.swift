@@ -1,5 +1,4 @@
 import AppKit
-import QuartzCore
 import SwiftUI
 
 /// AppKit border: the real panel. Deliberately thin — reconciliation, frame
@@ -22,10 +21,9 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// Cursor-vs-stable-region hover detection; nil for styles without a
     /// distinct expanded surface.
     private let hoverMonitor: SurfaceHoverMonitor?
-    /// Every current skin animates its sized surface inside the fixed window;
-    /// nil is the defensive fallback for a future window-filling view (kept
-    /// per-state window frames).
-    private let fixedWindowFrame: CGRect?
+    /// Every skin animates its sized surface inside this window, which never
+    /// resizes.
+    private let fixedWindowFrame: CGRect
     /// Per-display now-playing suppression, forwarded into the view.
     private let displayPolicy = SurfaceDisplayPolicy()
     /// Bridges the view's rendered-size reports (environment closure, baked at
@@ -60,7 +58,7 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// silence, and until these existed no test could see them at all: mutations
     /// handing SwiftUI the power to size the window, and dropping the fixed
     /// frame entirely, both left the whole suite green.
-    /// (CLAUDE.md "Never do".)
+    /// (AGENTS.md "Never do".)
     var currentWindowFrame: CGRect { panel.frame }
 
     /// What this panel's hover detection is keyed on right now; nil for a style
@@ -69,8 +67,7 @@ final class NSPanelPresentationPanel: PresentationPanel {
     var currentHoverRegions: SurfaceHoverRegions? { hoverMonitor?.currentRegions }
 
     /// The click-interactive rect. Read-only, and it exists to pin where this rect
-    /// comes from: the rendered surface, from the first apply onward. That is what
-    /// showed the settle fallback was unreachable and let its machinery go.
+    /// comes from: the rendered surface, from the first apply onward.
     var currentInteractiveRect: CGRect { interactiveRect }
 
     /// Retargets requested on this panel's monitor — see the property of the same
@@ -102,16 +99,10 @@ final class NSPanelPresentationPanel: PresentationPanel {
         // window APIs (WindowServer instability on macOS 26). Shared by every
         // style; harmless for the card/classic surfaces.
         //
-        // The line holds and nothing in the app crosses it any more. A lock
-        // surface did for a while, on a different trade — its premise was the
-        // far side of the lock shield, which is a SPACE no window level can
-        // cross, and its blast radius was one opt-in window whose total absence
-        // is a feature not appearing. That surface is gone, so the app has no
-        // private window API at all again. The reason THIS panel would still
-        // refuse one is unchanged: it lives over the user's work, a public level
-        // does the job, and a WindowServer wedge here breaks the app's core
-        // function for everyone several times a day (docs/DECISIONS.md:
-        // the-lock-screen-is-a-space).
+        // No private window API here, whatever a level could buy: this panel
+        // lives over the user's work, a public level does the job, and a
+        // WindowServer wedge here breaks the app's core function for everyone
+        // several times a day (docs/DECISIONS.md: the-lock-screen-is-a-space).
         panel.level = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue + 3)
         panel.isOpaque = false
         panel.backgroundColor = .clear
@@ -174,23 +165,20 @@ final class NSPanelPresentationPanel: PresentationPanel {
         contentIsBarredFromSizingTheWindow = Self.barContentFromSizingTheWindow(hostingView)
         panel.contentView = hostingView
 
-        if let fixedWindowFrame {
-            // The window exists once, front once, never resized or ordered out
-            // again: an invisible (clear, click-through) window while the
-            // surface is hidden costs nothing and removes every show/hide edge.
-            panel.ignoresMouseEvents = true
-            panel.setFrame(fixedWindowFrame, display: true)
-            panel.orderFrontRegardless()
-            installMouseRouting()
-        }
+        // The window exists once, front once, never resized or ordered out
+        // again: an invisible (clear, click-through) window while the surface
+        // is hidden costs nothing and removes every show/hide edge.
+        panel.ignoresMouseEvents = true
+        panel.setFrame(fixedWindowFrame, display: true)
+        panel.orderFrontRegardless()
+        installMouseRouting()
     }
 
-    // swiftlint:disable function_parameter_count
+    // swiftlint:disable function_parameter_count - one parameter per contract note, as PresentationPanel declares
     /// `frame` arrives in AppKit global screen coordinates (ScreenTranslation
-    /// convention) and is the state's tight rule frame. For the fixed-window
-    /// skins it never touches the window: it becomes the click-interactive
-    /// region (the view animates the matching surface on its own). A style
-    /// without a fixed window falls back to direct per-state window frames.
+    /// convention) and is the state's tight rule frame. It never touches the
+    /// window: it becomes the click-interactive region (the view animates the
+    /// matching surface on its own).
     func apply(
         frame: CGRect,
         hoverArmed: Bool,
@@ -202,12 +190,6 @@ final class NSPanelPresentationPanel: PresentationPanel {
     ) {
         // swiftlint:enable function_parameter_count
         self.invokeZone = invokeZone ?? .zero
-
-        guard fixedWindowFrame != nil else {
-            applyDirectFrame(frame)
-            hoverMonitor?.setActive(hoverArmed)
-            return
-        }
 
         updateDisplayPolicy(
             showsNowPlaying: showsNowPlaying,
@@ -225,10 +207,8 @@ final class NSPanelPresentationPanel: PresentationPanel {
         // sample never judges a stale or oversized rect (docs/DECISIONS.md:
         // hover-follows-the-eye).
         if !frame.isEmpty {
-            let rendered = reportedSurfaceSize.flatMap { size in
-                fixedWindowFrame.map {
-                    SurfaceClickThrough.surfaceRect(size: size, window: $0, anchor: style.surfaceVerticalAnchor)
-                }
+            let rendered = reportedSurfaceSize.map { size in
+                SurfaceClickThrough.surfaceRect(size: size, window: fixedWindowFrame, anchor: style.surfaceVerticalAnchor)
             }
             if let regions = SurfaceHoverRegions.forApply(
                 ruleFrame: frame, lastRendered: rendered, margins: style.hoverExitMargins
@@ -282,7 +262,7 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// anchored (how the views draw it). Hidden always wins — the fading ghost
     /// still reports its size but must not capture clicks.
     private func refreshReportedInteractiveRect(pushesHoverRegions: Bool = true, tightensToRuleFrame: Bool = false) {
-        guard let fixedWindowFrame, let size = reportedSurfaceSize else { return }
+        guard let size = reportedSurfaceSize else { return }
         var visible: CGRect = currentFrame.isEmpty
             ? .zero
             : SurfaceClickThrough.surfaceRect(size: size, window: fixedWindowFrame, anchor: style.surfaceVerticalAnchor)
@@ -317,14 +297,10 @@ final class NSPanelPresentationPanel: PresentationPanel {
         return tight.isEmpty ? .zero : tight
     }
 
-    /// Fallback for a window-filling view: per-state window frames. Mapping a
-    /// previously ordered-out window waits for the render commit — it still
-    /// holds the previous state's contents and would flash them for a frame.
     /// Render context into the view's policy box. Each flag is written only when
-    /// it changes — a habit rather than a necessity now: the @Observable macro's
-    /// setter short-circuits on an equal value since Swift 6.2, so the runtime
-    /// already suppresses what this guard was written to suppress. Kept because
-    /// it says the intent at the call site and costs a comparison.
+    /// it changes — belt-and-braces, since the @Observable setter short-circuits
+    /// an equal value (Swift 6.2+); the guard keeps the intent at the call site
+    /// for the cost of a comparison.
     private func updateDisplayPolicy(
         showsNowPlaying: Bool,
         showsHUD: Bool,
@@ -354,24 +330,6 @@ final class NSPanelPresentationPanel: PresentationPanel {
     private static func barContentFromSizingTheWindow(_ hostingView: NSHostingView<some View>) -> Bool {
         hostingView.sizingOptions = []
         return hostingView.sizingOptions.isEmpty
-    }
-
-    private func applyDirectFrame(_ frame: CGRect) {
-        if frame.isEmpty {
-            panel.setFrame(frame, display: false)
-            panel.orderOut(nil)
-        } else {
-            panel.setFrame(frame, display: true)
-            if panel.isVisible {
-                panel.orderFrontRegardless()
-            } else {
-                CATransaction.setCompletionBlock { [weak self] in
-                    guard let self, self.currentFrame == frame else { return }
-                    self.panel.orderFrontRegardless()
-                }
-            }
-        }
-        currentFrame = frame
     }
 
     func close() {

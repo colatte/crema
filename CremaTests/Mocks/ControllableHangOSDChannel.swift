@@ -60,10 +60,8 @@ final class ControllableHangOSDChannel: OSDChannel, @unchecked Sendable {
     }
 
     /// Suspends until a write ARRIVES in apply() that no earlier wait has
-    /// consumed, bounded by the wall clock. The continuation version was the
-    /// last unbounded test-side await in the suite: on a starved runner the
-    /// write it waited for had not been scheduled yet, and the whole run sat
-    /// mute to the job timeout — the class round1-a1-a3 already deadlocked on.
+    /// consumed, bounded by the wall clock: an unbounded await here held the
+    /// whole run mute to the job timeout on a starved runner.
     /// Consuming a COUNT rather than polling the parked list keeps the second
     /// call honest, because an abandoned first write stays parked forever by
     /// design and a wait that saw it would return before its own write began.

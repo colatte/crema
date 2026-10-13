@@ -15,10 +15,10 @@ import SwiftUI
 /// finger — and no intent fires per delta, so a drag is ONE seek on release,
 /// never a storm of per-pixel subprocess commands. A tap has no drag phase, so
 /// `onEnded` carries it alone: tap-to-seek is guaranteed by the gesture's own
-/// shape rather than by any callback ordering, which is what it used to depend
-/// on. The release hands the position to `onScrub` before clearing the draft;
-/// the Coordinator writes the target optimistically in the same MainActor turn,
-/// so the post-release render reads the same value and the fill never blinks.
+/// shape rather than by any callback ordering. The release hands the position
+/// to `onScrub` before clearing the draft; the Coordinator writes the target
+/// optimistically in the same MainActor turn, so the post-release render reads
+/// the same value and the fill never blinks.
 struct ScrubberRow: View {
     let position: Double
     let duration: Double?
@@ -49,11 +49,11 @@ struct ScrubberRow: View {
 
     /// The bar's 0…1 fill. A fraction needs a denominator, and live content
     /// reports none: with no duration the bar is BARE, the same "zero stays
-    /// empty" rule `CapsuleTrack.capsuleFillWidth` draws. It used to stand a
-    /// `max(position, 1)` span in for the missing one, which pins the fraction at
-    /// 1 from the first second onward — a radio stream drawing a permanently
-    /// finished track. Nothing interactive is lost: the row is not a control
-    /// without a duration (`interactive`).
+    /// empty" rule `CapsuleTrack.capsuleFillWidth` draws. No stand-in
+    /// denominator: a `max(position, 1)` span pins the fraction at 1 from the
+    /// first second onward, drawing a radio stream as a permanently finished
+    /// track. Nothing interactive is lost: the row is not a control without a
+    /// duration (`interactive`).
     static func fill(position: Double, duration: Double?) -> Double {
         guard let duration, duration > 0 else { return 0 }
         return min(max(position / duration, 0), 1)
@@ -61,10 +61,10 @@ struct ScrubberRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Text(timeLabel(draft ?? position, showsHours: showsHours))
+            Text(Self.timeLabel(draft ?? position, showsHours: showsHours))
             track
             if showsDuration, let duration {
-                Text(timeLabel(duration, showsHours: showsHours))
+                Text(Self.timeLabel(duration, showsHours: showsHours))
             }
         }
         .font(.caption2)
@@ -72,29 +72,20 @@ struct ScrubberRow: View {
         .monospacedDigit()
     }
 
-    /// The same bar the HUD draws, and that is the point of it being shared.
-    ///
-    /// It used to be a stock `Slider` tinted with the artwork accent: a thumb
-    /// always visible, a coloured fill. Two rows above it in the lock card — a
-    /// surface since removed whole — sat the HUD's own bar, which had already
-    /// been measured off the Tahoe banner
-    /// and Control Center and decided — thumbless at rest, knob only under the
-    /// pointer, fill WHITE (`docs/DECISIONS.md: hud-capsule-track`). The
-    /// scrubber never adopted it, so one card carried two bars obeying opposite
-    /// rules, and the one with a written decision behind it was the other one.
-    ///
-    /// The accent is gone with the thumb. The tone still reaches the surface
-    /// through `artworkAccent`; the bar itself is a control, and the decision
-    /// this now follows says a control reads white.
+    /// The same bar the HUD draws, and that is the point of it being shared:
+    /// thumbless at rest, knob only under the pointer, fill WHITE, because the
+    /// bar is a control and a control reads white (`docs/DECISIONS.md:
+    /// hud-capsule-track`). The tone still reaches the surface through
+    /// `artworkAccent`, never the bar.
     ///
     /// Hover is LOCAL rather than the HUD's per-surface pointer signal: the HUD
     /// reveals its knob when the pointer is anywhere on a surface that hovering
     /// holds open, while a scrubber sitting inside a bigger card should answer
     /// to the pointer being on the BAR — which is also what Control Center does.
     @ViewBuilder private var track: some View {
-        // The stand-in span survives HERE and nowhere else: the accessibility
+        // The stand-in span lives HERE and nowhere else: the accessibility
         // Slider below needs a non-empty range even on a row it cannot adjust,
-        // and the gesture answers 0 for a zero span anyway. The FILL no longer
+        // and the gesture answers 0 for a zero span anyway. The FILL never
         // reads it — a stand-in denominator is a lie about how far in we are.
         let span = duration ?? max(position, 1)
         let shown = draft ?? position
@@ -182,8 +173,10 @@ struct ScrubberRow: View {
     /// The pattern is chosen by the TRACK's length, not by the value being
     /// printed, so the elapsed and total labels always have the same shape: a
     /// 1h20m recording reads `0:05:00 / 1:20:00`, never `5:00 / 1:20:00`.
-    private func timeLabel(_ seconds: Double, showsHours: Bool) -> String {
-        let value = Duration.seconds(max(0, seconds))
+    /// Bounded again here, not only at the borders: `Duration.seconds` traps past
+    /// Int64's seconds, and a draft or any future source reaches this label too.
+    nonisolated static func timeLabel(_ seconds: Double, showsHours: Bool) -> String {
+        let value = Duration.seconds(NowPlaying.bounded(position: seconds, duration: nil))
         return showsHours
             ? value.formatted(.time(pattern: .hourMinuteSecond))
             : value.formatted(.time(pattern: .minuteSecond))

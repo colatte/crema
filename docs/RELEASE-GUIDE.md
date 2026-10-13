@@ -57,8 +57,9 @@ yourself.
   signs the enclosure — **you never type or paste that key**. To confirm it is
   reachable on this machine (this prints **only the public half**):
   ```bash
-  SPARKLE_BIN="$(find ~/Library/Developer/Xcode/DerivedData \
-    -path '*/SourcePackages/artifacts/sparkle/Sparkle/bin' -type d 2>/dev/null | head -1)"
+  BUILD_DIR="$(xcodebuild -project Crema.xcodeproj -scheme Crema -showBuildSettings 2>/dev/null \
+    | awk -F' = ' '/^ *BUILD_DIR = /{print $2; exit}')"
+  SPARKLE_BIN="${BUILD_DIR%/Build/Products}/SourcePackages/artifacts/sparkle/Sparkle/bin"
   "$SPARKLE_BIN/generate_keys" -p
   # must print exactly:  AWufPX9SoMRSSmTVmoLNaoXyHJuRHOKx+BxrSfazfmQ=
   ```
@@ -66,10 +67,12 @@ yourself.
   **byte for byte**. If `generate_keys -p` prints nothing, the private key is not
   in this keychain (new machine, replaced keychain) — restore it from the backup
   below before attempting a release.
-  > `$SPARKLE_BIN` comes from Sparkle's SPM checkout inside DerivedData; the path
-  > carries a per-project hash, so we locate it by glob. If `find` comes up
-  > empty, build Crema once (Xcode or `xcodebuild build`) so SPM resolves
-  > Sparkle.
+  > `$SPARKLE_BIN` is Sparkle's SPM checkout inside THIS project's DerivedData,
+  > located through `-showBuildSettings` rather than a glob over every project:
+  > `generate_keys` reads the private key, so it must be the copy this project
+  > resolved, never whichever project on the machine resolved one last. If the
+  > folder is missing, build Crema once (Xcode or `xcodebuild build`) so SPM
+  > resolves Sparkle.
 
 ### Back the private key up — once, and off this machine
 
@@ -77,8 +80,13 @@ A normal release never touches the private key, which is exactly why it is easy
 to forget that the login keychain is its **only** copy. Export it once:
 
 ```bash
-"$SPARKLE_BIN/generate_keys" -x sparkle-eddsa-private-key.txt
+"$SPARKLE_BIN/generate_keys" -x "$HOME/sparkle-eddsa-private-key.txt"
 ```
+
+Into your home folder, never the repository: an export in the repo folder is one
+`git add -A` away from the public history, where anyone could sign updates every
+installation accepts. `.gitignore` carries `sparkle-eddsa-private-key*` as the
+second net, not the first.
 
 Store that file **outside the release machine** — a password manager entry, or
 offline media — and delete the exported copy from disk afterwards. Restoring on
@@ -135,20 +143,21 @@ The script signs with that certificate (including the **nested Sparkle**, see
 **regenerates the appcast**. Out comes a `Crema.dmg` signed with a stable
 identity, a `Crema-1.1.1.dmg` (the enclosure) and a fresh `docs/appcast.xml`.
 
-> **Self-signed NEVER carries the hardened runtime** (release-guard round; a
-> throwaway local build paid to find this crash): the runtime turns on dyld's
-> _library validation_,
-> which demands a **real and matching Team ID** between the process and every
-> non-platform library — a self-signed certificate **has no Team**, so the app
-> **crashes at launch** loading `Sparkle.framework` ("mapping process and mapped
-> file (non-platform) have different Team IDs"), even with every component signed
-> by the same identity and `codesign --verify --deep --strict` green (verify
-> checks integrity, not load policy). `release.sh` only adds `--options runtime`
-> on the Developer ID branch; on top of that it validates the **identity
+> **Self-signed carries the hardened runtime only with library validation off**
+> (`Crema-SelfSigned.entitlements`, on the app's own executable). The runtime is
+> what makes dyld ignore `DYLD_*` variables, so no process of the same user can
+> inject code into the process that holds the Accessibility grant. But it also
+> turns on dyld's _library validation_, which demands a **real and matching Team
+> ID** between the process and every non-platform library, and a self-signed
+> certificate **has no Team**: with validation on, the app **crashes at launch**
+> loading `Sparkle.framework` ("mapping process and mapped file (non-platform)
+> have different Team IDs"), even with every component signed by the same
+> identity and `codesign --verify --deep --strict` green (verify checks
+> integrity, not load policy). Both halves are measured
+> (docs/DECISIONS.md: self-signed-runtime-without-library-validation). `release.sh` also validates the **identity
 > consistency** of every nested Mach-O and runs a **launch smoke** (installs from
 > the dmg and requires the process to stay alive for 5 s) in every mode — an
-> unlaunchable dmg never goes green again (docs/DECISIONS.md:
-> signed-without-hardened-runtime).
+> unlaunchable dmg never goes green again.
 
 What does **not** change for the user: Gatekeeper still asks for **"open
 anyway"** on the first launch (the **First launch** section of the README stays
@@ -369,9 +378,7 @@ An unsigned feed here means the app no longer carries `SURequireSignedFeed`, or
 the signing key is not reachable — either way, every already-updated client would
 reject this appcast. (The script already hard-fails on exactly this before its
 summary prints, so a green run cannot leave the count at 0 — the manual grep is
-belt and suspenders. And run it against a **freshly generated** feed only: the
-committed `docs/appcast.xml` predates the signing keys until the first release
-generated after them, so grepping the checked-in file proves nothing.)
+belt and suspenders.)
 
 What is left in the repo root (both gitignored by `*.dmg`):
 
@@ -445,33 +452,49 @@ publish, target `main`) → title `Crema 1.1.1` → paste the notes → **Attach
 binaries**: drag **both** (`Crema.dmg` and `Crema-1.1.1.dmg`, exact names) → **Set
 as the latest release** → **Publish**.
 
-### 5.4 Publish the appcast — `git push` to `main`
+### 5.4 Publish the appcast — a short branch, a pull request to `main`
 
 `release.sh` rewrote `docs/appcast.xml` but did **not** commit it. Pages serves
-`/docs` from `main`, so publishing is a commit and a push **to `main`**:
+`/docs` from `main`, and `main` takes nothing by direct push — the protection
+binds administrators too (docs/GITHUB.md §3) — so publishing is a commit on a
+release branch and a pull request that `Build & test` gates:
 
 ```bash
+git checkout -b release/1.1.1                      # from main, which you are on after §5.3
 git add docs/appcast.xml
 git commit -m "chore(release): appcast 1.1.1"
-git push
+git push -u origin release/1.1.1
+gh pr create --base main --title "chore(release): appcast 1.1.1" --body "Feed for v1.1.1; the Release is published."
+gh pr checks --watch                                # ~4 min: the same gate release.sh ran, on the runner
+gh pr merge --merge                                 # the branch is deleted at the merge
 ```
 
-> If you work on a branch (`dev`), remember: Pages serves **`main`**. The appcast
-> only goes live once that commit reaches `main` (merge/PR or direct push,
-> whichever your flow is). The enclosure has to be published in the Release
-> **first** — otherwise the app finds the item and 404s on the download.
+The enclosure has to be published in the Release **first** (§5.3) — otherwise
+the app finds the item and 404s on the download.
 
-**The appcast commit is the last step, and it never parks on a branch.** If the
-Release is not published in the same sitting, revert the appcast commit
-(`git revert <sha>`) and regenerate it when the release actually goes out. The
-reason is that the commit does not need a release to reach the users: it goes
-live on the next push to `main` for *any* reason — a documentation merge, a
-README fix — and whoever runs that merge is not thinking about Sparkle. The
-feed then advertises a version whose Release does not exist, and every client
-that checks in that window downloads a 404. An entry left waiting is not a
-release half-done; it is a trap armed on someone else's branch, and the git
-history keeps it recoverable (`git show <sha>` restores the whole entry,
-signature included) at no cost.
+**The appcast commit reaches `main` in the same sitting as the Release, and it
+never waits anywhere else.** `release/X.Y.Z` exists for the four minutes the
+check takes; if the Release is not published in that sitting, delete the branch
+(`git push origin --delete release/1.1.1`) and regenerate the feed when the
+release actually goes out. The reason is that the commit does not need a
+release to reach the users: parked on `dev`, it goes live on the next merge to
+`main` for *any* reason — a documentation merge, a README fix — and whoever
+runs that merge is not thinking about Sparkle. The feed then advertises a
+version whose Release does not exist, and every client that checks in that
+window downloads a 404. An entry left waiting is not a release half-done; it is
+a trap armed on someone else's branch, and the git history keeps it recoverable
+(`git show <sha>` restores the whole entry, signature included) at no cost.
+
+**Then bring `main` back into `dev`** — the appcast commit is on `main` only, and
+the next `dev` → `main` pull request would otherwise show `dev` behind:
+
+```bash
+gh pr create --base dev --head main --title "Merge main into dev after 1.1.1" --body "The appcast commit, back on the integration branch."
+gh pr checks --watch && gh pr merge --merge
+```
+
+A local `git merge main` pushed to `dev` is rejected by the protection
+(docs/DECISIONS.md: the-branch-rules-bind-the-admin-too).
 
 ### 5.5 Post-publication verification
 
@@ -563,8 +586,9 @@ That left `Crema-1.90.1.dmg` in the repo root. Now a **test** appcast pointing a
 the local server (do NOT use the production `docs/appcast.xml` here):
 
 ```bash
-SPARKLE_BIN="$(find ~/Library/Developer/Xcode/DerivedData \
-  -path '*/SourcePackages/artifacts/sparkle/Sparkle/bin' -type d 2>/dev/null | head -1)"
+BUILD_DIR="$(xcodebuild -project Crema.xcodeproj -scheme Crema -showBuildSettings 2>/dev/null \
+  | awk -F' = ' '/^ *BUILD_DIR = /{print $2; exit}')"
+SPARKLE_BIN="${BUILD_DIR%/Build/Products}/SourcePackages/artifacts/sparkle/Sparkle/bin"
 
 E2E=/tmp/crema-e2e
 rm -rf "$E2E"; mkdir -p "$E2E"
@@ -621,7 +645,7 @@ EdDSA**, install and **relaunch** the app.
 - **The gentle reminder is exercised.** With a newer version in the feed, let the
   **scheduled** check run with Crema in the background (do not use "Check for
   Updates…", which is user-initiated and deliberately does not light the line):
-  the menu bar must show "An update to Crema is available." with the "Show the
+  the menu bar must show "An update to Crema is available." with the "Show
   Update…" button right below it, and the line must disappear once the alert has
   received attention or the session ends (docs/DECISIONS.md:
   the-update-alert-nobody-sees).
@@ -697,13 +721,12 @@ looks for) and pass it to `--notes-file`; or paste
 straight into the description (option B). On the **first** release use the full
 overview; afterwards, summarize **what changed** (new things, fixes).
 
-> **HTML, not Markdown, and the reason is a shipped bug.** `release.sh` copies an
+> **HTML, not Markdown, because of the bullet-per-line path.** `release.sh` copies an
 > `.html` source into the appcast verbatim; anything else it renders **one bullet
 > per line**, which turns prose into a list and leaves `**` and `#` showing
-> literally. 1.5.0 shipped its update panel reading `*Crema 1.5.0**` for exactly
-> that reason. A `.md` still works if it really is one bullet per line — and
-> `release.sh` now refuses a `.md` containing Markdown emphasis or headings
-> rather than mangling it. GitHub Releases render the same HTML, so the one file
+> literally. A `.md` still works if it really is one bullet per line, and
+> `release.sh` refuses a `.md` containing Markdown emphasis or headings rather
+> than mangling it. GitHub Releases render the same HTML, so the one file
 > serves the Release body and the Sparkle panel alike.
 
 ```html
@@ -747,16 +770,17 @@ export CREMA_SIGN_IDENTITY="Crema Code Signing"
 open Crema.dmg                                    # local test (§5.2)
 gh release create vX.Y.Z Crema.dmg Crema-X.Y.Z.dmg \
   --target main --title "Crema X.Y.Z" --notes "…" --latest     # BOTH assets
-git add docs/appcast.xml && git commit -m "chore(release): appcast X.Y.Z"
-# publishing = that appcast commit reaching MAIN (Pages serves /docs from main). On main,
-# `git push` is enough; on a branch (dev), merge/PR — or push directly: git push origin HEAD:main
-git push                                                                                   # (on main) publishes the feed
+git checkout -b release/X.Y.Z && git add docs/appcast.xml && git commit -m "chore(release): appcast X.Y.Z"
+git push -u origin release/X.Y.Z && gh pr create --base main --title "chore(release): appcast X.Y.Z" --body "…"
+gh pr checks --watch && gh pr merge --merge     # publishing = that commit reaching MAIN (Pages serves /docs);
+                                                # no direct push exists — the protection binds admins (docs/GITHUB.md)
 # Pages takes ~1–3 min to republish; ceiling ~5 min (a wrong URL fails loudly, §5.5)
 for i in $(seq 1 20); do
   curl -fsS https://colatte.github.io/crema/appcast.xml | grep -q sparkle:version && break
   [ "$i" = 20 ] && { echo "appcast did NOT go up in ~5 min — check the URL/Pages"; break; }
   sleep 15
 done
+gh pr create --base dev --head main --title "Merge main into dev after X.Y.Z" --body "…" && gh pr checks --watch && gh pr merge --merge
 ```
 
 If the app is ever signed with Developer ID and notarized, review §3, the signing

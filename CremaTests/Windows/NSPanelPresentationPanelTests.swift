@@ -2,13 +2,13 @@ import AppKit
 import Testing
 @testable import Crema
 
-/// The real panel, instantiated — which until now nothing in the suite did.
+/// The real panel, instantiated.
 ///
 /// Everything above it (reconciliation, frame math, style resolution) is well
 /// pinned, and everything this class *binds* was invisible: two mutations, one
 /// handing SwiftUI the power to size the window and one dropping the fixed frame
 /// altogether, both left all 729 tests green. Those are the same two invariants
-/// CLAUDE.md names in "Never do" as the cure for a whole family of
+/// AGENTS.md names in "Never do" as the cure for a whole family of
 /// intermittent blinks, so they get a witness here.
 @MainActor
 struct NSPanelPresentationPanelTests {
@@ -103,18 +103,12 @@ struct NSPanelPresentationPanelTests {
     }
 
     @Test func theClickRegionComesFromTheRenderedSurfaceNotTheRuleFrame() {
-        // This is the measurement that retired a whole settle mechanism. The rule
-        // frame was documented as the fallback for skins that do not report their
-        // size, with a union-then-tighten shrink path behind it and a calibrated
-        // constant to time it. But the hosting view reports during CONSTRUCTION, so
-        // the reported path already owns the rect when the very first apply lands —
-        // the fallback could not run, its constant was asserted only against another
-        // constant, and anyone calibrating click-during-close was turning a dial
-        // wired to nothing.
+        // The hosting view reports its size during CONSTRUCTION, so the reported
+        // rect already owns the click region at the very first apply; a rect equal
+        // to the rule frame would mean the surface never reported.
         //
         // Asserting the rect differs from the rule frame is what says "reported
-        // path". If a change ever makes the rule frame win, this fails and the
-        // deleted machinery is back on the table.
+        // path". If a change ever makes the rule frame win, this fails.
         let (panel, screen, harness) = self.panel()
         let track = CoordinatorHarness.playingTrack()
         let expanded = Style.card.frame(for: .nowPlaying(track, expanded: true), on: screen.geometry)
@@ -128,7 +122,7 @@ struct NSPanelPresentationPanelTests {
         withExtendedLifetime(harness) {}
     }
 
-    @Test func anApplyOverAStaleSilhouetteClampsClicksToTheStatesRuleFrame() throws {
+    @Test func anApplyOverAStaleSilhouetteClampsClicksToTheStatesRuleFrame() {
         // The trace this pins: expanded card visible → hidden freezes the
         // silhouette (the view keeps reporting the last-visible size) → a HUD
         // keypress applies a much smaller frame. The apply-time refresh derives
@@ -157,9 +151,9 @@ struct NSPanelPresentationPanelTests {
         // A fresh report then retargets to the rendered truth, unclamped —
         // click keeps following the surface as drawn (hover-follows-the-eye).
         panel.surfaceSizeChanged(hud.size)
-        let rendered = try SurfaceClickThrough.surfaceRect(
+        let rendered = SurfaceClickThrough.surfaceRect(
             size: hud.size,
-            window: #require(Style.card.windowFrame(on: screen.geometry)),
+            window: Style.card.windowFrame(on: screen.geometry),
             anchor: Style.card.surfaceVerticalAnchor
         )
         #expect(panel.currentInteractiveRect == rendered)

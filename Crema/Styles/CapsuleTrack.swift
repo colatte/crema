@@ -3,13 +3,10 @@ import SwiftUI
 /// The bar this app draws for a 0…1 value: a 4 pt capsule with a white fill and
 /// a knob that appears only under the pointer.
 ///
-/// It lives here because two surfaces draw it and they had drifted. The HUD
-/// level owned this look — measured off the Tahoe banner and Control Center on
-/// hardware, recorded in `docs/DECISIONS.md: hud-capsule-track` — while the
-/// now-playing scrubber kept a stock `Slider`: a thumb always visible, tinted
-/// with the artwork accent. Two bars in the same card obeying opposite rules,
-/// one of them with a written decision behind it. Reported from the lock screen,
-/// where they sat two rows apart, on a surface since removed.
+/// It lives here because two surfaces draw it — the HUD level and the
+/// now-playing scrubber — and one home is what keeps the two bars in one card
+/// from drifting apart; the look is measured off the Tahoe banner and Control
+/// Center on hardware (`docs/DECISIONS.md: hud-capsule-track`).
 ///
 /// What is shared is the DRAWING and the numbers behind it. Each caller keeps
 /// its own gesture, because the two mean different things: the HUD writes a
@@ -46,7 +43,7 @@ struct CapsuleTrack: View {
     static let knobRevealDuration: Double = 0.15
 
     static func knobReveal(reduceMotion: Bool) -> Animation? {
-        reduceMotion ? nil : .easeOut(duration: knobRevealDuration)
+        SurfaceAnimation.respecting(reduceMotion: reduceMotion, .easeOut(duration: knobRevealDuration))
     }
 
     static func fillWidth(for value: Double, trackWidth: CGFloat) -> CGFloat {

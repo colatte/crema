@@ -31,6 +31,15 @@ enum Style: String, CaseIterable, Equatable, Sendable {
         resolved(on: geometry) == self
     }
 
+    /// Notch declared and honoured nowhere, while some display draws the Card that
+    /// stands in for it: the fallback Settings, the welcome tour and the menu name
+    /// out loud. Deliberately not `!rendersNotch` alone: with Card or Classic
+    /// declared there is no fallback to report, and the generic sentence is the
+    /// true one.
+    static func fallsBackToCard(declared: Self, rendersNotch: Bool, rendersCard: Bool) -> Bool {
+        declared == .notch && !rendersNotch && rendersCard
+    }
+
     /// Pure frame-rule dispatch — same purity and testability as each style's
     /// own rule; receives ScreenGeometry, never NSScreen.
     func frame(for state: PresentationState, on geometry: ScreenGeometry) -> CGRect {
@@ -44,7 +53,7 @@ enum Style: String, CaseIterable, Equatable, Sendable {
         }
     }
 
-    /// Stable hover regions for the active skin. Dispatch mirrors `frame`.
+    /// Stable hover regions for the active skin.
     func hoverRegions(on geometry: ScreenGeometry) -> SurfaceHoverRegions? {
         switch self {
         case .notch:
@@ -56,7 +65,7 @@ enum Style: String, CaseIterable, Equatable, Sendable {
         }
     }
 
-    /// Click-invoke zone for the active skin. Dispatch mirrors `frame`.
+    /// Click-invoke zone for the active skin.
     func invokeZone(on geometry: ScreenGeometry) -> CGRect? {
         switch self {
         case .notch:
@@ -68,7 +77,7 @@ enum Style: String, CaseIterable, Equatable, Sendable {
         }
     }
 
-    /// Per-state surface sizes for the active skin. Dispatch mirrors `frame`.
+    /// Per-state surface sizes for the active skin.
     func stateSizes(on geometry: ScreenGeometry) -> SurfaceStateSizes? {
         switch self {
         case .notch:
@@ -81,8 +90,8 @@ enum Style: String, CaseIterable, Equatable, Sendable {
     }
 
     /// Fixed window frame for the active skin (the view animates the surface
-    /// inside it). Same partition as `stateSizes`; dispatch mirrors `frame`.
-    func windowFrame(on geometry: ScreenGeometry) -> CGRect? {
+    /// inside it). Every skin has one, so the panel has no other window model.
+    func windowFrame(on geometry: ScreenGeometry) -> CGRect {
         switch self {
         case .notch:
             NotchStyle().windowFrame(on: geometry)

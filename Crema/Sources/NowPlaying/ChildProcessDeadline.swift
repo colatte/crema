@@ -23,21 +23,14 @@ func raceAgainstDeadline<T: Sendable>(
         let value = await operation()
         race.finish(value)
     }
-    let deadline = Task.detached {
-        do {
-            try await clock.sleep(for: timeout)
-            // Commit the timed-out value BEFORE the kill: onDeadline unwinds
-            // the abandoned operation (kill → termination handler → its own
-            // finish on another thread), and with the kill first that late
-            // finish raced this one for the single resume — the hung path
-            // must deterministically return timedOutValue, never whatever the
-            // killed child's exit happens to interpret to.
-            race.finish(timedOutValue)
-            onDeadline()
-        } catch {
-            // The operation won — this sleep was cancelled.
-        }
-    }
+    // The leg commits timedOutValue BEFORE it runs onDeadline: the kill unwinds
+    // the abandoned operation (termination handler → its own finish on another
+    // thread), and that late finish must lose the single resume, so the hung
+    // path returns timedOutValue, never whatever the killed child's exit
+    // interprets to.
+    let deadline = race.armDeadline(
+        seconds: timeout, on: clock, committing: .success(timedOutValue), then: onDeadline
+    )
     let result = await withCheckedContinuation { (continuation: CheckedContinuation<T, Never>) in
         race.begin(continuation)
     }

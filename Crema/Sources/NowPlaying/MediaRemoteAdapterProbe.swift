@@ -17,6 +17,7 @@ struct MediaRemoteAdapterProbe {
     func isAvailable() async -> Bool {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: MediaRemoteAdapterProcess.perlPath)
+        process.environment = ChildProcessEnvironment.current
         // Test-client path is the second argument (the script routes any arg
         // containing a slash to MEDIAREMOTEADAPTER_TEST_CLIENT_PATH).
         process.arguments = [paths.script, paths.framework, paths.testClient, "test"]

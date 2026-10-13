@@ -90,12 +90,11 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
     }
 
     /// Real wiring: runs the adapter with --no-diff (every line a full snapshot,
-    /// so translation stays stateless). Artwork flows since the visual-richness
-    /// round: the base64 fattens each line (~100–500 KB), which the line
-    /// buffer takes in stride, and the views decode once per cover
-    /// (ArtworkView/ArtworkAccent key their work on the bytes) — the original
-    /// reasons for --no-artwork are both retired. The debug observer keeps the
-    /// flag so raw-line logging stays readable. Probes availability via the
+    /// so translation stays stateless). Artwork is requested: the base64 fattens
+    /// each line (~100–500 KB), which the line buffer takes in stride, and the
+    /// views decode once per cover (ArtworkView/ArtworkAccent key their work on
+    /// the bytes). The debug observer keeps --no-artwork so raw-line logging
+    /// stays readable. Probes availability via the
     /// `test` command.
     convenience init(paths: MediaRemoteAdapterPaths, clock: any SleepClock = ContinuousSleepClock()) {
         // --micros: whole-second ISO timestamps would defeat the anchor
@@ -311,9 +310,10 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
         // the wrong way at whatever sign the rate carries.
         let age = max(0, uptime() - anchor.uptime)
         let sampled = anchor.position + age * anchor.rate
-        // Clamped last: the end of the track outranks the extrapolation, however
-        // long the anchor has been aging.
-        nowPlaying.position = nowPlaying.duration.map { min(sampled, $0) } ?? sampled
+        // Bounded last: the end of the track outranks the extrapolation, however
+        // long the anchor has been aging, and with no duration the domain's
+        // ceiling does (a rate the publisher chose can carry it anywhere).
+        nowPlaying.position = NowPlaying.bounded(position: sampled, duration: nowPlaying.duration)
         latest = nowPlaying
         continuation.yield(nowPlaying)
         lock.unlock()

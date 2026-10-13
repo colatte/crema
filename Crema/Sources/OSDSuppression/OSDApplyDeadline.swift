@@ -103,14 +103,7 @@ private extension SingleResumeRace where Failure == any Error {
         clock: any SleepClock,
         onError: @escaping @Sendable () -> Void = {}
     ) async throws -> T {
-        let deadline = Task.detached {
-            do {
-                try await clock.sleep(for: seconds)
-                self.finish(.failure(DeadlineExceeded.timedOut))
-            } catch {
-                // The operation won the race — this sleep was cancelled.
-            }
-        }
+        let deadline = armDeadline(seconds: seconds, on: clock, committing: .failure(DeadlineExceeded.timedOut))
         do {
             let value = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<T, Error>) in
                 self.begin(continuation)

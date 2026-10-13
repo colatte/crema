@@ -71,10 +71,9 @@ struct MenuStatus {
     /// it is for on its own.
     enum Advice: Equatable {
         /// Now Playing is dead, so the BACKUP reader is what is left — and that one
-        /// needs Automation access, a requirement the app used to have without ever
-        /// naming it. States the requirement, never a verdict: nothing here knows
-        /// whether consent is the reason, and reading that state would put a poll
-        /// behind a body whose rebuild costs the tap-chain read.
+        /// needs Automation access. States the requirement, never a verdict: nothing
+        /// here knows whether consent is the reason, and reading that state would put
+        /// a poll behind a body whose rebuild costs the tap-chain read.
         case automationForBackupReader
     }
 
@@ -178,9 +177,7 @@ struct MenuStatus {
         // the warning above it comes from: with no source reporting the block is a
         // lone "Nothing playing" row — the transport inside it stands down on its own
         // (NowPlayingMenuSection) — which states as news what the warning right above
-        // just said, and leaves nothing under it to wait on. The gate used to sit in
-        // the scene's ViewBuilder, where the two could drift apart with no test able
-        // to see either.
+        // just said, and leaves nothing under it to wait on.
         if nowPlayingActive { blocks.append(.media) }
         self.blocks = blocks
     }

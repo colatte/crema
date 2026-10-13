@@ -5,16 +5,10 @@
 > preferences and strings. They exist so a comment can say "S4" and mean one
 > precise thing in every file that says it.
 >
-> Provenance: distilled 2026-07-10 by a four-domain audit of the working tree.
-> The audit's bookkeeping — which contracts were written down at the time, and
-> the findings against that month-old tree — was dropped, all of it since fixed
-> or carried forward as named tensions. What is below is the contract set
-> itself, which is the part that outlives any working tree.
->
 > Four are carried as **known-accepted tensions** rather than settled law: S4,
 > P5, G2 and MG1 (the Card's width). They are debt the author took on purpose;
 > a reader finding code that bends one of them is looking at a decision, not a
-> bug. Where a contract has since become a rule of the house, CLAUDE.md states
+> bug. Where a contract has since become a rule of the house, AGENTS.md states
 > it and this file is the depth.
 
 ## Motion and geometry
@@ -27,7 +21,7 @@
 
 **MG4 — Level/glyph animations are value-scoped, never the surface.** `HUDLevelSlider`'s level spring and `SymbolReplaceEffect`'s replace are scoped to their own value/symbol and must never reach the surface morph, the window frame, or the appear/dismiss timing; both suspend under drag and under Reduce Motion.
 
-**MG5 — Reduce Motion replaces motion with a dry landing.** Animations honour `accessibilityReduceMotion` — symbol swap, HUD level and waveform all gate on it and land dry. (Written as an app-wide rule in CLAUDE.md after this audit found the gate missing on the surface morph itself.)
+**MG5 — Reduce Motion replaces motion with a dry landing.** Animations honour `accessibilityReduceMotion` — symbol swap, HUD level and waveform all gate on it and land dry.
 
 **MG6 — HUD thresholds and icon mapping pinned once and shared.** `HUDPresentation` owns the icon family and the level boundaries as a pure struct, identical across all three styles and both Card variants; boundary conventions differ per icon family (volume inclusive-thirds, brightness midpoint) by design.
 
@@ -67,7 +61,7 @@
 
 **P1 — Catalog verbatim discipline.** Every `String(localized:defaultValue:)` key exists in `Localizable.xcstrings` with `defaultValue` byte-identical to the `en` value, `extractionState` manual, a semantic (non-literal) key, and a translated `pt-BR` unit; no orphan keys. Enforced in CI by `scripts/check-catalog.py` (docs/INTERNATIONALIZATION.md).
 
-**P2 — One name per concept, in each language.** A concept (style name, feature name) uses a single term across picker labels, footers, menu items and onboarding within each language. The three style names were later ruled product names and stay English in both (docs/INTERNATIONALIZATION.md).
+**P2 — One name per concept, in each language.** A concept (style name, feature name) uses a single term across picker labels, footers, menu items and onboarding within each language. The three style names are product names and stay English in both (docs/INTERNATIONALIZATION.md).
 
 **P3 — Conservative defaults.** A pref whose desired default differs from the type's zero reads `object(forKey:) as? T ?? default` to distinguish unset from zero; opt-in features default off via `bool(forKey:)`.
 

@@ -6,7 +6,6 @@ protocol SleepClock: Sendable {
     func sleep(for seconds: Double) async throws
 }
 
-/// Real clock backed by Task.sleep.
 struct ContinuousSleepClock: SleepClock {
     func sleep(for seconds: Double) async throws {
         try await Task.sleep(for: .seconds(seconds))

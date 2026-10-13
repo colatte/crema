@@ -199,15 +199,17 @@ struct Preferences {
     // MARK: - Now-playing behavior
 
     /// Reactive appearance: media events (track change, external play/pause)
-    /// surface the compact appearance on their own. Default on — it matches the
-    /// behavior the app shipped with, so playing media shows something out of
-    /// the box. (Reactive was originally conceived as opt-in on top of a persistent-compact
-    /// quiet mode; this codebase's appearances are timed, so quiet here means
-    /// "no self-appearance" and defaulting it on avoids a surface that seems
-    /// never to show. The user picks quiet in Settings.)
+    /// surface the compact appearance on their own. Default on: the appearances
+    /// are timed, so quiet means "no self-appearance", and a surface that
+    /// defaults to never showing itself reads as broken. The user picks quiet in
+    /// Settings.
     static let reactiveNowPlayingKey = "reactiveNowPlaying"
+    /// Read here and by the Settings toggle's @AppStorage, so the two cannot
+    /// start a fresh install in different states; the same holds for the two
+    /// defaults below.
+    static let defaultReactiveNowPlaying = true
     var reactiveNowPlaying: Bool {
-        get { defaults.object(forKey: Self.reactiveNowPlayingKey) as? Bool ?? true }
+        get { defaults.object(forKey: Self.reactiveNowPlayingKey) as? Bool ?? Self.defaultReactiveNowPlaying }
         nonmutating set { defaults.set(newValue, forKey: Self.reactiveNowPlayingKey) }
     }
 
@@ -215,8 +217,9 @@ struct Preferences {
     /// Default off: autoplay video would otherwise flicker the surface. The
     /// Coordinator consumes the inverse (`ignoresBrowserMedia`).
     static let includesBrowserMediaKey = "includesBrowserMedia"
+    static let defaultIncludesBrowserMedia = false
     var includesBrowserMedia: Bool {
-        get { defaults.bool(forKey: Self.includesBrowserMediaKey) }
+        get { defaults.object(forKey: Self.includesBrowserMediaKey) as? Bool ?? Self.defaultIncludesBrowserMedia }
         nonmutating set { defaults.set(newValue, forKey: Self.includesBrowserMediaKey) }
     }
 
@@ -224,8 +227,9 @@ struct Preferences {
     /// view-only mode — cover + title/artist + scrubber, no action buttons.
     /// Default on.
     static let showsPlaybackControlsKey = "showsPlaybackControls"
+    static let defaultShowsPlaybackControls = true
     var showsPlaybackControls: Bool {
-        get { defaults.object(forKey: Self.showsPlaybackControlsKey) as? Bool ?? true }
+        get { defaults.object(forKey: Self.showsPlaybackControlsKey) as? Bool ?? Self.defaultShowsPlaybackControls }
         nonmutating set { defaults.set(newValue, forKey: Self.showsPlaybackControlsKey) }
     }
 
@@ -233,13 +237,13 @@ struct Preferences {
 
     /// The HUD level-indicator appearance, scoped to the Card style. Persisted
     /// as the enum rawValue; an unknown value (a variant removed since) degrades
-    /// to the shipped default, `.slider`, same rule as the per-display Style.
+    /// to `HUDIndicatorStyle.shippedDefault`, same rule as the per-display Style.
     static let hudIndicatorStyleKey = "hudIndicatorStyle"
     var hudIndicatorStyle: HUDIndicatorStyle {
         get {
             guard let raw = defaults.string(forKey: Self.hudIndicatorStyleKey),
                   let style = HUDIndicatorStyle(rawValue: raw) else {
-                return .slider
+                return .shippedDefault
             }
             return style
         }
@@ -278,9 +282,10 @@ struct Preferences {
     /// warning in the menu is the persistent signal for the one step that can
     /// stay unfinished. Unset reads false, which is the only reading a fresh
     /// install can produce.
+    static let hasSeenWelcomeTourKey = "hasSeenWelcomeTour"
     var hasSeenWelcomeTour: Bool {
-        get { defaults.bool(forKey: "hasSeenWelcomeTour") }
-        nonmutating set { defaults.set(newValue, forKey: "hasSeenWelcomeTour") }
+        get { defaults.bool(forKey: Self.hasSeenWelcomeTourKey) }
+        nonmutating set { defaults.set(newValue, forKey: Self.hasSeenWelcomeTourKey) }
     }
 
     private enum Key {

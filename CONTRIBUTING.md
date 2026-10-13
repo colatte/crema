@@ -24,7 +24,7 @@ writing code — it saves everyone effort.
 ## Issues and the docs
 
 An issue is **work**: what's wrong or missing, and when it's done. The rules
-live in the repository's documents — conventions in [CLAUDE.md](CLAUDE.md),
+live in the repository's documents — conventions in [AGENTS.md](AGENTS.md),
 design memory in [docs/DECISIONS.md](docs/DECISIONS.md) — and an issue points
 at them when one applies; no document cites an issue number back, because
 issues close and the number goes stale. The area labels (`now playing`,
@@ -47,6 +47,12 @@ branch, so the release pull request closes what it carries.
 - **`dev`** — the integration branch where work comes together. Pull requests
   target `dev`.
 
+Both branches are protected, and the protection binds administrators too: a
+pull request, the `Build & test` check green, the branch up to date, every
+review conversation resolved — and a `git push` straight to either branch is
+rejected, the owner's included. The settings and the reason each one is there
+live in [docs/GITHUB.md](docs/GITHUB.md).
+
 Branch off `dev`, and name the branch for what it does:
 
 - `feature/short-description` — a new capability
@@ -59,8 +65,9 @@ Branch off `dev`, and name the branch for what it does:
 Keep it lowercase, hyphenated, and descriptive — for example
 `fix/scrubber-jump-on-pause` or `feature/spanish-localization`. One branch per
 task or fix, cut from `dev` and gone at the merge; nothing lands on `dev`
-directly. Merges are merge commits, never squashes — the commits on `dev` are
-written to tell the change, and a squash throws that away.
+directly, and the remote enforces it. Merges are merge commits, never squashes —
+the commits on `dev` are written to tell the change, and a squash throws that
+away (the squash and rebase buttons are switched off at the repository level).
 
 ## Submitting a pull request
 
@@ -73,7 +80,7 @@ written to tell the change, and a squash throws that away.
    and its teardown can hang after every test has already reported, so the
    xcodebuild exit is not the signal.
 4. Match the surrounding code. The conventions are written up in
-   [`CLAUDE.md`](CLAUDE.md) — architecture, naming, concurrency, and how the
+   [`AGENTS.md`](AGENTS.md) — architecture, naming, concurrency, and how the
    layers talk to each other.
 5. Open the pull request against **`dev`** with a clear description of what
    changed and why.
