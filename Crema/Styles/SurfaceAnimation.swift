@@ -98,11 +98,8 @@ enum SurfaceAnimation {
     /// The warning is about SCALE, then, not about round trips as such. A large
     /// geometry morph that goes one way and comes back the other wants a spring
     /// chosen by the destination, because there the same 1.5% is a visible bounce
-    /// against the menu bar. A directional overload lived here for one commit, for
-    /// the lock card's expand/collapse; that state was removed and the overload
-    /// went with it rather than waiting in the file for a caller. The rule
-    /// survives its implementation: the destination picks the spring, which is
-    /// what `geometryAnimation` does from provenance.
+    /// against the menu bar — the destination picks the spring, which is what
+    /// `geometryAnimation` does from provenance.
     static func morph(reduceMotion: Bool) -> Animation? {
         reduceMotion ? nil : open
     }

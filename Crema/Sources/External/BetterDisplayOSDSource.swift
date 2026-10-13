@@ -149,14 +149,13 @@ final class BetterDisplayOSDSource: SystemHUDSource {
         // for suspensionBehavior = NSNotificationSuspensionBehaviorCoalesce"), and
         // a coalesced registration is HELD while the centre is suspended — which
         // AppKit does on its own whenever the app is not active. Crema is an
-        // LSUIElement accessory: it is essentially never active, so the brightness
-        // bar was asking for the delivery mode that waits for a moment which may
-        // never come. Whether it arrives anyway is then the POSTER's choice — the
-        // same header says a `deliverImmediately:` post is received as if every
-        // registrant had asked for immediate delivery — and the poster here is
-        // another app, which is exactly why this side must not depend on it.
-        // `.deliverImmediately` is the documented opt-out; the screen-lock edges
-        // were moved off the block-based cover for the same reason.
+        // LSUIElement accessory: it is essentially never active, so a coalesced
+        // registration here waits for a moment that may never come. Whether it
+        // arrives anyway is then the POSTER's choice — the same header says a
+        // `deliverImmediately:` post is received as if every registrant had asked
+        // for immediate delivery — and the poster here is another app, which is
+        // exactly why this side must not depend on it. `.deliverImmediately` is
+        // the documented opt-out.
         let relay = DistributedPayloadRelay { [weak self] json in self?.handle(json: json) }
         DistributedNotificationCenter.default().addObserver(
             relay,

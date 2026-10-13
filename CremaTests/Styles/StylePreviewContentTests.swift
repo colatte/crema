@@ -15,10 +15,8 @@ import Testing
 /// classic block stays faithful at 16.4 x 16.0. Retune the tile, the boosts or a
 /// skin's metrics and these have to be re-measured, not just re-run.
 ///
-/// Recalibrated 2026-08-01 with the owner's field verdict as the authorization:
-/// the first cut let the cover fill the inner height and the tiles read as
-/// stuffed, so the rule gained proportional air and capped covers — and every
-/// number below was re-measured against that rule, not adjusted until green.
+/// The rule gives proportional air and capped covers; every number below is
+/// measured against that rule, never adjusted until green.
 struct StylePreviewContentTests {
 
     /// A top-edge strip at the shipping card's magnified size, at an origin away

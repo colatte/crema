@@ -27,9 +27,8 @@ struct EventTapEntry: Equatable, Sendable {
     ///
     /// `CGEventTapLocation` is an ordered pipeline — `kCGHIDEventTap = 0`,
     /// `kCGSessionEventTap`, `kCGAnnotatedSessionEventTap` (`CGEventTypes.h`) —
-    /// and only the first two were modelled. Everything that was not HID landed
-    /// in one bucket where registry index order decided, so a neighbour tapping
-    /// at the annotated-session point could be NAMED as the app eating your
+    /// so a tap at the annotated-session point can never precede ours; without
+    /// this flag, registry index order would NAME it as the app eating your
     /// media keys purely for being listed earlier. The decision this feeds errs
     /// toward silence for exactly that reason: a missing line costs a
     /// diagnostic, a false line accuses a neighbour who is innocent by the
@@ -40,9 +39,8 @@ struct EventTapEntry: Equatable, Sendable {
     /// `processBeingTapped`, documented in the header as "Zero if not a
     /// per-process tap".
     ///
-    /// Dropping it made a per-PID tap indistinguishable from a session-wide one,
-    /// and apps routinely tap their OWN process. Such a tap sees only its
-    /// target's events, so it cannot be ahead of us for the media keys no
+    /// Kept because apps routinely tap their OWN process: such a tap sees only
+    /// its target's events, so it cannot be ahead of us for the media keys no
     /// matter what its mask says.
     let processBeingTapped: pid_t?
 }

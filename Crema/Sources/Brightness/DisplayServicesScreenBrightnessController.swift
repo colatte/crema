@@ -21,12 +21,11 @@ struct DisplayServicesScreenBrightnessController: ScreenBrightnessController {
     /// `blockingCall`).
     ///
     /// Accepts nil OR the built-in panel's own UUID, because those name the same
-    /// screen. Refusing a non-nil display outright looked right while nil was the
-    /// only way to say "the built-in" — then the neighbour integration started
-    /// naming displays explicitly, and this guard would have thrown
-    /// `externalDisplayUnsupported` for the built-in panel, silently swallowing a
-    /// drag on its own bar. Anything else is genuinely an external display, which
-    /// belongs to the optional integration and never to DisplayServices.
+    /// screen and the neighbour integration names displays explicitly — refusing
+    /// every non-nil display would throw `externalDisplayUnsupported` for the
+    /// built-in panel and silently swallow a drag on its own bar. Anything else is
+    /// genuinely an external display, which belongs to the optional integration
+    /// and never to DisplayServices.
     func setBrightness(_ value: Double, on display: DisplayUUID?) async throws -> Double {
         if let display, display != builtInDisplay() {
             throw BrightnessCommandError.externalDisplayUnsupported

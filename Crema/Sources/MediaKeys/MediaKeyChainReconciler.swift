@@ -31,13 +31,12 @@ enum MediaKeyChainReconciler {
                   entry.isEnabled,
                   entry.canConsume,
                   entry.mask & mask != 0,
-                  // Two documented reasons a tap cannot be ahead of us, both of
-                  // which the registry used to discard. The annotated-session
-                  // point is DOWNSTREAM of the session point in the pipeline
-                  // (`CGEventTypes.h` orders the three), and a per-process tap
-                  // only sees its target's events. Either way the neighbour is
-                  // innocent, and naming it is the false accusation this whole
-                  // decision errs away from.
+                  // Two documented reasons a tap cannot be ahead of us. The
+                  // annotated-session point is DOWNSTREAM of the session point
+                  // in the pipeline (`CGEventTypes.h` orders the three), and a
+                  // per-process tap only sees its target's events. Either way
+                  // the neighbour is innocent, and naming it is the false
+                  // accusation this whole decision errs away from.
                   !entry.followsSessionTaps,
                   entry.processBeingTapped == nil
             else { return false }

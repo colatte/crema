@@ -35,7 +35,7 @@ import os
 /// latching safe over a lock shield with no edge to correct it. `handleEdge`
 /// reconciles the edge immediately, then restarts that same tail behind a short
 /// finite backoff of extra authoritative re-reads for the sub-second common skew.
-/// This is exact parity with the tap poll now — both re-verify from init; the
+/// This is exact parity with the tap poll — both re-verify from init; the
 /// backoff alone was probabilistic, the unbounded tail makes the closure
 /// deterministic for a skew that outlasts it, a future latch of this class, or a
 /// dropped first notification. Each re-read feeds the same reconciler, so a
@@ -138,10 +138,10 @@ final class DistributedNotificationScreenLockSource: ScreenLockSource {
 
     deinit {
         settleTask?.cancel()
-        // Self-registered now (the selector method is the only one that takes a
-        // suspension behaviour), so the token list has nothing in it and the
-        // removal has to name the observer instead. Leaving the old token loop
-        // here would have quietly leaked both registrations.
+        // The distributed registrations are selector-based with `self` as the
+        // observer (the selector method is the only one that takes a suspension
+        // behaviour), so their removal names `self`; the token loop below covers
+        // only the workspace observers.
         DistributedNotificationCenter.default().removeObserver(self)
         for observer in workspaceObservers {
             NSWorkspace.shared.notificationCenter.removeObserver(observer)
@@ -170,15 +170,14 @@ final class DistributedNotificationScreenLockSource: ScreenLockSource {
         // NSNotificationSuspensionBehaviorCoalesce"), and coalesced delivery is
         // held while the centre is suspended — which AppKit does on its own
         // "when the application is not active". Crema is an LSUIElement
-        // accessory: it is essentially NEVER active, and it is certainly not
-        // active at the instant the screen locks. So the app was asking for the
-        // one delivery mode that waits for a moment that may never come.
+        // accessory: it is essentially NEVER active, least of all at the instant
+        // the screen locks, so a coalesced registration here waits for a moment
+        // that may never come.
         //
         // `.deliverImmediately` is the documented opt-out — the server delivers
         // "irrespective of whether setSuspended:YES has been called", flushing
-        // the queue as it goes. The settle re-reads and the periodic tail stay
-        // exactly as they were: they exist because distnoted is best-effort even
-        // when it IS delivering, and this changes nothing about that.
+        // the queue as it goes. The settle re-reads and the periodic tail exist
+        // because distnoted is best-effort even when it IS delivering.
         let distributed = DistributedNotificationCenter.default()
         for name in [Self.screenIsLockedName, Self.screenIsUnlockedName] {
             distributed.addObserver(

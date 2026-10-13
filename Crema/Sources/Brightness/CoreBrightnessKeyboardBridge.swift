@@ -58,13 +58,12 @@ final class CoreBrightnessKeyboardBridge: BrightnessBackend, @unchecked Sendable
     /// that may not be up yet at a cold boot, and an external keyboard can arrive
     /// or leave).
     ///
-    /// Conflating them was the defect: availability used to require an ID at
-    /// construction, so a launch that enumerated nothing left this channel
-    /// permanently unavailable, its poll never armed, and the backlight HUD dead
-    /// for the session with no way back but relaunching. Asking the provider here
-    /// costs one enumeration per call and is what makes "operations re-resolve, so
-    /// a later change degrades per call, never fatally" true in BOTH directions
-    /// rather than only downward.
+    /// Availability asks the provider per call, never an ID captured at
+    /// construction: a cold boot that enumerates nothing must not leave this
+    /// channel unavailable for the session, its poll never armed and the
+    /// backlight HUD dead until relaunch. One enumeration per call is what makes
+    /// "operations re-resolve, so a later change degrades per call, never
+    /// fatally" true in BOTH directions rather than only downward.
     var isAvailable: Bool { resolved?.keyboardID() != nil }
 
     func read() -> Float? {

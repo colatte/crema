@@ -30,9 +30,9 @@ struct StylePicker: View {
     var wallpaper: NSImage?
 
     var body: some View {
-        // Ten points of air: the field verdict on the 4 pt first cut was one
-        // crowded strip. Three tiles plus rings and gaps still fit the ~440 pt
-        // Form row with room to spare (3 × 114 + 20 = 362).
+        // Ten points of air, and three tiles plus rings and gaps still fit the
+        // ~440 pt Form row with room to spare (3 × 114 + 20 = 362); a tighter
+        // strip reads as crowded.
         HStack(alignment: .top, spacing: 10) {
             ForEach(Style.allCases, id: \.self) { style in
                 // Asking for the shapes without naming a panel is deliberately not
@@ -67,8 +67,8 @@ private struct StyleTile: View {
         Button(action: select) {
             VStack(spacing: 6) {
                 // Outside, and here is why for this row: the top few points are where
-                // the whole difference between these skins lives, so a border on the
-                // thumbnail used to hide the very thing being selected.
+                // the whole difference between these skins lives, and a border on the
+                // thumbnail paints over the very thing being selected.
                 StyleThumbnail(shapes: shapes, wallpaper: wallpaper)
                     .thumbnailSelectionRing(isSelected: isSelected)
                 // Tighter than the gap above: the caption belongs to the name, not

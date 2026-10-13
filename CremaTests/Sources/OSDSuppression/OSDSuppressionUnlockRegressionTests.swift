@@ -302,14 +302,11 @@ struct OSDSuppressionUnlockRegressionTests {
 
     // MARK: - V2d · the retry button clears a latched write-dead warning
 
-    // Once a write-dead channel escalates and the read-only probe
-    // re-engages it, the domain is no longer suspended but its menu warning stays
-    // latched (writeStillUnconfirmed). retrySuspendedNow's suspended-only loop
-    // could not reach it, so the "Try to reactivate now" button was a dead no-op
-    // in exactly this state — and a warning left stale by a silently-healed write
-    // (the user stopped pressing, so no verified apply ever cleared it) could
-    // never be dismissed. The button now clears the latch for a re-engaged
-    // long-suspended domain.
+    // A write-dead channel can be re-engaged by the read-only probe while its
+    // menu warning stays latched (writeStillUnconfirmed); the retry must clear
+    // that latch, or the "Try to reactivate now" button is a no-op in exactly
+    // this state and a warning left by a silently-healed write (the user stopped
+    // pressing, so no verified apply clears it) can never be dismissed.
     @Test func retryClearsALatchedWriteDeadWarningOnAReengagedDomain() async {
         let h = OSDSuppressorHarness()
         h.screen.writeIsDead = true

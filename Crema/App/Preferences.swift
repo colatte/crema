@@ -199,12 +199,10 @@ struct Preferences {
     // MARK: - Now-playing behavior
 
     /// Reactive appearance: media events (track change, external play/pause)
-    /// surface the compact appearance on their own. Default on — it matches the
-    /// behavior the app shipped with, so playing media shows something out of
-    /// the box. (Reactive was originally conceived as opt-in on top of a persistent-compact
-    /// quiet mode; this codebase's appearances are timed, so quiet here means
-    /// "no self-appearance" and defaulting it on avoids a surface that seems
-    /// never to show. The user picks quiet in Settings.)
+    /// surface the compact appearance on their own. Default on: the appearances
+    /// are timed, so quiet means "no self-appearance", and a surface that
+    /// defaults to never showing itself reads as broken. The user picks quiet in
+    /// Settings.
     static let reactiveNowPlayingKey = "reactiveNowPlaying"
     var reactiveNowPlaying: Bool {
         get { defaults.object(forKey: Self.reactiveNowPlayingKey) as? Bool ?? true }

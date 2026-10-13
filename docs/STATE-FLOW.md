@@ -9,7 +9,7 @@
 
 ## One observable of state, and nine mirrors
 
-A single `@Observable` of **presentation state**: the **Coordinator**. The app's other NINE observables are read mirrors for views, never domain — counting them as a single one was false, and `DECISIONS.md` itself already spoke of the observable of one of them. The state is the `PresentationState` enum (`hidden` / `nowPlaying` / `hud`), `Equatable`.
+A single `@Observable` of **presentation state**: the **Coordinator**. The app's other NINE observables are read mirrors for views, never domain. The state is the `PresentationState` enum (`hidden` / `nowPlaying` / `hud`), `Equatable`.
 
 The nine:
 
@@ -74,5 +74,5 @@ Audited and pinned by test.
 
 ## Style dispatch and coordinate space
 
-- Runtime style dispatch is the **`Style` enum** (a closed set: notch/card/classic — the card replaced the circular and then the pill). A persisted rawValue of a removed style — "pill", "circular" — degrades to the default (notch, which on a display with no notch slit resolves to the card) **in the global declaration**, but in a per-display override it falls to the user's DECLARATION and never to the default, because the override is not a choice the user made (docs/DECISIONS.md: global-style-default); the rawValue is the persistence format in Preferences. No type erasure: `PresentationStyle` remains the contract each style implements, and the enum only dispatches.
+- Runtime style dispatch is the **`Style` enum** (a closed set: notch/card/classic). A persisted rawValue of a removed style degrades to the default (notch, which on a display with no notch slit resolves to the card) **in the global declaration**, but in a per-display override it falls to the user's DECLARATION and never to the default, because the override is not a choice the user made (docs/DECISIONS.md: global-style-default); the rawValue is the persistence format in Preferences. No type erasure: `PresentationStyle` remains the contract each style implements, and the enum only dispatches.
 - **Coordinate space**: everything in AppKit global coordinates (origin at the bottom-left corner of the primary display, y pointing up). `NSScreen.frame` enters `ScreenGeometry.frame` verbatim; the frame rules return rects in that same global space, applied straight to `NSPanel.setFrame` with no conversion and no flip (documented in `ScreenTranslation`).

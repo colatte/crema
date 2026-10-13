@@ -100,17 +100,12 @@ final class Coordinator {
     /// concrete sampler.
     @ObservationIgnored var onBrightnessApplied: (@MainActor (SystemHUD) -> Void)?
 
-    /// Synchronous presentation hook for the WindowManager, and it has to stay
-    /// synchronous — but not for the reason first written here. The original
-    /// justification was a window-resize-vs-render race, and the fixed-window model
-    /// abolished that: no frame is racing anything any more, so anyone reading the
-    /// old note would reasonably conclude the hop is now safe to make async.
-    ///
-    /// It is not. What depends on the synchrony is everything the WindowManager
-    /// DERIVES from `state` inside this callout: whether hover is armed, the
-    /// click-interactive region, and the invoke zone. An async hop leaves all three
-    /// one turn behind the rendered surface — hover disarmed over pixels that are
-    /// already visible, clicks falling through a surface the user can see.
+    /// Synchronous presentation hook for the WindowManager, and it must stay
+    /// synchronous: inside this callout the WindowManager derives hover arming,
+    /// the click-interactive region and the invoke zone from `state`, and an
+    /// async hop leaves all three one turn behind the rendered surface — hover
+    /// disarmed over pixels already visible, clicks falling through a surface
+    /// the user can see.
     @ObservationIgnored var onPresentationChange: (@MainActor () -> Void)?
 
     /// Whether media commands (play/pause, seek) are working. Optimistic until a
@@ -167,7 +162,7 @@ final class Coordinator {
     /// Where a drag goes when the bar was drawn from a neighbouring app's report:
     /// its scale is not the system's, so the write must go back to it. Nil when
     /// that integration is not wired (demo sources), and then the system actuator
-    /// takes every drag, exactly as before.
+    /// takes every drag.
     @ObservationIgnored private let externalScreenBrightnessController: (any ScreenBrightnessController)?
     /// Whether the neighbour is still worth asking. Set false by a command it
     /// refused or never answered, and true again by its next report — evidence in
@@ -224,7 +219,7 @@ final class Coordinator {
     private(set) var pointerInside = false
     /// Whether the current hover gesture entered through the intent path — the
     /// routing guard in `hover(_:)` reads it so a gesture leaves the way it
-    /// came. Split from `pointerInside`, which both paths now write.
+    /// came. Split from `pointerInside`, which both paths write.
     @ObservationIgnored private var enteredViaHoverIntent = false
     /// The linger the visible appearance still owes — a property of the
     /// appearance, not of the restart site: the invoke click lands with the
@@ -327,16 +322,11 @@ final class Coordinator {
     /// Begins consuming the injected sources. Consumption happens on the main
     /// actor: sources may produce anywhere; consumption is main.
     ///
-    /// One-shot, and there is no `stop()`. There was one, unreferenced by app and
-    /// suite alike, and it was worse than unused: cancelling the consumption task
-    /// makes the `for await` below exit, and the line after the loop then reports
-    /// the teardown to the rest of the machine as "the media source died" —
-    /// discarding the snapshot and hiding the surface, which the ghost-discard
-    /// decision reserves for a genuine source death. `ChainedNowPlayingSource`
-    /// builds `updates` once at init, so a cancelled iteration is not resubscribable
-    /// either: whoever called it would get a permanently media-less app and no error
-    /// anywhere. The Coordinator lives for the process; a teardown seam that cannot
-    /// be honoured is better absent than available
+    /// One-shot, and there is no `stop()`: cancelling the consumption task makes
+    /// the `for await` below exit and report the teardown as a source death
+    /// (snapshot discarded, surface hidden), and `ChainedNowPlayingSource` builds
+    /// `updates` once at init, so a cancelled iteration cannot be resubscribed —
+    /// a teardown seam that cannot be honoured is better absent than available
     /// (docs/DECISIONS.md: teardown-seam-that-cannot-be-honoured).
     func start() {
         guard consumptionTasks.isEmpty else { return }
@@ -370,8 +360,7 @@ final class Coordinator {
     /// to compact → the invoked linger (longer than the reactive one) tucks
     /// it. Only meaningful while nothing is visible and media is playing —
     /// with a surface up, clicks route through its own controls instead;
-    /// paused media stays invokable only by a media event (same decision as
-    /// the old paused-resurface rule).
+    /// paused media stays invokable only by a media event.
     func invoke() {
         guard state == .hidden, let track = nowPlaying, track.isPlaying else { return }
         // Before the state write: its didSet synchronously arms the hover
@@ -806,24 +795,11 @@ final class Coordinator {
 
     /// The single writer of the name mirrors.
     ///
-    /// The comparison is belt-and-braces, and saying so is the point: an earlier
-    /// version of this comment claimed an @Observable set fires its observers even
-    /// when the value is unchanged, and that is not what the runtime does. Measured
-    /// on Swift 6.3.3, writing an equal value through the generated setter fires
-    /// NOTHING, while an unequal one fires — so this guard removes no invalidation
-    /// that would otherwise happen, and the suite cannot tell it apart from an
-    /// unguarded write.
-    ///
-    /// It stays anyway. The mirrors exist to keep the menu off a 1 Hz rebuild whose
-    /// cost is a system-wide tap probe (see their declaration), and that protection
-    /// would then rest entirely on an optimization inside Observation that no Apple
-    /// document promises. A comparison here costs one string compare per second and
-    /// makes the guarantee local — the same trade the house makes wherever the truth
-    /// lives on the other side of a boundary we do not control.
-    ///
-    /// Do not read the green suite as proof that this guard works: it is proof that
-    /// the tick does not invalidate the mirrors, which is true with the guard and,
-    /// on this toolchain, without it (CoordinatorMenuMirrorTests states the
+    /// The comparison is belt-and-braces: measured on Swift 6.3.3, an equal write
+    /// through the generated setter fires nothing, so the guard removes no
+    /// invalidation; it stays so the menu's protection from a 1 Hz rebuild (see
+    /// the mirrors' declaration) does not rest on an Observation optimization no
+    /// Apple document promises (CoordinatorMenuMirrorTests states the
     /// measurement).
     private func publishTrackNames(title: String?, artist: String?) {
         if nowPlayingTitle != title { nowPlayingTitle = title }

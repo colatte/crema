@@ -2,9 +2,9 @@ import AppKit
 
 /// System edge: watches the real cursor and drives the surface's hover
 /// against stable screen-space regions (`SurfaceHoverModel`), never the window
-/// frame the panel animates. That decoupling is the fix — the loop came from the
-/// old `.onHover`, whose tracking area rode the resizing panel and fired spurious
-/// enter/exit events as the edge swept under a still cursor.
+/// frame the panel animates: a tracking area riding a resizing panel fires
+/// spurious enter/exit events as the edge sweeps under a still cursor, and
+/// loops.
 ///
 /// Thin by design: the decision is the pure, unit-tested model; this only samples
 /// the cursor (`NSEvent.mouseLocation` in production) and forwards transitions.

@@ -95,14 +95,13 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unch
             return old
         }
         var address = Self.serviceRestartedAddress
-        // The old block goes out before the new one goes in. On the recovery path
-        // this removal should find nothing — the header quoted above says the reset
-        // took every registration with it — and that is exactly why it is here: the
-        // code no longer DEPENDS on that premise. Were a listener ever to survive a
-        // restart, the surviving one plus the new one would both fire on the next
-        // one and register two more, and the doubling compounds per restart. A
-        // removal that matches nothing is a status we ignore, the same price the
-        // device path already pays.
+        // The old block goes out before the new one goes in, so the code does not
+        // DEPEND on the reset having cleared every registration (the header quoted
+        // above says it does, so on the recovery path this removal should find
+        // nothing). Were a listener ever to survive a restart, the surviving one
+        // plus the new one would both fire on the next one and register two more,
+        // and the doubling compounds per restart. A removal that matches nothing
+        // is a status we ignore, the same price the device path already pays.
         if let previous {
             AudioObjectRemovePropertyListenerBlock(
                 AudioObjectID(kAudioObjectSystemObject), &address, queue, previous

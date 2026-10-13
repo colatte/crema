@@ -484,9 +484,8 @@ gh pr create --base dev --head main --title "Merge main into dev after 1.1.1" --
 gh pr checks --watch && gh pr merge --merge
 ```
 
-A local `git merge main` pushed to `dev` is what this used to be, and it is
-what the protection now rejects (docs/DECISIONS.md:
-the-branch-rules-bind-the-admin-too).
+A local `git merge main` pushed to `dev` is rejected by the protection
+(docs/DECISIONS.md: the-branch-rules-bind-the-admin-too).
 
 ### 5.5 Post-publication verification
 
@@ -712,13 +711,12 @@ looks for) and pass it to `--notes-file`; or paste
 straight into the description (option B). On the **first** release use the full
 overview; afterwards, summarize **what changed** (new things, fixes).
 
-> **HTML, not Markdown, and the reason is a shipped bug.** `release.sh` copies an
+> **HTML, not Markdown, because of the bullet-per-line path.** `release.sh` copies an
 > `.html` source into the appcast verbatim; anything else it renders **one bullet
 > per line**, which turns prose into a list and leaves `**` and `#` showing
-> literally. 1.5.0 shipped its update panel reading `*Crema 1.5.0**` for exactly
-> that reason. A `.md` still works if it really is one bullet per line — and
-> `release.sh` now refuses a `.md` containing Markdown emphasis or headings
-> rather than mangling it. GitHub Releases render the same HTML, so the one file
+> literally. A `.md` still works if it really is one bullet per line, and
+> `release.sh` refuses a `.md` containing Markdown emphasis or headings rather
+> than mangling it. GitHub Releases render the same HTML, so the one file
 > serves the Release body and the Sparkle panel alike.
 
 ```html

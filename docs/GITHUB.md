@@ -39,7 +39,7 @@ noted. There are no rulesets.
 | Required status check `Build & test` | yes | yes | The one job in `ci.yml`: SwiftLint strict, SwiftFormat lint, the catalog self-test and checker, the full suite, a Release build and the rejection of ad-hoc plus hardened runtime. One job on purpose: splitting it into eight would multiply runners for a suite that takes four minutes whole. |
 | Branch up to date before merging (`strict`) | yes | yes | Cheap here, so it stays on: what CI validated is what lands. |
 | Conversation resolution | yes | yes | Costs nothing while there is no reviewer; the day there is one, an open comment cannot be merged past. |
-| **Applies to administrators** (`enforce_admins`) | **yes** | **yes** | The rule that makes the others true for the owner too. Until 2026-09-12 it was off, and an admin `git push` to `dev` went through with a "Bypassed rule violations" notice instead of a rejection — the CONTRIBUTING said "nothing lands here directly" and the remote did not agree (docs/DECISIONS.md: the-branch-rules-bind-the-admin-too). |
+| **Applies to administrators** (`enforce_admins`) | **yes** | **yes** | The rule that makes the others true for the owner too. Without it an admin `git push` bypasses every other rule with a "Bypassed rule violations" notice instead of a rejection (docs/DECISIONS.md: the-branch-rules-bind-the-admin-too). |
 | Approving reviews required | 0 | 0 | A one-person project cannot require a second person. Raised the day there is one. |
 | Force-push, deletion | no | no | |
 

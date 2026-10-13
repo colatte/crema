@@ -53,10 +53,9 @@ struct SystemHUD: Equatable, Sendable {
     var value: Double
     var isMuted: Bool = false
     var provenance: Provenance = .reading
-    /// Which screen this reading is about. Three distinct facts a single
-    /// `DisplayUUID?` used to fold into one, and folding "the built-in" into
-    /// "nobody said which screen" is what drew the built-in panel's bar on EVERY
-    /// panel — measured in the field, pointer on the laptop, with a drag on the
+    /// Which screen this reading is about — a role, never a `DisplayUUID?`:
+    /// folding "the built-in" into "nobody said which screen" draws the built-in
+    /// panel's bar on EVERY panel, measured in the field with a drag on the
     /// monitor's copy dimming the laptop in silence
     /// (docs/DECISIONS.md: hud-target-is-a-role).
     var target: Target = .noDisplay
@@ -66,8 +65,7 @@ struct SystemHUD: Equatable, Sendable {
     /// nil as "my own panel". Both brightness actuators do — the system one
     /// accepts nil OR the built-in's own UUID, the neighbour's resolves nil to the
     /// built-in ID — and the volume actuator rejects any non-nil display outright,
-    /// so `.builtIn` has to arrive as nil or a drag on the local bar would throw
-    /// where it used to write.
+    /// so `.builtIn` has to arrive as nil or a drag on the local bar would throw.
     var commandDisplay: DisplayUUID? {
         switch target {
         case .noDisplay, .builtIn: nil

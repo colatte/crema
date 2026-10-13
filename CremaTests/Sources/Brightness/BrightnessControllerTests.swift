@@ -5,12 +5,9 @@ import Testing
 /// unavailable backend and an external display both throw (no DDC).
 struct BrightnessControllerTests {
 
-    /// Unmistakably NOT the built-in. The previous fixture carried
-    /// 37D8832A-2D66-02CA-B9F7-8F30A301B230 under the name `external` — copied from
-    /// real hardware, where it is the BUILT-IN panel's UUID. It passed only because
-    /// the controller used to reject every non-nil display, so the value never
-    /// mattered; the moment the controller learned to recognise its own screen, the
-    /// fixture started asserting the opposite of its name.
+    /// Unmistakably NOT the built-in: the real panel's UUID
+    /// (37D8832A-2D66-02CA-B9F7-8F30A301B230) under the name `external` asserts
+    /// the opposite of its name once the controller recognises its own screen.
     private let external = DisplayUUID(rawValue: "EXTERNAL-NOT-THE-BUILT-IN")
     private let builtIn = DisplayUUID(rawValue: "THE-BUILT-IN-PANEL")
 

@@ -17,10 +17,9 @@ struct SettingsView: View {
         // Screenshot/dev harness: `-CremaSettingsInitialTab about` decides the
         // tab this window LANDS on when it opens (by ⌘, or the menu — nothing
         // opens it programmatically; the modern Settings scene has no
-        // supported selector for that). A name no longer in the enum — "displays",
-        // whose contents are now the first two sections of General — parses to nil
-        // and lands on General silently, which is the harness's contract: it steers
-        // a screenshot run, so a stale flag is worth a wrong tab and never a crash.
+        // supported selector for that). An unknown name parses to nil and lands on
+        // General silently, which is the harness's contract: it steers a screenshot
+        // run, so a stale flag is worth a wrong tab and never a crash.
         // DEBUG-only read; the selection state itself is ordinary TabView plumbing.
         if let raw = UserDefaults.standard.string(forKey: "CremaSettingsInitialTab"),
            let tab = SettingsTab(rawValue: raw) {
@@ -283,12 +282,11 @@ private struct GeneralSettingsView: View {
             } footer: {
                 if loginNeedsApproval {
                     // The sentence names no PATH, and that is the fix rather
-                    // than a shorter sentence. It used to read "System Settings
-                    // › General › Login Items", which macOS 15 renamed to "Login
-                    // Items & Extensions" (Apple: "Change Login Items &
-                    // Extensions settings on Mac"). The app supports 14+, so any
-                    // written path is wrong on one of them — and a button that
-                    // opens the pane cannot be wrong on either.
+                    // than a shorter sentence: macOS 15 renamed the pane to
+                    // "Login Items & Extensions" (Apple: "Change Login Items &
+                    // Extensions settings on Mac") and the app supports 14+, so
+                    // any written path is wrong on one of them — and a button
+                    // that opens the pane cannot be wrong on either.
                     Text(String(
                         localized: "settings.general.launchAtLogin.needsApproval",
                         defaultValue: "Approve Crema in System Settings to finish enabling this."
@@ -477,15 +475,14 @@ private struct AboutSettingsView: View {
 }
 
 // Internal rather than fileprivate: the panes and rows that dress their footers
-// with this are spread over several files (this one hit the 500-line ceiling with
-// no opt-out, so the bigger tabs and the per-display row moved out), and a
-// fileprivate helper would be copied into each of them instead.
+// with this are spread over several files, and a fileprivate helper would be
+// copied into each of them instead.
 extension View {
     /// The muted, small footnote style shared by every Settings section footer.
     ///
-    /// A step below `.callout`, which sat one point under the 13 pt control labels —
-    /// one point of separation for text three to four times longer, so every pane
-    /// read as paragraphs with a control in them rather than controls with notes.
+    /// `.subheadline`: one point under the 13 pt control labels is no separation
+    /// for text three to four times longer, and a pane without it reads as
+    /// paragraphs with a control in them rather than controls with notes.
     func settingsFootnote() -> some View {
         font(.subheadline)
             .foregroundStyle(.secondary)

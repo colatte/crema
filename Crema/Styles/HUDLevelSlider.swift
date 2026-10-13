@@ -85,7 +85,7 @@ struct HUDLevelSlider: View {
             // echo to queue); each new value retargets the in-flight spring with
             // its velocity preserved, so the fill chases the newest level without
             // stacking. The spring is off while dragging (it follows the finger)
-            // and under Reduce Motion (the value jumps as it did before).
+            // and under Reduce Motion (the value jumps).
                 .animation(
                     Self.animatesLevel(isEditing: isEditing, reduceMotion: reduceMotion) ? SurfaceAnimation.hudLevel : nil,
                     value: value

@@ -65,7 +65,7 @@ Crema **does not contest the position** — re-inserting in a loop is an arm-wre
 
 And three scoping rules, all with the same why — **with the neighbour's OSD off, Crema's bar is the user's only feedback**:
 
-- Only emit a target the app can **name** — a displayID that does not resolve to a UUID is discarded, because a bar for a nameless screen has nowhere to appear and nowhere to send the drag back to (`BetterDisplayOSDTranslation`). The earlier gate, "only what can be actuated", died when the neighbour's channel started writing to externals — today `externalDisplayUnsupported` exists only in the system actuators.
+- Only emit a target the app can **name** — a displayID that does not resolve to a UUID is discarded, because a bar for a nameless screen has nowhere to appear and nowhere to send the drag back to (`BetterDisplayOSDTranslation`). The gate is nameability, never actuation — `externalDisplayUnsupported` lives only in the system actuators.
 - **Discard instead of guessing** — a payload without `maxValue` gets no invented scale; a payload with `lock` does not become a normal bar.
 - When the neighbour reports, **the local key source stands down** (`standDown()` spends the origin gate's window **and marks as already-spoken the reads the key requested that are still in flight** — the read executes off the requester's thread, so ordering alone no longer protects the keypress) — otherwise, with suppression off, a merely *observed* key arms the local poll and the two sources draw for the same keypress, with the wrong read arriving last.
 
@@ -73,7 +73,7 @@ And three scoping rules, all with the same why — **with the neighbour's OSD of
 
 ## A HUD that names a display appears only on it
 
-The app has a single state and one panel per screen, so every panel used to draw every HUD — harmless while nothing named a display, wrong the instant something did (the external monitor's bar drawn on the notebook is control over a screen the user is not looking at, and the drag would darken the neighbouring screen in silence). The decision lives in `WindowManager.effectiveState`, which is already the per-display policy seam; a panel that is not the owner treats the state as `.hidden`, which also disarms hover there.
+The app has a single state and one panel per screen, so a HUD drawn on every panel is wrong the instant something names a display (the external monitor's bar drawn on the notebook is control over a screen the user is not looking at, and the drag would darken the neighbouring screen in silence). The decision lives in `WindowManager.effectiveState`, which is already the per-display policy seam; a panel that is not the owner treats the state as `.hidden`, which also disarms hover there.
 
 The HUD **does not name a UUID, it names a role** (`SystemHUD.Target`: `.noDisplay` / `.builtIn` / `.display(uuid)`) and whoever holds the panel roster resolves it: the producer says only what it knows (`BrightnessBackend.target` is a constant of the technology — the screen bridge governs the built-in panel and no other; the backlight belongs to no screen), and the `WindowManager` asks its own roster which panel is the internal one (`isInternal`), never matching a UUID from the ACTIVE display list against the roster — the two lists disagree by design, and every disagreement would become "bar on no screen at all".
 

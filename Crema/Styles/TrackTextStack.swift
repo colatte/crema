@@ -5,9 +5,7 @@ import SwiftUI
 /// skins read as siblings.
 ///
 /// ONE ramp, and the sizes are not parameterised: a surface that set its own
-/// would be the first to break the siblinghood. A second scale existed briefly,
-/// for a lock-screen card read at two or three metres; the surface was removed
-/// and the scale went with it rather than waiting in the file for a caller.
+/// would be the first to break the siblinghood.
 ///
 /// A caller may still vary the artist's WEIGHT, which stays because it costs no
 /// layout and Apple's own guidance asks for a medium weight or higher wherever
@@ -18,9 +16,8 @@ struct TrackTextStack: View {
     let artist: String?
     var alignment: HorizontalAlignment = .leading
     var spacing: CGFloat = 2
-    /// Regular for the desktop skins, which are read at desk distance. The lock
-    /// card asked for `.medium`; the surface went, the knob stays for the
-    /// reason the header gives.
+    /// Regular for the desktop skins, which are read at desk distance; a surface
+    /// read from afar raises it, for the reason the header gives.
     var artistWeight: Font.Weight = .regular
 
     /// Read here rather than at each call site, because the promotion below is

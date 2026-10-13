@@ -22,9 +22,8 @@ import Foundation
 /// Known limit (rare, self-healing): a poll reading already in flight when the
 /// key arrives registers before the window is armed, so it absorbs the key's
 /// value silently and the HUD is missed until the next key. The tap wakes the
-/// router before the event reaches the OS, and the window is now armed at key
-/// time rather than when the key's own reading returns, so the sliver is one
-/// reading narrower than it was; a held key re-arms and self-corrects.
+/// router before the event reaches the OS and the window is armed at key time,
+/// so the sliver is one reading wide; a held key re-arms and self-corrects.
 ///
 /// Contract: a consumed media key always produces feedback. At a scale
 /// boundary the clamped write is a no-op (the read comes back unchanged), yet

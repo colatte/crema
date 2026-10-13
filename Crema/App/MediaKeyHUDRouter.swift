@@ -17,13 +17,10 @@
 /// router and drives it from the main thread). Calling it off-main requires
 /// adding a lock.
 ///
-/// One-shot, and there is no `stop()` — there was one, referenced by neither the
-/// app nor the suite, and it could not have been honoured: the tap's `updates` is
-/// built once at init and finishes only with the source, so a cancelled iteration
-/// is not resubscribable. Whoever called it would get brightness keys that stop
-/// reaching the HUD for the rest of the process, with no error anywhere. The
-/// router lives for the process, the same conclusion the Coordinator's start()
-/// records for its own consumption tasks
+/// One-shot, and there is no `stop()`: the tap's `updates` is built once at
+/// init and finishes only with the source, so a cancelled iteration is not
+/// resubscribable — the router lives for the process, the same conclusion the
+/// Coordinator's start() records for its own consumption tasks
 /// (docs/DECISIONS.md: teardown-seam-that-cannot-be-honoured).
 final class MediaKeyHUDRouter: @unchecked Sendable {
     private let mediaKeys: any MediaKeySource

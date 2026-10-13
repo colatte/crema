@@ -23,9 +23,8 @@ import Foundation
 /// spawns threads when its own block, so a call parked here costs a thread
 /// rather than the app's concurrency.
 ///
-/// The read side of the apply/verify cycle has followed this rule from the start
-/// (`raceReadDeadline`); the write side did not, because its actuators *looked*
-/// async. Every border that wraps a blocking C call belongs here.
+/// Every border that wraps a blocking C call belongs here — the reads
+/// (`raceReadDeadline`) and the actuators whose signature merely *looks* async.
 /// (docs/DECISIONS.md: async-signature-is-not-a-suspension-point)
 ///
 /// A call that never returns keeps the continuation and one GCD thread until it
