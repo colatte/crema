@@ -16,16 +16,6 @@ import Testing
 @MainActor
 struct CoordinatorSliderReleaseTests {
 
-    /// A bar the neighbour drew for a monitor that is not the built-in panel —
-    /// the one target no actuator in the app writes, so a drag on it can be
-    /// declined all the way down.
-    private func onExternalDisplay(_ value: Double) -> SystemHUD {
-        SystemHUD(
-            kind: .screenBrightness, value: value,
-            target: .display(DisplayUUID(rawValue: "MONITOR-1")), authority: .betterDisplay
-        )
-    }
-
     @Test func anAssistiveAdjustmentReportsTheChangeThenTheRelease() {
         // The order is the contract, not a detail: the change is what marks a
         // gesture in flight, so a release sent ahead of it would be undone by the

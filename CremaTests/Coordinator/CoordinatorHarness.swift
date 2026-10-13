@@ -13,6 +13,9 @@ struct CoordinatorHarness {
     /// for it, so every existing test keeps the single-actuator wiring it had.
     let external: MockScreenBrightnessController?
     let clock = TestSleepClock()
+    /// Screen-brightness drag writes the Coordinator has finished, fallback and
+    /// correction included: the end-of-work barrier for a negative about a write.
+    let finishedScreenWrites = Tally()
     let coordinator: Coordinator
 
     init(
@@ -47,6 +50,7 @@ struct CoordinatorHarness {
             ignoresBrowserMedia: ignoresBrowserMedia,
             reactiveNowPlaying: reactiveNowPlaying
         )
+        coordinator.onScreenBrightnessWriteFinished = { [finishedScreenWrites] in finishedScreenWrites.count += 1 }
         coordinator.start()
     }
 

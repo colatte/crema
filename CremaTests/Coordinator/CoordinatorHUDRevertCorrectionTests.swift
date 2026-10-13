@@ -10,19 +10,6 @@ import Testing
 @MainActor
 struct CoordinatorHUDRevertCorrectionTests {
 
-    private func neighbourHUD(_ value: Double) -> SystemHUD {
-        SystemHUD(kind: .screenBrightness, value: value, authority: .betterDisplay)
-    }
-
-    /// A bar for a monitor that is not the built-in panel: the one target both
-    /// actuators decline, which is what leaves a correction owed.
-    private func onExternalDisplay(_ value: Double) -> SystemHUD {
-        SystemHUD(
-            kind: .screenBrightness, value: value,
-            target: .display(DisplayUUID(rawValue: "MONITOR-1")), authority: .betterDisplay
-        )
-    }
-
     @Test func aPendingCorrectionDoesNotSurviveARevertThatResumesTheMedia() async {
         let h = CoordinatorHarness(withExternalBrightness: true)
         h.external?.refuseEverything()

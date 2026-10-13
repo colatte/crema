@@ -99,6 +99,12 @@ final class Coordinator {
     /// Injection is intact: the Coordinator describes what it applied, never a
     /// concrete sampler.
     @ObservationIgnored var onBrightnessApplied: (@MainActor (SystemHUD) -> Void)?
+    /// Test seam, unset in production: fires once per screen-brightness drag write,
+    /// after the write, its fallback and any correction it owes have all run. A
+    /// negative claim about that write (nothing else was written, nothing was
+    /// corrected under the finger) needs an end-of-work barrier behind what it
+    /// denies, and this is the one point behind all of them (docs/TESTING.md).
+    @ObservationIgnored var onScreenBrightnessWriteFinished: (@MainActor () -> Void)?
 
     /// Synchronous presentation hook for the WindowManager, and it must stay
     /// synchronous: inside this callout the WindowManager derives hover arming,
@@ -1020,6 +1026,7 @@ final class Coordinator {
         let viaNeighbour = hud.authority == .betterDisplay && externalBrightnessReachable
         guard let external = externalScreenBrightnessController, viaNeighbour else {
             Task { @MainActor in
+                defer { onScreenBrightnessWriteFinished?() }
                 if await write(value, on: hud, through: screenBrightnessController, as: .system, "system") { return }
                 noteScreenBarUnconfirmed()
             }
@@ -1027,6 +1034,7 @@ final class Coordinator {
         }
 
         Task { @MainActor in
+            defer { onScreenBrightnessWriteFinished?() }
             switch await writeThroughNeighbour(value, on: hud, through: external) {
             case .honoured:
                 return
