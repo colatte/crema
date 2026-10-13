@@ -81,7 +81,7 @@ final class BetterDisplayScreenBrightnessController: CoalescingScreenBrightnessW
         let displayID: Int
     }
 
-    private let channel: any BetterDisplayCommanding
+    private let channel: any BrightnessCommandChannel
     /// The domain's key → the numeric ID BetterDisplay speaks; nil when there is
     /// no such display to address. Injected so the actuator is testable without
     /// displays attached.
@@ -91,7 +91,7 @@ final class BetterDisplayScreenBrightnessController: CoalescingScreenBrightnessW
     private var inFlight = false
     private var queued: QueuedWrite?
 
-    init(channel: any BetterDisplayCommanding, displayID: @escaping @Sendable (DisplayUUID?) -> Int?) {
+    init(channel: any BrightnessCommandChannel, displayID: @escaping @Sendable (DisplayUUID?) -> Int?) {
         self.channel = channel
         self.displayID = displayID
     }

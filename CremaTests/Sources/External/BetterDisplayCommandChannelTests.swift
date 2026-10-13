@@ -71,6 +71,32 @@ struct BetterDisplayCommandChannelTests {
         }
     }
 
+    @Test func aLevelThatCannotBeEncodedIsNotARefusalAndNeverLeaves() async {
+        let wire = Wire()
+        let clock = TestSleepClock()
+        let channel = makeChannel(wire, clock: clock)
+
+        await #expect(throws: BetterDisplayCommandChannel.CommandError.unencodable) {
+            try await channel.setBrightness(.nan, displayID: 1)
+        }
+        #expect(wire.posted.isEmpty)
+    }
+
+    @Test func theDeadlineIsTheNamedDefault() async throws {
+        let wire = Wire()
+        let clock = TestSleepClock()
+        let channel = BetterDisplayCommandChannel(clock: clock, newUUID: { "REQ-1" }, post: { wire.posted.append($0) })
+
+        let call = Task { try await channel.setBrightness(0.5, displayID: 1) }
+        await clock.waitForSleep()
+        // The literal is the pin: the number is not measured, so it changes only
+        // on purpose, in the same diff as this line.
+        #expect(clock.delays == [1.5])
+        #expect(BetterDisplayCommandChannel.defaultTimeout == 1.5)
+        channel.handle(response: #"{"uuid":"REQ-1","result":true}"#)
+        try await call.value
+    }
+
     @Test func someoneElsesAnswerIsNotOurs() async throws {
         // The channel is a broadcast: other apps' responses arrive here too, and
         // reading one as our own would report a stranger's success as ours.
