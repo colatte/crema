@@ -105,11 +105,11 @@ design/           # icon and badge sources; catalogs generated, never by hand
   waits are wall-clock-bounded, a negative claim needs a barrier, every clock
   is injected, `#expect` does not halt (`try #require`). Depth: docs/TESTING.md.
 - Comments say the why the code cannot: contract, gotcha, discarded path; no
-  banners, no emoji, no narration. Every change reconfirms or rewrites the
-  comments of the touched passage in the same diff. A doc reference carries
-  the lesson and cites the anchor, never a round name; a decision spanning
-  sites gets a DECISIONS.md entry in the same round. Dated words ("for now")
-  in shipped code are a pending review, except as a record of origin.
+  banners, emoji or narration. A change reconfirms the comments of the touched
+  passage in the same diff. A doc reference carries the lesson and the anchor,
+  never a round name; a decision spanning sites gets a DECISIONS.md entry in
+  the same round. Dated words ("for now") in shipped code are a pending review;
+  a record of origin, or of a regression with its anchor, is not history.
 - A claim about an Apple or neighbour API enters only read from a primary
   source named beside it; a measured constant ships with its probe, date and
   invalidating signal. Machine-reading Apple's docs: docs/SOURCES.md.
