@@ -2129,7 +2129,10 @@ hdiutil BEFORE its EdDSA signature was checked — mounting bytes nobody had vou
 for, on the one path where the app runs code it did not build. `SURequireSignedFeed`
 was absent too, which leaves the appcast itself unauthenticated: an attacker who
 controls the served feed still cannot forge a download (the enclosure signature holds)
-but can lie about which version is newest — freeze or downgrade.
+but can lie about which version is newest and freeze clients where they are; a
+downgrade Sparkle refuses on its own (2.9.4's installer rejects an older version).
+Signing closes the lie, not a replay: a feed signed in its day can be served again
+later and freezes clients at that version (docs/KNOWN-GAPS.md).
 Decision: both are YES, and they travel together because Sparkle enforces it —
 `SPUUpdater` refuses to START the updater when the feed requirement is on without
 verify-before-extraction, so shipping one without the other takes the whole update
@@ -2141,7 +2144,7 @@ block and prepending its own warning comment. `release.sh` regenerates into a FR
 file every release, so the feed's signedness follows the newest archive's plist and
 nothing else — which also means the day that key leaves Info.plist, the feed silently
 stops being signed while every client that already shipped it rejects the appcast.
-The consequence that outlives this entry: docs/appcast.xml authenticates itself from the first feed generated with the key in the packaged app onward — the committed feed of 1.4.0 predates the keys and carries no signature block, so today the promise is armed, not yet in force.
+The consequence that outlives this entry: docs/appcast.xml authenticates itself, and every feed since 1.5.0 carries the signature block (1.2.0 and 1.4.0, before the keys, did not).
 It was already "regenerated, never hand-edited"; from here a hand edit is not untidy,
 it is an outage — clients carrying the key fail every check for 20 days, Sparkle's
 default `SUSignedFeedFailureExpirationInterval`, before falling back to unsigned
