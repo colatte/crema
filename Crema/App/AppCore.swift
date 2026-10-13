@@ -264,7 +264,14 @@ final class AppCore {
         // shipped default and swap them a beat later.
         // (docs/DECISIONS.md: global-style-default)
         preferences.adoptDeclaredStyleFromOverrides(preferring: Self.styleAuthorityOrder(screens))
-        Self.applyScreenRoster(screens, to: windowManager, mirroring: displayRoster)
+        // One main-actor turn later, never inline: this init runs INSIDE SwiftUI's
+        // scene update (`@State` evaluates `AppCore()` there), and a panel's first
+        // frame lays out its NSHostingView, nesting a view-graph update in that one.
+        // Linked against the macOS 27 SDK the nesting aborts the process at launch
+        // (docs/DECISIONS.md: the-composition-root-draws-a-turn-later).
+        Task { @MainActor [windowManager, displayRoster] in
+            Self.applyScreenRoster(screens, to: windowManager, mirroring: displayRoster)
+        }
 
         let windowManager = self.windowManager
         let displayRoster = self.displayRoster
@@ -350,7 +357,11 @@ final class AppCore {
             suppressionLockController = nil
         }
 
-        Self.presentWelcomeTourIfFirstLaunch(preferences: preferences) { self.presentWelcomeTour() }
+        // The gate's write stays here, before any window; the window waits a turn
+        // for the reason the panel roster above does.
+        Self.presentWelcomeTourIfFirstLaunch(preferences: preferences) {
+            Task { @MainActor [weak self] in self?.presentWelcomeTour() }
+        }
 
         // The one moment the persisted login-item intent is reconciled against
         // reality: an item the user removed themselves is forgotten here, at a
