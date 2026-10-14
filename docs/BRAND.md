@@ -8,8 +8,8 @@
 > borrowed from the house. This page is what is Crema's, and where the rest
 > comes from.
 >
-> Sources, from most to least normative: this file for the rules; the icon
-> masters in `design/icon/` and the tokens in `docs/index.html` for the values;
+> Sources, from most to least normative: this file for the rules; the vector
+> mark in `design/icon/` and the tokens in `docs/index.html` for the values;
 > the Colatte brand (`Workspaces/colatte/brand/`, chapter 09 and
 > `design/creditos/`) for everything inherited. Where the two disagree about
 > Crema, this page wins; where this page is silent, the house rule applies.
@@ -50,27 +50,34 @@ shouting.
 
 ## The mark is the icon
 
-The icon is the whole visual identity: a cream pill with the wave of the
-crema line across it, set on an espresso-brown squircle, with the gloss and the
-drop shadow of a macOS object. It is generated, never hand-edited:
+The icon is the whole visual identity: a disc of crema seen from above, cut by
+one gesture — the dark wave of a pour, rising from the lower left and breaking
+into a point at the right — on an espresso ground. One shape, flat and matte,
+two colours: the house's language, with no exception for the icon. It is
+generated, never hand-edited:
 
-- `design/icon/crema-final-square-master-4096.png` is the unmasked master;
-  `makeicon.swift` applies the macOS template squircle and writes the
-  appiconset; `Crema.icns` is the full set. The web export lives in
-  `docs/assets/icon.png` (512 px) and is what the README, the landing and the
-  About tab show.
-- `makemenubaricon.swift` derives the **menu bar template** — the pill with the
-  crema line, black on transparent, rendered by the system as a template so it
-  follows the menu bar's own ink in light and dark.
-- Measured on the export: ground `#32180b` → `#281107` (espresso brown, darker
-  at the base), pill from `#fde2ba` at the crest through `#f2bc74` to `#d68226`
-  at the bottom (cream to caramel).
+- `design/icon/crema-mark.svg` is the mark's single source, one filled path.
+  `makemaster.swift` renders `crema-master-4096.png` from it (the ground
+  full-bleed, the mark at 56% of the width); `makeicon.swift` applies the macOS
+  template squircle and shadow and writes the appiconset; `Crema.icns` is that
+  set packed by `iconutil`. The web export is `docs/assets/icon.png` (the
+  appiconset's 512 px slot), what the README, the landing and the About tab
+  show; `scripts/make-web-assets.sh` derives the landing's `icon.webp` and
+  `favicon.png` from it.
+- `makemenubaricon.swift` fills the same path black on transparent as the
+  **menu bar template**, rendered by the system as a template so it follows the
+  menu bar's own ink in light and dark.
+- The colours are the landing's tokens: ground `--raise` `#1b1610`, mark
+  `--cream` `#d6bd94`. No gradient, gloss or baked shadow; the squircle's shadow
+  from `makeicon.swift` and the system's own treatment are the only depth.
 
-The icon is the only surface where the brand is glossy and three-dimensional,
-and the only one that reaches into saturated caramel. That is deliberate: a
-macOS app icon is an object on a platform, and it follows the platform's
-convention rather than the house's flat, matte language. Nowhere else in Crema
-does that gloss or that caramel appear.
+What the drawing must keep, because each drift has a reading that wins over
+the mark:
+
+- **The wave ends in a point.** Rounded, its end reads as a bulb; hooked
+  inward, the whole shape reads as a "G".
+- **The disc stays full around the cut.** Thinned toward an outline, two
+  pointed ends on a heavy side read as a crescent moon.
 
 ## Colour
 
@@ -198,9 +205,14 @@ rule 2 and the one rule of theirs Crema can break by accident.
 Everything above is applied. Two things to keep true:
 
 - `docs/assets/settings-about.png` is a reference capture of the Settings
-  window (unlinked; listed in docs/README.md). It predates the About signature
-  becoming prose and still shows a glyph — recapture it after the next
-  release build, or leave it knowing it is stale.
+  window (unlinked; listed in docs/README.md). It predates the current icon
+  and the About signature becoming prose, and still shows the earlier icon and
+  a glyph — recapture it after the next release build, or leave it knowing it
+  is stale.
 - The icon and the menu bar template are regenerated from `design/icon/`, and
   the download badge from `design/badge/`; none is edited in place. A change
-  to the mark is a change to the master and a rerun of the scripts.
+  to the mark is a change to `crema-mark.svg` and a rerun, in order:
+  `makemaster`, `makeicon` (into the appiconset), `makemenubaricon`; then the
+  appiconset's `AppIcon-512.png` copied to `docs/assets/icon.png`, its slots
+  packed into `Crema.icns` with `iconutil`, and
+  `scripts/make-web-assets.sh`.
