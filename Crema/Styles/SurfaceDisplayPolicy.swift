@@ -1,4 +1,5 @@
 import Observation
+import SwiftUI
 
 /// Per-display presentation policy the panel injects into its view — rendering
 /// context, like the slit inset, not domain state. With the window fixed and
@@ -9,6 +10,19 @@ import Observation
 @Observable
 @MainActor
 final class SurfaceDisplayPolicy {
+    /// Which layers this panel draws: both on a skin's own panel; one of them
+    /// where the Card's HUD sits on a panel of its own (docs/DECISIONS.md:
+    /// card-hud-placement). Fixed for the panel's life, like the slit inset.
+    let surface: PresentationLayers.Surface
+    /// The direction this panel's HUD bar runs (`HUDPlacement.axis`); fixed for
+    /// the panel's life, since a new placement builds a new panel.
+    let hudAxis: Axis
+
+    init(surface: PresentationLayers.Surface = .both, hudAxis: Axis = .horizontal) {
+        self.surface = surface
+        self.hudAxis = hudAxis
+    }
+
     var showsNowPlaying = true
     /// Whether THIS display draws the current HUD. False on every panel but the
     /// one the HUD's target speaks for — the built-in panel, a named display, or

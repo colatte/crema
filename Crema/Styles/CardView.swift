@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Card skin view. Shape/content derive from `coordinator.state` (through the
-/// display policy), live scrubber position from `coordinator.nowPlaying`,
+/// Card skin view. Shape/content derive from the Coordinator's layers (through
+/// the display policy, which names the ones this panel draws), live scrubber position from `coordinator.nowPlaying`,
 /// intents go back as Coordinator method calls, no domain copies in @State.
 /// The surface is sized per state and top-anchored inside the fixed window;
 /// growth is vertical under one rounded-rectangle outline, and
@@ -342,7 +342,8 @@ struct CardView: View, SurfaceStyleBody {
             indicatorStyle: displayPolicy.hudIndicatorStyle,
             isHovered: displayPolicy.pointerInside,
             onChange: { hudSliderMoved(to: $0) },
-            onRelease: { hudSliderReleased() }
+            onRelease: { hudSliderReleased() },
+            axis: displayPolicy.hudAxis
         )
     }
 }

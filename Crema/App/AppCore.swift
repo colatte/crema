@@ -245,8 +245,8 @@ final class AppCore {
         let lowPowerMirror = self.lowPowerMirror
         lowPowerConsumption = Self.wireLowPowerMode(source: self.lowPowerSource, into: lowPowerMirror)
 
-        windowManager = WindowManager(coordinator: coordinator, preferences: preferences) { screen, style, coordinator in
-            NSPanelPresentationPanel(screen: screen, style: style, coordinator: coordinator, lowPower: lowPowerMirror)
+        windowManager = WindowManager(coordinator: coordinator, preferences: preferences) { screen, surface, coordinator in
+            NSPanelPresentationPanel(screen: screen, surface: surface, coordinator: coordinator, lowPower: lowPowerMirror)
         }
 
         coordinator.start()

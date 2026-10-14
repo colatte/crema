@@ -73,7 +73,7 @@ And three scoping rules, all with the same why — **with the neighbour's OSD of
 
 ## A HUD that names a display appears only on it
 
-The app has a single state and one panel per screen, so a HUD drawn on every panel is wrong the instant something names a display (the external monitor's bar drawn on the notebook is control over a screen the user is not looking at, and the drag would darken the neighbouring screen in silence). The decision lives in `WindowManager.effectiveState`, which is already the per-display policy seam; a panel that is not the owner treats the state as `.hidden`, which also disarms hover there.
+The app has a single state, drawn by every display's panels, so a HUD drawn on every panel is wrong the instant something names a display (the external monitor's bar drawn on the notebook is control over a screen the user is not looking at, and the drag would darken the neighbouring screen in silence). The decision lives in `WindowManager.effectiveState`, which is already the per-display policy seam; a panel that is not the owner treats the state as `.hidden`, which also disarms hover there.
 
 The HUD **does not name a UUID, it names a role** (`SystemHUD.Target`: `.noDisplay` / `.builtIn` / `.display(uuid)`) and whoever holds the panel roster resolves it: the producer says only what it knows (`BrightnessBackend.target` is a constant of the technology — the screen bridge governs the built-in panel and no other; the backlight belongs to no screen), and the `WindowManager` asks its own roster which panel is the internal one (`isInternal`), never matching a UUID from the ACTIVE display list against the roster — the two lists disagree by design, and every disagreement would become "bar on no screen at all".
 

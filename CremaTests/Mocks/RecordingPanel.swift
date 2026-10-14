@@ -40,16 +40,32 @@ final class RecordingPanel: PresentationPanel {
 /// Factory double: hands out RecordingPanels and remembers what was created.
 @MainActor
 final class PanelRecorder {
-    private(set) var created: [(screen: ScreenDescription, style: Style, panel: RecordingPanel)] = []
+    struct Created {
+        let screen: ScreenDescription
+        let surface: PanelSurface
+        let panel: RecordingPanel
+        /// The skin the panel belongs to, for the many cases that only ask which
+        /// skin a display got.
+        var style: Style { surface.style }
+    }
 
-    func make(_ screen: ScreenDescription, _ style: Style) -> RecordingPanel {
+    private(set) var created: [Created] = []
+
+    func make(_ screen: ScreenDescription, _ surface: PanelSurface) -> RecordingPanel {
         let panel = RecordingPanel()
-        created.append((screen, style, panel))
+        created.append(Created(screen: screen, surface: surface, panel: panel))
         return panel
     }
 
-    /// The most recent panel created for a display (recreation replaces it).
+    /// The most recent panel created for a display (recreation replaces it) that
+    /// draws its now-playing — the display's only panel unless the Card's HUD has
+    /// one of its own.
     func panel(for id: DisplayUUID) -> RecordingPanel? {
-        created.last(where: { $0.screen.id == id })?.panel
+        created.last(where: { $0.screen.id == id && $0.surface.layers != .hud })?.panel
+    }
+
+    /// The most recent panel created for a display's Card HUD on its own.
+    func hudPanel(for id: DisplayUUID) -> RecordingPanel? {
+        created.last(where: { $0.screen.id == id && $0.surface.layers == .hud })?.panel
     }
 }

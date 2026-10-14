@@ -2,9 +2,10 @@ import CoreGraphics
 import Testing
 @testable import Crema
 
-/// Which display shows a HUD. The app has one state and one panel per screen, so
-/// this is where a bar for a particular display stops being a bar on every
-/// display — and stops being a control for a screen the user is not looking at.
+/// Which display shows a HUD. The app has one state, drawn by every display's
+/// panels, so this is where a bar for a particular display stops being a bar on
+/// every display — and stops being a control for a screen the user is not
+/// looking at.
 ///
 /// The HUD does not name a UUID, it names a ROLE — no screen owns it, the
 /// built-in panel, or a display it names — and this layer is the only one holding

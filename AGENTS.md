@@ -40,7 +40,7 @@ Crema/
   Domain/         # the app's own Sendable value types; nothing of Apple's
   Sources/        # the system edge: PROTOCOLS at the root, subfolder per tech
   Coordinator/    # the one @Observable of presentation state; timers ONLY here
-  Windows/        # one fixed-size NSPanel per display; frames by hand
+  Windows/        # one fixed-size NSPanel per surface; frames by hand
   Styles/         # skins: one View + one frame rule each; never touch the core
   App/            # composition root, menu, Settings, Preferences, policies
 CremaTests/       # mirrors the app; Mocks/ implements the sources' protocols

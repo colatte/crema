@@ -346,6 +346,21 @@ struct PreferencesTests {
         #expect(Preferences(defaults: store.defaults).hudIndicatorStyle == .filled)
     }
 
+    @Test func hudPlacementDefaultsToTheCardsOwnSpotAndPersists() {
+        let preferences = Preferences(defaults: store.defaults)
+        #expect(preferences.hudPlacement == .topCenter)
+
+        preferences.hudPlacement = .bottomRight
+
+        #expect(Preferences(defaults: store.defaults).hudPlacement == .bottomRight)
+        #expect(store.defaults.string(forKey: Preferences.hudPlacementKey) == "bottomRight")
+    }
+
+    @Test func unknownPersistedHUDPlacementDegradesToTheCardsOwnSpot() {
+        store.defaults.set("ceiling", forKey: Preferences.hudPlacementKey)
+        #expect(Preferences(defaults: store.defaults).hudPlacement == .topCenter)
+    }
+
     /// A persisted rawValue of a removed indicator variant — or any garbage —
     /// degrades to the default, never crashes. Writes the raw key directly to
     /// also pin the persistence format.

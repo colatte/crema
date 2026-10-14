@@ -93,6 +93,16 @@ struct HUDPlacementTests {
         #expect(upright.height == flat.width)
     }
 
+    @Test func everyPlacementPersistsUnderItsOwnName() {
+        // The rawValue is the stored preference: renaming a case would put every
+        // user who chose it back on the default without a word.
+        #expect(HUDPlacement.allCases.map(\.rawValue) == [
+            "topLeft", "topCenter", "topRight",
+            "middleLeft", "middleRight",
+            "bottomLeft", "bottomCenter", "bottomRight",
+        ])
+    }
+
     @Test func everyPlacementStaysOnItsScreen() {
         for geometry in geometries {
             for placement in HUDPlacement.allCases {
