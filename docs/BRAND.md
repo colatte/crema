@@ -59,8 +59,8 @@ generated, never hand-edited:
 - `design/icon/crema-mark.svg` is the mark's single source, one filled path.
   `makemaster.swift` renders `crema-master-4096.png` from it (the ground
   full-bleed, the mark at 56% of the width); `makeicon.swift` applies the macOS
-  template squircle and shadow and writes the appiconset; `Crema.icns` is that
-  set packed by `iconutil`. The web export is `docs/assets/icon.png` (the
+  template squircle and shadow and writes the appiconset, the only form of the
+  icon the build ships. The web export is `docs/assets/icon.png` (the
   appiconset's 512 px slot), what the README, the landing and the About tab
   show; `scripts/make-web-assets.sh` derives the landing's `icon.webp` and
   `favicon.png` from it.
@@ -213,6 +213,5 @@ Everything above is applied. Two things to keep true:
   the download badge from `design/badge/`; none is edited in place. A change
   to the mark is a change to `crema-mark.svg` and a rerun, in order:
   `makemaster`, `makeicon` (into the appiconset), `makemenubaricon`; then the
-  appiconset's `AppIcon-512.png` copied to `docs/assets/icon.png`, its slots
-  packed into `Crema.icns` with `iconutil`, and
+  appiconset's `AppIcon-512.png` copied to `docs/assets/icon.png`, and
   `scripts/make-web-assets.sh`.
