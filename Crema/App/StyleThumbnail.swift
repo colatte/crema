@@ -46,14 +46,10 @@ struct StyleThumbnail: View {
     /// work at all. The ratio is what to re-check when the tile is resized; the
     /// point value follows from it.
     private var menuBar: some View {
-        Rectangle()
-            .fill(.white.opacity(0.85))
-            .frame(width: width, height: max(shapes.menuBar * height, Thumbnail.minMenuBar))
-            // The bar's own bottom edge: over a pale desk the white strip melts
-            // into the sky and the slit loses the thing it takes a bite out of.
-            .overlay(alignment: .bottom) {
-                Rectangle().fill(.black.opacity(0.18)).frame(height: 0.5)
-            }
+        ThumbnailMenuBar(
+            width: width,
+            height: Thumbnail.menuBarHeight(fraction: shapes.menuBar, pictureHeight: height)
+        )
     }
 
     @ViewBuilder private var slit: some View {
@@ -79,7 +75,7 @@ struct StyleThumbnail: View {
     /// surface really is flush with the bezel, continuous with the slit it covers.
     private var surface: some View {
         surfaceShape
-            .fill(shapes.surfaceIsOpaque ? Color.black : Color.black.opacity(0.62))
+            .fill(shapes.surfaceIsOpaque ? Color.black : Color.black.opacity(Thumbnail.floatingSurfaceOpacity))
             // Depth only on the ones that float, and it is the cue that survives
             // the scale: the card's real gap from the top edge is under a point
             // here, so a shadow says "on top of the screen" where the gap cannot,

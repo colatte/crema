@@ -154,6 +154,15 @@ enum StylePreview {
         )
     }
 
+    /// Where the Card puts its HUD at `placement`, as a fraction of the screen,
+    /// asked of the Card's own placement rule (`CardStyle.hudFrame(at:on:)`): the
+    /// placement picker's picture of each choice, which therefore cannot come to
+    /// show a spot the HUD no longer goes to. The menu bar and the proportions the
+    /// picture also needs are the Card's `shapes(for:on:)`, on the same panel.
+    static func hudBar(at placement: HUDPlacement, on geometry: ScreenGeometry = Self.notchedReference) -> CGRect {
+        unit(CardStyle.hudFrame(at: placement, on: geometry), in: geometry.frame)
+    }
+
     /// The slit as a fraction of the screen, asked of the skin's own rule
     /// (`NotchStyle.slit(on:)`) rather than derived a second time here. The
     /// picture is of the cutout the surface is drawn over, so two derivations of

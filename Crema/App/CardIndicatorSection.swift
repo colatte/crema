@@ -1,9 +1,10 @@
 import AppKit
 import SwiftUI
 
-/// The Card's indicator, in a section of its own after the display rows.
+/// The Card's indicator and where it sits, in a section of its own after the
+/// display rows.
 ///
-/// It lives on the General tab rather than in the Indicators tab because the
+/// It lives on the General tab rather than in the Indicators tab because each
 /// choice is a picture of a bar, and the picture means something next to the
 /// displays drawing the surface the bar sits on. After them, not under the style
 /// tiles: there, in a mixed setup, it is a Card control under a selected Notch,
@@ -14,8 +15,9 @@ struct CardIndicatorSection: View {
     let wallpaper: NSImage?
     /// The displays drawing Card, named the way the rows above name them.
     let displayNames: String
-    /// On the same persisted key the panels read.
+    /// On the same persisted keys the panels read.
     @AppStorage(Preferences.hudIndicatorStyleKey) private var indicatorStyle = HUDIndicatorStyle.shippedDefault.rawValue
+    @AppStorage(Preferences.hudPlacementKey) private var placement = HUDPlacement.shippedDefault.rawValue
 
     var body: some View {
         Section {
@@ -26,6 +28,14 @@ struct CardIndicatorSection: View {
             }
             .onChange(of: indicatorStyle) { _, new in
                 core.setHUDIndicatorStyle(HUDIndicatorStyle(rawValue: new) ?? .shippedDefault)
+            }
+            LabeledContent {
+                HUDPlacementPicker(selection: $placement, wallpaper: wallpaper)
+            } label: {
+                Text(String(localized: "settings.hud.placement", defaultValue: "Position"))
+            }
+            .onChange(of: placement) { _, new in
+                core.setHUDPlacement(HUDPlacement(rawValue: new) ?? .shippedDefault)
             }
         } footer: {
             // Names the displays, because this is the one control in the pane that
