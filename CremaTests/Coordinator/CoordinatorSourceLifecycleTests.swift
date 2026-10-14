@@ -78,11 +78,11 @@ struct CoordinatorSourceLifecycleTests {
 
     @Test func aFailoverDuringAHUDDoesNotResurfaceThePromotedPausedSnapshot() async {
         // The failover twin of the browser case (CoordinatorBrowserFilterTests):
-        // the discard lands while a HUD owns the surface, so its hide() never runs
-        // and the promise armed by the interrupted appearance is the only thing
-        // that could open a card. The promoted source's first snapshot is paused —
-        // nothing started playing, so it arms no resume of its own — and the revert
-        // must hand back to hidden.
+        // the discard lands while a HUD owns the surface, so the appearance it
+        // takes down is not on screen, and one kept under the HUD is the only
+        // thing that could open a card. The promoted source's first snapshot is
+        // paused — nothing started playing, so it earns no appearance of its own —
+        // and the revert must hand back to hidden.
         let h = CoordinatorHarness()
         let volumeHUD = SystemHUD(kind: .volume, value: 0.5)
         h.nowPlayingSource.emit(track)
@@ -107,11 +107,12 @@ struct CoordinatorSourceLifecycleTests {
     }
 
     @Test func aPlayingSnapshotAfterADiscardDuringAHUDStillResurfaces() async {
-        // Control for the two negative tests: the discard CLEARS the promise, it
-        // does not blacklist the resume. A snapshot that is news re-earns it in the
-        // .hud branch and still gets its appearance on the revert — without this,
-        // a "fix" that latched the discard (or that stopped arming altogether)
-        // would leave both negative tests green while pinning nothing.
+        // Control for the two negative tests: the discard TAKES DOWN the
+        // appearance, it does not blacklist the next one. A snapshot that is news
+        // earns its own under the HUD and still shows on the revert — without
+        // this, a "fix" that latched the discard (or that stopped surfacing under
+        // a HUD altogether) would leave both negative tests green while pinning
+        // nothing.
         let h = CoordinatorHarness()
         let volumeHUD = SystemHUD(kind: .volume, value: 0.5)
         h.nowPlayingSource.emit(track)

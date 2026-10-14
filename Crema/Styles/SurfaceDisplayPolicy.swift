@@ -25,7 +25,7 @@ final class SurfaceDisplayPolicy {
     var hudIndicatorStyle: HUDIndicatorStyle = .shippedDefault
     /// This panel's raw pointer signal, set by its own SurfaceHoverMonitor
     /// dispatch: the capsule knob reads it, so hovering one display's surface
-    /// reveals the knob only there. The Coordinator's `pointerInside` stays
-    /// the global mirror the timers key on.
+    /// reveals the knob only there. The Coordinator keeps its own global record
+    /// of the pointer, the one the timers key on.
     var pointerInside = false
 }
