@@ -5,7 +5,8 @@ import Testing
 /// over the appearance without taking it down, the appearance keeps taking
 /// events under it, and its tuck waits for the revert. A pointer holds only the
 /// layers its surface draws, so a surface drawing one layer reaches that layer
-/// alone. Driven by the injectable clock; the tests never really sleep.
+/// alone. Driven by the injectable clock: no timer really sleeps, and a
+/// negative costs only its short wall-clock window.
 @MainActor
 struct CoordinatorPresentationLayersTests {
 
@@ -33,6 +34,15 @@ struct CoordinatorPresentationLayersTests {
         h.hudSource.emit(hud)
         #expect(await eventually { h.coordinator.layers.hud == hud })
         await h.clock.waitForSleep(delay: revert)
+    }
+
+    /// Whether a timer parks within the short negative window. No barrier stands
+    /// in for it: a timer the Coordinator arms starts on a task of its own, which
+    /// reaches the main actor ordered after nothing a test can await — measured:
+    /// a key emitted right after a revert was consumed before the tuck that revert
+    /// armed had started.
+    private func aTimerParks(_ h: CoordinatorHarness) async -> Bool {
+        await footprintAppears { h.clock.pendingSleeps > 0 }
     }
 
     @Test func aHUDRisesOverTheAppearanceWithoutTakingItDown() async {
@@ -143,7 +153,7 @@ struct CoordinatorPresentationLayersTests {
         #expect(await eventually { h.coordinator.layers.hud == nil })
         // The pointer still rests on the appearance: expanded, and nothing tucks it.
         #expect(h.coordinator.state == .nowPlaying(track, expanded: true))
-        #expect(await eventually { h.clock.pendingSleeps == 0 })
+        #expect(await !aTimerParks(h))
     }
 
     @Test func aPointerOnTheHUDAloneHoldsTheHUDAndNothingElse() async {
@@ -177,8 +187,8 @@ struct CoordinatorPresentationLayersTests {
         h.coordinator.hover(false, on: .nowPlaying)
 
         #expect(h.coordinator.pointerInside)
-        #expect(h.clock.pendingSleeps == 0)   // the HUD is held
         #expect(h.coordinator.layers.nowPlaying == .init(track: track, expanded: false))
+        #expect(await !aTimerParks(h))   // the HUD is held
     }
 
     @Test func aSurfaceWithNothingOnItIgnoresThePointer() async {

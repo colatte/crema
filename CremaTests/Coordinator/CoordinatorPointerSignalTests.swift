@@ -33,9 +33,9 @@ struct CoordinatorPointerSignalTests {
             if case .hud = h.coordinator.state { return true } else { return false }
         }
 
-        h.coordinator.hover(true)
+        h.coordinator.hover(true, on: .both)
         #expect(h.coordinator.pointerInside)
-        h.coordinator.hover(false)
+        h.coordinator.hover(false, on: .both)
         #expect(!h.coordinator.pointerInside)
     }
 
@@ -46,8 +46,8 @@ struct CoordinatorPointerSignalTests {
         h.nowPlayingSource.emit(CoordinatorHarness.playingTrack())
         _ = await eventually { h.coordinator.state != .hidden }
 
-        h.coordinator.hover(true)
-        h.coordinator.hover(false)
+        h.coordinator.hover(true, on: .both)
+        h.coordinator.hover(false, on: .both)
         await h.clock.waitForSleep(delay: Coordinator.hoverExitRelinger)
         #expect(h.clock.delays.last == Coordinator.hoverExitRelinger)
         h.clock.advance(delay: Coordinator.hoverExitRelinger)
@@ -62,10 +62,10 @@ struct CoordinatorPointerSignalTests {
         }
         await h.clock.waitForSleep()          // the revert timer is parked
 
-        h.coordinator.hover(true)             // arrival cancels the revert
+        h.coordinator.hover(true, on: .both)  // arrival cancels the revert
         #expect(h.clock.pendingSleeps == 0)
 
-        h.coordinator.hover(false)            // exit restarts the full delay
+        h.coordinator.hover(false, on: .both) // exit restarts the full delay
         await h.clock.waitForSleep()
         h.clock.advance()
         #expect(await eventually { h.coordinator.state == .hidden })

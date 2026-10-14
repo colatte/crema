@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Notch skin. Same discipline as CardView: shape/content derive
-/// from `coordinator.state`, live scrubber position from `coordinator.nowPlaying`
+/// Notch skin. Same discipline as CardView: shape/content derive from the
+/// Coordinator's layers (through the display policy, which names the ones this
+/// panel draws: `presentedState`), live scrubber position from `coordinator.nowPlaying`
 /// (position never comes from the state payload), intents go
 /// back as Coordinator method calls, no domain copies in @State. Hover detection
 /// is not here: the panel's SurfaceHoverMonitor drives it against stable

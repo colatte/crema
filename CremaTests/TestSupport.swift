@@ -128,6 +128,29 @@ func eventuallyOffActor(_ condition: @Sendable () -> Bool) async -> Bool {
     return condition()
 }
 
+/// A short wall-clock window for a NEGATIVE. It returns the moment `footprint`
+/// appears, so a regression fails fast; otherwise it costs the window. Kept off
+/// the suite's 5 s budget on purpose — that budget exists so a POSITIVE wait
+/// never expires early, while here an early expiry can only pass wrongly, never
+/// fail wrongly, and the window has to outlast only work already under way (a
+/// lock acquisition on a running thread, a task's first hop onto the main actor).
+/// Wall clock, not a yield count: yields buy nothing against work on another
+/// thread. Runs on the caller's isolation, so the sleeps free that actor for the
+/// work being denied and `footprint` reads its state in place.
+func footprintAppears(
+    within window: Duration = .milliseconds(200),
+    isolation: isolated (any Actor)? = #isolation,
+    _ footprint: () -> Bool
+) async -> Bool {
+    let clock = ContinuousClock()
+    let deadline = clock.now.advanced(by: window)
+    while clock.now < deadline {
+        if footprint() { return true }
+        try? await Task.sleep(for: .milliseconds(1))
+    }
+    return footprint()
+}
+
 /// Gives pending main-actor work a chance to run (for asserting that
 /// something did not happen).
 @MainActor

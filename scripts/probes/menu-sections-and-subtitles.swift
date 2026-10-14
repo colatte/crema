@@ -7,9 +7,13 @@
 // A SwiftUI `Menu` builds its NSMenu lazily, on open (measured by
 // picker-option-disabled.swift), and on macOS 26 it is not an AppKit button a
 // script can click. So this probe hands the same content to `NSHostingMenu`
-// (macOS 14.4), whose items are, per Apple's documentation, "styled and behave
-// identically to views in a Menu", and reads the NSMenu it builds. `MenuBarExtra`
-// renders its `.menu` content through that same builder.
+// (macOS 14.4), whose items are "styled and behave identically to views in a
+// Menu" (source: Apple docs, NSHostingMenu, read Oct 2026), and reads the NSMenu
+// it builds. That `MenuBarExtra`'s `.menu` style goes through that same builder
+// is NOT stated by Apple (neither the NSHostingMenu nor the MenuBarExtra page
+// says so, read Oct 2026); it is inferred from both turning SwiftUI menu content
+// into an NSMenu. So the verdict measures NSHostingMenu, and covers the real
+// menu bar menu only by that inference.
 //
 // CONTROL that makes a negative mean something: the plain `Button("probe-plain")`
 // must come back as a titled, enabled item. If it is missing, the probe never saw

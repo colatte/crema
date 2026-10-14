@@ -15,7 +15,7 @@ struct ClassicViewTests {
         h.nowPlayingSource.emit(track)
         #expect(await eventually { view.contentKind == .nowPlayingCompact(track) })
 
-        h.coordinator.hover(true)
+        h.coordinator.hover(true, on: .both)
         #expect(view.contentKind == .nowPlayingExpanded(track))
 
         let hud = SystemHUD(kind: .volume, value: 0.5)

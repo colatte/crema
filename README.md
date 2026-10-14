@@ -67,8 +67,11 @@ card, and the classic's segmented bezel:
   Displays list right below it. A display without a notch renders _notch_ as
   _card_.
 - **Two indicator looks for the card.** The HUD level reads as a thin _line_
-  (the default) or fills the whole card — picked from drawn previews right under
-  the style tiles in Settings › General, offered whenever a display renders Card.
+  (the default) or fills the whole card — picked from drawn previews in a
+  section of its own after the Displays list in Settings › General, offered
+  whenever a display renders Card. The same section places the card's HUD: at
+  the card's own spot at the top center (the default) or at one of seven places
+  along the screen's edges.
 - **Shows up when it's useful.** Crema surfaces briefly when the track changes,
   then tucks away. Hover to hold it open; click to reach the controls.
 - **Native and light.** Built with SwiftUI and AppKit, it lives in the menu bar
@@ -125,9 +128,38 @@ Curious what might come next? See the [roadmap](ROADMAP.md).
 1. Download the latest [`Crema.dmg`](https://github.com/colatte/crema/releases/latest/download/Crema.dmg) —
    or browse all [Releases](https://github.com/colatte/crema/releases).
 2. Open it and drag **Crema** into your Applications folder.
-3. Launch Crema. It lives in the menu bar — look for its icon up top, not in the Dock.
-4. When asked, grant **Accessibility** in System Settings so Crema can handle the
+3. Before opening it, [verify the download](#verifying-the-download).
+4. Launch Crema (see [First launch](#first-launch)). It lives in the menu bar —
+   look for its icon up top, not in the Dock.
+5. When asked, grant **Accessibility** in System Settings so Crema can handle the
    volume and brightness keys. You can also do this later from Settings → Permissions.
+
+### Verifying the download
+
+Because macOS can't vouch for Crema, you can. Every release is signed with the
+same certificate, and this is its SHA-256 fingerprint:
+
+```
+e63ac01ad80ea8cb9846840ab5a568c5d65725ef16623abf3da8657986b81b37
+```
+
+Before opening Crema for the first time, check that your copy's seal is intact
+and that it was signed with that certificate:
+
+```bash
+codesign --verify --deep --strict /Applications/Crema.app && d=$(mktemp -d) && codesign -d --extract-certificates="$d/cert" /Applications/Crema.app 2>/dev/null && shasum -a 256 "$d/cert0"
+```
+
+On a genuine copy the command prints exactly one line: a 64-character hash
+followed by the path of the certificate it extracted. That hash must be the
+fingerprint above. The certificate is extracted into a fresh folder every time,
+so a copy signed with no certificate prints no hash at all rather than an old
+one. If anything else is printed — an error from `codesign` (such as "a sealed
+resource is missing or invalid"), "No such file", or a different hash — don't
+open the app;
+[open an issue](https://github.com/colatte/crema/issues) instead.
+Each release's notes also list the SHA-256 of `Crema.dmg`, which
+`shasum -a 256 ~/Downloads/Crema.dmg` prints.
 
 ### First launch
 
@@ -148,26 +180,6 @@ Crema, and click **Open Anyway** — confirm once more and it opens.
 ```bash
 xattr -dr com.apple.quarantine /Applications/Crema.app
 ```
-
-### Verifying the download
-
-Because macOS can't vouch for Crema, you can. Every release is signed with the
-same certificate, and this is its SHA-256 fingerprint:
-
-```
-e63ac01ad80ea8cb9846840ab5a568c5d65725ef16623abf3da8657986b81b37
-```
-
-Before opening Crema for the first time, check that your copy carries it:
-
-```bash
-codesign -d --extract-certificates=/tmp/crema /Applications/Crema.app && shasum -a 256 /tmp/crema0
-```
-
-The first word printed must be the fingerprint above. If it isn't, don't open
-the app — [open an issue](https://github.com/colatte/crema/issues) instead.
-Each release's notes also list the SHA-256 of `Crema.dmg`, which
-`shasum -a 256 ~/Downloads/Crema.dmg` prints.
 
 ## Usage
 

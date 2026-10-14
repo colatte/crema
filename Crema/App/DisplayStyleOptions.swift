@@ -4,14 +4,13 @@ import Foundation
 /// is allowed to write — derived from the two raw preference values and that
 /// screen's geometry, so the chrome around it only draws.
 ///
-/// The refusal cannot live in the popup. Measured on macOS 26.5.2
-/// (`scripts/probes/picker-option-disabled.swift`): a SwiftUI `Picker` in `.menu`
-/// style DISCARDS `.disabled` on its options — the marked item read back
-/// `isEnabled == true` against an `NSPopUpButton` control reading `false` — so a
-/// style this screen cannot draw stays clickable there no matter what the chrome
-/// asks for. `write(for:)` is what keeps such a pick out of the store; a custom
-/// `Menu` of one item per option, where `.disabled` IS honoured, is only what
-/// keeps it out of reach.
+/// The refusal cannot live in the popup: a SwiftUI `Picker` in `.menu` style
+/// DISCARDS `.disabled` on its options, so a style this screen cannot draw stays
+/// clickable there no matter what the chrome asks for; measured, with the probe
+/// named there (docs/DECISIONS.md: the-chrome-is-not-the-guarantee).
+/// `write(for:)` is what keeps such a pick out of the store; a custom `Menu` of
+/// one item per option, where `.disabled` IS honoured, is only what keeps it out
+/// of reach.
 ///
 /// Nothing here knows a string: the view maps each case to its localized
 /// sentence, the same split `MenuStatus` lives under.

@@ -445,6 +445,15 @@ gh release create v1.1.1 Crema.dmg Crema-1.1.1.dmg \
   in §8). The **same file** feeds the Sparkle panel — GitHub
   renders the HTML subset it uses, so one file serves both. Or use
   `--notes "..."`, or omit it to open the editor.
+- **The Release body ends with the download's fingerprints**, the three lines
+  `release.sh`'s closing checklist prints under step 2: the SHA-256 of
+  `Crema.dmg`, the SHA-256 of the signing certificate, and the link to the
+  README's "Verifying the download". The README promises them to whoever checks a
+  first download by hand. The script prints them only at its end, after it has
+  copied the notes into the appcast, so they go into the Release body alone:
+  append them to the notes file before `gh release create` (the Sparkle panel,
+  already generated, goes without them) or paste them at the end in option B.
+  They never belong in the versioned `release-notes/` file.
 
 Check with `gh release view v1.1.1`.
 
@@ -763,6 +772,10 @@ launch</a> in the README.</p>
 <p>Free and open source under GPL-3.0.</p>
 ```
 
+The fingerprints are not part of this file: `release.sh` copies it into the
+appcast as it stands, and the three lines it prints at the end go into the
+Release body only (§5.3).
+
 ---
 
 ## 9. The ritual, summarized
@@ -772,7 +785,8 @@ export CREMA_SIGN_IDENTITY="Crema Code Signing"
 ./scripts/release.sh X.Y.Z                       # build, stamp, sign (Sparkle incl.), package, regenerate appcast
 open Crema.dmg                                    # local test (§5.2)
 gh release create vX.Y.Z Crema.dmg Crema-X.Y.Z.dmg \
-  --target main --title "Crema X.Y.Z" --notes "…" --latest     # BOTH assets
+  --target main --title "Crema X.Y.Z" --notes "…" --latest     # BOTH assets; notes end with
+                                                # the SHA-256 lines release.sh printed (§5.3)
 git checkout -b release/X.Y.Z && git add docs/appcast.xml && git commit -m "chore(release): appcast X.Y.Z"
 git push -u origin release/X.Y.Z && gh pr create --base main --title "chore(release): appcast X.Y.Z" --body "…"
 gh pr checks --watch && gh pr merge --merge     # publishing = that commit reaching MAIN (Pages serves /docs);

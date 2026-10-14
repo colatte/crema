@@ -107,14 +107,13 @@ struct DisplayStyleRow: View {
         )
     }
 
-    /// A custom `Menu` of one item per option, and deliberately not a `Picker`.
-    /// Measured on macOS 26.5.2 (`scripts/probes/picker-option-disabled.swift`): a
-    /// `.menu` Picker DISCARDS `.disabled` on its options — the marked item read
-    /// back `isEnabled == true` against an `NSPopUpButton` control reading `false` —
-    /// so a style this screen cannot draw would stay clickable there whatever the
-    /// chrome asked for. Here `.disabled` is honoured, but that is only what keeps
-    /// such a pick out of REACH; what keeps it out of the store is
-    /// `DisplayStyleOptions.write(for:)`, which answers `refused` and writes nothing.
+    /// A custom `Menu` of one item per option, and deliberately not a `Picker`: a
+    /// `.menu` Picker DISCARDS `.disabled` on its options, so a style this screen
+    /// cannot draw stays clickable there whatever the chrome asks for; measured,
+    /// with the probe named there (docs/DECISIONS.md: the-chrome-is-not-the-guarantee).
+    /// Here `.disabled` is honoured, but that is only what keeps such a pick out of
+    /// REACH; what keeps it out of the store is `DisplayStyleOptions.write(for:)`,
+    /// which answers `refused` and writes nothing.
     private var stylePopup: some View {
         Menu {
             ForEach(options.items, id: \.choice) { item in

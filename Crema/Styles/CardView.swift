@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// Card skin view. Shape/content derive from the Coordinator's layers (through
-/// the display policy, which names the ones this panel draws), live scrubber position from `coordinator.nowPlaying`,
-/// intents go back as Coordinator method calls, no domain copies in @State.
+/// the display policy, which names the ones this panel draws: `presentedState`),
+/// live scrubber position from `coordinator.nowPlaying`, intents go back as
+/// Coordinator method calls, no domain copies in @State.
 /// The surface is sized per state and top-anchored inside the fixed window;
 /// growth is vertical under one rounded-rectangle outline, and
 /// compact/expanded hug their content's width between floor and ceiling
@@ -171,11 +172,12 @@ struct CardView: View, SurfaceStyleBody {
         case .empty:
             // Fills whatever the effective layout proposes: while hidden the
             // surface freezes the outgoing rect, so the empty branch must adopt
-            // that width (empty-after-hud fills the 210 rule width) rather than
-            // pinning to the compact floor — a fixed floor here snapped the
-            // material narrower the instant a HUD began fading out. The adaptive
-            // states still collapse to the floor: the clamp's provenance-aware
-            // minWidth pins them, not this branch.
+            // that size (empty-after-hud fills `CardMetrics.hudSize(for:)` on
+            // either axis) rather than pinning to the compact floor — a fixed
+            // floor here snaps the material to that floor the instant a HUD
+            // begins fading out. The adaptive states still collapse to the
+            // floor: the clamp's provenance-aware minWidth pins them, not this
+            // branch.
             Color.clear
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .layoutValue(key: SurfaceBranch.self, value: "empty")

@@ -36,8 +36,8 @@ struct CoordinatorHoverExitTailTests {
         let h = CoordinatorHarness()
         await appeared(h)
 
-        h.coordinator.hover(true)    // holds the appearance, cancels the linger
-        h.coordinator.hover(false)   // the exit buys hoverExitRelinger, not a full one
+        h.coordinator.hover(true, on: .both)    // holds the appearance, cancels the linger
+        h.coordinator.hover(false, on: .both)   // the exit buys hoverExitRelinger, not a full one
         await h.clock.waitForSleep(delay: Coordinator.hoverExitRelinger)
 
         let withArtwork = refined()
@@ -59,8 +59,8 @@ struct CoordinatorHoverExitTailTests {
         let h = CoordinatorHarness()
         await appeared(h)
 
-        h.coordinator.hover(true)
-        h.coordinator.hover(false)
+        h.coordinator.hover(true, on: .both)
+        h.coordinator.hover(false, on: .both)
         await h.clock.waitForSleep(delay: Coordinator.hoverExitRelinger)
 
         let next = CoordinatorHarness.playingTrack(title: "Time")
@@ -88,8 +88,8 @@ struct CoordinatorHoverExitTailTests {
         #expect(h.coordinator.state == .nowPlaying(track, expanded: true))
         await h.clock.waitForSleep(delay: Coordinator.defaultInvokedLinger)
 
-        h.coordinator.hover(true)
-        h.coordinator.hover(false)
+        h.coordinator.hover(true, on: .both)
+        h.coordinator.hover(false, on: .both)
         await h.clock.waitForSleep(delay: Coordinator.defaultInvokedLinger)
 
         let withArtwork = refined()

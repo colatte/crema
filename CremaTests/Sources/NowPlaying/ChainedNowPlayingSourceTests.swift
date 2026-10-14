@@ -1,6 +1,3 @@
-// Every case shares the one chain harness; the file crossed the ceiling when the
-// cancelled-probe negative landed, and splitting the suite would splinter it.
-// swiftlint:disable file_length
 import Foundation
 import Testing
 @testable import Crema
@@ -291,23 +288,6 @@ struct ChainedNowPlayingSourceTests {
         #expect((fixture.chain.activeCommandChannel() as? MockCommandChannel) === fixture.jxaChannel)
 
         fixture.chain.stop()
-    }
-
-    /// A short wall-clock window for a NEGATIVE. It returns the moment `footprint`
-    /// appears, so a regression fails fast; otherwise it costs the window. Kept off
-    /// the suite's 5 s budget on purpose — that budget exists so a POSITIVE wait
-    /// never expires early, while here an early expiry can only pass wrongly, never
-    /// fail wrongly, and the window it has to outlast is one lock acquisition on a
-    /// thread that is already running. Wall clock, not a yield count: yields buy
-    /// nothing against work on another thread.
-    private func footprintAppears(within window: Duration = .milliseconds(200), _ footprint: () -> Bool) async -> Bool {
-        let clock = ContinuousClock()
-        let deadline = clock.now.advanced(by: window)
-        while clock.now < deadline {
-            if footprint() { return true }
-            try? await Task.sleep(for: .milliseconds(1))
-        }
-        return footprint()
     }
 
     @Test func aProbeAnsweringAfterItsForwardingEndedArmsNothing() async {

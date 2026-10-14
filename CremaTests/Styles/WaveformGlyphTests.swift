@@ -36,8 +36,9 @@ struct WaveformGlyphTests {
     @Test func lowPowerModeVetoesTheDance() {
         // Low Power Mode asks the whole system to stop spending on motion, and a
         // repeatForever pulse on a surface that sits over the menu bar is exactly
-        // the kind of spend it means. Deleting `&& !lowPower` from the rule leaves
-        // every other assertion in the suite green.
+        // the kind of spend it means. The veto is
+        // `SurfaceAnimation.allowsPerpetualMotion`'s, pinned there as well; this is
+        // the glyph asking it.
         #expect(!WaveformGlyph.dances(animating: true, reduceMotion: false, lowPower: true))
     }
 

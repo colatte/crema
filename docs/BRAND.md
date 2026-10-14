@@ -61,9 +61,10 @@ generated, never hand-edited:
   `makemaster.swift` renders `crema-master-4096.png` from it (the ground
   full-bleed, the mark at 56% of the width); `makeicon.swift` applies the macOS
   template squircle and shadow and writes the appiconset, the only form of the
-  icon the build ships. The web export is `docs/assets/icon.png` (the
-  appiconset's 512 px slot), what the README, the landing and the About tab
-  show; `scripts/make-web-assets.sh` derives the landing's `icon.webp` and
+  icon the build ships, and the one the About tab shows (the running app's
+  `NSApp.applicationIconImage`). The web export is `docs/assets/icon.png` (the
+  appiconset's 512 px slot), what the README shows;
+  `scripts/make-web-assets.sh` derives the landing's `icon.webp` and
   `favicon.png` from it.
 - `makemenubaricon.swift` fills the same path black on transparent as the
   **menu bar template**, rendered by the system as a template so it follows the
@@ -109,9 +110,10 @@ small thing and the metaphor only reads while the shape stays narrow.
 **The app has no palette of its own.** It draws with the system's materials
 and accent (the blue in Settings is macOS's, not ours), and the only colour
 that is Crema's inside the app is the one it borrows from the album art now
-playing — a touch of it, never a wash. The two gradients in
-`TileBackdrop.swift` and `StylePicker.swift` are stand-in wallpapers for the
-style tiles, not brand colours.
+playing — a touch of it, never a wash. The two gradients in Settings are
+stand-ins, not brand colours: `TileBackdrop.swift`'s is the fallback desk under
+the drawn previews when the real desktop cannot be read, and
+`StyleThumbnail.swift`'s is the fake album cover in them.
 
 ## Typography
 

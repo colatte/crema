@@ -155,9 +155,9 @@ struct CoordinatorHoverIntentTests {
         // Immediate-style gesture: both edges commit at once. The clock stays
         // parked — any diversion to the debounced path would leave the state
         // expanded here, waiting on an advance this test never gives.
-        h.coordinator.hover(true)
+        h.coordinator.hover(true, on: .both)
         #expect(h.coordinator.state == .nowPlaying(track, expanded: true))
-        h.coordinator.hover(false)
+        h.coordinator.hover(false, on: .both)
         #expect(h.coordinator.state == .nowPlaying(track, expanded: false))
     }
 
@@ -167,13 +167,13 @@ struct CoordinatorHoverIntentTests {
     @Test func hoverOutDuringAnInFlightIntentStillTakesTheDebouncedPath() async {
         let h = await showingCompact()
 
-        h.coordinator.hover(true)   // immediate expand
+        h.coordinator.hover(true, on: .both)   // immediate expand
         #expect(h.coordinator.state == .nowPlaying(track, expanded: true))
 
         h.coordinator.hoverIntent(true)   // debounced gesture now in flight
         await h.clock.waitForSleep(delay: Coordinator.defaultHoverIntentDelay)
 
-        h.coordinator.hover(false)
+        h.coordinator.hover(false, on: .both)
         // Diverted: still expanded until the out-debounce elapses.
         #expect(h.coordinator.state == .nowPlaying(track, expanded: true))
         await h.clock.waitForSleep(delay: Coordinator.defaultHoverOutDebounce)

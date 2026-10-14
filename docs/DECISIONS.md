@@ -1058,11 +1058,11 @@ screen does not draw.
 Two mechanics are load bearing. A display's NAME is not an identity: two identical
 monitors report the same `localizedName`, so a row is LABELLED by the name and
 KEYED by the UUID (and the built-in panel is labelled in the app's own vocabulary
-instead of AppKit's). And the panel rebuild predicate is style + geometry, never
-the whole description — a display renamed under a live panel keeps that panel and
-its hover regions, since neither derives from the name (pinned by
-`WindowManagerTests.aRenamedDisplayKeepsItsPanelAndItsHoverRegions`); rebuilding
-on the description would tear a live surface down for a string.
+instead of AppKit's). And the panel rebuild predicate never takes the whole
+description (the predicate itself: docs/CONTRACTS.md, G5) — a display renamed
+under a live panel keeps that panel and its hover regions, since neither derives
+from the name; rebuilding on the description would tear a live surface down for
+a string.
 
 **Both scopes are asked in one pane.** Style asked in two tabs (one declaring
 it, another overriding it) reads in the field as two settings instead of one
@@ -1339,7 +1339,9 @@ METADATA is asked for through `identifier`: `{"commands":["get"],"parameters":
 productName. A FEATURE is asked for by its own name as the parameter KEY, with no
 value: `{"commands":["get"],"parameters":{"displayID":"2","brightness":""}}` →
 `result=true, payload=0.063`. Same for `combinedBrightness` and
-`hardwareBrightness`. And a relative write is the documented `offset` parameter —
+`hardwareBrightness`. And a relative write is the documented `offset` parameter
+(BetterDisplay wiki, "Integration features, CLI", a page the vendor marks legacy,
+read Oct 2026; it also documents the feature-as-parameter-key syntax) —
 `{"set", {"brightness":"-5%","offset":""}}` → `result=true` — not a sign on the
 value, which is read as an absolute (a probe sending `+0.0625` set the monitor to
 6.3% and looked like it had been accepted as a delta).
@@ -1350,8 +1352,8 @@ refused, and reading that as "the neighbour can be written but never read" costs
 more than a wrong sentence in an anchor, a public ROADMAP item or a code comment:
 it retires a feature. "Brightness keys follow the screen you
 are working on" looks impossible on that reading, because stepping needs a
-`before`. There is one, so the apply-verify cycle runs against an external display
-like any other.
+`before`. There is one, so the apply-verify cycle can run against an external
+display like any other; building it is the open work.
 Decision: an integration's own documentation is a primary source and gets read
 BEFORE a refusal becomes a limitation. Five failures in one category are evidence
 about that category, never about the platform — and a vendor wiki is one search
@@ -1500,15 +1502,15 @@ host. The rows' own rules:
 
 **A warning with a repair IS the repair.** The button is the item and the fact is
 its subtitle, so no sentence sits apart from the button that answers it; a warning
-with no repair is a disabled item whose subtitle is what it costs. Every button
-comes from `Warning.action` — an exhaustive mapping — so a repair cannot end up
-under a fact it does not fix. `.nowPlayingUnavailable` walks to the Permissions tab
-(`.openPermissionsTab`): not a repair, since nothing in this app revives a dead
-media source, and its line states the requirement — the backup reader needs
-Automation — never a verdict. **Warnings are ordered by urgency, and the order is
-the contract**: Accessibility first (without it no media key arrives at all, and
-the chain reading cannot even see us), launch-at-login last (it is about the next
-launch, not this session).
+with no repair is a disabled item whose subtitle is what it costs. The menu builds
+every warning from `Warning.item` — an exhaustive mapping to a repair or a fact —
+so a repair cannot end up under a fact it does not fix. `.nowPlayingUnavailable`
+walks to the Permissions tab (`.openPermissionsTab`): not a repair, since nothing
+in this app revives a dead media source, and its line states the requirement — the
+backup reader needs Automation — never a verdict. **Warnings are ordered by
+urgency, and the order is the contract**: Accessibility first (without it no media
+key arrives at all, and the chain reading cannot even see us), launch-at-login
+last (it is about the next launch, not this session).
 
 **Subtitles where the platform shows them.** A second `Text` in an item's label
 reaches `NSMenuItem.subtitle` (macOS 14.4) — measured for a toggle, a button, a
@@ -1528,11 +1530,13 @@ silently fails to render leaves the line unmarked anyway.
 item: one 116-character line opens it at roughly 1500 pt (measured in the field).
 Every menu line — a title, a subtitle, a fallback line — stays within 72
 characters, and `MenuLineWidthTests` holds that against the compiled string tables.
-Nothing is centred and nothing is truncated. A hole filled from a CLOSED set is
-measured at its widest member, never at the empty string: the suspension note with
-all three domains named is 70 characters in English and 63 in Portuguese. A hole
-filled with EXTERNAL content — a track title, a neighbour app's name — has no worst
-case to measure and stays data rather than chrome.
+Nothing is centred, and chrome is never truncated: a hole filled from a CLOSED set
+is measured at its widest member, never at the empty string — the suspension note
+with all three domains named is 70 characters in English and 63 in Portuguese. A
+hole filled with EXTERNAL content has no worst case to measure. The track's line is
+cut at the ceiling with an ellipsis (`NowPlayingMenuSection.fitted`, held by
+`MenuLineWidthTests.aPublishedTitleIsCutAtTheCeiling`); a neighbour app's name
+stays data rather than chrome.
 
 **The media section exists only while there is media.** Its gate is the line that
 names it (`NowPlayingMenuLine` other than `.nothing`), so neither a title nor a
@@ -1637,15 +1641,15 @@ after the gate, so a silenced menu asks the system nothing.
 A menu that names the track reads MIRRORS of title and artist, never the live
 snapshot.
 `Coordinator.nowPlaying` is rewritten once per second by the position tick — which
-is exactly why the tick stays out of `state` (CLAUDE.md, State flow) — and
-Observation invalidates per PROPERTY, not per value: any read of that property,
-`nowPlaying?.title` included, subscribes the reader to a 1 Hz rebuild. The reader
-here is a `MenuBarExtra` content body, which SwiftUI re-evaluates whenever it likes
-and not when the user opens the menu, and the block beside it pull-reads the
-event-tap chain (`AppCore.mediaKeyChainNotice()`, whose every call resets the
-min/max latencies of every tap on the machine, third-party taps included). So the
-naive line does not cost a menu line: it costs a system-wide diagnostic probe once
-per second, forever, invisible from inside the app.
+is exactly why the tick stays out of `state` (docs/STATE-FLOW.md, "The position
+tick") — and Observation invalidates per PROPERTY, not per value: any read of that
+property, `nowPlaying?.title` included, subscribes the reader to a 1 Hz rebuild.
+The reader here is a `MenuBarExtra` content body, which SwiftUI re-evaluates
+whenever it likes and not when the user opens the menu, and the block beside it
+pull-reads the event-tap chain (`AppCore.mediaKeyChainNotice()`, whose every call
+resets the min/max latencies of every tap on the machine, third-party taps
+included). So the naive line does not cost a menu line: it costs a system-wide
+diagnostic probe once per second, forever, invisible from inside the app.
 Decision, three parts. (1) The Coordinator publishes `nowPlayingTitle` and
 `nowPlayingArtist` as GUARDED mirrors — written only when the value actually
 changes, exactly like `skipSupportedByTrack` — and clears them with the snapshot in
@@ -2007,33 +2011,37 @@ there is a failure, not an absence. The fourth case is kept for totality of the 
 not because it fixes a scenario anyone can reproduce twice.
 
 ### external-brightness-is-write-only
-The neighbour's channel writes an external display's brightness and will not read
-it. Measured, not assumed: a `get` over the same request/response channel the app
-already writes on was sent for five brightness spellings (`brightness`,
-`combinedBrightness`, `hardwareBrightness`, `softwareBrightness`, `ddcBrightness`)
-and every one was refused — with six metadata spellings (UUID, name, serial,
-vendor, model, productName) in the same run as the SHAPE control, because a
-request that answers nothing at all proves the request is wrong rather than that
-brightness is ungettable. The metadata answered; brightness did not.
-The consequence is not cosmetic, and it is why one rule stops at the built-in
-panel. `brightness-key-follows-the-pointer` hands an external display's key back
-to whoever can move that screen, and the obvious next step — Crema applying the
-key there itself — needs the apply+verify cycle, which needs a `before`: stepping
-is read → step → write → verify, and the read is the half that does not exist.
-The one thing that would dissolve the impasse is a RELATIVE command, which needs
-no `before` at all, so nine relative shapes were tried with the absolute `set` as
-the control (increment/decrement, signed values, a `relative` parameter,
-up/down/increase/decrease). The control answered; none of the nine did.
-So: external brightness is **write-only from our border**, the drag on a bar the
-neighbour drew keeps working (it carries an absolute level, which is exactly what
-the channel accepts — `the-bar-never-outruns-the-screen`), and the key aimed at an
-external screen stays handed back. The instruments are kept rather than described:
-`scripts/probes/read-betterdisplay.swift` and
-`scripts/probes/relative-betterdisplay.swift`, each with the shape control that
-makes a negative result mean something. Reopening needs one of them to come back
-positive against a newer BetterDisplay — a released `get`, or a relative command
-the monitor is observed to actually honour, since a neighbour that accepts a
-command it does not perform would be the worst thing to build on.
+External displays belong to BetterDisplay. Crema writes no DDC of its own and
+reaches an external display's brightness only through the neighbour's
+request/response channel: the bar the neighbour drew is dragged through it (an
+absolute level, which the channel accepts — `the-bar-never-outruns-the-screen`),
+and the key aimed at an external screen is handed back whole
+(`brightness-key-follows-the-pointer`). That border, not the anchor's name, is
+what the contract cites this entry for.
+The "write-only" reading in the name is superseded by
+`neighbour-features-are-not-identifiers`. Through `identifier`, the metadata
+door, five brightness spellings (`brightness`, `combinedBrightness`,
+`hardwareBrightness`, `softwareBrightness`, `ddcBrightness`) are refused while
+six metadata spellings answer as the shape control; asked by its own key, the
+feature answers. `scripts/probes/read-betterdisplay.swift` asks through both
+doors and gives its verdict on the key alone;
+`scripts/probes/relative-betterdisplay.swift` tries nine relative
+shapes with the sign on the value, which the neighbour reads as an absolute,
+against the absolute `set` as control. Both refusals are about the door, not
+the platform: a feature is read with its name as the parameter key, and a
+relative write is the documented `offset` parameter.
+Confirmed with `read-betterdisplay.swift` 2026-10-14 on BetterDisplay 5.1.1
+against the built-in display: `get` with `"identifier":"brightness"` →
+`result=false`; with `"brightness":""` → `result=true`, payload 0.671
+(`combinedBrightness` 0.671, `hardwareBrightness` 0.561, `softwareBrightness`
+1.0; `ddcBrightness` refused, as a built-in panel has no DDC); every metadata
+spelling answered. The external-display read
+(displayID 2 → 0.063) is the one recorded under
+`neighbour-features-are-not-identifiers`.
+So a `before` exists, and a brightness key Crema applies to an external display
+is unbuilt work, not a measured impossibility: the apply+verify cycle over the
+neighbour's channel, with the deadline it already has. Until it is built the key
+stays handed back.
 
 ### adapter-stale-nowplaying-latch
 A confirmed, OPEN fragility, written down because the obvious fix is measurably
@@ -2259,16 +2267,15 @@ names, not a row of thumbnails, so "selected and disabled" is a CHECKED MENU ITE
 that cannot be picked — the same honest report of "you chose this and this screen
 does not draw it", stated with a checkmark instead of a ring. A menu item has no
 hint channel and no picture to dim, so the popup carries neither.
-`DisplayStyleOptions.selection` is read from the user's own key and never
-filtered through `isHonoured`, which is what makes the pair representable at all:
-a legacy "notch" key on a slitless panel reports `.notch` selected while its item
-reports `isEnabled == false`. The DISABLING CHANNEL is measured rather than
-stylistic: a `Picker` in `.menu` style DISCARDS `.disabled` on its options (macOS
-26.5.2, `scripts/probes/picker-option-disabled.swift`), so the chrome is a custom
-`Menu` of Toggles, where `.disabled` is honoured and therefore reaches VoiceOver
-through the only channel SwiftUI has for unavailability. Both accessibility facts
-above hold for the popup and generalize. And what keeps an unhonoured pick out of
-the STORE is never the chrome (`the-chrome-is-not-the-guarantee`).
+`DisplayStyleOptions.selection` is read from the user's own key and never filtered
+through `isHonoured`, which is what makes the pair representable at all: a legacy
+"notch" key on a slitless panel reports `.notch` selected while its item reports
+`isEnabled == false`. The DISABLING CHANNEL is measured rather than stylistic (the
+measurement: `the-chrome-is-not-the-guarantee`), so the chrome is a custom `Menu`
+of Toggles, where `.disabled` is honoured and therefore reaches VoiceOver through
+the only channel SwiftUI has for unavailability. Both accessibility facts above
+hold for the popup and generalize. And what keeps an unhonoured pick out of the
+STORE is never the chrome (`the-chrome-is-not-the-guarantee`).
 
 ### the-tour-configures-instead-of-pointing
 The welcome tour is five steps that CONFIGURE the app, not five pictures of it:
@@ -2412,10 +2419,11 @@ ONE screen is asked (`NSScreen.main`, else the first connected), deliberately. T
 picture is SCENERY, not a claim about a particular display: a tile shows a style
 declared for every screen, so asking each display for its own wallpaper would
 answer a question nobody asked and force a per-tile choice that means nothing.
-Reopening gate: the day a tile NAMES a display — the per-display thumbnail
-`global-style-default` leaves for later — the picture stops being scenery and
-becomes a claim about that screen, and the source takes the display as an
-argument.
+The per-display rows' thumbnails (`DisplayStyleRow`) do name a display, and stand
+on the same desk: what they claim about that screen is the shape, resolved on its
+geometry (`StylePreview.shapes(for:on:)`), and the desk under it stays scenery.
+Reopening gate: the day the desk itself is to be a claim about a particular
+screen, the source takes the display as an argument.
 
 The decode is bounded and cached BY URL, failure included (`WallpaperTileStore`).
 A wallpaper is several megapixels and a tile is 108 pt of it, so the picture is

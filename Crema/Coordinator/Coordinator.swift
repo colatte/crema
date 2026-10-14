@@ -67,14 +67,16 @@ final class Coordinator {
     }
 
     /// The layers as a surface drawing both shows them — the HUD over the
-    /// appearance. The views observe this.
+    /// appearance. The global answer, read by the Coordinator's own guards and
+    /// the WindowManager's frame pass; a view reads only its surface's share
+    /// (`layers.state(on:)`).
     var state: PresentationState { layers.state(on: .both) }
 
     /// Live playback snapshot, including the once-per-second position tick.
-    /// Position updates land only here: rewriting `state` for every tick would
+    /// Position updates land only here: rewriting `layers` for every tick would
     /// fire its observers — and with them the WindowManager frame pass — once
     /// per second for a frame that never changes. Views read scrubbing/position
-    /// data from this property; `state`'s payload is the layout-relevant snapshot.
+    /// data from this property; `layers`' payload is the layout-relevant snapshot.
     private(set) var nowPlaying: NowPlaying?
 
     /// Whether media is actively playing — with the surface tucked
@@ -396,8 +398,10 @@ final class Coordinator {
     /// Immediate hover: expand/collapse now. Used by the floating styles,
     /// whose surfaces aren't on the accident-prone top edge. `surface` is the
     /// one the pointer crossed, and the hover reaches only the layers it draws:
-    /// on a surface drawing only the HUD it holds the HUD and nothing else.
-    func hover(_ hovering: Bool, on surface: PresentationLayers.Surface = .both) {
+    /// on a surface drawing only the HUD it holds the HUD and nothing else. It
+    /// carries no default on purpose: a caller that forgets it fails to compile
+    /// instead of holding layers its surface does not draw.
+    func hover(_ hovering: Bool, on surface: PresentationLayers.Surface) {
         // An empty region never reacts to hover: the region sits on the
         // menu-bar traffic lane and hover-invocation fired by accident.
         // Invocation is a click (or a media event); hover only expands what

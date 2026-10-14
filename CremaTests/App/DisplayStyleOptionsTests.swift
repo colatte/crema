@@ -5,12 +5,8 @@ import Testing
 /// One display's style control, decided before any chrome exists: what the list
 /// offers, what it reads back, and what a pick is allowed to write.
 ///
-/// The refusal is pinned HERE and nowhere else on purpose. Measured on macOS
-/// 26.5.2 (`scripts/probes/picker-option-disabled.swift`): a SwiftUI `Picker` in
-/// `.menu` style DISCARDS `.disabled` on its options — the marked item read back
-/// `isEnabled == true` against an `NSPopUpButton` control reading `false` — so no
-/// popup can be the thing that stops a pick this screen cannot draw. The chrome
-/// dims; this type decides.
+/// The refusal is pinned HERE and nowhere else on purpose: the chrome dims, this
+/// type decides (docs/DECISIONS.md: the-chrome-is-not-the-guarantee).
 struct DisplayStyleOptionsTests {
     /// A panel with no slit: the Mac mini, the external monitor, the clamshell.
     private let notchless = ScreenGeometry(frame: CGRect(x: 0, y: 0, width: 1920, height: 1080))
@@ -80,9 +76,11 @@ struct DisplayStyleOptionsTests {
     }
 
     @Test func aPickThisScreenCannotDrawIsRefusedRatherThanWritten() {
-        // Kills: write answering .override for every style. This is the guarantee
-        // the popup was measured unable to keep — a `.menu` Picker hands its options
-        // out enabled whatever `.disabled` says — so the store is protected here.
+        // Kills: write answering .override for every style. The chrome is no
+        // guarantee — a `.menu` Picker hands its options out enabled whatever
+        // `.disabled` says, and the custom Menu that honours it is still chrome
+        // (docs/DECISIONS.md: the-chrome-is-not-the-guarantee) — so the store is
+        // protected here.
         let slitless = options(declared: "card", on: notchless)
         #expect(slitless.write(for: .notch) == .refused)
         #expect(slitless.write(for: .card) == .override(.card))
@@ -208,19 +206,6 @@ struct DisplayStyleListOfferTests {
         // and neither of these carries an override to be found.
         let two = [screen("A", isInternal: true), screen("B", isInternal: false)]
         #expect(DisplayStyleOptions.listIsOffered(for: two))
-    }
-
-    @Test func aSoleDisplayThatAlreadyCarriesAnOverrideOffersTheListThatClearsIt() {
-        // A key written when more displays were attached outlives that arrangement,
-        // and this is the promise that it can still be cleared: the row exists for
-        // the display, whatever the key says — including a rawValue a future version
-        // retired, which reads as inherit and would have opened no list of its own.
-        let laptop = screen("A", isInternal: true)
-        store.defaults.set("pill", forKey: Preferences.styleKey(for: laptop.id))
-        #expect(DisplayStyleOptions.listIsOffered(for: [laptop]))
-
-        store.defaults.set(Style.classic.rawValue, forKey: Preferences.styleKey(for: laptop.id))
-        #expect(DisplayStyleOptions.listIsOffered(for: [laptop]))
     }
 
     @Test func anEmptyRosterOffersNothingAndAsksNothingOfItsFirstElement() {

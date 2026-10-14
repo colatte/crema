@@ -166,7 +166,7 @@ struct CoordinatorStateTests {
         let fired = Flag()
         h.coordinator.onPresentationChange = { fired.value = true }
 
-        h.coordinator.hover(true)
+        h.coordinator.hover(true, on: .both)
 
         #expect(fired.value)
         #expect(h.coordinator.state == .nowPlaying(track, expanded: true))

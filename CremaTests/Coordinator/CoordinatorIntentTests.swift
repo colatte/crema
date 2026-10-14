@@ -11,10 +11,10 @@ struct CoordinatorIntentTests {
         h.nowPlayingSource.emit(track)
         #expect(await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) })
 
-        h.coordinator.hover(true)
+        h.coordinator.hover(true, on: .both)
         #expect(h.coordinator.state == .nowPlaying(track, expanded: true))
 
-        h.coordinator.hover(false)
+        h.coordinator.hover(false, on: .both)
         #expect(h.coordinator.state == .nowPlaying(track, expanded: false))
     }
 
@@ -24,7 +24,7 @@ struct CoordinatorIntentTests {
         // commitment. (In the real app the monitor isn't even armed while
         // hidden; a pointer already sitting on a fresh appearance re-enters
         // through the monitor's arming sample, not through memory here.)
-        h.coordinator.hover(true)
+        h.coordinator.hover(true, on: .both)
         await settle()
         #expect(h.coordinator.state == .hidden)
 

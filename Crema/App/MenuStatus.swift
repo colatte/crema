@@ -160,8 +160,8 @@ struct MenuStatus {
         var rows: [Row] = []
         if fallsBackToCard { rows.append(.styleFallsBackToCard) }
         // The neighbour reporting is the arrangement working, so it belongs here and
-        // not in the warning stack, where it sat behind a checkmark and read as
-        // noise (docs/DECISIONS.md: betterdisplay-osd-source). Mutually exclusive
+        // not in the warning stack, where behind a checkmark it reads as noise
+        // (docs/DECISIONS.md: betterdisplay-osd-source). Mutually exclusive
         // with the brightness row below by construction: the target stands down for
         // any chain answer but `.quiet`.
         if chainNotice == .drawingFromBetterDisplay {
@@ -204,8 +204,8 @@ struct MenuStatus {
     }
 
     // The three switches live out here rather than inline, and each takes exactly
-    // the one value it maps: together they carried enough branches to put the
-    // derivation past the cyclomatic ceiling the CI enforces. Splitting on the
+    // the one value it maps: inline, together they carry enough branches to put
+    // the derivation past the cyclomatic ceiling the CI enforces. Splitting on the
     // mapping seam rather than on rows-versus-warnings keeps the ORDER of both
     // lists — which is the contract the tests pin — visible in one place.
 

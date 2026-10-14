@@ -1,7 +1,8 @@
 import Observation
 import SwiftUI
 
-/// Per-display presentation policy the panel injects into its view — rendering
+/// Per-panel presentation policy the panel injects into its view (a display
+/// whose Card HUD sits apart has two panels, so two policies) — rendering
 /// context, like the slit inset, not domain state. With the window fixed and
 /// never ordered out, hiding cannot happen at the window level: a
 /// display whose "show now playing here" is off must suppress the now-playing
