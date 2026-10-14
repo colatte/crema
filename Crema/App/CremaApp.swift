@@ -20,14 +20,14 @@ struct CremaApp: App {
             String(localized: "app.menubar.title", defaultValue: "Crema"),
             image: "MenuBarIcon"
         ) {
-            // Everything the menu SAYS — the switch and the style submenu, the
-            // status, the warnings, the media — is four blocks decided in one pure
-            // place (MenuStatus) and rendered by CremaMenu, so which lines exist, in
-            // what order and behind which gate is pinned by tests instead of resting
-            // on the shape of this closure. It closes with the separator that
-            // divides it from the actions below, which are what remains here: they
-            // are unconditional, so there is no gating to pin.
-            // (docs/DECISIONS.md: menu-status-before-warnings)
+            // Everything the menu SAYS — the switch and the style submenu with their
+            // facts, the warnings, the media — is sections decided in one pure place
+            // (MenuStatus) and rendered by CremaMenu, so which lines exist, in what
+            // order and behind which gate is pinned by tests instead of resting on
+            // the shape of this closure. The app's own actions are what remains
+            // here: they are unconditional, so there is no gating to pin. Every group
+            // is a Section and none is fenced by a Divider, which would double the
+            // section's own separator (docs/DECISIONS.md: menu-status-before-warnings).
             CremaMenu(core: core)
             #if !DEBUG
             // A fact with its repair under it, so it sits above the actions and not
@@ -39,21 +39,28 @@ struct CremaApp: App {
             // view bodies in the first place.
             PendingUpdateMenuSection(updater: updater)
             #endif
-            SettingsMenuButton()
-            #if !DEBUG
-            // Release-only: in Debug the item does not exist, matching a build
-            // that never constructs the updater nor contacts the feed.
-            UpdaterMenuButton(updater: updater)
-            #endif
-            Divider()
-            #if DEBUG
-            DemoMenu(core: core)
-            Divider()
-            #endif
-            Button(String(localized: "menu.quit", defaultValue: "Quit Crema")) {
-                NSApplication.shared.terminate(nil)
+            // Untitled, like every app's own commands at the foot of a menu: the
+            // items name themselves, and a heading over them would only repeat the
+            // app's name.
+            Section {
+                SettingsMenuButton()
+                #if !DEBUG
+                // Release-only: in Debug the item does not exist, matching a build
+                // that never constructs the updater nor contacts the feed.
+                UpdaterMenuButton(updater: updater)
+                #endif
             }
-            .keyboardShortcut("q")
+            #if DEBUG
+            Section {
+                DemoMenu(core: core)
+            }
+            #endif
+            Section {
+                Button(String(localized: "menu.quit", defaultValue: "Quit Crema")) {
+                    NSApplication.shared.terminate(nil)
+                }
+                .keyboardShortcut("q")
+            }
         }
 
         Settings {
@@ -90,9 +97,9 @@ private struct SettingsMenuButton: View {
 /// Says a scheduled update is waiting and gives the one click that reaches it.
 /// Nothing at all when none is pending — the menu keeps the shape it has today.
 ///
-/// The shape is the house rule for a fact with a repair: a plain disabled sentence,
-/// no glyph, and the button directly under it, fenced by the separator that closes
-/// the block (docs/DECISIONS.md: menu-status-before-warnings). Sparkle already
+/// The shape is the house rule for a fact with a repair: the button is the item and
+/// the fact is its note, in a section of its own
+/// (docs/DECISIONS.md: menu-status-before-warnings). Sparkle already
 /// showed its alert for this update — for an accessory app, behind every other
 /// running app — so the button does not start a new check; `checkForUpdates()` on an
 /// already-presented update is how Sparkle brings that alert back into focus, and
@@ -102,12 +109,15 @@ private struct PendingUpdateMenuSection: View {
 
     var body: some View {
         if updater.hasPendingUpdate {
-            Text(String(localized: "menu.update.available", defaultValue: "An update to Crema is available."))
-            Button(String(localized: "menu.update.show", defaultValue: "Show Update…")) {
-                NSApp.activate()
-                updater.checkForUpdates()
+            Section {
+                MenuItemNote.item(
+                    String(localized: "menu.update.show", defaultValue: "Show Update…"),
+                    note: String(localized: "menu.update.available", defaultValue: "An update to Crema is available")
+                ) {
+                    NSApp.activate()
+                    updater.checkForUpdates()
+                }
             }
-            Divider()
         }
     }
 }

@@ -1,29 +1,39 @@
 /// What the menu bar has to say right now, split into the blocks it says it in:
-/// the switch that turns the app's headline feature on, the facts that are true of
-/// it, the warnings that need the user, and the media the app is watching.
+/// the controls of the app's headline feature with the facts that are true of
+/// them, the warnings that need the user, and the media the app is watching.
 ///
-/// The hierarchy is the decision — the control first, what the app IS doing after
-/// it, what needs attention after that, the transport last — and it lives here
+/// The hierarchy is the decision — the controls first, each fact written under the
+/// control it qualifies, what needs attention after that, the transport last — and
+/// it lives here
 /// rather than in the menu's ViewBuilder so the order and the gating are pinned by
 /// tests instead of resting on the shape of a view body
 /// (docs/DECISIONS.md: menu-status-before-warnings).
 /// Nothing here knows a string: the view maps each case to its localized sentence
-/// and, where there is one, to its repair or its advice.
+/// and, where there is one, to its repair.
 struct MenuStatus {
-    /// The blocks the menu is built from, in the order they appear. A block with
-    /// nothing to say is ABSENT rather than empty — an empty group would still draw
-    /// the separator that opens it, over nothing.
+    /// The blocks the menu is built from, in the order they appear, each one a
+    /// menu section. A block with nothing to say is ABSENT rather than empty — an
+    /// empty section would still draw the separator that opens it, over nothing.
     ///
     /// What is deliberately not a block: the app's own actions (Settings, updates,
     /// quit). They are unconditional, so there is no gating to pin, and the update
     /// item exists only in Release — a case for it here would be one the
     /// Debug-hosted suite can never reach, which is exactly the reason that item
     /// stays in the scene body.
-    enum Block: Equatable {
+    enum Block: Hashable {
         case controls
-        case status
         case warnings
         case media
+    }
+
+    /// The control a fact is written under, as that item's subtitle. A fact on a
+    /// line of its own reads as a disabled item and sits apart from the switch it
+    /// explains; under its control it is the control's own state.
+    enum Host: Equatable {
+        /// "Replace the system indicators": what the replacement covers.
+        case replacementSwitch
+        /// The Style submenu: what the declaration draws.
+        case styleMenu
     }
 
     /// A fact about what Crema is doing, never a wish, and never one another surface
@@ -32,9 +42,9 @@ struct MenuStatus {
     /// preferences would promise "replacing the system indicators" with the native
     /// HUD on screen. And a fact the user reads on a control — the login checkbox in
     /// General, the switch at the top of this very menu — or in a sentence Settings
-    /// states unconditionally is not news here: it costs a permanent status block,
-    /// and it teaches the reader that these lines are decoration rather than the
-    /// app's own report.
+    /// states unconditionally is not news here: it costs a permanent note on a
+    /// healthy Mac, and it teaches the reader that these lines are decoration
+    /// rather than the app's own report.
     enum Row: Hashable {
         /// Notch is declared and no attached display has a slit, so every panel
         /// draws Card. The declaration itself is said by the checked item in the
@@ -52,6 +62,13 @@ struct MenuStatus {
         /// the replacement on, and this one is stated nowhere else in the app
         /// (docs/DECISIONS.md: brightness-key-follows-the-pointer).
         case brightnessNoBuiltIn
+
+        var host: Host {
+            switch self {
+            case .styleFallsBackToCard: .styleMenu
+            case .brightnessFromBetterDisplay, .brightnessNoBuiltIn: .replacementSwitch
+            }
+        }
     }
 
     /// The one-click repair a warning offers, when there is one to offer.
@@ -60,21 +77,11 @@ struct MenuStatus {
         case retrySuppression
         /// Not a repair but the walk to one: nothing in this app revives a dead
         /// media source, and the Permissions tab is where the backup reader's
-        /// Automation requirement is stated and granted. It exists so the sentence
-        /// above it can state the requirement instead of spelling out a route.
+        /// Automation requirement is stated and granted. It exists so the line under
+        /// it can state the requirement instead of spelling out a route.
         case openPermissionsTab
         case reactivateLoginItem
         case openLoginItemsSettings
-    }
-
-    /// A second sentence a warning owes when the button under it would not say what
-    /// it is for on its own.
-    enum Advice: Equatable {
-        /// Now Playing is dead, so the BACKUP reader is what is left — and that one
-        /// needs Automation access. States the requirement, never a verdict: nothing
-        /// here knows whether consent is the reason, and reading that state would put
-        /// a poll behind a body whose rebuild costs the tap-chain read.
-        case automationForBackupReader
     }
 
     /// Something the user can act on, or at least needs to know. Ordered by
@@ -101,14 +108,6 @@ struct MenuStatus {
             case .loginItemRevoked: .reactivateLoginItem
             case .loginItemNeedsApproval: .openLoginItemsSettings
             case .betterDisplayAheadAndSilent, .anotherAppAhead, .mediaControlsBlocked: nil
-            }
-        }
-
-        var advice: Advice? {
-            switch self {
-            case .nowPlayingUnavailable: .automationForBackupReader
-            case .accessibilityMissing, .suppressionSuspended, .betterDisplayAheadAndSilent,
-                 .anotherAppAhead, .mediaControlsBlocked, .loginItemRevoked, .loginItemNeedsApproval: nil
             }
         }
     }
@@ -171,13 +170,11 @@ struct MenuStatus {
         self.warnings = warnings
 
         var blocks: [Block] = [.controls]
-        if !rows.isEmpty { blocks.append(.status) }
         if !warnings.isEmpty { blocks.append(.warnings) }
         // The media block is gated on the chain being alive, and on the SAME value
-        // the warning above it comes from: with no source reporting the block is a
-        // lone "Nothing playing" row — the transport inside it stands down on its own
-        // (NowPlayingMenuSection) — which states as news what the warning right above
-        // just said, and leaves nothing under it to wait on.
+        // the warning above it comes from: with no source reporting, a media section
+        // would state as news what the warning right above just said. Alive with
+        // nothing playing, the section draws nothing (NowPlayingMenuSection).
         if nowPlayingActive { blocks.append(.media) }
         self.blocks = blocks
     }
@@ -191,8 +188,8 @@ struct MenuStatus {
     /// Silence for a built-in panel among others, and it is not the same silence as
     /// `.quiet`: there the app has nothing true to say, here it has a sentence that
     /// the Indicators tab already states UNCONDITIONALLY — the pointer scope, under
-    /// the switch that turns the replacement on — so the menu copy added no fact and
-    /// bought a status block on every healthy Mac. What must never happen is this
+    /// the switch that turns the replacement on — so a menu copy would add no fact
+    /// and put a note on every healthy Mac. What must never happen is this
     /// target falling through to the row below: telling a Mac that HAS a built-in
     /// display that Crema cannot control screen brightness is false, not merely
     /// redundant (docs/DECISIONS.md: brightness-key-target-in-the-menu).
@@ -219,25 +216,10 @@ struct MenuStatus {
         }
     }
 
-    /// Whether a separator OPENS the block at `index`. Every block but the first is
-    /// preceded by one, and the rule is stated over the INDEX rather than over which
-    /// block it is: what leads changes with what the app has to say, so a rule
-    /// naming `.controls` would draw a separator above the menu's first line the day
-    /// that block becomes conditional. Total at both borders, like
-    /// `separatesWarning` — the view walks an enumerated list, and every index it
-    /// can hold has to answer.
-    func separatesBlock(at index: Int) -> Bool {
-        index > 0 && blocks.indices.contains(index)
-    }
-
-    /// Whether a separator OPENS the warning at `index`. A warning that offers a
-    /// repair is fenced from its neighbours in both directions — an unfenced button
-    /// sits flush against the next sentence and reads as that sentence's repair —
-    /// and stating the rule over the PAIR is what keeps two adjacent actionable
-    /// warnings to one separator instead of two. Index 0 is already opened by the
-    /// block's own separator, and the upper bound keeps the rule total.
-    func separatesWarning(at index: Int) -> Bool {
-        guard index > 0, warnings.indices.contains(index) else { return false }
-        return warnings[index].action != nil || warnings[index - 1].action != nil
+    /// The fact written under `host`, if there is one. At most one per host by
+    /// construction: the style row is the only one hosted by the Style submenu, and
+    /// the two brightness rows are mutually exclusive (see `init`).
+    func note(on host: Host) -> Row? {
+        rows.first { $0.host == host }
     }
 }

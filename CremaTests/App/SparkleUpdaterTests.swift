@@ -94,8 +94,8 @@ struct SparkleUpdaterTests {
     /// never made it into the .lproj still reads clean there and serves English to
     /// the pt-BR user.
     @Test func pendingUpdateStringsResolvePerLanguage() throws {
-        #expect(try localizedInBuiltBundle("menu.update.available", in: "en") == "An update to Crema is available.")
-        #expect(try localizedInBuiltBundle("menu.update.available", in: "pt-BR") == "Há uma atualização do Crema disponível.")
+        #expect(try localizedInBuiltBundle("menu.update.available", in: "en") == "An update to Crema is available")
+        #expect(try localizedInBuiltBundle("menu.update.available", in: "pt-BR") == "Há uma atualização do Crema disponível")
         #expect(try localizedInBuiltBundle("menu.update.show", in: "en") == "Show Update…")
         #expect(try localizedInBuiltBundle("menu.update.show", in: "pt-BR") == "Mostrar atualização…")
     }

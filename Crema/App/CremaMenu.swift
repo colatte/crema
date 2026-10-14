@@ -1,11 +1,11 @@
 import AppKit
 import SwiftUI
 
-/// Everything the menu has to SAY, in the four blocks it says it in: the switch and
-/// the style submenu, then what Crema is doing, then what needs attention, then the
-/// media. Which blocks exist, in what order, and behind which gate is decided in
-/// one pure place (MenuStatus) rather than in the shape of this body; what is left
-/// below the closing separator is the app's own actions, which are unconditional.
+/// Everything the menu has to SAY, in the sections it says it in: the switch and
+/// the style submenu with the facts about them written under each, then what needs
+/// attention, then the media. Which sections exist, in what order, and behind which
+/// gate is decided in one pure place (MenuStatus) rather than in the shape of this
+/// body; the app's own actions come after it, unconditional, in the scene body.
 ///
 /// A view of its own for two reasons: it owns the OBSERVED preference reads the
 /// status needs (@AppStorage below), so a Settings toggle rebuilds this block and
@@ -27,13 +27,13 @@ import SwiftUI
 /// reads its own mirrors in its own body, so a track change repaints that view and
 /// leaves the readings here alone (docs/DECISIONS.md: menu-reads-mirrors).
 ///
-/// No glyphs in any sentence below, in either direction. "⚠️" carried the meaning
-/// the sentence has to carry anyway (and VoiceOver reads it mid-sentence as noise),
-/// and stacked into a wall whenever two conditions fired at once; "✓" collided with
-/// the platform's own vocabulary — a checkmark in an NSMenu means a CHECKED item,
-/// which is why the two facts that ARE a checked item (the replacement, the declared
-/// style) ship as a Toggle and a Picker instead of as sentences. AppKit's own status
-/// menus state informational rows as plain disabled sentences.
+/// No glyphs in any line below. "⚠️" carries the meaning the line has to carry
+/// anyway (and VoiceOver reads it mid-sentence as noise); "✓" collides with the
+/// platform's own vocabulary — a checkmark in an NSMenu means a CHECKED item, which
+/// is why the two facts that ARE a checked item (the replacement, the declared
+/// style) ship as a Toggle and a Picker. Separators come from the sections and
+/// never from a `Divider`: next to a section's own, a `Divider` doubles it
+/// (measured, scripts/probes/menu-sections-and-subtitles.swift).
 /// (docs/DECISIONS.md: menu-status-before-warnings)
 @MainActor
 struct CremaMenu: View {
@@ -65,54 +65,28 @@ struct CremaMenu: View {
             style: Preferences.declaredStyle(fromRawValue: declaredStyle),
             suppressionEnabled: suppresses
         )
-        // The index is the identity here, because the separator rule is stated over
-        // it: each block appears at most once, and which one leads depends on what
-        // the app has to say.
-        ForEach(Array(status.blocks.enumerated()), id: \.offset) { index, block in
-            if status.separatesBlock(at: index) { Divider() }
+        ForEach(status.blocks, id: \.self) { block in
             self.block(block, in: status)
         }
-        // Closes the group against the app's own actions below. They are not blocks:
-        // nothing gates them, and one of them exists only in Release.
-        Divider()
     }
 
     @ViewBuilder
     private func block(_ block: MenuStatus.Block, in status: MenuStatus) -> some View {
         switch block {
         case .controls:
-            // The app's headline feature is opt-in and ships OFF, and a status row is
-            // a fact — the block below can only speak about the replacement once it
-            // is already in effect, so without this switch a fresh install's menu
-            // would never name the feature at all. A real Toggle is also the one
-            // place a checkmark belongs in an NSMenu — the rule above bans the glyph
-            // INSIDE a sentence precisely because a checked item is what it means
-            // here, and every AppKit status menu that rule cites (Wi-Fi, Bluetooth,
-            // Sound) leads with its switch. The write stays behind a click, so the
-            // read-only contract on this body holds.
-            Toggle(isOn: Binding(get: { suppresses }, set: { core.setNativeOSDSuppression($0) })) {
-                Text(String(localized: "settings.hud.suppress", defaultValue: "Replace the system indicators"))
-            }
-            .disabled(!canSuppress)
-            StyleMenu(core: core)
-        case .status:
-            // Each case appears at most once, so the case is its own stable identity.
-            ForEach(status.rows, id: \.self) { row in
-                sentence(text(for: row))
+            // Titled with the Indicators tab's own name: the section is that tab's
+            // two controls, and one concept keeps one name across the app.
+            Section(String(localized: "menu.section.indicators", defaultValue: "Indicators")) {
+                replacementSwitch(note: status.note(on: .replacementSwitch).map(text(for:)))
+                StyleMenu(core: core, note: status.note(on: .styleMenu).map(text(for:)))
             }
         case .warnings:
-            ForEach(Array(status.warnings.enumerated()), id: \.offset) { index, warning in
-                if status.separatesWarning(at: index) { Divider() }
-                sentence(text(for: warning))
-                if let advice = warning.advice {
-                    sentence(text(for: advice))
-                }
-                // Every button here comes from the warning's own action, so a fact
-                // and its repair cannot drift apart: a button hardcoded beside one
-                // warning is how a repair ends up under a sentence it does not fix,
-                // with the exhaustive switch in MenuStatus still compiling.
-                if let action = warning.action {
-                    Button(title(for: action)) { perform(action) }
+            // Untitled: each warning names itself, and a heading over them would be
+            // a second alarm on top of the first.
+            Section {
+                // Each case appears at most once, so the offset is a stable identity.
+                ForEach(Array(status.warnings.enumerated()), id: \.offset) { _, warning in
+                    warningItem(warning)
                 }
             }
         case .media:
@@ -120,83 +94,129 @@ struct CremaMenu: View {
         }
     }
 
-    /// One menu item per line of a sentence, broken where the catalog breaks it.
-    ///
-    /// An NSMenu is exactly as wide as its widest item, so a single 116-character
-    /// status row opened this menu at roughly 1500 pt (measured in the field,
-    /// 2026-07-31; that row has since left the block, the ceiling it bought governs
-    /// every line here) — the ceiling is about 72 characters a line, and the break
-    /// points live beside the text in the catalog, where each translation breaks at
-    /// its own clause. Stacked plain items, never a centred paragraph: informational rows are
-    /// leading-aligned everywhere else in this menu and in the system's own
-    /// (docs/DECISIONS.md: menu-status-before-warnings).
+    /// The app's headline feature is opt-in and ships OFF, and a status line is a
+    /// fact — so without this switch a fresh install's menu would never name the
+    /// feature at all. A real Toggle is also the one place a checkmark belongs in an
+    /// NSMenu, and every AppKit status menu the glyph rule cites (Wi-Fi, Bluetooth,
+    /// Sound) leads with its switch. The write stays behind a click, so the
+    /// read-only contract on this body holds.
     @ViewBuilder
-    private func sentence(_ text: String) -> some View {
-        // The index is the identity, as in the block list above: two lines of one
-        // sentence can read identically, and the whole list is replaced when the
-        // sentence changes.
-        ForEach(Array(text.split(separator: "\n").enumerated()), id: \.offset) { _, line in
-            Text(String(line))
+    private func replacementSwitch(note: String?) -> some View {
+        let isOn = Binding(get: { suppresses }, set: { core.setNativeOSDSuppression($0) })
+        let title = String(localized: "settings.hud.suppress", defaultValue: "Replace the system indicators")
+        if MenuItemNote.isSubtitle {
+            Toggle(isOn: isOn) {
+                Text(title)
+                if let note { Text(note) }
+            }
+            .disabled(!canSuppress)
+        } else {
+            Toggle(isOn: isOn) { Text(title) }
+                .disabled(!canSuppress)
+            if let note { Text(note) }
         }
     }
 
+    /// One warning, one item. With a repair, the repair IS the item and the fact is
+    /// its subtitle — the button says what to do, the line under it says why, and no
+    /// sentence sits apart from the button that answers it. Without one, the fact is
+    /// a disabled item and what it costs is its subtitle. The pairing comes from the
+    /// warning's own action, so a fact and its repair cannot drift apart.
+    @ViewBuilder
+    private func warningItem(_ warning: MenuStatus.Warning) -> some View {
+        if let action = warning.action {
+            MenuItemNote.item(title(for: action), note: note(for: warning)) { perform(action) }
+        } else if let fact = fact(for: warning) {
+            MenuItemNote.item(fact, note: note(for: warning), action: nil)
+        }
+    }
+
+    /// A fact written under its control, so a fragment rather than a sentence: no
+    /// final period, the control above it is the subject.
     private func text(for row: MenuStatus.Row) -> String {
         switch row {
         case .styleFallsBackToCard:
-            // The same sentence the Settings footer uses for the same fact, word for
-            // word: one name per concept, in each language.
+            // The words the per-display rows in Settings use for the same fact:
+            // what is drawn, then why.
             String(
                 localized: "menu.status.styleFallsBack",
-                defaultValue: "No connected display has a notch, so every one is drawing Card."
+                defaultValue: "Drawing Card — no connected display has a notch"
             )
         case .brightnessFromBetterDisplay:
             String(
                 localized: "menu.betterDisplay.drawing",
-                defaultValue: "The screen brightness indicator comes from BetterDisplay."
+                defaultValue: "Screen brightness indicator from BetterDisplay"
             )
         case .brightnessNoBuiltIn:
-            // Crema is the subject, never "the brightness keys": a sentence about
-            // the KEY would assert what macOS and other apps do with it
+            // Under the switch, Crema is the subject, never "the brightness keys": a
+            // line about the KEY would assert what macOS and other apps do with it
             // (docs/DECISIONS.md: brightness-key-target-in-the-menu).
             String(
                 localized: "menu.status.brightnessNoBuiltIn",
-                defaultValue: "Crema can’t control screen brightness —\nit works only with the built-in display, and none is in use."
+                defaultValue: "Without screen brightness — no built-in display in use"
             )
         }
     }
 
-    private func text(for warning: MenuStatus.Warning) -> String {
+    /// The title of a warning that has no repair to be titled by.
+    private func fact(for warning: MenuStatus.Warning) -> String? {
         switch warning {
-        case .accessibilityMissing:
-            String(
-                localized: "menu.accessibilityWarning",
-                defaultValue: "Accessibility access is missing —\nCrema can’t react to the volume or brightness keys."
-            )
-        case .suppressionSuspended(let domains):
-            suspendedText(domains)
         case .betterDisplayAheadAndSilent:
-            String(
-                localized: "menu.betterDisplay.silent",
-                defaultValue: "BetterDisplay receives the brightness keys.\nTurn on its OSD notification integration\nand Crema can show the indicator."
-            )
+            String(localized: "menu.betterDisplay.silent", defaultValue: "BetterDisplay receives the brightness keys")
         case .anotherAppAhead(let app):
             // Stated as the fact it is — a position in the chain, not a
             // malfunction — because from inside the app the symptom is
             // indistinguishable from a broken tap, and no user can diagnose it
             // unaided (docs/DECISIONS.md: media-key-chain-contention).
-            String(
-                localized: "menu.mediaKeysPrecededBy",
-                defaultValue: "\(app) receives the media keys before Crema —\nsome of Crema’s indicators may not appear."
-            )
-        case .nowPlayingUnavailable:
-            String(
-                localized: "menu.nowPlayingUnavailable",
-                defaultValue: "Now Playing is unavailable —\nno media source is reporting."
-            )
+            String(localized: "menu.mediaKeysPrecededBy", defaultValue: "\(app) receives the media keys before Crema")
         case .mediaControlsBlocked:
             String(
                 localized: "menu.mediaControlsBlocked",
-                defaultValue: "The last playback command didn’t get through —\nthe player isn’t accepting controls right now."
+                defaultValue: "The last playback command didn’t get through"
+            )
+        case .accessibilityMissing, .suppressionSuspended, .nowPlayingUnavailable,
+             .loginItemRevoked, .loginItemNeedsApproval:
+            nil
+        }
+    }
+
+    /// The line under a warning's item: the fact a repair answers, or what a fact
+    /// with no repair costs. Every one fits the menu's ~72-character line
+    /// (docs/DECISIONS.md: menu-status-before-warnings); the one with a variable
+    /// part is measured at its widest on `suspendedText`.
+    private func note(for warning: MenuStatus.Warning) -> String {
+        switch warning {
+        case .accessibilityMissing:
+            String(
+                localized: "menu.accessibilityWarning",
+                defaultValue: "Without it, Crema can’t react to the volume or brightness keys"
+            )
+        case .suppressionSuspended(let domains):
+            suspendedText(domains)
+        case .betterDisplayAheadAndSilent:
+            // The neighbour's setting in its own words, so the reader finds it there.
+            String(
+                localized: "menu.betterDisplay.silent.detail",
+                defaultValue: "Turn on its OSD notification integration for Crema’s indicator"
+            )
+        case .anotherAppAhead:
+            String(
+                localized: "menu.mediaKeysPrecededBy.detail",
+                defaultValue: "Some of Crema’s indicators may not appear"
+            )
+        case .nowPlayingUnavailable:
+            // States the requirement, never a verdict: nothing here knows whether
+            // consent is the reason, and reading that state would put a poll behind a
+            // body whose rebuild costs the tap-chain read. The item above it is the
+            // walk to the tab where it is granted.
+            String(
+                localized: "menu.nowPlayingUnavailable",
+                defaultValue: "Now Playing unavailable — the backup reader needs Automation"
+            )
+        case .mediaControlsBlocked:
+            String(
+                localized: "menu.mediaControlsBlocked.detail",
+                defaultValue: "The player isn’t accepting controls right now"
             )
         // Both name the control in its own words, quoted: the switch is labelled
         // "Open Crema at login" in General, and a warning that renames the thing it
@@ -204,48 +224,28 @@ struct CremaMenu: View {
         case .loginItemRevoked:
             String(
                 localized: "menu.loginItem.revoked",
-                defaultValue: "“Open Crema at login” was turned off\nbecause the app changed since you enabled it."
+                defaultValue: "“Open Crema at login” was turned off because the app changed"
             )
         case .loginItemNeedsApproval:
             String(
                 localized: "menu.loginItem.needsApproval",
-                defaultValue: "“Open Crema at login” is waiting for your approval."
+                defaultValue: "“Open Crema at login” is waiting for your approval"
             )
         }
     }
 
-    /// The trail out of the one dead end a user can act on. States the requirement,
-    /// never a verdict: nothing here knows whether consent is the reason, and
-    /// reading that state would put a poll behind a body whose rebuild costs the
-    /// tap-chain read. It stops AT the requirement; the button right under it is
-    /// the walk to the tab.
-    private func text(for advice: MenuStatus.Advice) -> String {
-        switch advice {
-        case .automationForBackupReader:
-            String(
-                localized: "menu.nowPlayingUnavailable.fallbackHint",
-                defaultValue: "Crema’s backup reader needs Automation access."
-            )
-        }
-    }
-
-    /// The sentence naming the domains whose native indicator is back. Joined with
-    /// a locale-aware list format (", " vs " and " vs " e "); the ORDER comes from
-    /// the model, which sorts by the enum's declaration, so the same set never reads
-    /// two different ways.
+    /// The line naming the domains whose native indicator is back. Joined with a
+    /// locale-aware list format (", " vs " and " vs " e "); the ORDER comes from the
+    /// model, which sorts by the enum's declaration, so the same set never reads two
+    /// different ways.
     ///
-    /// The line breaks BEFORE the list because the menu's width ceiling counts the
-    /// interpolated text too: the domains are a closed set of three, so the worst
-    /// case is measurable — all three joined is 50 characters, which put the single
-    /// line at 85 and reopened the wide menu the ceiling exists to prevent. A hole
-    /// whose content is bounded is measured at its widest, never at the empty
-    /// string (docs/DECISIONS.md: menu-status-before-warnings).
+    /// The list is a closed set of three, so the widest line is measurable — all
+    /// three joined, 70 characters in English and 63 in Portuguese, under the
+    /// ceiling `MenuLineWidthTests` holds every menu line to
+    /// (docs/DECISIONS.md: menu-status-before-warnings).
     private func suspendedText(_ domains: [OSDSuppressionDomain]) -> String {
         let names = domains.map(localizedDomainName).formatted(.list(type: .and))
-        return String(
-            localized: "menu.osdSuspended.warning",
-            defaultValue: "The system indicator is back for\n\(names) —\nCrema couldn’t apply the change."
-        )
+        return String(localized: "menu.osdSuspended.warning", defaultValue: "Back to the system: \(names)")
     }
 
     private func localizedDomainName(_ domain: OSDSuppressionDomain) -> String {

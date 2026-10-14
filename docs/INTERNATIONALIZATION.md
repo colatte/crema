@@ -39,9 +39,7 @@ On the General tab this decides the section labels: the global declaration opens
 
 ## Menu strings have a width ceiling, and the ceiling lives in the catalog
 
-NSMenu sizes itself by the **widest** item, so a 116-character line opened the menu at ~1500 px (measured in the field). Every menu line (`menu.*`) stays at **~72 characters**; whatever exceeds that gets a `\n` in the catalog, and the code's `defaultValue` carries the same `\n` (the verbatim discipline still holds byte-for-byte).
-
-The break falls at a **clause of the language itself** — the em-dash, the period — never at the position of the neighbouring translation's break; the `en`/`pt-BR` pair keeps the same **number** of breaks, so the two versions have the same shape on screen. `CremaMenu.sentence` is what stacks the lines (one menu item per line, left-aligned like every native item — no centering, no truncating).
+NSMenu sizes itself by the **widest** item, so a 116-character line opened the menu at ~1500 px (measured in the field). Every menu line (`menu.*`) — an item's title, its subtitle, a fallback line — stays within **72 characters**, and `MenuLineWidthTests` holds that against the compiled tables. A line is cut to fit by rewording it, never broken and never truncated: a fact under its control is a fragment ("Drawing Card — no connected display has a notch"), no final period, the control above it being the subject (docs/DECISIONS.md: menu-status-before-warnings). If a `\n` ever enters a menu string, it falls at a clause of the language itself and the `en`/`pt-BR` pair keeps the same number of breaks — the same test checks that.
 
 ## No emoji in UI strings
 

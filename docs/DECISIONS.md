@@ -1387,198 +1387,127 @@ and the poll re-reads within its interval. Pinned by
 across an ask that starts and finishes.
 
 ### menu-status-before-warnings
-The menu bar was six conditional warning blocks stacked above three actions, each
-followed by its own separator, and the only positive line in it — the one saying
-the BetterDisplay integration was working — sat among them behind a "✓". With two
-conditions firing at once it read as a wall of warning glyphs; with none firing it
-said nothing at all about what the app was doing.
-Decision: the menu is **status first, warnings only when they exist, actions
-last**, and the whole split is decided in one pure place (`MenuStatus`) so the
-order and the gating are pinned by tests rather than resting on the shape of a view
-body.
-Five rules that type enforces:
-- **A status row is a fact, never a wish.** Every row is gated on the feature being
-  in effect: the brightness-target row speaks only while Crema is the one applying
-  the key — preference AND suppressor AND permission AND no suspended domain, the
-  `cremaApplies` gate — and where Crema does not apply, the row says nothing rather
-  than aiming a sentence at someone else's work. The claim about replacing the
-  system indicators was this rule's first example; see the amendment.
-- **The style row reports what the displays DRAW, not only what the picker
-  declared.** On any Mac without a slit the shipped default declares Notch while
-  every panel draws Card, so "Style: Notch" alone is false there — the same
-  contradiction `rendered-style-gates-settings` was written about. The fallback gets
-  its own row, in the very sentence the Settings footer already uses.
-- **The neighbour reporting is status, not a warning.** Same reading, moved: it is
-  the arrangement the app asked the user to make, not a fault.
-- **The brightness target is status too** — see `brightness-key-target-in-the-menu`.
-- **Warnings are ordered by urgency, and the order is the contract**: Accessibility
-  first (without it no media key arrives at all, and the chain reading cannot even
-  see us), launch-at-login last (it is about the next launch, not this session). A
-  warning that offers a repair is fenced by separators from its neighbours, stated
-  as one rule over the PAIR so two adjacent actionable warnings produce one
-  separator instead of two. One warning carries no button but a second sentence
-  instead — the dead Now Playing, whose trail out is the Automation access its
-  backup reader needs.
-Emoji are out, in both directions. "⚠️" carried the meaning the sentence has to
-carry anyway, VoiceOver reads it mid-sentence as noise, and six of them stacked is
-what made the menu unreadable. "✓" was worse than decorative: a checkmark in an
-NSMenu means a CHECKED item, so a title starting with one reads as a toggle that is
-on — which is exactly why the app's only good news read as noise. AppKit's own
-status menus (Wi-Fi, Bluetooth, Time Machine) carry no glyph on an informational
-row; they use plain disabled sentences, and that is what ships. SF Symbols via
-`Label` were considered and dropped: menu-item icons are for items that stand for
-an object, and a symbol that silently fails to render on an informational row
-leaves the sentence unmarked anyway.
-Cost, faced rather than inherited: the block reads two things that live outside the
-process, and one of them — `CGGetEventTapList`, behind `mediaKeyChainNotice()` —
-resets the min/max latency counters of every tap in the system, neighbouring apps'
-included. A view body is rebuilt whenever SwiftUI invalidates it, which is NOT the
-same as the user opening the menu, so a status block with more inputs means more
-rebuilds and, unbounded, more of those reads. `MediaKeyChainNotice.Cache` bounds
-them with a one-second **coalescing window**: a burst of rebuilds costs one
-reading, and the answer is never more than a window old. A window and not a set of
-invalidation edges, deliberately — **and the reason recorded here until 2026-08-07
-was false.** It claimed the edges are not enumerable from in here, that a
-neighbour installing or dropping a tap has no notification behind it. It does:
-CoreGraphics posts `kCGNotifyEventTapAdded` and `kCGNotifyEventTapRemoved`
-through notify(3) (`CGEventTypes.h`). The design is unchanged and the corrected
-reason is stronger: the cost is in the READ, not in the trigger. `CGGetEventTapList`
-zeroes the min/max latencies of every tap in the system on each call, so the
-reading must stay rare and tied to someone actually looking — subscribing to the
-edges would invert that, making a neighbour's toggle force a re-read (and reset
-every other app's counters) while nobody has the menu open. The window keeps the
-read where the question is asked and bounds staleness at one window; the stale
+The menu bar extra is a native menu (`MenuBarExtra`, menu style): the HIG asks a
+menu bar extra for "a menu — not a popover" unless the function is too complex for
+a menu, and this one carries a switch, a choice, a few facts and the app's
+commands. Its order and gating are decided in one pure place, `MenuStatus`, and
+pinned by tests rather than resting on the shape of a view body.
+
+**The shape is sections, in a fixed order**, each ABSENT rather than empty when it
+has nothing to say — an empty section still draws its separator, over nothing:
+- **Indicators**, titled with the Indicators tab's own name: the replacement
+  switch, then the `Style` submenu. Always present. The feature is opt-in and ships
+  OFF, so without the switch a fresh install's menu never names the headline
+  feature; and a real `Toggle` is the one place a checkmark belongs, the way Wi-Fi,
+  Bluetooth and Sound lead with theirs. The declared style is the checked item of
+  an inline Picker in the submenu, which says it AND lets the user change it there.
+- **Warnings**, untitled — each one names itself, and a heading over them would be
+  a second alarm.
+- **Now Playing**, titled with the Now Playing tab's name, only while a track is
+  named.
+- The app's own commands — Settings and updates, then Quit — untitled, like every
+  app's commands at the foot of a menu. They stay outside `MenuStatus`: nothing
+  gates them, and the update items exist only in Release, so a case for them there
+  is one the Debug-hosted suite can never reach.
+Separators come from the sections, never from a `Divider`: beside a section's own
+separator a `Divider` doubles it. Section titles reach AppKit's
+`NSMenuItem.sectionHeader(title:)` (macOS 14) through a SwiftUI `Section`
+(measured on macOS 27: `scripts/probes/menu-sections-and-subtitles.swift`).
+
+**A fact is the subtitle of the control it qualifies.** A fact on a line of its own
+reads as a disabled item — grey in a menu means unavailable — and sits apart from
+the control it explains. So every `Row` has a `Host`: what the replacement covers
+goes under the switch, the style fallback under the Style submenu, at most one per
+host. The rows' own rules:
+- **A row is a fact, never a wish.** It is gated on the feature being in effect: the
+  brightness rows speak only while Crema is the one applying the key — preference
+  AND suppressor AND permission AND no suspended domain, the `cremaApplies` gate —
+  and where Crema does not apply, the row says nothing rather than aiming a line at
+  someone else's work.
+- **A fact another surface already states is not news here.** What the user reads
+  on a control (General's "Open Crema at login" checkbox) or in a sentence Settings
+  states unconditionally (the pointer scope under the Indicators tab's switch) gets
+  no row: a permanent note on a healthy Mac teaches the reader that these lines are
+  decoration. On a healthy Mac `rows` is empty — the common shape.
+- **The style note reports what the displays DRAW.** On any Mac without a slit the
+  shipped default declares Notch while every panel draws Card; a checkmark states
+  the declaration and cannot say that nothing honours it
+  (`rendered-style-gates-settings`).
+- **The neighbour reporting is status, not a warning**: it is the arrangement the
+  app asked the user to make. The brightness target is status too
+  (`brightness-key-target-in-the-menu`), and `.builtInAmongOthers` maps to NO row —
+  telling a Mac that HAS a built-in display that Crema cannot control screen
+  brightness is false, not merely redundant.
+
+**A warning with a repair IS the repair.** The button is the item and the fact is
+its subtitle, so no sentence sits apart from the button that answers it; a warning
+with no repair is a disabled item whose subtitle is what it costs. Every button
+comes from `Warning.action` — an exhaustive mapping — so a repair cannot end up
+under a fact it does not fix. `.nowPlayingUnavailable` walks to the Permissions tab
+(`.openPermissionsTab`): not a repair, since nothing in this app revives a dead
+media source, and its line states the requirement — the backup reader needs
+Automation — never a verdict. **Warnings are ordered by urgency, and the order is
+the contract**: Accessibility first (without it no media key arrives at all, and
+the chain reading cannot even see us), launch-at-login last (it is about the next
+launch, not this session).
+
+**Subtitles where the platform shows them.** A second `Text` in an item's label
+reaches `NSMenuItem.subtitle` (macOS 14.4) — measured for a toggle, a button, a
+submenu and a disabled item on macOS 27 (same probe). Apple's documentation for that
+property shows the subtitle from macOS 15 and not on 14 for an attributed title, so
+on 14 the note is a line of its own (`MenuItemNote`): the same words, a line
+longer, a repair's fact before its button.
+
+**No glyphs, in either direction.** "⚠️" carries the meaning the line has to carry
+anyway, VoiceOver reads it mid-sentence as noise, and stacked it makes a menu
+unreadable. "✓" is worse than decorative: a checkmark in an NSMenu means a CHECKED
+item, so a title starting with one reads as a toggle that is on. SF Symbols via
+`Label` are out too: a menu-item icon stands for an OBJECT, and a symbol that
+silently fails to render leaves the line unmarked anyway.
+
+**Every line has a width ceiling.** An NSMenu is exactly as wide as its widest
+item: one 116-character line opened it at roughly 1500 pt (measured in the field).
+Every menu line — a title, a subtitle, a fallback line — stays within 72
+characters, and `MenuLineWidthTests` holds that against the compiled string tables.
+Nothing is centred and nothing is truncated. A hole filled from a CLOSED set is
+measured at its widest member, never at the empty string: the suspension note with
+all three domains named is 70 characters in English and 63 in Portuguese. A hole
+filled with EXTERNAL content — a track title, a neighbour app's name — has no worst
+case to measure and stays data rather than chrome.
+
+**The media section exists only while there is media.** Its gate is the line that
+names it (`NowPlayingMenuLine` other than `.nothing`), so neither a title nor a
+transport can be built over nothing; a command the player REFUSED greys its item in
+place, so the section does not flinch as availability moves (the rule
+`TransportControls` follows). That gate stays in `NowPlayingMenuSection`'s body
+instead of rising into `MenuStatus`: the type is built in `CremaMenu`'s body, whose
+every rebuild pull-reads the event-tap chain, and the media state is rewritten once
+a second (`menu-reads-mirrors`). What `MenuStatus` does gate is the chain: with no
+source reporting there is no media section at all, on the SAME value
+`.nowPlayingUnavailable` comes from, so a transport never sits under the line
+saying nothing is reporting.
+
+**Cost.** The status reading touches two things outside the process, and one of
+them — `CGGetEventTapList`, behind `mediaKeyChainNotice()` — resets the min/max
+latency counters of every tap in the system, neighbouring apps' included. A view
+body is rebuilt whenever SwiftUI invalidates it, which is NOT the same as the user
+opening the menu, so more inputs mean more rebuilds and, unbounded, more of those
+reads. `MediaKeyChainNotice.Cache` bounds them with a one-second **coalescing
+window**: a burst of rebuilds costs one reading, and the answer is never more than
+a window old. A window and not a set of invalidation edges, though the edges exist
+— CoreGraphics posts `kCGNotifyEventTapAdded` and `kCGNotifyEventTapRemoved`
+through notify(3) (`CGEventTypes.h`): the cost is in the READ, not in the trigger,
+so the reading stays rare and tied to someone actually looking, and subscribing to
+the edges would make a neighbour's toggle reset every other app's counters while
+nobody has the menu open. The window bounds staleness at one window, and a stale
 line here is an ACCUSATION against a named neighbour — the direction
-`media-key-chain-contention` says to err away from. Reopening gate: if the read
-ever stops being destructive, the edges exist and are named. The neighbour's delivered
-payload is a different kind of input, a free local flag that can flip with no
-notification at all, so it is part of the memo KEY rather than of its age.
-Two things the window deliberately does not buy: freshness within the window, and
-any claim about `loginItem.status`, which still crosses into Background Task
-Management once per rebuild — one reading, not two, which is why the instance-level
-`loginItemOutcome()` was removed in favour of `menuStatus`.
-
-**Amendment (2026-07-31): the menu now leads with the switch — the rule finished,
-not breached.** "✓" is banned inside a sentence because a checkmark in an NSMenu
-means a CHECKED ITEM; a real `Toggle` is that meaning used on purpose, and the
-menus this entry cites lead with theirs. A status row is a fact, so it could only
-speak once the feature was already in effect — and the feature is opt-in and ships
-OFF, so a fresh install's menu never named the headline feature at all. The
-suppression row went with the switch: over a checked item its only extra claim was
-"no domain suspended", and a suspension already speaks as the warning below. Cost
-unchanged — the switch reads the same two values the Settings toggle gates on and
-this body already receives, and the write stays behind a click.
-
-
-**Amendment (2026-07-31, second): the menu is four blocks, and the style row
-became the checked item that states it.** The rule finishing here is the one the
-first amendment started — a checkmark in an NSMenu means a CHECKED ITEM, so the
-two facts that ARE a checked item ship as controls rather than as sentences. The
-suppression row went with the Toggle; the style row goes with an inline Picker in
-a `Style` submenu, which says what the sentence said AND lets the user change it
-where they read it. What a checkmark cannot say stays a row: `styleFallsBackToCard`
-is a fact of FALLBACK, not of choice — a Notch tick beside a Card-shaped HUD is
-the contradiction `rendered-style-gates-settings` was written about — so it
-survives its neighbour and now opens the status block. One consequence, faced
-rather than inherited: with no row anchoring it, `rows` can be empty, so a block
-with nothing to say is ABSENT rather than empty (an empty group still draws the
-separator that opens it), and the menu's anchor is the Toggle, which never goes
-away.
-The split into `Block` (controls / status / warnings / media) is the second half,
-and it exists because the shape was already decided in two places: status and
-warnings in `MenuStatus`, the media group in the scene's ViewBuilder behind
-`nowPlayingMonitor.isActive` — the same fact `.nowPlayingUnavailable` is derived
-from, read twice, with no test able to see the second reading. A transport under
-the line that says nothing is reporting is the contradiction that costs; one gate
-in the pure type is the fix. The separator rule is stated over the block INDEX
-(`separatesBlock(at:)`, total at both borders) and not over which block it is,
-because what leads changes with what the app has to say. Deliberately still
-outside the type: the app's own actions (Settings, updates, quit) — nothing gates
-them, and the update item exists only in Release, so a case for it here is one
-the Debug-hosted suite can never reach.
-Third piece, one rule: **every button in the warning block comes from
-`Warning.action`.** The Accessibility warning carried a second, hardcoded button
-beside the one its action produced — which is how a repair ends up under a
-sentence it does not fix while the exhaustive switch still compiles.
-`.nowPlayingUnavailable` gains `.openPermissionsTab`: not a repair, since nothing
-in this app revives a dead media source, but the walk to where the backup
-reader's Automation requirement is granted — and its advice line drops the tail
-that named the tab, because the button under it IS the walk.
-Menu-item icons were reconsidered for the style submenu and rejected again, for
-the reason already stated: an icon stands for an OBJECT, and a symbol that
-silently fails to render leaves the row unmarked anyway.
-
-**Amendment (2026-07-31, third): menu lines have a width ceiling, and the catalog
-is what holds it.** An NSMenu is exactly as wide as its widest item, so one
-116-character status row — the brightness-target sentence — opened the whole menu
-at roughly 1500 pt (measured in the field). Decision: every status row, warning and
-advice is rendered as one plain item PER LINE (`CremaMenu.sentence`), and the breaks
-live beside the text in `Localizable.xcstrings` — about 72 characters a line, broken
-at a clause each translation picks for itself, since a break decided in code would
-cut English's clauses out of Portuguese. Nothing is centred and nothing is
-truncated: menu items are leading-aligned on this platform, and a clipped sentence
-is a fact the user cannot read. The width vector left is data rather than chrome — a
-long track title in the media block — and it stays as it is.
-
-**Amendment (2026-08-01, fourth): a row that restates another surface is not a
-fact.** "A status row is a fact, never a wish" had a second half it never stated:
-a fact the user already reads on a CONTROL, or in a sentence Settings states
-UNCONDITIONALLY, is not news in the menu. Two rows went by that half.
-`opensAtLogin` was the mirror of General's "Open Crema at login" checkbox — which
-is also where the fact is CHANGED, so the mirror was strictly the poorer surface,
-and the two warnings about a revoked or unapproved registration already cover
-every case where the checkbox and reality disagree. `brightnessFollowsPointer`
-was the menu's copy of `settings.hud.suppress.footer.brightnessScope`, the
-sentence the Indicators tab states under the switch that turns the replacement
-on, with no gate at all. Both were GATED redundancy, and a gate does not make a
-copy news: between them they kept the status block permanent on a healthy Mac,
-which is what teaches a reader that these lines are decoration rather than the
-app's own report.
-What survives is `brightnessNoBuiltIn` — no built-in panel in use, so Crema
-applies no brightness key at all — because nothing else in the app says it, and
-the `cremaApplies` gate survives with it, since that row makes the same promise
-about who applies. One trap named so it is never re-opened: `.builtInAmongOthers`
-maps to NO row, never to the surviving one — telling a Mac that HAS a built-in
-display that Crema cannot control screen brightness is false, not merely
-redundant (`brightness-key-target-in-the-menu`). `styleFallsBackToCard` survives
-for the reason the second amendment already gave: it is a fact of FALLBACK rather
-than of choice, and no checked item can state it.
-Consequence, faced rather than inherited: on a healthy Mac `blocks` is
-`[.controls, .media]` — the status block is ABSENT, which is exactly what making
-the block conditional was for, and the menu's anchor is still the Toggle, which
-never goes away. The empty-`rows` case the second amendment introduced is now the
-COMMON shape rather than the corner one.
-The media block learned the same distinction from the other side: the three
-transport items EXIST only while there is a track. A command the player REFUSED
-greys its item in place — the rule `TransportControls` follows, so the block does
-not flinch as availability moves — while a verb with no OBJECT is removed,
-because three permanently dead items under "Nothing playing" are the one part of
-this menu nobody can ever use. The gate comes off `NowPlayingMenuLine.namesMedia`,
-the SAME value the row above is drawn from, and it deliberately stays in
-`NowPlayingMenuSection`'s body instead of rising into `MenuStatus` with the rest
-of the menu's gating: `MenuStatus` is built in `CremaMenu`'s body, whose every
-rebuild pull-reads the event-tap chain, so a gate over the media state would hang
-that system-wide probe off a value rewritten once a second — the whole thesis of
-`menu-reads-mirrors`.
-
-**Amendment (2026-08-15, fifth): the width ceiling counts what the hole fills
-with.** The third amendment put every menu line under about 72 characters and
-moved the breaks into the catalog; it measured the STATIC text and stopped there.
-The suspension warning interpolates a list of domains, and the line was written as
-if `%@` were worth nothing: with all three domains suspended, "volume, screen
-brightness, and keyboard brightness" is 50 characters on its own and the single
-line reached 85 — the wide menu the ceiling exists to prevent, reachable by
-turning the app on and having three channels fail. The rule the ceiling was
-missing: **a hole whose content comes from a CLOSED set is measured at its widest
-member, never at the empty string.** Where the content is closed the worst case is
-a fact, and the break goes wherever that fact needs it — here BEFORE the list, so
-the interpolation owns a line of its own and the ceiling holds at 52 (en) and 44
-(pt-BR) instead of 85 and 86. Both languages keep the same number of breaks, as
-the third amendment already required.
-The complement is stated so it is not read as a licence: a hole filled with
-EXTERNAL content — a track title, a neighbour app's name — has no worst case to
-measure, which is why the third amendment left the media block as data rather than
-chrome. What changes here is only the chrome whose holes the app itself fills.
+`media-key-chain-contention` says to err away from. Reopening gate: if the read ever
+stops being destructive, the edges are named. The neighbour's delivered payload is
+a different kind of input, a free local flag that can flip with no notification,
+so it is part of the memo KEY rather than of its age. What the window does not buy:
+freshness within the window, and any claim about `loginItem.status`, which crosses
+into Background Task Management once per rebuild — one reading, through
+`menuStatus`, never a second.
 
 ### brightness-key-target-in-the-menu
 Correct behavior nobody can see reads as a bug: with an external monitor as the
@@ -1588,7 +1517,7 @@ been taught to drive, and no surface said so. (The first version of this entry
 justified it as a limit of the integration — the neighbour readable only for
 writing — which was our own probe asking through the metadata door; see
 `neighbour-features-are-not-identifiers`. The row is right; the reason was not.)
-Decision: the menu names the target, in one row of the status block, and only where
+Decision: the menu names the target, as the note under the replacement switch, and only where
 the row is both true and informative. Three states, from the display census: a lone
 built-in panel says nothing (there is no other screen to confuse it with); a
 built-in panel alongside another display gets the naming row; no built-in panel in
@@ -1675,10 +1604,16 @@ The menu's transport RENDERS the Coordinator's existing verdicts
 and adds only "is there media at all", which the surface never needs because it
 exists only when media does. One decision, two renderers: a menu that decided
 availability for itself would drift from the surface the first time a source
-accepted play/pause and rejected a skip. That one added predicate comes off the
-SAME value the status row is drawn from (`NowPlayingMenuLine.namesMedia`) — a
-separate `title != nil` test is how a row saying "Nothing playing" ends up over an
-enabled Pause.
+accepted play/pause and rejected a skip. That one added predicate decides
+EXISTENCE and is the line itself: the media section exists exactly when
+`NowPlayingMenuLine` names media, so neither a title nor a transport is built over
+nothing — a separate `title != nil` test is how a transport ends up under a line
+naming nothing. It stays in `NowPlayingMenuSection`'s own body, where observation of
+the mirrors is tracked, so a track change repaints that section without touching
+the body that pull-reads the tap chain; raised into `MenuStatus` it would give that
+body a 1 Hz dependency, the cost this entry exists to refuse. What `MenuStatus`
+gates instead is the chain: no media section while no source reports, off the SAME
+value `.nowPlayingUnavailable` comes from (`menu-status-before-warnings`).
 Corollary for anything else the menu wants to show: the question is never "is this
 value cheap to read" but "how often is the property I subscribe to written". A
 per-second property is a per-second menu.
@@ -1694,27 +1629,6 @@ write. It stays because the alternative is resting a 1 Hz system-wide tap probe 
 optimization inside Observation that no Apple document promises — the same reason
 this codebase never leans on behaviour it cannot see the other side of.
 
-
-Note (2026-07-31): the media lines moved from the scene's ViewBuilder into
-`CremaMenu`'s `.media` block. What makes the move safe is exactly what part (2)
-says — observation is tracked per BODY — so `NowPlayingMenuSection` still reads
-its own mirrors in its own body, and a track change repaints it without touching
-the block that pull-reads the tap chain. The gate that used to wrap it
-(`nowPlayingMonitor.isActive`, read in the scene) is now `MenuStatus.blocks`, off
-the SAME value `.nowPlayingUnavailable` is derived from: two readings of one fact
-is how a transport ends up under a line saying nothing is playing — the
-menu-level form of the `namesMedia` rule this entry already states.
-
-Note (2026-08-01): the added predicate now decides EXISTENCE. "Is there media at
-all" no longer greys the three transport items — it removes them, so a stopped
-player leaves the media block as its row alone. The two questions stay separate
-on purpose: a command the player REFUSED greys its item in place, so the block
-does not flinch as availability moves, while a verb with no object goes away. The
-identity this entry already demanded is unchanged and is load-bearing in a second
-way now — the gate IS `NowPlayingMenuLine.namesMedia`, the same value the row is
-drawn from — and it stays in the media view's own body: raising it into
-`MenuStatus` would give the block that pull-reads the tap chain a 1 Hz
-dependency, which is the cost this entry exists to refuse.
 
 ### brightness-key-follows-the-pointer
 The brightness key always acted on the built-in panel, whatever the user was

@@ -20,10 +20,10 @@ import SwiftUI
 /// media does and this menu exists always.
 ///
 /// The two questions are answered differently on purpose. A command the player
-/// REFUSED greys its item in place, so the block keeps its shape as availability
+/// REFUSED greys its item in place, so the section keeps its shape as availability
 /// moves (the rule TransportControls follows for the same reason). Media that does
-/// not exist takes the three items away instead: there is no object to act on, and
-/// three permanently dead verbs under "Nothing playing" are the one part of this
+/// not exist takes the whole section away instead, title included: there is no
+/// object to act on, and a line saying nothing is playing is the one part of a
 /// menu no user can ever use — the surface never faces the case because it only
 /// exists while media does.
 @MainActor
@@ -31,10 +31,10 @@ struct NowPlayingMenuSection: View {
     let coordinator: Coordinator
 
     var body: some View {
-        Text(statusRow)
-        // The gate reads the SAME value the row above is drawn from, and that
-        // identity is the contract: a second predicate over the media state is how a
-        // row saying "Nothing playing" ends up over an enabled Pause.
+        // The gate IS the row: the section exists exactly when there is a line
+        // naming media, so a title over nothing, or a transport under nothing,
+        // cannot be built. A second predicate over the media state is how a row
+        // naming nothing ends up over an enabled Pause.
         //
         // It deliberately does NOT rise into MenuStatus with the rest of the menu's
         // gating. That type is built in CremaMenu's body, whose every rebuild
@@ -42,34 +42,39 @@ struct NowPlayingMenuSection: View {
         // it would have to read is rewritten once a second, so the gate would buy
         // that probe a 1 Hz dependency. It belongs to the body that already reads
         // the mirrors, which is this one (docs/DECISIONS.md: menu-reads-mirrors).
-        if mediaLine.namesMedia {
-            Button(playPauseLabel) {
-                coordinator.togglePlayPause()
+        if let row = statusRow {
+            // Titled with the Now Playing tab's own name: one concept, one name.
+            Section(String(localized: "menu.section.nowPlaying", defaultValue: "Now Playing")) {
+                Text(row)
+                Button(playPauseLabel) {
+                    coordinator.togglePlayPause()
+                }
+                .disabled(!transportEnabled)
+                Button(String(localized: "transport.previousTrack", defaultValue: "Previous Track")) {
+                    coordinator.previousTrack()
+                }
+                .disabled(!skipEnabled)
+                Button(String(localized: "transport.nextTrack", defaultValue: "Next Track")) {
+                    coordinator.nextTrack()
+                }
+                .disabled(!skipEnabled)
             }
-            .disabled(!transportEnabled)
-            Button(String(localized: "transport.previousTrack", defaultValue: "Previous Track")) {
-                coordinator.previousTrack()
-            }
-            .disabled(!skipEnabled)
-            Button(String(localized: "transport.nextTrack", defaultValue: "Next Track")) {
-                coordinator.nextTrack()
-            }
-            .disabled(!skipEnabled)
         }
     }
 
-    /// The one read of the media state, feeding both the row and the gate.
+    /// The one read of the media state, feeding the row and, through it, the gate.
     private var mediaLine: NowPlayingMenuLine {
         NowPlayingMenuLine(title: coordinator.nowPlayingTitle, artist: coordinator.nowPlayingArtist)
     }
 
-    /// Media names are external content and stay verbatim (the StringProtocol
-    /// overload of Text, so no markdown is parsed out of an artist's name); what is
-    /// localized is the empty state and the composition joining the two names.
-    private var statusRow: String {
+    /// The line naming the media, or nil when there is none. Media names are
+    /// external content and stay verbatim (the StringProtocol overload of Text, so no
+    /// markdown is parsed out of an artist's name); what is localized is the
+    /// composition joining the two names.
+    private var statusRow: String? {
         switch mediaLine {
         case .nothing:
-            String(localized: "menu.nowPlaying.nothing", defaultValue: "Nothing playing")
+            nil
         case .title(let title):
             Self.fitted(title)
         case let .titleAndArtist(title, artist):
