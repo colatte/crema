@@ -50,7 +50,7 @@ struct HuggingWidthClampTests {
     @Test func placementProposesTheResolvedBoundsToTheChild() async {
         // The other half of the semantics: measurement reads the ideal, but
         // layout must propose the clamped width — the spacing regression this
-        // pins had the block floating centered at its intrinsic width inside
+        // pins leaves the block floating centered at its intrinsic width inside
         // a floor-clamped surface, with arbitrary margins.
         final class Box: @unchecked Sendable { var width: CGFloat = 0 }
         let box = Box()

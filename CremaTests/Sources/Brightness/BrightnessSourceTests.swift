@@ -333,15 +333,15 @@ struct BrightnessSourceTests {
     @Test(arguments: kinds)
     func aChannelUnavailableAtLaunchStillPollsOnceAKeyProvesItIsThere(kind: SystemHUD.Kind) async {
         // The cold-boot shape, on the keyboard channel: the backlight is enumerated
-        // over a connection that may not answer yet, and availability used to be
-        // decided once, at launch. A channel that answered nothing then had no
+        // over a connection that may not answer yet, so availability decided
+        // once, at launch, leaves a channel that answered nothing then with no
         // cadence for the rest of the session — its HUD dead until relaunch, with
-        // nothing the user could do about it.
+        // nothing the user can do about it.
         //
         // A key press is the evidence that the channel exists, so it is what arms
         // the cadence. Deliberately not a retry timer: hardware with no backlight at
-        // all must never be polled, which is what the launch guard was protecting
-        // and what the last assertion here still protects.
+        // all must never be polled, which is what the first assertion here
+        // protects.
         let backend = Self.backend(kind, available: false)
         let clock = TestSleepClock()
         let source = PolledBrightnessSource(kind: kind, backend: backend, clock: clock, pollInterval: 1, now: Self.frozenNow)
@@ -351,9 +351,9 @@ struct BrightnessSourceTests {
         backend.isAvailable = true
         await sampleAndRead(source, backend)   // the key, and with it the arming
 
-        // Asserted as a parked sleep rather than as an emission, and bounded: with
-        // the fix reverted nothing ever emits, so awaiting a value would hang the
-        // suite instead of failing it — the exact shape the house forbids.
+        // Asserted as a parked sleep rather than as an emission, and bounded: if the
+        // key fails to arm the cadence nothing ever emits, so awaiting a value would
+        // hang the suite instead of failing it — the exact shape the house forbids.
         #expect(await eventually { clock.pendingSleeps == 1 },
                 "the key proved the channel is there and no cadence was armed")
         _ = source

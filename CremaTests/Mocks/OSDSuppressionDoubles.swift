@@ -20,7 +20,7 @@ final class OSDSuppressorHarness {
     private(set) var suspensionChanges = 0
     /// Where the brightness keys aim. Mutable so a suite can move the pointer to
     /// another display; `.builtIn` by default because that is what every suite
-    /// written before the pointer rule assumes — one Mac, the key applies here.
+    /// not about the pointer rule assumes — one Mac, the key applies here.
     /// The suppressor's own parameter has NO default on purpose (a default would
     /// be the reported bug), so the choice is made here, once, in the open.
     ///
@@ -150,8 +150,8 @@ final class MockOSDChannel: OSDChannel, @unchecked Sendable {
     ///
     /// Apple documents this as the general case, not an exotic device
     /// (`AudioObjectSetPropertyData`, AudioHardware.h:302). It is the shape that
-    /// used to suspend a healthy domain — nothing moved, so the verify called it
-    /// a failed write and handed the keys back with a menu warning.
+    /// suspends a healthy domain under a single read-back — nothing moved, so the
+    /// verify calls it a failed write and hands the keys back with a menu warning.
     var publishesWriteLate = false
     private var lateValue: Double?
 

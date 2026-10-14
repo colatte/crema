@@ -36,7 +36,7 @@ import os
 /// reconciles the edge immediately, then restarts that same tail behind a short
 /// finite backoff of extra authoritative re-reads for the sub-second common skew.
 /// This is exact parity with the tap poll — both re-verify from init; the
-/// backoff alone was probabilistic, the unbounded tail makes the closure
+/// backoff alone is probabilistic, the unbounded tail makes the closure
 /// deterministic for a skew that outlasts it, a future latch of this class, or a
 /// dropped first notification. Each re-read feeds the same reconciler, so a
 /// redundant one is silent (dedup) and the first to see the settled truth emits

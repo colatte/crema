@@ -4,9 +4,9 @@ import Testing
 /// What a finished hover leaves behind: the shortened tail (hoverExitRelinger)
 /// the appearance keeps until a real event replaces it. A refinement — artwork
 /// or a duration landing a beat later — restarts the tuck timer through the
-/// plain path, and restarting it from the full linger handed the graze back the
-/// whole 3 s it had just given up, so the surface outstayed its own rule for as
-/// long as content kept trickling in.
+/// plain path, and restarting it from the full linger hands the graze back the
+/// whole 3 s it has just given up, so the surface outstays its own rule for as
+/// long as content keeps trickling in.
 ///
 /// Driven by the injectable clock; the test never really sleeps. The assertions
 /// read the clock's PARK RECORD rather than `delays.last`, because the hover

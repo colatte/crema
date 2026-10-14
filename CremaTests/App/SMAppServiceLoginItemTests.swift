@@ -7,9 +7,9 @@ import Testing
 /// Every other login-item test drives `MockLoginItem`, which proves the app's
 /// DECISIONS are right and says nothing about whether the type that talks to
 /// macOS maps them correctly. A mutation swapping the two service calls (so
-/// turning "open at login" ON unregisters the app) left the whole suite green:
-/// exactly the failure the author hit in the wild, and nothing would have caught
-/// it. These are the tests that would.
+/// turning "open at login" ON unregisters the app) leaves every other test
+/// green: exactly the failure the author hit in the wild. These are the tests
+/// that catch it.
 @MainActor
 struct SMAppServiceLoginItemTests {
 

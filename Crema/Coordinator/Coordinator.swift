@@ -247,8 +247,8 @@ final class Coordinator {
     /// reactive duration would silently downgrade every invoked appearance to
     /// ~3 s. A finished hover shortens it IN PLACE rather than handing its tail
     /// to one restart call (commitHover), because content arriving a beat later
-    /// restarts the timer through the same plain path: a tail that lived only in
-    /// that argument handed the graze back the whole linger it had just spent.
+    /// restarts the timer through the same plain path: a tail living only in
+    /// that argument would hand the graze back the whole linger it has just spent.
     @ObservationIgnored private var currentLinger: Double
     /// Provenance of `currentLinger` — true only for a click-invoked
     /// appearance. A flag, not a value compare against `invokedLinger`:
@@ -513,8 +513,8 @@ final class Coordinator {
             //
             // The cap goes into the appearance's own duration, not into one
             // restart: artwork landing during the tail restarts the timer from
-            // that duration, and a cap held only in an argument was undone by
-            // the next refinement — the graze got its whole 3 s back.
+            // that duration, and a cap held only in an argument is undone by
+            // the next refinement — the graze gets its whole 3 s back.
             if !lingerIsInvoked {
                 currentLinger = min(currentLinger, Self.hoverExitRelinger)
             }
@@ -896,10 +896,10 @@ final class Coordinator {
         // The app's own echo comes back through this same stream (the neighbour's
         // source yields it, so the bar follows the finger), and it must move the
         // bar and nothing else: it is the level the app ASKED for, which is not
-        // evidence of anything until a write answers. Taking it for a reading is
-        // how a failed drag once settled home on a brightness no display ever
-        // went to, and how a coalesced echo still in the pipe revived a channel
-        // the failure had just written off (docs/DECISIONS.md:
+        // evidence of anything until a write answers. Taking it for a reading
+        // lets a failed drag settle home on a brightness no display ever
+        // went to, and lets a coalesced echo still in the pipe revive a channel
+        // the failure has just written off (docs/DECISIONS.md:
         // the-bar-never-outruns-the-screen).
         if hud.provenance == .reading {
             // A fresh report is proof the neighbour is answering again, so a
@@ -964,7 +964,7 @@ final class Coordinator {
         // or a media event earned it during the HUD. A pointer merely resting on
         // the region during the HUD earns none: the region sits on the menu-bar
         // traffic lane, and resurrecting a tucked appearance from a stray cursor
-        // is the accidental-appearance class the click-invoke model removed. The
+        // is the accidental-appearance class the click-invoke model rules out. The
         // pointer still decides how it comes back: expanded under a committed
         // hover, and no tuck timer while it stays. One write for both layers, so
         // no frame pass sees the HUD gone with the appearance not yet settled.
@@ -1149,7 +1149,7 @@ final class Coordinator {
     /// The echo carries what the actuator actually WROTE, not what this frame
     /// asked for: an actuator that coalesces returns holding an argument several
     /// frames old, and echoing that argument yanks the bar backwards mid-gesture —
-    /// the flick a fast drag showed on the bar drawn on the external monitor
+    /// the flick a fast drag shows on the bar drawn on the external monitor
     /// itself. A conformer that can answer WITHOUT writing goes through
     /// `writeThroughNeighbour` instead, where its echo is kept apart from
     /// evidence; here, a successful return always follows a real write.

@@ -18,8 +18,8 @@ import AppKit
 @MainActor
 final class SurfaceHoverMonitor {
     /// Plain moves plus the three mouse-ups — the ups are the re-sync point
-    /// after a drag. `.mouseMoved` alone went blind the moment a button was
-    /// down, deferring a drag-exit unboundedly; the release now samples the
+    /// after a drag. `.mouseMoved` alone goes blind the moment a button is
+    /// down, deferring a drag-exit unboundedly; the release samples the
     /// resting point (docs/DECISIONS.md: hover-follows-the-eye). Drags are
     /// deliberately NOT sampled: a live drag that started on the surface's own
     /// control keeps overshooting the edge (the HUD slider clamps while the
@@ -81,10 +81,10 @@ final class SurfaceHoverMonitor {
         setActive(false)
     }
 
-    /// What detection is currently keyed on. Read-only, and it exists because the
-    /// panel's retarget calls were invisible to every test: the region MATH is
-    /// well pinned, but a mutation dropping the calls that push it left the suite
-    /// green while the previous state's silhouette stayed live as an invisible
+    /// What detection is currently keyed on. Read-only, and it exists because
+    /// without it the panel's retarget calls are invisible to every test: the region
+    /// MATH is well pinned, but a mutation dropping the calls that push it leaves the
+    /// suite green while the previous state's silhouette stays live as an invisible
     /// sticky band (docs/DECISIONS.md: hover-follows-the-eye).
     var currentRegions: SurfaceHoverRegions { model.regions }
 

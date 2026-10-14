@@ -161,8 +161,8 @@ enum CardMetrics {
 
     static let compactArtworkSide: CGFloat = 40
     static let compactArtworkRadius: CGFloat = 10
-    /// The artwork anchors the layout but must not dominate it (72 once ate
-    /// half the card and left the rest floating in leftover space).
+    /// The artwork anchors the layout but must not dominate it (at 72 it eats
+    /// half the card and leaves the rest floating in leftover space).
     static let expandedArtworkSide: CGFloat = 44
     static let expandedArtworkRadius: CGFloat = 10
     /// Fixed row heights so the section sum above is honest — and taken from the

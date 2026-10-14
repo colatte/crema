@@ -210,10 +210,10 @@ struct WindowManagerTests {
     }
 
     @Test func aDisplayConnectedLaterAdoptsTheDeclaredStyle() {
-        // The hotplug the all-displays picker used to miss: only the displays
-        // attached at pick time got a key, so a monitor plugged in afterwards
-        // fell to the shipped default (notch → card on a slitless panel) while
-        // Settings promised "Applies to every display".
+        // The hotplug an all-displays picker misses when it keys only the
+        // displays attached at pick time: a monitor plugged in afterwards falls
+        // to the shipped default (notch → card on a slitless panel) while
+        // Settings promises "Applies to every display".
         // (docs/DECISIONS.md: global-style-default)
         let h = Harness()
         let a = Self.screen("A")
@@ -229,7 +229,7 @@ struct WindowManagerTests {
     }
 
     @Test func twoScreensOnOneUUIDCostAPanelAndNotTheProcess() {
-        // Reconciliation used to index the roster with
+        // Reconciliation must not index the roster with
         // `Dictionary(uniqueKeysWithValues:)`, whose "no duplicate keys" is a
         // PRECONDITION — a trap, not an error. That runs at every hotplug and
         // reconfiguration, the one place this app owes graceful degradation, so a
@@ -468,7 +468,7 @@ struct WindowManagerTests {
     ///
     /// With one panel the two behaviours converge — deferred or nested, the last
     /// frame that panel receives is the fresh one — which is why the test below
-    /// stayed green against a mutation removing the guard entirely. With two, a
+    /// stays green against a mutation removing the guard entirely. With two, a
     /// nested pass runs to completion in the middle of the outer one, and the
     /// outer loop then hands its remaining panels the frame it computed BEFORE
     /// the state changed: the second display is left holding a stale silhouette
@@ -535,7 +535,7 @@ struct WindowManagerTests {
         panel.onFirstArmedApply = { [coordinator = base.coordinator] in
             coordinator.hover(true)
         }
-        // updateScreens is one of the passes that used to bypass the guard.
+        // updateScreens is one of the passes that must go through the guard.
         manager.updateScreens([Self.screen("A")])
 
         #expect(base.coordinator.state == .nowPlaying(track, expanded: true))
@@ -623,8 +623,8 @@ struct WindowManagerTests {
         // The "show now playing here" term of the invoke-zone condition, and it
         // needs a NOTCHED display to be visible at all: every other case that
         // reaches the condition runs on a slitless panel, where the resolved card
-        // has no zone whatever the preference says — so dropping the term left
-        // the suite green. The claim: a display the user muted must not capture
+        // has no zone whatever the preference says — so dropping the term leaves
+        // every other test green. The claim: a display the user muted must not capture
         // the click, because invoking would surface an appearance that this
         // panel then suppresses — a click swallowed for nothing.
         let h = Harness()
@@ -677,7 +677,7 @@ struct WindowManagerTests {
 
     @Test func showsNowPlayingPolicyReachesEachPanel() async {
         // The fixed window never orders out, so per-display suppression happens
-        // in the view via this flag — the frame alone no longer hides anything.
+        // in the view via this flag — the frame alone hides nothing.
         let h = Harness()
         let internalScreen = Self.screen("A", isInternal: true)
         let externalScreen = Self.screen("B", isInternal: false, frame: CGRect(x: 1000, y: 0, width: 1200, height: 800))

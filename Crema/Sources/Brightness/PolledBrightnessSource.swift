@@ -30,10 +30,10 @@ final class PolledBrightnessSource: SystemHUDSource, ManuallySampledSource, @unc
     /// the keyboard-backlight client, which re-enumerates the keyboard IDs on every
     /// call — and its callers are the MainActor (the suppressor's post-apply poke;
     /// the slider echo, once per drag frame) and the cooperative pool (the router
-    /// task, the poll). Reading on the caller's thread put that call on both, and
-    /// the volume sibling already paid for the lesson: inline, a stalled daemon
-    /// froze HUD, now playing and menu on the HEALTHY path, once per key, while the
-    /// key had already been swallowed (docs/DECISIONS.md: read-deadline-pool-rule,
+    /// task, the poll). Reading on the caller's thread puts that call on both, and
+    /// the volume sibling states the cost: inline, a stalled daemon freezes
+    /// HUD, now playing and menu on the HEALTHY path, once per key, while the
+    /// key has already been swallowed (docs/DECISIONS.md: read-deadline-pool-rule,
     /// async-signature-is-not-a-suspension-point). Serial rather than the global
     /// pool so this channel's readings register in the order they were asked for;
     /// the price is explicit — a blocked read holds this channel's readings, which
@@ -47,11 +47,11 @@ final class PolledBrightnessSource: SystemHUDSource, ManuallySampledSource, @unc
     private let keyActivityWindow: Double
     private let now: @Sendable () -> Date
     /// Readings a key asked for that have not come back yet, and how many of those
-    /// a `standDown()` has already spoken for. Needed because a reading now returns
+    /// a `standDown()` has already spoken for. Needed because a reading returns
     /// AFTER the call that asked for it: a key-driven reading emits on any change,
     /// window or not, so without this a neighbour reporting the same press while
-    /// our reading was in flight would still get a second bar drawn over it on our
-    /// own scale. That is the one thing plain ordering protected while the read ran
+    /// our reading is in flight would still get a second bar drawn over it on our
+    /// own scale. That is the one thing plain ordering would protect if the read ran
     /// on the caller's thread (docs/DECISIONS.md: betterdisplay-osd-source).
     private var pendingKeyReadings = 0
     private var spokenForKeyReadings = 0

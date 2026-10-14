@@ -603,11 +603,11 @@ final class AppCore {
         Self.declareStyleEverywhere(style, in: preferences, applyingTo: windowManager)
     }
 
-    /// Extracted as a static for the reason the other five wiring statics were
+    /// Extracted as a static for the reason the other five wiring statics are
     /// (`wireActiveSourceEnded`, the three `wire*Reinstall`, `reconcileLoginItemIntent`):
     /// reaching it through an instance means constructing `AppCore`, which boots the
-    /// real system sources, so the behaviour was unreachable by any test. And this
-    /// one line IS the regression — swapping it back for the old
+    /// real system sources, so through an instance the behaviour is unreachable by
+    /// any test. And this one line IS the regression — swapping it for
     /// `for screen in describeAll() { setStyle(_:for:) }` restores a monitor plugged
     /// in later drawing the shipped default under a picker that promises "applies to
     /// every display", and leaves the whole suite green.
@@ -1221,8 +1221,8 @@ extension AppCore {
     /// without this second sample. The mirror of `wireHandbackStandDown`, which
     /// covers the press this app does NOT take.
     ///
-    /// Extracted for the reason its mirror was: deleting one arm of that switch
-    /// left the whole suite green, measured. Volume is the arm that matters most
+    /// Extracted for the reason its mirror is: inline, deleting one arm of that
+    /// switch leaves the whole suite green, measured. Volume is the arm that matters most
     /// and reads most deletable — its comment argues Core Audio echoes anyway,
     /// which is true everywhere EXCEPT the scale boundary, where a consumed key
     /// writes nothing and fires no echo. Folding it into `.mute` would make the

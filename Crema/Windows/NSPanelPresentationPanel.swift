@@ -56,9 +56,9 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// Window facts for the tests that pin the fixed-window model. This class is
     /// opaque by design — reconciliation, frame math and style resolution live
     /// above it — but these two are invariants a one-line change breaks in
-    /// silence, and until these existed no test could see them at all: mutations
-    /// handing SwiftUI the power to size the window, and dropping the fixed
-    /// frame entirely, both left the whole suite green.
+    /// silence, and without them no test can see either: mutations handing
+    /// SwiftUI the power to size the window, and dropping the fixed frame
+    /// entirely, both leave every other test green.
     /// (AGENTS.md "Never do".)
     var currentWindowFrame: CGRect { panel.frame }
 
@@ -249,12 +249,11 @@ final class NSPanelPresentationPanel: PresentationPanel {
             return
         }
         // Reached only before the hosting view has reported a size, and measured:
-        // it reports during construction, so no apply has ever landed here. What
-        // used to live in this spot was a union-then-tighten settle over a
-        // calibrated constant, for the shrink case — machinery that cannot run,
-        // documented as live behaviour, with the constant asserted only against
-        // another constant. Anyone calibrating click-during-close would have
-        // turned a dial connected to nothing.
+        // it reports during construction, so no apply has ever landed here. No
+        // settle belongs in this spot: a union-then-tighten settle over a
+        // calibrated constant, for the shrink case, is machinery that cannot run,
+        // with the constant asserted only against another constant. Anyone
+        // calibrating click-during-close would turn a dial connected to nothing.
         //
         // The one line stays as a net: should a report ever be late, clicks land on
         // the rule frame rather than on nothing.
@@ -401,7 +400,7 @@ final class NSPanelPresentationPanel: PresentationPanel {
         // does — that is what keeps a click from falling through to whatever
         // sits below while also letting everything outside both rects through.
         // Right/other buttons inside the zone are captured but not acted on:
-        // the zone is the notch's dead slit, where they had nothing to hit
+        // the zone is the notch's dead slit, where they have nothing to hit
         // anyway (ignoresMouseEvents cannot be scoped per button).
         let interactive = SurfaceClickThrough.isInteractive(point, surface: interactiveRect)
             || SurfaceClickThrough.isInteractive(point, surface: invokeZone)

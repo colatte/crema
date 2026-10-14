@@ -188,8 +188,8 @@ struct MediaKeyChainSeamTests {
 }
 
 /// Two ways a neighbour listed ahead of us is innocent by the DOCUMENTED
-/// pipeline, not by position — both of which the registry used to discard, so
-/// both produced a false accusation against a named app.
+/// pipeline, not by position — both of which a registry that discards them
+/// turns into a false accusation against a named app.
 ///
 /// This decision errs toward silence on purpose (`media-key-chain-contention`):
 /// a missing line costs a diagnostic, a false line accuses somebody.
@@ -208,8 +208,8 @@ struct MediaKeyChainInnocenceTests {
     @Test func anAnnotatedSessionTapIsBehindUsWhereverItIsLISTED() {
         // CGEventTapLocation is an ordered pipeline — HID, session, annotated
         // session (CGEventTypes.h) — so this one receives AFTER our session tap
-        // no matter what index the registry hands it back at. It was being named
-        // purely for being listed first.
+        // no matter what index the registry hands it back at. Naming it purely
+        // for being listed first is a false accusation.
         let downstream = EventTapEntry.contender(pid: them, atAnnotatedSessionLocation: true)
         #expect(chain([downstream, .contender(pid: us)]) == .ours)
     }

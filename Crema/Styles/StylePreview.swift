@@ -167,8 +167,8 @@ enum StylePreview {
     /// (`NotchStyle.slit(on:)`) rather than derived a second time here. The
     /// picture is of the cutout the surface is drawn over, so two derivations of
     /// where that cutout is would eventually disagree — and on the reference
-    /// panel's measured asymmetry (663 left, 664 right) the two the app carried
-    /// already did, by half a point (docs/DECISIONS.md:
+    /// panel's measured asymmetry (663 left, 664 right) two such derivations
+    /// disagree by half a point (docs/DECISIONS.md:
     /// the-slit-is-found-from-its-edges). Nil is the answer for a display with no
     /// slit, and the caller only asks where the notch skin renders.
     private static func slit(of geometry: ScreenGeometry, in screen: CGRect) -> CGRect? {

@@ -100,8 +100,8 @@ enum ClassicMetrics {
     /// stack with slack in it. The padded height is 170 − 2 × 16 = 138, and the
     /// stack is artwork 80 + gap + the two-line text + gap + the 12 pt waveform:
     /// measured at 137 with an 8 pt gap, which is one point from collapsing the
-    /// vertical padding the way a 96 pt artwork once did. 7 buys back two, and
-    /// the point it replaces was inside a line height's rounding — luck, not a
+    /// vertical padding the way a 96 pt artwork does. 7 buys back two, and
+    /// the point it replaces sits inside a line height's rounding — luck, not a
     /// margin. Re-do this sum before growing anything in the compact stack.
     static let compactGap: CGFloat = 7
     /// The HUD breathes wider than the media states: a lone glyph over the

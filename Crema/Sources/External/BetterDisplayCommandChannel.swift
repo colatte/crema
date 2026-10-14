@@ -145,10 +145,10 @@ final class BetterDisplayCommandChannel: BrightnessCommandChannel {
         // the centre is suspended — and AppKit suspends it whenever the app is not
         // active, which an LSUIElement accessory essentially always is.
         //
-        // The asymmetry that made it worse was ours: the request already goes out
+        // The asymmetry to avoid is ours: the request already goes out
         // with `deliverImmediately: true`, so the neighbour hears us however it
-        // registered, while its answer was arriving into a registration that could
-        // be held. And a held answer is indistinguishable from silence here — the
+        // registered, while an answer taken through a cover would arrive into a
+        // registration that can be held. And a held answer is indistinguishable from silence here — the
         // deadline fires, the drag reports a failed apply and rolls the bar back
         // over a write that actually landed.
         let relay = DistributedPayloadRelay { [weak self] json in self?.handle(response: json) }

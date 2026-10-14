@@ -34,11 +34,11 @@ final class DisplayServicesBridge: BrightnessBackend, Sendable {
     /// which is also why external brightness belongs to the neighbour integration
     /// and not here. The stability: CGDisplayID
     /// values are reassigned across sleep/wake and reconfiguration, so a captured
-    /// ID goes stale and rots the path until relaunch (which is why a restart once
-    /// "cured" it and a toggle did not).
+    /// ID goes stale and rots the path until relaunch (which is why a restart
+    /// "cures" it and a toggle does not).
     ///
     /// Naming the built-in panel is also what makes per-operation resolution
-    /// unambiguous rather than a straddle: the identity can no longer change
+    /// unambiguous rather than a straddle: the identity cannot change
     /// between the read and the write of one apply-verify cycle, only the numeric
     /// ID standing for it — which re-resolving is precisely how we track. It is a
     /// cheap enumeration, so paying it twice costs nothing and needs no

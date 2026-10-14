@@ -47,8 +47,8 @@ struct CardViewTests {
     }
 
     @Test func compactAndExpandedSurfacesHugShortAndCapLongContent() async {
-        // Rendered layout of the real surface (headless sizeThatFits) — the
-        // adaptive width shipped inert once because only metrics were pinned.
+        // Rendered layout of the real surface (headless sizeThatFits) — with
+        // only metrics pinned, the adaptive width can ship inert.
         let h = CoordinatorHarness()
 
         let short = NowPlaying(title: "Ay", isPlaying: true, position: 0)

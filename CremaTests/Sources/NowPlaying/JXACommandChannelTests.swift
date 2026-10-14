@@ -4,7 +4,7 @@ import Testing
 /// The fallback chain's seek argument, where a number from the border is
 /// interpolated into a JavaScript statement instead of narrowed to an `Int`. The
 /// failure mode is the quieter of the two the family has: `max(0, .nan)` is 0, so
-/// an unusable number used to become a silent seek to the START of the track —
+/// an unusable number left unguarded becomes a silent seek to the START of the track —
 /// the player obeys, the user watches the song jump back, and nothing anywhere
 /// reports a failure. The adapter sibling (`AdapterSeekArgumentTests`) guards the
 /// same value for the same reason; only the trap it avoids differs.

@@ -186,8 +186,8 @@ struct DisplayStyleListOfferTests {
 
     @Test func aSoleBuiltInDisplayOffersTheListBecauseTheSurfaceStartsOnThere() {
         // Kills: the internal panel answered entirely by the all-displays section —
-        // the gate this rule shipped with, and the mirror of the bug the external
-        // clause below was written for. The style popup on a lone laptop does repeat
+        // the mirror of the bug the external clause below exists for. The style
+        // popup on a lone laptop does repeat
         // the declaration, but the row also carries the ONLY "show the player here"
         // switch in the app, and the surface is born ON here — the default is
         // literally `isInternal`, pinned in PreferencesTests — so withholding the row

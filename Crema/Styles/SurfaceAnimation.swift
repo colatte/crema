@@ -68,10 +68,10 @@ enum SurfaceAnimation {
     /// to the surface's branches, which also governs the bounds the material,
     /// clips and stroke are sized off (a `.background`/clip sized to the node
     /// below the modifier). It must therefore SNAP that geometry on an
-    /// APPEARANCE from hidden: with a spring here the material sprang from the
-    /// invisible compact/empty rect to the destination and drew OUTSIDE the
-    /// snapped outer frame — the ghost the author saw grow-and-shrink behind the
-    /// HUD (the fixed window is larger than every state, so there was room to
+    /// APPEARANCE from hidden: with a spring here the material springs from the
+    /// invisible compact/empty rect to the destination and draws OUTSIDE the
+    /// snapped outer frame — a ghost that grows and shrinks behind the
+    /// HUD (the fixed window is larger than every state, so there is room to
     /// show it). On appearance the surface is invisible anyway (opacity 0, faded
     /// in separately), so the branch swap needs no motion — nil.
     ///

@@ -125,8 +125,8 @@ struct CoordinatorInvokeTests {
         // commits the hold.
         #expect(h.coordinator.state == .nowPlaying(track, expanded: true))
 
-        // Pointer leaves: the tuck must run on the invoked linger — the
-        // hardcoded-reactive restart was exactly the bug that made the 5 s
+        // Pointer leaves: the tuck must run on the invoked linger — a
+        // hardcoded-reactive restart is exactly the bug that makes the 5 s
         // unreachable in production.
         h.coordinator.hover(false)
         #expect(h.coordinator.state == .nowPlaying(track, expanded: false))

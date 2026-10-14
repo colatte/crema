@@ -5,8 +5,8 @@ import Foundation
 /// echo the instant the frame arrives (a fill frozen under a moving finger reads
 /// as a broken control), but only a level that actually reached the wire may
 /// serve as EVIDENCE — the level a failed gesture rolls back to. Folding the two
-/// into one bare Double is how an echoed-but-never-written level once became
-/// "confirmed" and the rollback settled the bar on a brightness no display went
+/// into one bare Double lets an echoed-but-never-written level become
+/// "confirmed" and the rollback settle the bar on a brightness no display went
 /// to (docs/DECISIONS.md: the-bar-never-outruns-the-screen).
 enum BrightnessWriteEcho: Equatable, Sendable {
     /// This level went out on the wire for the display the call named.
@@ -128,9 +128,9 @@ final class BetterDisplayScreenBrightnessController: CoalescingScreenBrightnessW
         while true {
             // The decision to stop draining and the release of inFlight happen in
             // ONE critical section. Split apart (queued check here, inFlight reset
-            // in a defer), a frame slipping in between saw inFlight still true,
-            // echoed as coalesced, and was never drained by anyone — the screen
-            // stayed a level behind a bar that reported success.
+            // in a defer), a frame slipping in between sees inFlight still true,
+            // echoes as coalesced, and is never drained by anyone — the screen
+            // stays a level behind a bar that reports success.
             let next = lock.withLock { () -> QueuedWrite? in
                 guard let pending = queued else {
                     inFlight = false

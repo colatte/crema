@@ -36,7 +36,7 @@ struct DomainTypesTests {
     }
 
     @Test func theBuiltInPanelIsARoleDistinctFromNamingNoDisplay() {
-        // Two different facts the old `DisplayUUID?` folded into one nil: no screen
+        // Two different facts a bare `DisplayUUID?` folds into one nil: no screen
         // owns this reading, versus the internal panel owns it. Only the second
         // scopes the bar, so the values must NOT compare equal or presentation
         // could not tell them apart. Actuation still sees nil for both, because

@@ -48,11 +48,11 @@
     --cream:#d6bd94;
     --cream-hi:#eedcbb;
 
-    /* Three steps, and the faintest one still clears 4.5:1 on the page
-       ground. The previous tertiary sat at .38, which measures 2.97:1 —
-       under it the claims row, both captions and the footer links were
-       decoration shaped like text. Secondary moved up with it so the
-       hierarchy keeps three distinguishable steps instead of two. */
+    /* Three steps, and the faintest one clears 4.5:1 on the page
+       ground. A tertiary at .38 measures 2.97:1 — under it the claims
+       row, both captions and the footer links are decoration shaped like
+       text. Secondary sits high enough above it that the hierarchy keeps
+       three distinguishable steps instead of two. */
     --ink:#efe8dd;
     --ink-2:rgba(239,232,221,.72);
     --ink-3:rgba(239,232,221,.55);
@@ -198,11 +198,11 @@
 
      A notch is a SMALL thing, and it stays one by carrying little: the
      mark, three section links and, once the hero has scrolled away, one
-     small button. It used to carry five links and a large capitals-set
-     pill, which made it a bar with rounded corners — the metaphor only
-     reads when the shape stays narrow. Philosophy went because nobody
-     navigates to a philosophy; GitHub went because the page already links
-     it three times (hero, close, footer). */
+     small button. Five links and a large capitals-set pill make it a bar
+     with rounded corners — the metaphor only reads when the shape stays
+     narrow. No Philosophy link, because nobody navigates to a philosophy;
+     no GitHub link, because the page already links it three times (hero,
+     close, footer). */
   .nav{position:fixed;top:0;left:0;right:0;z-index:100;
        display:flex;justify-content:center;pointer-events:none;
        padding-top:env(safe-area-inset-top,0px)}
@@ -227,8 +227,8 @@
       transparent calc(var(--fillet) - 1px), var(--notch-ink) var(--fillet))}
 
   /* Vertical padding on both of the notch's own controls: a thumb has to
-     land on them and they were the last two under 44px. It costs the notch
-     four pixels of height and nothing else. */
+     land on them, and without it they are the last two under 44px. It
+     costs the notch four pixels of height and nothing else. */
   .brand{display:flex;align-items:center;gap:9px;font-weight:600;
          font-size:15px;letter-spacing:-.01em;text-decoration:none;flex:none;
          padding:9px 0}
@@ -245,9 +245,9 @@
      row. The slot is a one-column grid so the width animates (0fr → 1fr)
      instead of the notch jumping wider by a button; without JS there is no
      `.js` class and the slot is simply open. Sentence case, not capitals:
-     capitals on this page belong to the eyebrows, and the previous
-     letter-spaced "GET CREMA" was the loudest object on the first screen
-     of a page called quiet. */
+     capitals on this page belong to the eyebrows, and a letter-spaced
+     "GET CREMA" is the loudest object on the first screen of a page
+     called quiet. */
   .get-slot{display:grid;grid-template-columns:1fr;flex:none;
             transition:grid-template-columns .44s var(--ease), margin .44s var(--ease)}
   /* Folded, the slot also hands back the flex gap before it and pads the
@@ -279,7 +279,7 @@
      rather than the links simply vanishing at a breakpoint. */
   /* 44px is the target, not the drawing: the three bars stay 16px wide and
      the button grows around them. The only control on this page a thumb has
-     to find was 38px. */
+     to find, and drawn bare it is 38px. */
   .burger{display:none;flex-direction:column;align-items:center;justify-content:center;
     gap:4px;width:44px;height:44px;padding:0;border:0;border-radius:12px;
     background:transparent;cursor:pointer;flex:none}
@@ -333,8 +333,8 @@
   .claims li{display:flex;align-items:center}
   .claims li+li::before{content:"·";margin:0 11px;opacity:.5}
   /* The rule comes from text-decoration, not a border: a border sits at the
-     edge of the padding box, so growing the hit area pushed the underline
-     away from the word AND, because the padding was then asymmetric, dropped
+     edge of the padding box, so growing the hit area would push the
+     underline away from the word AND, the padding being asymmetric, drop
      this one item below the baseline of the row it belongs to. */
   .claims a{color:inherit;padding:8px 0;text-decoration:underline;
             text-decoration-color:var(--line-hi);text-underline-offset:3px}
@@ -366,9 +366,9 @@
          top:max(88px, calc((100vh - var(--stage-h)) / 2));
          top:max(88px, calc((100svh - var(--stage-h)) / 2))}
   .machine{max-width:980px;margin:0 auto}
-  /* A plain frame. It used to carry a moulded notch of its own, which made
+  /* A plain frame, with no moulded notch of its own: one would make
      three on one page — the nav's, this one, and the real one inside the
-     recording, which the fake one overlapped. The frame's job is to hold
+     recording, which the fake one would overlap. The frame's job is to hold
      the film, not to re-tell the joke.
 
      The scale is the antidote to the dead stop. Sticky parks the film by

@@ -4,14 +4,14 @@ import CoreGraphics
 /// (the visible surface plus comfort) and a larger exit region (enter plus the
 /// sticky band) decouple hover detection from the frame the panel animates
 /// through: a still cursor is judged against these stable rects, not the
-/// surface edge that sweeps under it while the window resizes. That sweep,
-/// read by a single in/out threshold, was the open/close loop.
+/// surface edge that sweeps under it while the content animates. That sweep,
+/// read by a single in/out threshold, makes an open/close loop.
 ///
 /// The regions are retargeted per state/rendered surface (the panel pushes on
 /// every apply and size report), so the exit band is a thin margin around what
-/// the eye currently sees — never a union of states. The state-blind union was
+/// the eye currently sees — never a union of states. A state-blind union is
 /// the stuck-hover bug: a 100 pt invisible band below the compact notch where
-/// a resting cursor held the surface forever (docs/DECISIONS.md:
+/// a resting cursor holds the surface forever (docs/DECISIONS.md:
 /// hover-follows-the-eye).
 struct SurfaceHoverRegions: Equatable {
     /// Per-edge sticky band beyond `enter`, in screen coordinates (y up:
@@ -51,8 +51,8 @@ struct SurfaceHoverRegions: Equatable {
     /// the last rendered truth when one exists. Errs TIGHT on purpose — during
     /// the frame before the new size report lands, an under-armed region is
     /// harmless (the report widens it), while either stale rect alone
-    /// re-creates a closed bug: the previous state's silhouette held the stuck
-    /// band, and the bare rule ceiling re-armed the card's dead air. Nil when
+    /// re-creates a closed bug: the previous state's silhouette holds the stuck
+    /// band, and the bare rule ceiling re-arms the card's dead air. Nil when
     /// the intersection is degenerate (keep the last regions).
     static func forApply(ruleFrame: CGRect, lastRendered: CGRect?, margins: Margins) -> Self? {
         let base = lastRendered.map { $0.intersection(ruleFrame) } ?? ruleFrame

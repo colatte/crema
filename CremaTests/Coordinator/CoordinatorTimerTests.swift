@@ -84,12 +84,12 @@ struct CoordinatorTimerTests {
     }
 
     @Test func revertAfterPointerExitRestoresTheHeldNowPlayingExpanded() async {
-        // With the hold (docs/DECISIONS.md: hud-capsule-track) the revert can
-        // no longer fire while the pointer rests on the HUD — it restarts on
+        // With the hold (docs/DECISIONS.md: hud-capsule-track) the revert
+        // cannot fire while the pointer rests on the HUD — it restarts on
         // pointer exit. Entering through the intent path keeps `isHovering`
         // committed while the exit debounce is pending, so a revert firing in
-        // that window still restores the now-playing EXPANDED — the corner the
-        // old always-armed revert pinned directly.
+        // that window still restores the now-playing EXPANDED — the corner an
+        // always-armed revert would pin directly.
         let h = CoordinatorHarness()
         let track = CoordinatorHarness.playingTrack()
         h.nowPlayingSource.emit(track)

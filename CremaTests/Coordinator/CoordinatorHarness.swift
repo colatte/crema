@@ -10,7 +10,7 @@ struct CoordinatorHarness {
     let screen = MockScreenBrightnessController()
     let keyboard = MockKeyboardBrightnessController()
     /// The neighbour's actuator (BetterDisplay). Present only when a test asks
-    /// for it, so every existing test keeps the single-actuator wiring it had.
+    /// for it, so every other test keeps the single-actuator wiring.
     let external: MockScreenBrightnessController?
     let clock = TestSleepClock()
     /// Screen-brightness drag writes the Coordinator has finished, fallback and

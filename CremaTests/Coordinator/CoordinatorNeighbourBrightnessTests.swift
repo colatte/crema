@@ -3,8 +3,8 @@ import Testing
 @testable import Crema
 
 /// A bar drawn from a neighbouring app's report, and what a drag on it owes the
-/// user. The three pins here are the three ways this went wrong in review:
-/// a frozen bar, a dead control, and a write on the wrong scale
+/// user. The three pins here are the three ways it goes wrong, each found in
+/// review: a frozen bar, a dead control, and a write on the wrong scale
 /// (docs/DECISIONS.md: betterdisplay-osd-source).
 @MainActor
 struct CoordinatorNeighbourBrightnessTests {
@@ -66,8 +66,8 @@ struct CoordinatorNeighbourBrightnessTests {
         // cannot arrive before the failed one's catch has already run, so if the
         // failure had echoed it would be sitting in front of this one. Asserting
         // "nothing echoed" straight after the failure would race the catch and
-        // pass either way — which is exactly how this test first shipped green
-        // against the very mutation it exists to catch.
+        // pass either way — green against the very mutation this test exists
+        // to catch.
         h.screen.acceptEverything()
         h.coordinator.hudSliderChanged(to: 0.6)
         #expect(await eventually { applied.last != nil })
@@ -379,9 +379,9 @@ struct CoordinatorNeighbourBrightnessTests {
     @Test func aCoalescedEchoAloneIsNeverEvidenceForTheSettle() async {
         // A coalesced answer arrives BEFORE anything reaches the wire — it exists
         // so the bar follows the finger, and that is all it may do. Recording it
-        // as a confirmed write is how a bar once settled, after a failed gesture,
-        // on a level no display ever went to: the echo had promised 0.9, nobody
-        // wrote it, and the rollback took the promise for evidence.
+        // as a confirmed write settles the bar, after a failed gesture, on a
+        // level no display ever went to: the echo promises 0.9, nobody writes
+        // it, and the rollback takes the promise for evidence.
         let h = CoalescingHarness()
         let applied = Applied()
         h.coordinator.onBrightnessApplied = { applied.record($0) }
@@ -410,9 +410,9 @@ struct CoordinatorNeighbourBrightnessTests {
         // closes it: the neighbour's source yields the app's own echo back into
         // the HUD stream (`AppCore.wireBrightnessEcho` → `noteApplied`), and it
         // arrives at `handleHUDUpdate` on the same path a spontaneous report
-        // takes. Recorded there as a reading, the promised 0.9 became "confirmed"
-        // one hop later than the guard in `writeThroughNeighbour` could see, and
-        // the rollback settled the bar on it. Only the loop shows that.
+        // takes. Recorded there as a reading, the promised 0.9 becomes "confirmed"
+        // one hop later than the guard in `writeThroughNeighbour` can see, and
+        // the rollback settles the bar on it. Only the loop shows that.
         let neighbour = BetterDisplayOSDSource(target: { _ in nil })
         let h = CoalescingHarness(alsoHearing: neighbour)
         AppCore.wireBrightnessEcho(

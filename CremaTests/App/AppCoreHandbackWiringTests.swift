@@ -4,10 +4,10 @@ import Testing
 
 /// The production wiring of the hand-back seam, which the isolated halves never
 /// exercise: the suppressor's suite proves the callback fires, and each sampler's
-/// suite proves `standDown()` spends its window, but nothing until here proved that
-/// AppCore routes a given key to the RIGHT sampler. Deleting one arm of that switch
-/// left the whole suite green — measured — and brought back the double bar for the
-/// press that recovers a late-enumerating backlight
+/// suite proves `standDown()` spends its window, but nothing outside this suite
+/// proves that AppCore routes a given key to the RIGHT sampler. Deleting one arm of
+/// that switch leaves every other test green — measured — and brings back the
+/// double bar for the press that recovers a late-enumerating backlight
 /// (docs/DECISIONS.md: absent-capability-hands-the-key-back).
 @MainActor
 struct AppCoreHandbackWiringTests {

@@ -16,7 +16,7 @@ struct CoordinatorHUDRevertCorrectionTests {
         h.screen.refuseEverything()
 
         // A visible appearance under the HUD is what makes the revert take the
-        // resuming arm instead of hiding — the arm that used to keep the mark.
+        // resuming arm instead of hiding — the arm that, unguarded, keeps the mark.
         let track = CoordinatorHarness.playingTrack()
         h.nowPlayingSource.emit(track)
         #expect(await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) })

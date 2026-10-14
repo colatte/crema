@@ -86,10 +86,10 @@ struct AdapterPayloadTranslationTests {
 
     /// The line is verbatim from the wire: a Twitch live in Firefox, captured
     /// from the vendored adapter. Live content does not omit the duration — it
-    /// reports LLONG_MAX microseconds, which the old `> 0` test waved through as
-    /// 292 thousand years. Letting it through gave the scrubber a fake range to
-    /// drag over, and dragging to the end scaled it back up to exactly 2^63,
-    /// where `Int(Double)` traps: the app died on a normal gesture.
+    /// reports LLONG_MAX microseconds, which a `> 0` test waves through as
+    /// 292 thousand years. Letting it through gives the scrubber a fake range to
+    /// drag over, and dragging to the end scales it back up to exactly 2^63,
+    /// where `Int(Double)` traps: the app dies on a normal gesture.
     @Test func theLiveSentinelDurationIsNotADuration() throws {
         let line = #"{"type":"data","diff":false,"payload":{"title":"Live","playing":true,"elapsedTimeMicros":2741906069,"durationMicros":9.2233720368547758e+18}}"#
         let np = try #require(translate(line))

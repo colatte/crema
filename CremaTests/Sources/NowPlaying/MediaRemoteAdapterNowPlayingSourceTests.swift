@@ -25,7 +25,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
 
     /// Both clocks the source reads, driven together or apart. The ticker samples
     /// (docs/DECISIONS.md: sample-dont-integrate), so a tick only moves the position
-    /// if time moved — the coupling the old `+1 per tick` assertions were missing.
+    /// if time moved — the coupling a `+1 per tick` assertion misses.
     ///
     /// Two of them because the source ages on a suspending stopwatch (it stops while
     /// the machine sleeps) and reads the
@@ -89,10 +89,10 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
     }
 
     @Test func aLateTickLandsOnTheTruePositionInsteadOfOneSecond() async {
-        // The field bug (docs/DECISIONS.md: sample-dont-integrate): a throttled
-        // or coalesced tick used to add exactly one second no matter how long it
-        // had really been, and since players re-anchor only on state changes,
-        // the loss accumulated for the whole track.
+        // The field bug (docs/DECISIONS.md: sample-dont-integrate): a ticker that
+        // adds one second per tick loses time on every throttled or coalesced
+        // tick, and since players re-anchor only on state changes, the loss
+        // accumulates for the whole track.
         let (lines, feed) = AsyncStream<String>.makeStream()
         let clock = TestSleepClock()
         let wall = TestWallClock()
@@ -148,16 +148,16 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         source.tick(ifCurrent: 1)
         #expect(await iterator.next()?.position == 40)
 
-        // Backward: an NTP step correction or a manual clock change. The bar used to
-        // follow it straight back to the anchor's own position, undoing playback the
-        // user had already watched.
+        // Backward: an NTP step correction or a manual clock change. A bar aged on
+        // the wall clock follows it straight back to the anchor's own position,
+        // undoing playback the user has already watched.
         wall.jumpWallClock(-30)
         source.tick(ifCurrent: 1)
         #expect(await iterator.next()?.position == 40)
 
-        // Forward, the half a monotonic floor could never have covered: the bar was
-        // thrown ahead and clamped at the duration, and stayed there until the next
-        // payload — which on this adapter only arrives on a state change.
+        // Forward, the half a monotonic floor cannot cover: a bar aged on the wall
+        // clock is thrown ahead and clamped at the duration, and stays there until
+        // the next payload — which on this adapter only arrives on a state change.
         wall.jumpWallClock(600)
         source.tick(ifCurrent: 1)
         #expect(await iterator.next()?.position == 40)
@@ -197,9 +197,8 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
 
     @Test func aBackwardSeekReanchorsTheTickerAtItsTarget() async {
         // The scrubber's release re-anchors through the hint instead of a
-        // payload, and the floor depends on the same invariant: noteSeek
-        // rewrites the shown line together with the anchor, so the floor moves
-        // down with it and the ticker counts from the target.
+        // payload: noteSeek rewrites the shown line together with the anchor,
+        // so the ticker counts from the target.
         let (lines, feed) = AsyncStream<String>.makeStream()
         let wall = TestWallClock()
         let source = MediaRemoteAdapterNowPlayingSource(
@@ -217,11 +216,9 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
     }
 
     @Test func aNegativeRateWalksTheBarBackward() async {
-        // The floor guards the CLOCK, not the direction of playback: a rewind
-        // scan reports a negative rate, the payload math ages by that sign, and
-        // the tick must agree instead of freezing. This is also the one case the
-        // non-negative age still decides — with the rate negative, a backward
-        // clock would otherwise advance the bar.
+        // Immunity to the clock is not a ban on going backward: a rewind scan
+        // reports a negative rate, the payload math ages by that sign, and the
+        // tick must agree instead of freezing.
         let (lines, feed) = AsyncStream<String>.makeStream()
         let wall = TestWallClock()
         let source = MediaRemoteAdapterNowPlayingSource(
@@ -237,8 +234,8 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         #expect(await iterator.next()?.position == 98)         // honestly backward, not floored
 
         // A clock correction cannot walk a rewind scan the wrong way either: with a
-        // negative rate, a backward wall clock used to ADVANCE the bar, which is why
-        // the removed floor needed a rate exception to begin with.
+        // negative rate, a bar aged on the wall clock ADVANCES when that clock steps
+        // back, which is why a monotonic floor would need a rate exception.
         wall.jumpWallClock(-5)
         source.tick(ifCurrent: 1)
         #expect(await iterator.next()?.position == 98)
@@ -463,7 +460,7 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         // when a new anchor lands would add a full interval on top of a
         // position just aged to delivery time — and the reconciliation would
         // hold that overshoot for the rest of the track. The generation guard
-        // is the fix; the timing can't be forced through the stream, so the
+        // stops it; the timing can't be forced through the stream, so the
         // stale tick is driven directly.
         let (lines, feed) = AsyncStream<String>.makeStream()
         let wall = TestWallClock()

@@ -233,7 +233,7 @@ struct NotchFrameRuleTests {
     }
 
     @Test func theMorphNeverMovesTheLateralEdges() {
-        // The hover shimmer was exactly this: any lateral drift between the
+        // The hover shimmer is exactly this: any lateral drift between the
         // states re-rasterizes the edge against the cutout mid-animation.
         for geometry in [notched, ScreenGeometry(frame: CGRect(x: 0, y: 0, width: 1512, height: 982), safeTop: 32, auxLeft: 663.4, auxRight: 663.4)] {
             let compact = style.frame(for: .nowPlaying(track, expanded: false), on: geometry)

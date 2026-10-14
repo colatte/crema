@@ -128,7 +128,7 @@ private struct VibrancyMaterial: NSViewRepresentable {
         let view = NSVisualEffectView()
         // Pinned dark by contract, belt-and-braces with the colorScheme the
         // views force above the surface: the material must not follow a system
-        // appearance the ink no longer follows (docs/DECISIONS.md:
+        // appearance the ink does not follow (docs/DECISIONS.md:
         // hud-fixed-dark-palette).
         view.appearance = NSAppearance(named: .darkAqua)
         view.material = .hudWindow

@@ -11,13 +11,13 @@ import Testing
 /// witness it.
 ///
 /// Which means the PRODUCTION resolver (`resolveTarget`) is not exercised here, and
-/// a mutation re-adding a branch to it survives this suite. That is deliberate
+/// a mutation adding a branch to it survives this suite. That is deliberate
 /// rather than a hole to plug: it enumerates displays through CoreGraphics, which a
-/// unit test may not touch, and after the scoping fix it makes no decision left to
-/// pin — it is one call to `ScreenTranslation.displayUUID(for:)`. The decision that
-/// used to live there was `CGDisplayIsBuiltin` collapsing the built-in into "no
-/// display named", and that is exactly the bug the field found: the bar drawn on
-/// every panel instead of the one the neighbour named.
+/// unit test may not touch, and it makes no decision to pin — it is one call to
+/// `ScreenTranslation.displayUUID(for:)`. A decision there such as
+/// `CGDisplayIsBuiltin` collapsing the built-in into "no display named" is exactly
+/// the bug the field found: the bar drawn on every panel instead of the one the
+/// neighbour named.
 @MainActor
 struct BetterDisplayOSDSourceTests {
 
@@ -200,8 +200,8 @@ struct BetterDisplayOSDSourceTests {
 
         // Proven by what comes next rather than by silence alone — and this half is
         // load-bearing twice over: an announcement silences ONE press, so a key with
-        // no report behind it must still draw, or the fix would have traded a double
-        // bar for a missing one.
+        // no report behind it must still draw, or the stand-down would trade a
+        // double bar for a missing one.
         backend.value = 0.42
         polled.sample()
         #expect(await eventually { collector.values.count == 1 })
@@ -316,12 +316,11 @@ struct BetterDisplayOSDSourceTests {
     /// distributed notification.
     ///
     /// Asserting the name CONSTANT proves nothing about what the observer
-    /// actually subscribed to — a mutation pointing it at the legacy prefix left
-    /// the constant right, the suite green, and the integration deaf. And this is
-    /// the one border where a wrong subscription is invisible from inside: the
-    /// app cannot tell "nobody posted" from "we are not listening", which is
-    /// exactly how two probe rounds were lost to a wildcard observer macOS never
-    /// delivers.
+    /// actually subscribed to — a mutation pointing it at the legacy prefix leaves
+    /// the constant right, every other test green, and the integration deaf. And
+    /// this is the one border where a wrong subscription is invisible from inside:
+    /// the app cannot tell "nobody posted" from "we are not listening", which is
+    /// exactly how a wildcard observer macOS never delivers passes for silence.
     @Test func theInstalledObserverReceivesWhatBetterDisplayActuallyPosts() async {
         let source = BetterDisplayOSDSource()   // no injection: the real observer
         let collector = Collector(source.updates)
