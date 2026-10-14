@@ -50,9 +50,10 @@ shouting.
 
 ## The mark is the icon
 
-The icon is the whole visual identity: a disc of crema seen from above, cut by
-one gesture — the dark wave of a pour, rising from the lower left and breaking
-into a point at the right — on an espresso ground. One shape, flat and matte,
+The icon is the whole visual identity: a soft, uneven disc of crema seen from
+above, opened by one gesture — a dark hollow that enters from the upper right,
+rounds out at the centre and leaves along a wave, with the crema above it drawn
+out into a single fine point — on an espresso ground. One shape, flat and matte,
 two colours: the house's language, with no exception for the icon. It is
 generated, never hand-edited:
 
@@ -74,9 +75,9 @@ generated, never hand-edited:
 What the drawing must keep, because each drift has a reading that wins over
 the mark:
 
-- **The wave ends in a point.** Rounded, its end reads as a bulb; hooked
-  inward, the whole shape reads as a "G".
-- **The disc stays full around the cut.** Thinned toward an outline, two
+- **The crema ends in one fine point**, above the hollow; the hollow itself is
+  rounded.
+- **The disc stays full around the hollow.** Thinned toward an outline, two
   pointed ends on a heavy side read as a crescent moon.
 
 ## Colour

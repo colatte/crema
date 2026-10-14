@@ -6,7 +6,7 @@
 //
 // Optical correction at tiny POINT sizes (standard icon practice): the mark
 // occupies 56% of the master's width (makemaster.swift), ~7 px at 16 pt, where
-// its wave closes into a speck — so the 16 pt slots zoom the art 1.42x and the
+// its hollow closes into a speck — so the 16 pt slots zoom the art 1.42x and the
 // 32 pt slots 1.22x (center crop; the mark stays fully inside it at both).
 // Zoom follows the POINT size, not the pixel size: 16@2x (32 px) must match
 // 16@1x optically, not 32@1x.
