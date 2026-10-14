@@ -72,8 +72,7 @@ generated, never hand-edited:
   `--cream` `#d6bd94`. No gradient, gloss or baked shadow; the squircle's shadow
   from `makeicon.swift` and the system's own treatment are the only depth.
 
-What the drawing must keep, because each drift has a reading that wins over
-the mark:
+What the drawing must keep:
 
 - **The crema ends in one fine point**, above the hollow; the hollow itself is
   rounded.
