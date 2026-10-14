@@ -11,8 +11,9 @@ import SwiftUI
 /// the HUD's appear/dismiss timing (those stay keyed on layoutKind in each view).
 ///
 /// The `appearance` picks the body; the mechanics — drag anywhere on the row,
-/// tap-to-set, the RTL mirror, the spring with its drag suspension and Reduce
-/// Motion gate, the kind-snap, accessibility — live once, shared by all three:
+/// tap-to-set, the bar's start (leading, mirrored under RTL, or the bottom of an
+/// upright bar), the spring with its drag suspension and Reduce Motion gate, the
+/// kind-snap, accessibility — live once, shared by all three:
 /// - `.capsule` — the default every skin gets: the Tahoe banner's bar, drawn by
 ///   us. Owning the drawing is the point — Crema replaces the system's HUD, so
 ///   it tracks the system's HUD look (thumbless 4 pt capsule), not the system's
@@ -23,7 +24,9 @@ import SwiftUI
 ///   Control Center affordance-on-demand.
 /// - `.segmented` — the Classic bezel's 16-segment bar filled by
 ///   width: Classic is deliberate pre-Tahoe nostalgia, so it
-///   keeps the bezel's own indicator and shows no hover knob.
+///   keeps the bezel's own indicator and shows no hover knob. The bezel has no
+///   upright form: the segmented bar runs horizontal whatever `axis` asks
+///   (`runningAxis`), its row and its drag included.
 /// - `.filled` — the iOS-style full-bleed bar the Card can opt into: the whole
 ///   proposed frame is the indicator; the card's own clip rounds it. Its
 ///   remainder darkens where the capsule's track recesses — opposite polarities
@@ -52,6 +55,9 @@ struct HUDLevelSlider: View {
     /// that reveals the capsule knob — per display, so only the hovered
     /// surface shows it. The default keeps call sites without hover knob-free.
     var isHovered: Bool = false
+    /// The direction the bar runs (`CapsuleTrack.axis`): horizontal by default;
+    /// `HUDPlacement.axis` names the placements where a bar stands upright.
+    var axis: Axis = .horizontal
 
     /// True while the user is dragging: the spring is suspended so the fill
     /// (and knob) track the finger 1:1 rather than rubber-banding behind it.
@@ -116,49 +122,55 @@ struct HUDLevelSlider: View {
 
     @ViewBuilder private var indicator: some View {
         GeometryReader { geometry in
-            visual(width: geometry.size.width, height: geometry.size.height)
+            let length = CapsuleTrack.length(of: geometry.size, axis: runningAxis)
+            visual(size: geometry.size, length: length)
                 // The whole row is the hit target: a drag anywhere sets the
                 // level, and a tap (minimumDistance 0) sets it at the touch
                 // point — the same reach the stock slider gave via its track.
                     .contentShape(Rectangle())
-                    .gesture(drag(width: geometry.size.width))
+                    .gesture(drag(length: length))
         }
         // The filled bar fills whatever the card proposes; the other bodies
         // take the fixed hit row so their thin visuals keep a full-size target.
-        .frame(height: appearance == .filled ? nil : Self.trackHitHeight)
+        .frame(across: runningAxis, appearance == .filled ? nil : Self.trackHitHeight)
     }
 
-    @ViewBuilder private func visual(width: CGFloat, height: CGFloat) -> some View {
+    /// The axis this body actually runs on: the one asked, except for the
+    /// segmented bar, which has no upright form.
+    private var runningAxis: Axis {
+        appearance == .segmented ? .horizontal : axis
+    }
+
+    /// Where this bar starts, against the view's own coordinates
+    /// (`CapsuleTrack.runsReversed`).
+    private var reversed: Bool {
+        CapsuleTrack.runsReversed(axis: runningAxis, layoutDirection: layoutDirection)
+    }
+
+    @ViewBuilder private func visual(size: CGSize, length: CGFloat) -> some View {
         switch appearance {
         case .capsule:
-            capsule(width: width, height: height)
+            capsule(size: size)
         case .segmented:
             segments
         case .filled:
-            filledBar(width: width)
+            filledBar(length: length)
         }
     }
 
-    /// The fill is a leading capsule: its end is CURVED — a deliberate
-    /// deviation from the measured native flat cut, the iOS Music/players
-    /// language the author prefers (docs/DECISIONS.md: hud-capsule-track).
-    /// Its leading cap coincides with the track's own leading cap (same
-    /// radius, same anchor), so only the trailing end reads differently; a
-    /// spring overshoot is cropped by the clip because the stack is
-    /// width-pinned below (a bare ZStack would report the union of its
-    /// children and grow with the oversized animated fill instead of
-    /// cropping it). The width floor (capsuleFillWidth) keeps a low value a
-    /// round nub, never a squashed vertical oval.
-    private func capsule(width: CGFloat, height: CGFloat) -> some View {
+    /// The track itself, drawn by `CapsuleTrack` — the curved fill, its floor,
+    /// the overshoot crop and the knob are described there, once.
+    private func capsule(size: CGSize) -> some View {
         CapsuleTrack(
             value: value,
             showsKnob: Self.showsKnob(
                 appearance: appearance, isHovered: isHovered, isEditing: isEditing
             ),
             reduceMotion: reduceMotion,
-            layoutDirection: layoutDirection
+            layoutDirection: layoutDirection,
+            axis: runningAxis
         )
-        .frame(width: width, height: height)
+        .frame(width: size.width, height: size.height)
     }
 
     private var segments: some View {
@@ -178,26 +190,28 @@ struct HUDLevelSlider: View {
     }
 
     /// iOS-style bar: the whole HUD surface is the indicator. The fill sweeps
-    /// from the leading edge to `value` over a dark remainder, no thumb and no
+    /// from the bar's start to `value` over a dark remainder, no thumb and no
     /// inner track — the component fills the space it is proposed (the card's
     /// HUD frame) and the card's own rounded-rect clip (vibrantSurface) rounds
-    /// the sweep, so no radius or fixed height lives here. That container clip
+    /// the sweep, so no radius or fixed thickness lives here. That container clip
     /// is also what clamps the fill through a spring overshoot: the animated
-    /// width can drive past full and the card's right corner crops it.
-    private func filledBar(width: CGFloat) -> some View {
-        ZStack(alignment: .leading) {
+    /// length can drive past full and the card's far corners crop it.
+    private func filledBar(length: CGFloat) -> some View {
+        ZStack(alignment: CapsuleTrack.startAlignment(axis: runningAxis)) {
             Rectangle().fill(CardMetrics.hudFilledEmpty)
             Rectangle()
                 .fill(CardMetrics.hudFilledFill)
-                .frame(width: CapsuleTrack.fillWidth(for: value, trackWidth: width))
+                .frame(along: runningAxis, CapsuleTrack.fillLength(for: value, trackLength: length))
         }
     }
 
-    private func drag(width: CGFloat) -> some Gesture {
+    private func drag(length: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { gesture in
-                guard let fraction = Self.fraction(
-                    atX: gesture.location.x, trackWidth: width, layoutDirection: layoutDirection
+                guard let fraction = CapsuleTrack.fraction(
+                    at: CapsuleTrack.coordinate(of: gesture.location, axis: runningAxis),
+                    trackLength: length,
+                    reversed: reversed
                 ) else { return }
                 // Raised before onChange so the value coming straight back from
                 // the Coordinator finds the spring already suspended.
@@ -211,15 +225,6 @@ struct HUDLevelSlider: View {
     }
 
     // The mechanics extracted pure (HUDLevelSliderTests); the bodies stay thin.
-
-    /// Gesture coordinates are physical and do not flip with the layout (the
-    /// leading-anchored fill does) — mirror the fraction under right-to-left so
-    /// drag follows fill. Nil on a degenerate width.
-    nonisolated static func fraction(atX x: CGFloat, trackWidth: CGFloat, layoutDirection: LayoutDirection) -> Double? {
-        guard trackWidth > 0 else { return nil }
-        let fraction = min(max(Double(x / trackWidth), 0), 1)
-        return layoutDirection == .rightToLeft ? 1 - fraction : fraction
-    }
 
     /// What an assistive adjustment reports: the new level, then the end of the
     /// gesture. A VoiceOver increment is a press and a release in one step — no

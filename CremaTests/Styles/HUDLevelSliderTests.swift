@@ -3,43 +3,84 @@ import Testing
 @testable import Crema
 
 /// The level indicator's mechanics extracted pure: drag fraction (with the RTL
-/// mirror), fill width, spring gating, the hover knob's visibility/position and
-/// the Classic segment fill.
+/// mirror and the upright bar's bottom start), fill length, spring gating, the
+/// hover knob's visibility/position and the Classic segment fill.
 struct HUDLevelSliderTests {
 
     @Test func fractionClampsAtBothEnds() {
-        #expect(HUDLevelSlider.fraction(atX: -10, trackWidth: 100, layoutDirection: .leftToRight) == 0)
-        #expect(HUDLevelSlider.fraction(atX: 110, trackWidth: 100, layoutDirection: .leftToRight) == 1)
-        #expect(HUDLevelSlider.fraction(atX: 25, trackWidth: 100, layoutDirection: .leftToRight) == 0.25)
+        #expect(CapsuleTrack.fraction(at: -10, trackLength: 100, reversed: false) == 0)
+        #expect(CapsuleTrack.fraction(at: 110, trackLength: 100, reversed: false) == 1)
+        #expect(CapsuleTrack.fraction(at: 25, trackLength: 100, reversed: false) == 0.25)
     }
 
-    @Test func fractionIsNilOnDegenerateWidth() {
-        #expect(HUDLevelSlider.fraction(atX: 10, trackWidth: 0, layoutDirection: .leftToRight) == nil)
+    @Test func fractionIsNilOnDegenerateLength() {
+        #expect(CapsuleTrack.fraction(at: 10, trackLength: 0, reversed: false) == nil)
     }
 
     @Test func fractionMirrorsUnderRightToLeft() {
         // Gesture coordinates are physical and do not flip with the layout;
         // the leading-anchored fill does — so the fraction must mirror.
-        #expect(HUDLevelSlider.fraction(atX: 25, trackWidth: 100, layoutDirection: .rightToLeft) == 0.75)
+        let reversed = CapsuleTrack.runsReversed(axis: .horizontal, layoutDirection: .rightToLeft)
+        #expect(reversed)
+        #expect(CapsuleTrack.fraction(at: 25, trackLength: 100, reversed: reversed) == 0.75)
+        #expect(!CapsuleTrack.runsReversed(axis: .horizontal, layoutDirection: .leftToRight))
     }
 
-    @Test func fillWidthClampsTheValue() {
-        #expect(CapsuleTrack.fillWidth(for: -0.5, trackWidth: 100) == 0)
-        #expect(CapsuleTrack.fillWidth(for: 1.5, trackWidth: 100) == 100)
-        #expect(CapsuleTrack.fillWidth(for: 0.5, trackWidth: 100) == 50)
+    @Test func anUprightBarStartsAtTheBottomInEveryLanguage() {
+        // Kills an upright bar that follows the reading direction: a level rises
+        // from the bottom whether the interface runs left to right or right to
+        // left, and the view's y grows downward, so the bottom is the far end.
+        #expect(CapsuleTrack.runsReversed(axis: .vertical, layoutDirection: .leftToRight))
+        #expect(CapsuleTrack.runsReversed(axis: .vertical, layoutDirection: .rightToLeft))
+    }
+
+    @Test func anUprightBarReadsTheLevelFromTheBottom() {
+        // y = 0 is the TOP of the bar: a touch there is full, at the bottom empty.
+        let reversed = CapsuleTrack.runsReversed(axis: .vertical, layoutDirection: .leftToRight)
+        #expect(CapsuleTrack.fraction(at: 0, trackLength: 200, reversed: reversed) == 1)
+        #expect(CapsuleTrack.fraction(at: 200, trackLength: 200, reversed: reversed) == 0)
+        #expect(CapsuleTrack.fraction(at: 150, trackLength: 200, reversed: reversed) == 0.25)
+    }
+
+    @Test func everyAxisChoiceIsAskedOfTheTrack() {
+        // Kills an upright bar that reads the wrong side of anything — a drag on
+        // x, a length taken from the width, a knob lying across the track, a fill
+        // growing from the top — none of which the value math above can see.
+        let size = CGSize(width: 42, height: 210)
+        let pointer = CGPoint(x: 5, y: 150)
+        #expect(CapsuleTrack.length(of: size, axis: .vertical) == 210)
+        #expect(CapsuleTrack.length(of: size, axis: .horizontal) == 42)
+        #expect(CapsuleTrack.coordinate(of: pointer, axis: .vertical) == 150)
+        #expect(CapsuleTrack.coordinate(of: pointer, axis: .horizontal) == 5)
+        #expect(CapsuleTrack.point(along: 100, centeredIn: size, axis: .vertical) == CGPoint(x: 21, y: 100))
+        #expect(CapsuleTrack.point(along: 100, centeredIn: size, axis: .horizontal) == CGPoint(x: 100, y: 105))
+        #expect(CapsuleTrack.knobFrame(axis: .horizontal) == CapsuleTrack.knobSize)
+        #expect(CapsuleTrack.knobFrame(axis: .vertical) == CGSize(width: 14, height: 17.5))
+        // The layout start agrees with the coordinate start: an upright fill grows
+        // from the bottom, where its drag reads zero.
+        #expect(CapsuleTrack.startAlignment(axis: .vertical) == .bottom)
+        #expect(CapsuleTrack.startEdge(axis: .vertical) == .bottom)
+        #expect(CapsuleTrack.startAlignment(axis: .horizontal) == .leading)
+        #expect(CapsuleTrack.startEdge(axis: .horizontal) == .leading)
+    }
+
+    @Test func fillLengthClampsTheValue() {
+        #expect(CapsuleTrack.fillLength(for: -0.5, trackLength: 100) == 0)
+        #expect(CapsuleTrack.fillLength(for: 1.5, trackLength: 100) == 100)
+        #expect(CapsuleTrack.fillLength(for: 0.5, trackLength: 100) == 50)
     }
 
     @Test func curvedFillFloorsAtTheTrackThicknessButKeepsZeroEmpty() {
         // The curved fill (deliberate deviation from the native flat cut —
-        // docs/DECISIONS.md: hud-capsule-track): a sub-thickness width would
-        // draw a squashed vertical oval, so the floor is the 4 pt thickness (a
-        // circle-capped nub); exactly 0% stays empty — no phantom dot.
-        #expect(CapsuleTrack.capsuleFillWidth(for: 0, trackWidth: 100) == 0)
-        #expect(CapsuleTrack.capsuleFillWidth(for: 0.01, trackWidth: 100) == HUDLevelSlider.trackThickness)
-        #expect(CapsuleTrack.capsuleFillWidth(for: 0.5, trackWidth: 100) == 50)
-        #expect(CapsuleTrack.capsuleFillWidth(for: 1, trackWidth: 100) == 100)
-        // Above the floor the curved width IS the proportional width.
-        #expect(CapsuleTrack.capsuleFillWidth(for: 0.1, trackWidth: 100) == CapsuleTrack.fillWidth(for: 0.1, trackWidth: 100))
+        // docs/DECISIONS.md: hud-capsule-track): a sub-thickness length would
+        // draw a squashed oval across the track, so the floor is the 4 pt
+        // thickness (a circle-capped nub); exactly 0% stays empty — no phantom dot.
+        #expect(CapsuleTrack.capsuleFillLength(for: 0, trackLength: 100) == 0)
+        #expect(CapsuleTrack.capsuleFillLength(for: 0.01, trackLength: 100) == HUDLevelSlider.trackThickness)
+        #expect(CapsuleTrack.capsuleFillLength(for: 0.5, trackLength: 100) == 50)
+        #expect(CapsuleTrack.capsuleFillLength(for: 1, trackLength: 100) == 100)
+        // Above the floor the curved length IS the proportional length.
+        #expect(CapsuleTrack.capsuleFillLength(for: 0.1, trackLength: 100) == CapsuleTrack.fillLength(for: 0.1, trackLength: 100))
     }
 
     @Test func springSuspendsWhileEditingAndUnderReduceMotion() {
@@ -49,31 +90,39 @@ struct HUDLevelSliderTests {
     }
 
     @Test func knobTravelsTheInsetTrackAndMirrors() {
-        // The native thumb mapping: halfKnob + value × (width − knob). At ½ it
+        // The native thumb mapping: halfKnob + value × (length − knob). At ½ it
         // sits exactly on the fill boundary; off-center it deviates by at most
-        // halfKnob, always over its own body (pinned below), mirrored under RTL.
-        #expect(CapsuleTrack.knobCenterX(for: 0.5, trackWidth: 100, layoutDirection: .leftToRight) == 50)
-        #expect(CapsuleTrack.knobCenterX(for: 0.25, trackWidth: 100, layoutDirection: .leftToRight) == 29.375)
-        #expect(CapsuleTrack.knobCenterX(for: 0.25, trackWidth: 100, layoutDirection: .rightToLeft) == 70.625)
+        // halfKnob, always over its own body (pinned below), mirrored when the
+        // bar starts at the far end.
+        #expect(CapsuleTrack.knobCenter(for: 0.5, trackLength: 100, reversed: false) == 50)
+        #expect(CapsuleTrack.knobCenter(for: 0.25, trackLength: 100, reversed: false) == 29.375)
+        #expect(CapsuleTrack.knobCenter(for: 0.25, trackLength: 100, reversed: true) == 70.625)
     }
 
     @Test func knobStaysInsideTheRowAtTheExtremes() {
         // Half the 17.5 pt knob: it must never exit the row (a slider knob,
-        // not a floating pill), mirrored under RTL.
-        #expect(CapsuleTrack.knobCenterX(for: 0, trackWidth: 100, layoutDirection: .leftToRight) == 8.75)
-        #expect(CapsuleTrack.knobCenterX(for: 1, trackWidth: 100, layoutDirection: .leftToRight) == 91.25)
-        #expect(CapsuleTrack.knobCenterX(for: 0, trackWidth: 100, layoutDirection: .rightToLeft) == 91.25)
+        // not a floating pill), mirrored when the bar starts at the far end.
+        #expect(CapsuleTrack.knobCenter(for: 0, trackLength: 100, reversed: false) == 8.75)
+        #expect(CapsuleTrack.knobCenter(for: 1, trackLength: 100, reversed: false) == 91.25)
+        #expect(CapsuleTrack.knobCenter(for: 0, trackLength: 100, reversed: true) == 91.25)
+    }
+
+    @Test func anUprightKnobRestsAtTheBottomAtZero() {
+        // The upright HUD is the transposed 210 pt strip: at 0 the knob sits half
+        // its length above the bottom edge, at 1 the same distance below the top.
+        let reversed = CapsuleTrack.runsReversed(axis: .vertical, layoutDirection: .leftToRight)
+        #expect(CapsuleTrack.knobCenter(for: 0, trackLength: 210, reversed: reversed) == 210 - 8.75)
+        #expect(CapsuleTrack.knobCenter(for: 1, trackLength: 210, reversed: reversed) == 8.75)
     }
 
     @Test func knobNeverFreezesNearTheExtremes() {
-        // The hardware-reported jam, pinned dead: the old boundary-clamp
-        // mapping held the knob at halfKnob for the whole first (and last)
-        // ~halfKnob of fill travel, so a drag near 0/100% moved the value and
-        // the fill while the knob stood still. The inset-travel mapping is
-        // strictly monotonic across the entire scale.
+        // A boundary clamp holds the knob at halfKnob for the first and last
+        // ~halfKnob of fill travel — the jam seen on hardware: a drag near
+        // 0/100% moves the value and the fill while the knob stands still. The
+        // inset-travel mapping is strictly monotonic across the entire scale.
         let values: [Double] = [0, 0.02, 0.05, 0.08, 0.5, 0.92, 0.95, 0.98, 1]
         let centers = values.map {
-            CapsuleTrack.knobCenterX(for: $0, trackWidth: 100, layoutDirection: .leftToRight)
+            CapsuleTrack.knobCenter(for: $0, trackLength: 100, reversed: false)
         }
         #expect(centers == centers.sorted())
         #expect(Set(centers).count == centers.count, "equal centers = a dead zone the drag can feel")
@@ -82,16 +131,16 @@ struct HUDLevelSliderTests {
     @Test func fillBoundaryStaysUnderTheKnobBody() {
         // The inset mapping trades exact boundary-centering for continuous
         // response; the trade is safe because the DRAWN boundary — the
-        // floored capsuleFillWidth, the edge the eye actually sees — never
+        // floored capsuleFillLength, the edge the eye actually sees — never
         // escapes the knob's own 17.5 pt body (|boundary − center| ≤ halfKnob).
         for value in stride(from: 0.0, through: 1.0, by: 0.05) {
-            let center = CapsuleTrack.knobCenterX(for: value, trackWidth: 100, layoutDirection: .leftToRight)
-            let boundary = CapsuleTrack.capsuleFillWidth(for: value, trackWidth: 100)
+            let center = CapsuleTrack.knobCenter(for: value, trackLength: 100, reversed: false)
+            let boundary = CapsuleTrack.capsuleFillLength(for: value, trackLength: 100)
             #expect(abs(boundary - center) <= 8.75 + 0.0001, "value \(value)")
         }
         // A sub-floor value (the nub drawn at the 4 pt floor) stays covered too.
-        let subFloorCenter = CapsuleTrack.knobCenterX(for: 0.01, trackWidth: 100, layoutDirection: .leftToRight)
-        #expect(abs(CapsuleTrack.capsuleFillWidth(for: 0.01, trackWidth: 100) - subFloorCenter) <= 8.75)
+        let subFloorCenter = CapsuleTrack.knobCenter(for: 0.01, trackLength: 100, reversed: false)
+        #expect(abs(CapsuleTrack.capsuleFillLength(for: 0.01, trackLength: 100) - subFloorCenter) <= 8.75)
     }
 
     @Test func knobFollowsThePointerOrAnActiveDragAndOnlyOnTheCapsule() {

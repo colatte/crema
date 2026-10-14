@@ -17,13 +17,49 @@ struct CardStyle: PresentationStyle {
         case .nowPlaying(_, expanded: true):
             size = CardMetrics.expanded
         case .hud:
-            size = CardMetrics.hudSystemSize
+            // On the card's own spot, where the HUD morphs from the now-playing
+            // card.
+            return Self.hudFrame(at: .topCenter, on: geometry)
         }
-        // Anchor below the safe area: on a notched display the card must not
-        // sit behind the slit.
-        return CGRect(
+        return Self.topCentered(size, on: geometry)
+    }
+
+    /// The HUD at `placement` on this screen. Along the top edge it hangs from
+    /// the card's own top anchor, below the safe area; along the bottom it sits
+    /// `hudBottomMargin` up; on a side it keeps `hudSideMargin` from the edge and,
+    /// in the middle of that side, stands upright (`HUDPlacement.axis`).
+    static func hudFrame(at placement: HUDPlacement, on geometry: ScreenGeometry) -> CGRect {
+        let size = CardMetrics.hudSize(for: placement.axis)
+        let screen = geometry.frame
+        let x: CGFloat = switch placement {
+        case .topLeft, .middleLeft, .bottomLeft:
+            screen.minX + CardMetrics.hudSideMargin
+        case .topCenter, .bottomCenter:
+            screen.midX - size.width / 2
+        case .topRight, .middleRight, .bottomRight:
+            screen.maxX - CardMetrics.hudSideMargin - size.width
+        }
+        let y: CGFloat = switch placement {
+        case .topLeft, .topCenter, .topRight:
+            topAnchor(on: geometry) - size.height
+        case .middleLeft, .middleRight:
+            screen.midY - size.height / 2
+        case .bottomLeft, .bottomCenter, .bottomRight:
+            screen.minY + CardMetrics.hudBottomMargin
+        }
+        return CGRect(x: x, y: y, width: size.width, height: size.height)
+    }
+
+    /// The line every top-anchored Card surface hangs from: below the safe area,
+    /// so on a notched display nothing sits behind the slit.
+    private static func topAnchor(on geometry: ScreenGeometry) -> CGFloat {
+        geometry.frame.maxY - geometry.safeTop - CardMetrics.topMargin
+    }
+
+    private static func topCentered(_ size: CGSize, on geometry: ScreenGeometry) -> CGRect {
+        CGRect(
             x: geometry.frame.midX - size.width / 2,
-            y: geometry.frame.maxY - geometry.safeTop - CardMetrics.topMargin - size.height,
+            y: topAnchor(on: geometry) - size.height,
             width: size.width,
             height: size.height
         )
@@ -72,7 +108,7 @@ enum CardMetrics {
     /// glance-level info. Issue #3's reference indicators are thin
     /// bars, roughly 4.5–5.5:1 width:height; 210×42 (5:1) sits mid-range. Both
     /// Card HUD variants lay out in it: the .slider row is the icon column
-    /// (CardHUDIndicator.hudIconColumnWidth) beside the capsule's 16 pt hit row
+    /// (CardHUDIndicator.hudIconSlot) beside the capsule's 16 pt hit row
     /// (CapsuleTrack.trackHitHeight) centered in the 42 pt height with headroom
     /// to spare, and the full-bleed .filled bar adapts by construction while its
     /// leading glyph stays legible at the shorter height. Width and height are
@@ -80,6 +116,21 @@ enum CardMetrics {
     static let hudSystemWidth: CGFloat = 210
     static let hudSystemHeight: CGFloat = 42
     static let hudSystemSize = CGSize(width: hudSystemWidth, height: hudSystemHeight)
+
+    /// The HUD's size as the bar runs: the strip above, or the same strip
+    /// transposed when it stands upright — one size, never a second declaration.
+    static func hudSize(for axis: Axis) -> CGSize {
+        axis == .horizontal ? hudSystemSize : CGSize(width: hudSystemHeight, height: hudSystemWidth)
+    }
+
+    /// Distance from a side edge for a HUD placed on the screen's left or right.
+    static let hudSideMargin: CGFloat = 16
+    /// Distance from the bottom edge for a HUD placed along it: where macOS drew
+    /// its own HUD, the native OSD's height that Classic reproduces — read from
+    /// Classic, so the two bottom HUDs stand at one height. The Dock is not read
+    /// (`ScreenGeometry` carries no visible frame): a Dock taller than this
+    /// margin sits over a bottom HUD.
+    static let hudBottomMargin: CGFloat = ClassicMetrics.bottomMargin
     /// Now-playing surface radius: generous, near half the compact height so the
     /// player reads as a soft block (never a capsule at its taller states).
     static let cornerRadius: CGFloat = 20
@@ -102,9 +153,11 @@ enum CardMetrics {
     /// Grayish glyph that stays legible over both the light fill and the dark
     /// remainder — at low levels the icon sits on the empty area.
     static let hudFilledIconColor = Color(white: 0.5)
-    /// Leading inset of the icon riding inside the fused bar; clears the card's
-    /// corner curve at the vertical center where the glyph sits.
-    static let hudFilledIconLeading: CGFloat = 18
+    /// Inset of the icon riding inside the fused bar, from the bar's start —
+    /// the leading edge, or the bottom of an upright bar. The bar is 42 pt thick
+    /// either way, so the same inset puts the glyph past the 12 pt corner curve
+    /// (hudSystemCornerRadius) in both orientations.
+    static let hudFilledIconInset: CGFloat = 18
 
     static let compactArtworkSide: CGFloat = 40
     static let compactArtworkRadius: CGFloat = 10

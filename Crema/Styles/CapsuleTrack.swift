@@ -21,6 +21,9 @@ struct CapsuleTrack: View {
     let showsKnob: Bool
     var reduceMotion: Bool = false
     var layoutDirection: LayoutDirection = .leftToRight
+    /// The direction the bar runs: horizontal by default; `HUDPlacement.axis`
+    /// names the placements where a bar stands upright.
+    var axis: Axis = .horizontal
 
     // Measured off the Tahoe banner (macOS 26.5.2): a 4 pt track with
     // semicircular caps, a subtle recess, and a 17.5×14 pt knob only under the
@@ -30,11 +33,13 @@ struct CapsuleTrack: View {
     // the measured height of the stock Slider both callers replaced: the drag
     // target must not regress and no surrounding layout may move.
     nonisolated static let trackHitHeight: CGFloat = 16
-    static let trackThickness: CGFloat = 4
+    nonisolated static let trackThickness: CGFloat = 4
     static let trackBase = Color.black.opacity(0.25)
     static let trackWash = Color.white.opacity(0.15)
     static let fillColor = Color.white
-    static let knobSize = CGSize(width: 17.5, height: 14)
+    /// As drawn on a horizontal bar; an upright bar draws it transposed, so its
+    /// long side always lies along the track.
+    nonisolated static let knobSize = CGSize(width: 17.5, height: 14)
     static let knobColor = Color(white: 0.91)
 
     /// Component-private affordance timing, so it lives here rather than in
@@ -46,74 +51,150 @@ struct CapsuleTrack: View {
         SurfaceAnimation.respecting(reduceMotion: reduceMotion, .easeOut(duration: knobRevealDuration))
     }
 
-    static func fillWidth(for value: Double, trackWidth: CGFloat) -> CGFloat {
-        max(0, min(value, 1)) * trackWidth
+    /// Where the bar STARTS — the end its fill grows from and its zero sits at —
+    /// expressed against the view's own coordinates, where x grows rightward and
+    /// y downward. A horizontal bar starts at the leading edge, which is the far
+    /// end of x under right-to-left. An upright bar starts at the BOTTOM, the far
+    /// end of y, in every language: a level rises, it is not read.
+    nonisolated static func runsReversed(axis: Axis, layoutDirection: LayoutDirection) -> Bool {
+        axis == .vertical || layoutDirection == .rightToLeft
     }
 
-    /// The curved fill's width: the proportional width floored at the track
+    /// The same start, as layout: the alignment the fill grows from. `.leading`
+    /// flips under right-to-left on its own, so only the axis decides here; the
+    /// coordinate half of the question, which SwiftUI does not flip, is
+    /// `runsReversed`. Every body drawn from a start reads it — the capsule, the
+    /// filled bar, the glyph riding inside it — so fill and drag cannot part.
+    nonisolated static func startAlignment(axis: Axis) -> Alignment {
+        axis == .horizontal ? .leading : .bottom
+    }
+
+    /// The start as an edge, for an inset measured from it.
+    nonisolated static func startEdge(axis: Axis) -> Edge.Set {
+        axis == .horizontal ? .leading : .bottom
+    }
+
+    /// A size read along the bar: the x-or-y choice made once, for every length
+    /// and every pointer coordinate the bar uses.
+    nonisolated static func length(of size: CGSize, axis: Axis) -> CGFloat {
+        axis == .horizontal ? size.width : size.height
+    }
+
+    /// A pointer read along the bar.
+    nonisolated static func coordinate(of point: CGPoint, axis: Axis) -> CGFloat {
+        axis == .horizontal ? point.x : point.y
+    }
+
+    /// The point at `along` on the bar, centred across it.
+    nonisolated static func point(along: CGFloat, centeredIn size: CGSize, axis: Axis) -> CGPoint {
+        axis == .horizontal
+            ? CGPoint(x: along, y: size.height / 2)
+            : CGPoint(x: size.width / 2, y: along)
+    }
+
+    /// The knob as drawn on this axis: its long side along the track.
+    nonisolated static func knobFrame(axis: Axis) -> CGSize {
+        axis == .horizontal ? knobSize : CGSize(width: knobSize.height, height: knobSize.width)
+    }
+
+    nonisolated static func fillLength(for value: Double, trackLength: CGFloat) -> CGFloat {
+        max(0, min(value, 1)) * trackLength
+    }
+
+    /// The curved fill's length: the proportional length floored at the track
     /// thickness, so the smallest visible fill is a circle-capped nub — a fill
-    /// narrower than it is tall would draw as a squashed vertical oval. Exactly
-    /// zero stays empty: 0% shows the bare track, never a phantom dot.
-    static func capsuleFillWidth(for value: Double, trackWidth: CGFloat) -> CGFloat {
-        let fill = fillWidth(for: value, trackWidth: trackWidth)
+    /// shorter than it is thick would draw as a squashed oval across the track.
+    /// Exactly zero stays empty: 0% shows the bare track, never a phantom dot.
+    nonisolated static func capsuleFillLength(for value: Double, trackLength: CGFloat) -> CGFloat {
+        let fill = fillLength(for: value, trackLength: trackLength)
         guard fill > 0 else { return 0 }
         return max(fill, trackThickness)
     }
 
-    /// The knob travels the inset track [halfKnob, width − halfKnob] linearly
+    /// The knob travels the inset track [halfKnob, length − halfKnob] linearly
     /// with the value — the native thumb mapping on the OUTPUT side only. The
-    /// pointer→value mapping deliberately stays over the FULL width, so
-    /// tap-to-set still reaches 0/1 at the row's very ends and the fill boundary
-    /// (not the knob centre) is what follows the finger; do not inset it to
-    /// match. The knob never exits the row and never stops responding: an
-    /// earlier boundary-clamp mapping froze it for the last ~halfKnob of travel
-    /// at each extreme while the fill kept following the pointer — the visual
-    /// jam reported from hardware at 0 and 100%.
-    static func knobCenterX(
-        for value: Double, trackWidth: CGFloat, layoutDirection: LayoutDirection
-    ) -> CGFloat {
+    /// pointer→value mapping (`fraction`) deliberately stays over the FULL
+    /// length, so tap-to-set still reaches 0/1 at the row's very ends and the
+    /// fill boundary (not the knob centre) is what follows the finger; do not
+    /// inset it to match. The knob never exits the row and never stops
+    /// responding: a boundary clamp instead freezes it for the last ~halfKnob of
+    /// travel at each extreme while the fill keeps following the pointer — the
+    /// jam seen on hardware at 0 and 100%. The coordinate is along the bar, in
+    /// the view's own space.
+    nonisolated static func knobCenter(for value: Double, trackLength: CGFloat, reversed: Bool) -> CGFloat {
         let halfKnob = knobSize.width / 2
-        let travel = max(trackWidth - knobSize.width, 0)
-        let x = halfKnob + CGFloat(min(max(value, 0), 1)) * travel
-        return layoutDirection == .rightToLeft ? trackWidth - x : x
+        let travel = max(trackLength - knobSize.width, 0)
+        let offset = halfKnob + CGFloat(min(max(value, 0), 1)) * travel
+        return reversed ? trackLength - offset : offset
+    }
+
+    /// Pointer → 0…1, over the FULL length (see `knobCenter` for why it is not
+    /// inset). The coordinate is the pointer's along the bar, in the view's own
+    /// space, which does not flip with the layout — the fill's start does — so a
+    /// reversed bar mirrors it and the drag follows the fill. Every bar drawn on
+    /// this track maps its pointer here: the HUD level and the scrubber. Nil on
+    /// a degenerate length.
+    nonisolated static func fraction(at coordinate: CGFloat, trackLength: CGFloat, reversed: Bool) -> Double? {
+        guard trackLength > 0 else { return nil }
+        let fraction = min(max(Double(coordinate / trackLength), 0), 1)
+        return reversed ? 1 - fraction : fraction
     }
 
     var body: some View {
         GeometryReader { geometry in
-            let width = geometry.size.width
+            let length = Self.length(of: geometry.size, axis: axis)
             // The fill's end is CURVED — a deliberate deviation from the
             // measured native flat cut, the iOS Music/players language the
-            // author prefers (hud-capsule-track). Its leading cap coincides with
-            // the track's own, so only the trailing end reads differently; a
+            // author prefers (hud-capsule-track). Its starting cap coincides
+            // with the track's own, so only the far end reads differently; a
             // spring overshoot is cropped by the clip because the stack is
-            // width-pinned (a bare ZStack would report the union of its children
+            // length-pinned (a bare ZStack would report the union of its children
             // and grow with the oversized animated fill instead of cropping it).
-            ZStack(alignment: .leading) {
+            ZStack(alignment: Self.startAlignment(axis: axis)) {
                 Capsule().fill(Self.trackBase)
                 Capsule().fill(Self.trackWash)
                 Capsule()
                     .fill(Self.fillColor)
-                    .frame(width: Self.capsuleFillWidth(for: value, trackWidth: width))
+                    .frame(along: axis, Self.capsuleFillLength(for: value, trackLength: length))
             }
-            .frame(width: width)
+            .frame(along: axis, length)
             .clipShape(Capsule())
-            .frame(height: Self.trackThickness)
-            .frame(maxHeight: .infinity)
+            .frame(across: axis, Self.trackThickness)
+            .frame(maxWidth: axis == .vertical ? .infinity : nil, maxHeight: axis == .horizontal ? .infinity : nil)
             .overlay {
                 Capsule()
                     .fill(Self.knobColor)
+                    // Light from above in both orientations: the shadow is not
+                    // turned with the bar.
                     .shadow(color: .black.opacity(0.25), radius: 1, y: 0.5)
-                    .frame(width: Self.knobSize.width, height: Self.knobSize.height)
-                    .position(
-                        x: Self.knobCenterX(
-                            for: value, trackWidth: width, layoutDirection: layoutDirection
-                        ),
-                        y: geometry.size.height / 2
-                    )
+                    .frame(width: Self.knobFrame(axis: axis).width, height: Self.knobFrame(axis: axis).height)
+                    .position(knobPosition(in: geometry.size, length: length))
                     .opacity(showsKnob ? 1 : 0)
                     .animation(Self.knobReveal(reduceMotion: reduceMotion), value: showsKnob)
                     .allowsHitTesting(false)
             }
         }
+    }
+
+    private func knobPosition(in size: CGSize, length: CGFloat) -> CGPoint {
+        let along = Self.knobCenter(
+            for: value,
+            trackLength: length,
+            reversed: Self.runsReversed(axis: axis, layoutDirection: layoutDirection)
+        )
+        return Self.point(along: along, centeredIn: size, axis: axis)
+    }
+}
+
+extension View {
+    /// A frame on the bar's own axis: the length along it, the other side free.
+    func frame(along axis: Axis, _ length: CGFloat) -> some View {
+        frame(width: axis == .horizontal ? length : nil, height: axis == .vertical ? length : nil)
+    }
+
+    /// A frame across the bar's axis: its thickness, the length free. Nil leaves
+    /// both free — a bar that fills whatever its host proposes.
+    func frame(across axis: Axis, _ thickness: CGFloat?) -> some View {
+        frame(width: axis == .vertical ? thickness : nil, height: axis == .horizontal ? thickness : nil)
     }
 }
