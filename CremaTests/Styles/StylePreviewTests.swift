@@ -187,4 +187,21 @@ struct StylePreviewTests {
             }
         }
     }
+
+    @Test func theHUDBarIsThePlacementRuleInTheScreensOwnFractions() {
+        // Measured DOWN from the top, like every preview fraction: a bar along the
+        // bottom edge lands near 1, never near 0.
+        let reference = StylePreview.notchedReference
+        let screen = reference.frame
+        for placement in HUDPlacement.allCases {
+            let rule = CardStyle.hudFrame(at: placement, on: reference)
+            let bar = StylePreview.hudBar(at: placement)
+            #expect(abs(bar.minX - rule.minX / screen.width) < 0.0001, "\(placement)")
+            #expect(abs(bar.minY - (screen.maxY - rule.maxY) / screen.height) < 0.0001, "\(placement)")
+            #expect(abs(bar.width - rule.width / screen.width) < 0.0001, "\(placement)")
+            #expect(abs(bar.height - rule.height / screen.height) < 0.0001, "\(placement)")
+        }
+        #expect(StylePreview.hudBar(at: .bottomCenter).maxY > 0.8)
+        #expect(StylePreview.hudBar(at: .topCenter).minY < 0.1)
+    }
 }

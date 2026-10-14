@@ -33,9 +33,7 @@ struct IndicatorPicker: View {
     let wallpaper: NSImage?
 
     var body: some View {
-        // The gap the style tiles above use, so the two rows read as one grid
-        // rather than as two controls that happen to be stacked.
-        HStack(alignment: .top, spacing: 4) {
+        HStack(alignment: .top, spacing: Thumbnail.smallTileSpacing) {
             ForEach(HUDIndicatorStyle.allCases, id: \.rawValue) { style in
                 IndicatorTile(
                     style: style,
@@ -165,11 +163,9 @@ private enum IndicatorThumbnail {
     /// The hairline as authored inside the scaled subtree, so that it LANDS at the
     /// width `SurfaceChrome` asked for.
     static let surfaceStrokeWidth = SurfaceChrome.outerHairlineWidth / scale
-    /// The stand-in surface's darkness — the same value the style tiles give a
-    /// floating surface, and for the same reason: it stands in for a material that
-    /// cannot be drawn here, dark enough that the bar on it reads as the app's
-    /// (docs/DECISIONS.md: hud-fixed-dark-palette).
-    static let surfaceOpacity = 0.62
+    /// The stand-in surface's darkness: the one every picture gives a floating
+    /// surface.
+    static let surfaceOpacity = Thumbnail.floatingSurfaceOpacity
     /// The reading both tiles freeze at. ONE sample for both, because what the pair
     /// exists to show is the difference between the bodies — two levels would let
     /// the eye read that difference as a difference in loudness instead. Volume is

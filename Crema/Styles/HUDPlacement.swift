@@ -31,4 +31,20 @@ enum HUDPlacement: String, CaseIterable, Equatable, Sendable {
         case .topLeft, .topCenter, .topRight, .bottomLeft, .bottomCenter, .bottomRight: .horizontal
         }
     }
+
+    /// User-facing name (String Catalog; English as source language): what the
+    /// placement picker's tiles are called, aloud and in their tooltip, since a
+    /// tile shows the place and says nothing.
+    var displayName: String {
+        switch self {
+        case .topLeft: String(localized: "settings.hud.placement.topLeft", defaultValue: "Top left")
+        case .topCenter: String(localized: "settings.hud.placement.topCenter", defaultValue: "Top center")
+        case .topRight: String(localized: "settings.hud.placement.topRight", defaultValue: "Top right")
+        case .middleLeft: String(localized: "settings.hud.placement.middleLeft", defaultValue: "Middle left")
+        case .middleRight: String(localized: "settings.hud.placement.middleRight", defaultValue: "Middle right")
+        case .bottomLeft: String(localized: "settings.hud.placement.bottomLeft", defaultValue: "Bottom left")
+        case .bottomCenter: String(localized: "settings.hud.placement.bottomCenter", defaultValue: "Bottom center")
+        case .bottomRight: String(localized: "settings.hud.placement.bottomRight", defaultValue: "Bottom right")
+        }
+    }
 }

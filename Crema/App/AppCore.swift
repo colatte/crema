@@ -652,6 +652,14 @@ final class AppCore {
         windowManager.refreshPresentation()
     }
 
+    /// Where the Card draws its HUD — persisted and re-applied. Through the style
+    /// refresh, not the render-context one: a new placement builds or retires each
+    /// Card display's HUD panel (docs/DECISIONS.md: card-hud-placement).
+    func setHUDPlacement(_ placement: HUDPlacement) {
+        preferences.hudPlacement = placement
+        windowManager.refreshStyles()
+    }
+
     /// Applies the launch-at-login intent and returns the real resulting state
     /// (the view stays an intent-reporter, like every other Settings control).
     /// `enabled` includes requires-approval so the toggle stays on with the
