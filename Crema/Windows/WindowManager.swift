@@ -163,6 +163,14 @@ final class WindowManager {
         entries.values.contains { $0.style == style }
     }
 
+    /// WHICH connected displays are rendering this style, off the same roster as
+    /// `renders(_:)`. Settings names them under the Card indicator, so the one
+    /// control that is not per display says which displays it reaches — the reason
+    /// it is on screen at all in a mixed setup whose declaration is Notch.
+    func displays(rendering style: Style) -> Set<DisplayUUID> {
+        Set(entries.filter { $0.value.style == style }.keys)
+    }
+
     // MARK: - State-driven frames
 
     private func applyFrames() {

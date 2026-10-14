@@ -24,13 +24,17 @@
    built-in panel included: its row carries the only switch for the now-playing
    surface, so a MacBook on its own still shows the Displays section with its one
    row. Picking a style for one display moves only that
-   display; picking that display's "Follow all displays (…)" item returns it to
+   display; picking that display's "Follow all displays" item returns it to
    the declaration at once, and declaring for all displays (General's leading
    section, or the menu bar's Style submenu) replaces every per-display style. On
    a display without a notch, Notch is offered greyed out: it cannot be picked,
    and a pick that reached the store anyway writes nothing — that display keeps
    the style it had. The per-display "Show now
    playing here" toggle is honoured live, on by default for the built-in display.
+   Each display's row shows what that display draws, in a thumbnail and a
+   caption: a notchless monitor under a Notch declaration reads "Drawing Card —
+   no notch here", and the Card indicator below the list names it among the
+   displays drawing Card.
 5. Now playing works through mediaremote-adapter on every supported version; if
    it is unavailable, the JXA fallback takes over; if neither is available, the
    availability check disables the feature without crashing. A recovered adapter

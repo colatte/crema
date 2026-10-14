@@ -72,17 +72,18 @@ struct SettingsView: View {
 
 // MARK: - General
 
-/// Style at both of its scopes, the Card's indicator under it, then opening at
-/// login.
+/// Style at both of its scopes, the Card's indicator after the displays, then
+/// opening at login.
 ///
 /// Style leads because it is what a person came here to change, and both of its
 /// scopes are in one pane on purpose: the all-displays declaration SWEEPS the
 /// per-display styles, and a tab away that sweep was a warning about sections the
 /// reader could not see. So the declaration sits above the very list it replaces.
 ///
-/// The per-display list is reactive; the declaration's mirrors are seeded once and
-/// re-read only when that picker writes — a pinned-latent tradeoff
-/// (docs/CONTRACTS.md: S4) that costs a stale value there.
+/// The per-display list is reactive; the rendered-style mirrors are seeded once and
+/// re-read after every write this pane makes and every display change — a
+/// pinned-latent tradeoff (docs/CONTRACTS.md: S4) whose residual is a style picked
+/// from the menu bar while this window is open.
 /// A list whose rows ARE the displays cannot take that deal: a row outliving its
 /// monitor is a control over a screen the user cannot see, and a display plugged in
 /// with the window open would have no row at all until Settings is closed and
@@ -92,20 +93,15 @@ private struct GeneralSettingsView: View {
     let core: AppCore
     /// The all-displays declaration, as the picker holds it.
     @State private var style: Style
-    /// Whether any connected display RENDERS Card — which is also whether the
-    /// indicator row exists at all. A mirror of what is drawn, not of the
+    /// The displays RENDERING Card — whether the indicator row exists at all, and
+    /// the displays its sentence names. A mirror of what is drawn, not of the
     /// declaration: the two disagree on notchless hardware, where the default
     /// declaration is Notch and every display draws Card.
-    @State private var rendersCard: Bool
+    @State private var cardDisplays: Set<DisplayUUID>
     /// Whether any connected display actually draws the notch skin — the signal
     /// that separates "Notch declared and honoured" from "Notch declared and
     /// falling back everywhere", which is what the footer has to say out loud.
     @State private var rendersNotch: Bool
-    /// The Card's indicator, on the same persisted key the panels read. It lives
-    /// beside the style tiles rather than in the Indicators tab because the choice
-    /// is a picture of a bar, and the only place that picture means anything is
-    /// next to the picture of the surface the bar sits on.
-    @AppStorage(Preferences.hudIndicatorStyleKey) private var indicatorStyle = HUDIndicatorStyle.shippedDefault.rawValue
     /// The desk both tile rows stand on, read once when this pane is built. Asked
     /// of the core rather than of each row, so the two rows in one Section cannot
     /// end up on different desks.
@@ -122,11 +118,32 @@ private struct GeneralSettingsView: View {
         // their why live in StyleSectionSeed, never respelled here.
         let seed = StyleSectionSeed(core: core)
         _style = State(initialValue: seed.style)
-        _rendersCard = State(initialValue: seed.rendersCard)
+        _cardDisplays = State(initialValue: seed.cardDisplays)
         _rendersNotch = State(initialValue: seed.rendersNotch)
         _wallpaper = State(initialValue: seed.wallpaper)
         _launchesAtLogin = State(initialValue: seed.launchesAtLogin)
         _loginNeedsApproval = State(initialValue: seed.loginNeedsApproval)
+    }
+
+    private var rendersCard: Bool {
+        !cardDisplays.isEmpty
+    }
+
+    /// The displays drawing Card, in the list's own order and under the list's own
+    /// names, so the sentence and the rows above it call each screen the same thing.
+    private var cardDisplayNames: String {
+        core.displayRoster.displays
+            .filter { cardDisplays.contains($0.id) }
+            .map { DisplayStyleRow.title(for: $0) }
+            .formatted(.list(type: .and))
+    }
+
+    /// What the panels draw, re-read right after they are re-resolved — never
+    /// inferred from what was written, which says nothing about which displays have
+    /// a slit.
+    private func rereadRenderedStyles() {
+        cardDisplays = core.displaysRendering(.card)
+        rendersNotch = core.rendersAnywhere(.notch)
     }
 
     private var fallbackIsInEffect: Bool {
@@ -170,29 +187,7 @@ private struct GeneralSettingsView: View {
                 // nothing about which of the connected displays has a slit.
                 .onChange(of: style) { _, new in
                     core.setStyleEverywhere(new)
-                    rendersCard = core.rendersAnywhere(.card)
-                    rendersNotch = core.rendersAnywhere(.notch)
-                }
-
-                // Offered where some display draws Card, and ABSENT rather than
-                // greyed out where none does: a visible-but-disabled row was paying
-                // for the tab's worth of distance to the picker that governs it, and
-                // right under that picker there is no distance left to excuse
-                // (docs/DECISIONS.md: rendered-style-gates-settings). The gate is the
-                // mirror the declaration above re-reads on every write, so declaring
-                // Card makes this row appear at once. Residual, the S4 deal that
-                // mirror has always taken: a per-display override — or a monitor
-                // plugged in — while this window is open leaves the row on the
-                // previous answer until Settings is reopened.
-                if rendersCard {
-                    LabeledContent {
-                        IndicatorPicker(selection: $indicatorStyle, wallpaper: wallpaper)
-                    } label: {
-                        Text(String(localized: "settings.hud.indicator", defaultValue: "Card indicator"))
-                    }
-                    .onChange(of: indicatorStyle) { _, new in
-                        core.setHUDIndicatorStyle(HUDIndicatorStyle(rawValue: new) ?? .shippedDefault)
-                    }
+                    rereadRenderedStyles()
                 }
             } header: {
                 Text(String(localized: "settings.displays.allDisplays", defaultValue: "All displays"))
@@ -231,11 +226,6 @@ private struct GeneralSettingsView: View {
                 }
                 .settingsFootnote()
             }
-            // The indicator row appears and disappears with the declaration right
-            // above it, and an instant insertion jumps every control under it in the
-            // same frame as the click that caused it. Scoped to that one fact, so
-            // nothing else in the pane animates.
-            .animation(.default, value: rendersCard)
 
             // Offered wherever there is a display at all. The style popup on a lone
             // panel does repeat the declaration above — but the row also carries the
@@ -245,7 +235,9 @@ private struct GeneralSettingsView: View {
             if offersPerDisplayList {
                 Section {
                     ForEach(core.displayRoster.displays, id: \.id) { screen in
-                        DisplayStyleRow(screen: screen, core: core)
+                        DisplayStyleRow(screen: screen, core: core, wallpaper: wallpaper) {
+                            rereadRenderedStyles()
+                        }
                     }
                 } header: {
                     Text(String(localized: "settings.general.displays", defaultValue: "Displays"))
@@ -260,6 +252,14 @@ private struct GeneralSettingsView: View {
                     ))
                     .settingsFootnote()
                 }
+            }
+
+            // Offered where some display draws Card, and ABSENT rather than greyed
+            // out where none does (docs/DECISIONS.md: rendered-style-gates-settings).
+            // The gate is the rendered-style mirror, re-read after every style write
+            // in this pane, so a pick above makes this section appear or go at once.
+            if rendersCard {
+                CardIndicatorSection(core: core, wallpaper: wallpaper, displayNames: cardDisplayNames)
             }
 
             Section {
@@ -302,6 +302,14 @@ private struct GeneralSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        // The indicator section appears and goes with what the displays draw, and
+        // an instant insertion jumps every control under it in the same frame as
+        // the click that caused it. Scoped to that one fact.
+        .animation(.default, value: rendersCard)
+        // A display plugged in or out changes what is drawn; the panels have already
+        // been rebuilt by the time the roster this reads from moves
+        // (`AppCore.applyScreenRoster`).
+        .onChange(of: core.displayRoster.displays) { rereadRenderedStyles() }
     }
 }
 
