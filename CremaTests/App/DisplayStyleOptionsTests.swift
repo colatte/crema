@@ -125,19 +125,20 @@ struct DisplayStyleOptionsTests {
         #expect(legacy.items.contains(DisplayStyleOptions.Item(choice: .notch, isEnabled: false)))
     }
 
-    @Test func theNoNotchFootnoteFollowsTheStyleInForceAndNotThePresenceOfAnOverride() {
-        // Kills: the footnote gated on the override EXISTING. That gate goes silent
-        // on the common case — a display inheriting a Notch declaration it cannot
-        // draw, which is the shipped default on notchless hardware — and speaks up
-        // where an override already says Card, explaining a fallback that is not
-        // happening.
-        #expect(options(declared: "notch", on: notchless).footnotes == [.noNotch])
-        #expect(options(override: "notch", declared: "card", on: notchless).footnotes == [.noNotch])
-        // An override that IS drawn silences it, under a declaration that is not.
-        #expect(options(override: "card", declared: "notch", on: notchless).footnotes.isEmpty)
-        // And the slit makes the sentence untrue either way.
-        #expect(options(declared: "notch", on: notched).footnotes.isEmpty)
-        #expect(options(override: "notch", declared: "card", on: notched).footnotes.isEmpty)
+    @Test func theCaptionNamesTheDrawnStyleFollowingTheStyleInForce() {
+        // Kills: the caption naming the CHOSEN style, which is the contradiction it
+        // exists to end — "Notch" under the name of a screen drawing Card. And kills
+        // a fallback gated on the override EXISTING: that gate misses the common
+        // case, a display inheriting a Notch declaration it cannot draw, which is the
+        // shipped default on notchless hardware.
+        #expect(options(declared: "notch", on: notchless).caption == .drawingWithoutNotch(.card))
+        #expect(options(override: "notch", declared: "card", on: notchless).caption == .drawingWithoutNotch(.card))
+        // An override that IS drawn is named as drawn, under a declaration that is not.
+        #expect(options(override: "card", declared: "notch", on: notchless).caption == .drawing(.card))
+        #expect(options(override: "classic", declared: "notch", on: notchless).caption == .drawing(.classic))
+        // And the slit draws the notch as chosen, inherited or not.
+        #expect(options(declared: "notch", on: notched).caption == .drawing(.notch))
+        #expect(options(override: "notch", declared: "card", on: notched).caption == .drawing(.notch))
     }
 }
 

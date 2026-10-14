@@ -95,8 +95,8 @@ first-launch warning goes away.
 
 The app icon ships in the classic format, which every macOS version renders
 (Tahoe applies its own treatment to it automatically). A native Icon Composer
-version — with proper Liquid Glass layers — is a natural next step; it needs
-the source art split into layers (background, pill, wave) first.
+version — with proper Liquid Glass layers — is a natural next step; the source
+art is already in its two layers, a flat ground and one vector mark.
 
 ## More languages
 

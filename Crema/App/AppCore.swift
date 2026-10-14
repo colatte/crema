@@ -577,6 +577,12 @@ final class AppCore {
         windowManager.renders(style)
     }
 
+    /// The displays rendering this style — the same roster reading as
+    /// `rendersAnywhere(_:)`, for the sentence that names them.
+    func displaysRendering(_ style: Style) -> Set<DisplayUUID> {
+        windowManager.displays(rendering: style)
+    }
+
     /// The picture for the style tiles, or nil for them to draw their own desk.
     /// Seeded at view construction — the deal those panes' other mirrors take
     /// (docs/CONTRACTS.md: S4): SwiftUI re-runs the seed
