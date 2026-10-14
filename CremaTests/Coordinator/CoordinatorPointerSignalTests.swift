@@ -1,8 +1,8 @@
 import Testing
 @testable import Crema
 
-/// The published raw-pointer mirror (`pointerInside`) — the global signal the
-/// timers key on: it must flip on BOTH hover paths (the debounced intent edge
+/// The raw pointer (`pointerInside`) — the global signal the timers key on:
+/// it must flip on BOTH hover paths (the debounced intent edge
 /// before its delay, and the immediate commit the Card/Classic panels use),
 /// and the pointer must hold a visible HUD (cancel the revert on arrival,
 /// restart the full delay on exit). The per-display knob reads the panel-local

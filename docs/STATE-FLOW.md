@@ -9,7 +9,7 @@
 
 ## One observable of state, and nine mirrors
 
-A single `@Observable` of **presentation state**: the **Coordinator**. The app's other NINE observables are read mirrors for views, never domain. The state is the `PresentationState` enum (`hidden` / `nowPlaying` / `hud`), `Equatable`.
+A single `@Observable` of **presentation state**: the **Coordinator**. The app's other NINE observables are read mirrors for views, never domain. The state is two layers, the now-playing appearance and the HUD (`PresentationLayers`); what a surface drawing both shows is their projection, the `PresentationState` enum (`hidden` / `nowPlaying` / `hud`), `Equatable`. A pointer event names the surface it came from and reaches only the layers that surface draws (docs/DECISIONS.md: card-hud-placement).
 
 The nine:
 
@@ -35,8 +35,8 @@ In the menu bar this is the difference between a line and a system probe: the st
 
 ## Views report, the Coordinator decides
 
-- Views read `coord.state` and return **intent** as methods (`hover(_:)`, play/pause, scrub, the HUD slider). A view never calls system API, never mutates domain, never keeps a copy of domain in `@State` (`@State` is for 100%-visual ephemera only).
-- Priority and timers live **only** in the Coordinator: the HUD interrupts now playing and reverts ~1.5 s after the last key (the timer restarts on every keypress, like the native HUD).
+- Views read `coord.state` and return **intent** as methods (`hover(_:on:)`, play/pause, scrub, the HUD slider). A view never calls system API, never mutates domain, never keeps a copy of domain in `@State` (`@State` is for 100%-visual ephemera only).
+- Priority and timers live **only** in the Coordinator: the HUD rises over now playing and reverts ~1.5 s after the last key (the timer restarts on every keypress, like the native HUD); the appearance under it keeps taking events, and its tuck waits for the revert.
 
 ## Skins are a pure function of state
 
@@ -50,7 +50,7 @@ What DOES repeat in every skin, by construction and not as residue, is the **dec
 
 Each real style's NSPanel has a **fixed size** at the style's maximum frame (expanded + overshoot slack; `windowFrame`, a pure function of the rule): the window **never resizes** — only the SwiftUI content animates between states inside it. Coordinating an AppKit window + a SwiftUI render in the same transition was the origin of an entire family of intermittent flickers.
 
-The frame rule stays pure and is the source of every derivation: per-state surface sizes and — via the panel retarget on each apply/size report — the hover regions and the **clickable region**, which derive from the SAME rendered surface in all skins (click and hover never diverge; docs/DECISIONS.md: hover-follows-the-eye). Clicks outside the visible surface pass through the window — `ignoresMouseEvents` tracks the cursor against the current state's tight frame (`SurfaceClickThrough`), so the menu bar beside the notch slit stays clickable. The WindowManager is notified **synchronously** by the Coordinator (`onPresentationChange`, in the state's `didSet`) so hover arming and click routing keep pace with the state on the same beat. At the edge, the panels' `NSHostingView` uses `sizingOptions = []` — the default (`.standardBounds`) installs constraints that would let SwiftUI resize the window.
+The frame rule stays pure and is the source of every derivation: per-state surface sizes and — via the panel retarget on each apply/size report — the hover regions and the **clickable region**, which derive from the SAME rendered surface in all skins (click and hover never diverge; docs/DECISIONS.md: hover-follows-the-eye). Clicks outside the visible surface pass through the window — `ignoresMouseEvents` tracks the cursor against the current state's tight frame (`SurfaceClickThrough`), so the menu bar beside the notch slit stays clickable. The WindowManager is notified **synchronously** by the Coordinator (`onPresentationChange`, in the layers' `didSet`, one write per transition) so hover arming and click routing keep pace with the state on the same beat. At the edge, the panels' `NSHostingView` uses `sizingOptions = []` — the default (`.standardBounds`) installs constraints that would let SwiftUI resize the window.
 
 ## Two motion vetoes, neither reducible to the other
 

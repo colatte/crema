@@ -6,8 +6,8 @@ import Testing
 /// the region math is pinned in SurfaceHoverModelTests and the panel's retarget
 /// in NSPanelPresentationPanelTests, while the pending exit that disarming
 /// reports lives only here — a mutation deleting it left every test green. That
-/// report is what keeps the Coordinator's pointer mirror true when a display
-/// stops being armed: a silent reset leaves the mirror holding a pointer that is
+/// report is what keeps the Coordinator's pointer record true when a display
+/// stops being armed: a silent reset leaves the record holding a pointer that is
 /// not on any surface, and the timers keyed on it (the HUD waits for the pointer
 /// to leave before reverting) then never fire again
 /// (docs/DECISIONS.md: hover-follows-the-eye).
@@ -71,7 +71,7 @@ struct SurfaceHoverMonitorTests {
         monitor.setActive(false)
 
         // The exit is PENDING, never unconditional: this display never held the
-        // pointer, so reporting its departure would move the global mirror on
+        // pointer, so reporting its departure would move the global record on
         // behalf of a hover that no panel ever had.
         #expect(pointer.reports.isEmpty)
     }

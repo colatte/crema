@@ -140,10 +140,9 @@ struct CoordinatorCommandCapabilityTests {
     }
 
     @Test func aSurfacingEventDuringAHUDRestoresDegradedControls() async {
-        // The heal reaches every branch, the .hud one included: a track change
+        // The heal reaches the event whatever the HUD is doing: a track change
         // arriving while a HUD owns the surface must re-enable the controls, or
-        // play/pause stays dead for the rest of the track. Before the fix the
-        // .hud branch returned early, ahead of the restore.
+        // play/pause stays dead for the rest of the track.
         let h = CoordinatorHarness()
         h.media.shouldThrow = true
         h.coordinator.nextTrack()
@@ -161,8 +160,8 @@ struct CoordinatorCommandCapabilityTests {
 
         #expect(await eventually { h.coordinator.commandsAvailable })
         #expect(await eventually { h.coordinator.skipCommandsAvailable })
-        // The HUD branch semantics are intact — it still owns the surface and
-        // the event is only armed to resurface on the revert.
+        // The HUD still owns the surface: the event reached only the appearance
+        // under it, which shows on the revert.
         #expect(h.coordinator.state == .hud(SystemHUD(kind: .volume, value: 0.5)))
     }
 

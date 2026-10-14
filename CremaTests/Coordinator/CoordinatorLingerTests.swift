@@ -113,7 +113,7 @@ struct CoordinatorLingerTests {
 
         // The debounced path (the notch's) must be as inert as the immediate
         // one: a pointer on the empty region surfaces nothing, publishes no
-        // pointer mirror, and does not even arm the dwell — so there is no park
+        // pointer record, and does not even arm the dwell — so there is no park
         // to wait for (waiting for one would burn the whole bounded deadline).
         h.coordinator.hoverIntent(true)
         await settle()

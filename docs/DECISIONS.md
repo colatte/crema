@@ -323,21 +323,16 @@ the Coordinator discards the snapshot and disarms click-invoke, never leaving
 armed controls that would resurrect a dead expanded player no live source can
 represent.
 
-Everything armed on the snapshot goes with it, the HUD's resume promise
-included. That promise is a bool ("the HUD interrupted a visible appearance")
-while the revert resurfaces whatever `nowPlaying` holds *then*, so a promise
-outliving its snapshot is spent on the next one. A discard under a HUD is the
-case with no other guard: the state is `.hud`, so the discard's `hide()` never
-runs, and the usual sequel to a discard — a browser stealing the focus, a chain
-failover, the browser filter being switched back on — is now-playing landing on
-a paused app, which arms no resume of its own yet gets surfaced by the stale
-one: a card opening by itself about a second after a volume key, over media the
-user never played. Same rule as the surface: a discard means the appearance
-would be hidden, and a hidden surface owes no resume. The REPLACEMENT case is
-deliberately not the same — a snapshot that merely changes identity while the
-promise stands keeps it, because outside the HUD a visible appearance would have
-refreshed to the new content: that is parity with the no-HUD path, not a stale
-promise.
+Everything armed on the snapshot goes with it, the appearance under a HUD
+included: the revert brings back whatever appearance the layers hold
+(card-hud-placement), so one kept past its snapshot would come back showing the
+next. The usual sequel to a discard — a browser stealing the focus, a chain
+failover, the browser filter being switched back on — is now-playing landing on a
+paused app, which earns no appearance of its own; a kept one would open a card by
+itself about a second after a volume key, over media the user never played. The
+REPLACEMENT case is deliberately not the same — a snapshot that merely changes
+identity under the HUD updates the appearance in place, as it would with no HUD
+up: that is parity with the no-HUD path, not a stale appearance.
 
 ### observer-model-rejected
 Evaluated migrating away from consuming the media keys to the SlimHUD model:
@@ -446,6 +441,24 @@ filled bar's glyph keeps the same inset from the bar's start, which clears the
 12 pt corner curve in both orientations because the bar is 42 pt thick either
 way. Classic's segmented bar has no upright form: it runs horizontal whatever axis
 it is handed.
+
+**The HUD and the now-playing appearance are two layers.** A HUD placed off the
+top centre is drawn on a surface of its own while the card stays where it is, so
+the Coordinator holds the two apart (`PresentationLayers`), and `state` is what a
+surface drawing both shows: the HUD over the appearance. A HUD rises over the
+appearance without taking it down; the appearance keeps taking events under it
+exactly as it would with no HUD up, the linger it owes included, and only its tuck
+waits: no linger runs while a HUD is up, wherever the HUD is drawn, so the
+appearance has one lifetime whether or not something covers it, and the revert
+arms the tuck again. A transition that moves both layers is one write, because the
+WindowManager's frame pass runs inside it. A pointer event names the surface it
+came from (`PresentationLayers.Surface`) and reaches only the layers that surface
+draws: on a surface drawing the HUD alone it holds the HUD and expands nothing; on
+one drawing the appearance alone it never holds the HUD. The pointer is a set of
+surfaces, because two panels report their exit and entry in either order, and a
+surface a dismissal leaves empty lets go of its pointer, since ordering a panel out
+reports no exit. The notch's debounced hover names no surface: the notch draws
+both layers on one.
 
 ### hud-fixed-dark-palette
 Every skin surface commits to one fixed dark palette, in every state and under
@@ -558,7 +571,7 @@ born on the surface from the click, so a cap would make the invoked linger
 unreachable again, a production bug already pinned), and the close spring
 tightened 0.45→0.35. Two
 hypotheses stay deliberately unimplemented pending a hardware probe: the
-multi-display pointer mirror and mouseMoved delivery to an inactive accessory.
+multi-display pointer record and mouseMoved delivery to an inactive accessory.
 
 Amended 2026-08-08: the CLICKABLE region now shares the apply-time rule. It
 used to take the frozen silhouette bare, so a hidden→HUD apply routed clicks
@@ -2165,7 +2178,7 @@ stream can be rebuilt after cancellation.
 ### a-panel-leaves-the-roster-before-it-closes
 Closing a presentation panel is not a leaf operation. `close()` stops its hover
 monitor; the disarm reports the pending exit (deliberately — a silent reset would
-leave the Coordinator's pointer mirror stale, `hover-follows-the-eye`); the
+leave the Coordinator's pointer record stale, `hover-follows-the-eye`); the
 Coordinator collapses an expanded appearance; and that state write runs the
 WindowManager's frame pass SYNCHRONOUSLY (`onPresentationChange`). With the entry
 still in `entries` the pass applied to the panel just closed and re-armed its hover,

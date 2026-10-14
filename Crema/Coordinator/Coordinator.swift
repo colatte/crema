@@ -13,7 +13,7 @@ import os
 /// `DisplayRoster`, and `BetterDisplayOSDSource`, whose `hasReported` is the one
 /// observable living in a Source — evidence the Settings line reads live). Those
 /// are read-mirrors for
-/// views and hold no domain; this one decides what is on screen (`state`), owns
+/// views and hold no domain; this one decides what is on screen (`layers`), owns
 /// HUD priority and display timers, and routes view intents to actuators. Sources
 /// and actuators are injected by protocol — never a concrete implementation.
 @MainActor
@@ -21,7 +21,7 @@ import os
 // Cohesive past the 400-line body ceiling for the same reason the file opts
 // out of file_length above: priority and timers live ONLY here by design
 // (AGENTS.md, Structure), so every presentation feature lands in this
-// type. Pure decisions still get extracted (ScrubGrace, PresentationState).
+// type. Pure decisions still get extracted (ScrubGrace, PresentationLayers).
 // swiftlint:disable:next type_body_length
 final class Coordinator {
     /// Default time the HUD stays up after the last event (~1.5 s,
@@ -57,12 +57,18 @@ final class Coordinator {
     /// the cap `commitHover` applies to `currentLinger`.
     static let hoverExitRelinger: Double = 1.5
 
-    /// Layout-driving state. The views observe this; it is written only when
-    /// the presented shape or content actually changes. The WindowManager gets
-    /// `onPresentationChange` instead of async observation (see below).
-    private(set) var state: PresentationState = .hidden {
+    /// Layout-driving state, as its two layers. Written only when the presented
+    /// shape or content actually changes, and a transition that moves both layers
+    /// is one write: the WindowManager's frame pass runs inside it
+    /// (`onPresentationChange`, below), and a pass between two writes would place
+    /// a frame for a state that never existed.
+    private(set) var layers = PresentationLayers() {
         didSet { onPresentationChange?() }
     }
+
+    /// The layers as a surface drawing both shows them — the HUD over the
+    /// appearance. The views observe this.
+    var state: PresentationState { layers.state(on: .both) }
 
     /// Live playback snapshot, including the once-per-second position tick.
     /// Position updates land only here: rewriting `state` for every tick would
@@ -206,26 +212,33 @@ final class Coordinator {
     @ObservationIgnored private var reactiveNowPlaying: Bool
 
     /// Committed hover state — the expansion decision now-playing/revert read.
-    /// Distinct from `pointerInside` (the raw pointer signal): during the
-    /// hover-intent delay `pointerInside` is already true but `isHovering` stays
-    /// false, so a track update mid-delay does not expand ahead of the intent.
+    /// Distinct from the raw pointer (`pointerSurfaces`): during the hover-intent
+    /// delay the pointer is already in but `isHovering` stays false, so a track
+    /// update mid-delay does not expand ahead of the intent.
     @ObservationIgnored private var isHovering = false
-    /// The raw pointer mirror, published — the global signal the timers key on
-    /// (the HUD hold). Written by BOTH hover paths via `publishPointer`; on the
-    /// debounced path it flips before the intent delay, so holding starts the
-    /// moment the cursor arrives. Flips are rare, so the observation cost is
-    /// nil. The per-display knob reads the panel-local
-    /// `SurfaceDisplayPolicy.pointerInside` instead.
+    /// The surfaces the raw pointer is on — the signal the timers key on. Written
+    /// by BOTH hover paths via `publishPointer`; on the debounced path it changes
+    /// before the intent delay, so holding starts the moment the cursor arrives.
+    /// Per surface, because a hold belongs to the layer under the cursor: on a
+    /// surface drawing the HUD it holds the HUD, on one drawing the appearance it
+    /// holds the appearance, on one drawing both it holds both. A set rather than
+    /// one surface: two panels' exit and entry reach here in either order. The
+    /// per-display knob reads the panel-local `SurfaceDisplayPolicy.pointerInside`
+    /// instead.
     ///
     /// UNVERIFIED hypothesis, deliberately unimplemented:
-    /// on multi-display setups every panel's monitor writes this single global
-    /// mirror, and the last writer could in principle mask another display's
+    /// on multi-display setups every panel's monitor writes this one global
+    /// record, and the last writer could in principle mask another display's
     /// state. Needs a two-panel hardware probe before any change — no
     /// speculative set-of-displays here.
-    private(set) var pointerInside = false
+    @ObservationIgnored private var pointerSurfaces: Set<PresentationLayers.Surface> = []
+    /// Whether the pointer is on any of the app's surfaces.
+    var pointerInside: Bool { !pointerSurfaces.isEmpty }
+    private var pointerHoldsHUD: Bool { pointerSurfaces.contains { $0.drawsHUD } }
+    private var pointerHoldsAppearance: Bool { pointerSurfaces.contains { $0.drawsNowPlaying } }
     /// Whether the current hover gesture entered through the intent path — the
-    /// routing guard in `hover(_:)` reads it so a gesture leaves the way it
-    /// came. Split from `pointerInside`, which both paths write.
+    /// routing guard in `hover(_:on:)` reads it so a gesture leaves the way it
+    /// came. Split from `pointerSurfaces`, which both paths write.
     @ObservationIgnored private var enteredViaHoverIntent = false
     /// The linger the visible appearance still owes — a property of the
     /// appearance, not of the restart site: the invoke click lands with the
@@ -252,14 +265,6 @@ final class Coordinator {
         lingerIsInvoked = invoked
     }
 
-    /// Whether the HUD interrupted a visible now-playing appearance (or a media
-    /// event arrived during the HUD): the revert resurfaces it. A HUD over a
-    /// tucked surface must revert to hidden, not resurrect the appearance.
-    /// A bare Bool, while the revert resurfaces whatever `nowPlaying` holds THEN:
-    /// the promise only means anything while that snapshot lives, so dropping the
-    /// snapshot must drop it (`discardActiveMedia`) or the revert spends it on a
-    /// stranger.
-    @ObservationIgnored private var resumeNowPlayingAfterHUD = false
     @ObservationIgnored private var consumptionTasks: [Task<Void, Never>] = []
     @ObservationIgnored private var hudRevertTask: Task<Void, Never>?
     @ObservationIgnored private var lingerTask: Task<Void, Never>?
@@ -384,42 +389,50 @@ final class Coordinator {
         // (the click that got here landed in that exact rect) and re-enters
         // the hover path — which must already see the invoked duration.
         oweLinger(invokedLinger, invoked: true)
-        state = .nowPlaying(track, expanded: true)
+        layers.nowPlaying = PresentationLayers.Appearance(track: track, expanded: true)
         restartLingerTimer()
     }
 
     /// Immediate hover: expand/collapse now. Used by the floating styles,
-    /// whose surfaces aren't on the accident-prone top edge.
-    func hover(_ hovering: Bool) {
+    /// whose surfaces aren't on the accident-prone top edge. `surface` is the
+    /// one the pointer crossed, and the hover reaches only the layers it draws:
+    /// on a surface drawing only the HUD it holds the HUD and nothing else.
+    func hover(_ hovering: Bool, on surface: PresentationLayers.Surface = .both) {
         // An empty region never reacts to hover: the region sits on the
         // menu-bar traffic lane and hover-invocation fired by accident.
         // Invocation is a click (or a media event); hover only expands what
         // is already visible.
-        if hovering, state == .hidden { return }
+        if hovering, layers.state(on: surface) == .hidden { return }
+        guard surface.drawsNowPlaying else {
+            publishPointer(hovering, on: surface)
+            return
+        }
         // A gesture that entered through the intent path leaves through it,
-        // keeping the recheck and the pointer mirror consistent.
-        if !hovering, enteredViaHoverIntent || hoverIntentTask != nil {
+        // keeping the recheck and the pointer record consistent. That path is
+        // the notch's, a surface drawing both layers.
+        if !hovering, surface == .both, enteredViaHoverIntent || hoverIntentTask != nil {
             hoverIntent(false)
             return
         }
-        commitHover(hovering)
+        commitHover(hovering, on: surface)
     }
 
     /// Debounced hover for the notch: expansion waits
     /// `hoverIntentDelay`, collapse waits `hoverOutDebounce`; the newest event
     /// cancels the pending one, and the fired task rechecks the pointer before
-    /// committing (the pointer may have moved during the wait).
+    /// committing (the pointer may have moved during the wait). The notch draws
+    /// both layers on one surface, so this path names no surface.
     func hoverIntent(_ hovering: Bool) {
-        // Same refusal as `hover(_:)` above, for the reason spelled out there —
+        // Same refusal as `hover(_:on:)` above, for the reason spelled out there —
         // enforced at THIS edge because every line below leaves residue nothing
-        // on screen can clear: the published mirror holds off the next HUD's
+        // on screen can clear: the pointer record holds off the next HUD's
         // revert timer, and a committed hover makes the next media event appear
         // expanded with no tuck timer behind it. Only an armed monitor reaches
         // here and none is armed over a hidden surface — but that rule lives in
         // the WindowManager, and this decision is the Coordinator's.
         if hovering, state == .hidden { return }
         enteredViaHoverIntent = hovering
-        publishPointer(hovering)
+        publishPointer(hovering, on: .both)
         // The pointer's arrival already holds the appearance — the linger must
         // not tuck the surface out from under a cursor waiting out the intent
         // delay.
@@ -428,7 +441,7 @@ final class Coordinator {
         let delay = hovering ? hoverIntentDelay : hoverOutDebounce
         hoverIntentTask = scheduleTimer(after: delay) { [weak self] in
             // A fired task is spent: the retained field must mean "gesture in
-            // flight", because `hover(_:)` routes hover-out through the intent
+            // flight", because `hover(_:on:)` routes hover-out through the intent
             // path whenever it is non-nil — a dead task left retained would
             // debounce a collapse the immediate styles promise at once. Nulling
             // here is safe against cancel/replace: a superseded task never
@@ -443,23 +456,29 @@ final class Coordinator {
     private func applyHoverIntent(expanded: Bool) {
         // Recheck: only commit if the pointer still matches the intent that was
         // scheduled (it may have entered/left during the delay).
-        guard pointerInside == expanded else { return }
-        commitHover(expanded)
+        guard pointerSurfaces.contains(.both) == expanded else { return }
+        commitHover(expanded, on: .both)
     }
 
-    /// Single writer of the pointer mirror for pointer TRANSITIONS — both hover
+    /// Single writer of the pointer record for pointer TRANSITIONS — both hover
     /// paths come through here (idempotent when the debounced path already
-    /// published) — and the home of the HUD hold: the pointer's arrival cancels
-    /// the revert timer, its exit restarts the full delay, which is what makes
-    /// the knob's premise real (docs/DECISIONS.md: hud-capsule-track).
-    /// Not the mirror's only writer: `hide()` resets it directly (see its doc),
-    /// so accounting hung here reaches transitions only — whatever a dismissal
-    /// also owes has to be added there in the same change.
-    private func publishPointer(_ inside: Bool) {
-        guard pointerInside != inside else { return }
-        pointerInside = inside
-        guard case .hud = state else { return }
+    /// published) — and the home of the HUD hold: the pointer's arrival on a
+    /// surface drawing the HUD cancels the revert timer, its exit restarts the
+    /// full delay, which is what makes the knob's premise real
+    /// (docs/DECISIONS.md: hud-capsule-track). A pointer on a surface drawing
+    /// only the appearance never holds the HUD.
+    /// Not the record's only writer: `releaseEmptiedSurfaces()` removes surfaces
+    /// directly (see its doc), so accounting hung here reaches transitions only —
+    /// whatever a dismissal also owes has to be added there in the same change.
+    private func publishPointer(_ inside: Bool, on surface: PresentationLayers.Surface) {
+        let heldHUD = pointerHoldsHUD
         if inside {
+            pointerSurfaces.insert(surface)
+        } else {
+            pointerSurfaces.remove(surface)
+        }
+        guard pointerHoldsHUD != heldHUD, layers.hud != nil else { return }
+        if pointerHoldsHUD {
             hudRevertTask?.cancel()
             hudRevertTask = nil
         } else {
@@ -469,19 +488,20 @@ final class Coordinator {
 
     /// The single hover commitment path (immediate and debounced). Hover-in
     /// holds the appearance and expands the visible compact; hover-out
-    /// collapses and resumes the tuck timer. A hidden state stays hidden —
-    /// hover never invokes (that is the click's job).
-    private func commitHover(_ hovering: Bool) {
-        publishPointer(hovering)
+    /// collapses and resumes the tuck timer. Both act on the appearance only
+    /// where `surface` shows it — on a surface drawing both, a HUD covers it. A
+    /// hidden state stays hidden — hover never invokes (that is the click's job).
+    private func commitHover(_ hovering: Bool, on surface: PresentationLayers.Surface) {
+        publishPointer(hovering, on: surface)
         isHovering = hovering
         if hovering {
             cancelLinger()
-            if case .nowPlaying(let track, false) = state {
-                state = .nowPlaying(track, expanded: true)
+            if case .nowPlaying(_, expanded: false) = layers.state(on: surface) {
+                layers.nowPlaying?.expanded = true
             }
-        } else if case let .nowPlaying(track, expanded) = state {
+        } else if case .nowPlaying(_, let expanded) = layers.state(on: surface) {
             if expanded {
-                state = .nowPlaying(track, expanded: false)
+                layers.nowPlaying?.expanded = false
             }
             // Any finished hover on the REACTIVE appearance buys the short
             // re-linger, not a fresh full one (calibration-in-test — see
@@ -502,31 +522,43 @@ final class Coordinator {
         }
     }
 
-    /// Dismisses the surface. Resets the hover commitment because ordering the
-    /// panel out does not synthesize a mouseExited (the pointer never moved), so
-    /// `onHover(false)` would never fire and a stale `isHovering` would make the
-    /// surface reappear expanded with no pointer on it. Deliberately not used on
-    /// the HUD-revert-to-now-playing path, where keeping `isHovering` is correct
-    /// (the pointer is typically still on the notch).
-    ///
-    /// The pointer mirror is reset DIRECTLY, not through `publishPointer`: a
-    /// dismissal is not a pointer transition (the cursor did not move; the
-    /// surface under it left), and that method's HUD accounting reads `state`,
-    /// so routing the reset above the write below would arm a revert timer for
-    /// the very HUD being dismissed. Unconditional on purpose: in the panel path
-    /// the disarm already reported the exit, but the state machine must not
-    /// depend on a panel existing.
-    private func hide() {
-        state = .hidden
-        lingerTask?.cancel()
-        lingerTask = nil
-        hoverIntentTask?.cancel()
-        hoverIntentTask = nil
-        isHovering = false
-        pointerInside = false
-        enteredViaHoverIntent = false
+    /// Tucks the now-playing appearance; a HUD over it stays up, and a surface
+    /// drawing both keeps showing it.
+    private func hideNowPlaying() {
+        layers.nowPlaying = nil
+        cancelLinger()
         oweLinger(nowPlayingLinger, invoked: false)
-        forgetTheBarUnderTheFinger()
+        releaseEmptiedSurfaces()
+    }
+
+    /// What a dismissal owes the pointer. Ordering a surface out does not
+    /// synthesize a mouseExited (the pointer never moved), so `onHover(false)`
+    /// never fires: a surface left drawing nothing would keep its hold, and a
+    /// stale `isHovering` would make the next appearance come back expanded with
+    /// no pointer on it. Every write that can empty a surface ends here. A
+    /// surface that still draws a layer keeps its pointer — on the HUD's revert
+    /// to the appearance the pointer is typically still on the notch.
+    ///
+    /// The record is changed DIRECTLY, not through `publishPointer`: a dismissal
+    /// is not a pointer transition (the cursor did not move; the surface under it
+    /// left), and that method's HUD accounting would arm a revert timer for the
+    /// very HUD being dismissed. Unconditional on purpose: in the panel path the
+    /// disarm already reported the exit, but the state machine must not depend
+    /// on a panel existing.
+    private func releaseEmptiedSurfaces() {
+        let emptied = pointerSurfaces.filter { layers.state(on: $0) == .hidden }
+        pointerSurfaces.subtract(emptied)
+        if emptied.contains(where: \.drawsNowPlaying) {
+            isHovering = false
+        }
+        // With both layers gone the hover gesture ends however far it got: a
+        // collapse still debouncing has a pointer that already left.
+        if state == .hidden {
+            hoverIntentTask?.cancel()
+            hoverIntentTask = nil
+            isHovering = false
+            enteredViaHoverIntent = false
+        }
     }
 
     /// The bar a drag was working on is gone, so no correction is owed on it and
@@ -705,9 +737,9 @@ final class Coordinator {
         if skipSupportedByTrack != update.supportsSkip {
             skipSupportedByTrack = update.supportsSkip
         }
-        // Ahead of every early return below, the .hud one included: the menu bar is
-        // not the surface and does not inherit its priority — it names what is
-        // playing even while a HUD owns the screen.
+        // Ahead of every early return below: the menu bar is not the surface and
+        // does not inherit its rules — it names what is playing whether or not an
+        // appearance shows it, and while a HUD owns the screen.
         publishTrackNames(title: update.title, artist: update.artist)
         // Scrub grace: the update lands whole first (the thresholds below and
         // mediaActive read it), then its POSITION is weighed against a seek in
@@ -752,10 +784,9 @@ final class Coordinator {
 
         // A surfacing event is a natural re-check point: restore optimism so a
         // degraded control becomes usable again — otherwise the disabled
-        // control has no path back once flipped. Hoisted above every branch,
-        // the .hud one included: a track change arriving while a HUD owns the
-        // surface must still re-enable the controls, or play/pause stays dead
-        // for the rest of the track. Independent of quiet vs
+        // control has no path back once flipped. Hoisted above every branch, so
+        // a track change that surfaces nothing still re-enables the controls, or
+        // play/pause stays dead for the rest of the track. Independent of quiet vs
         // reactive: quiet mode still has a live invoked surface with controls,
         // so it recovers the same way, ahead of the self-surface gate.
         if surfacingEvent, !commandsAvailable {
@@ -765,25 +796,18 @@ final class Coordinator {
             skipCommandsAvailable = true
         }
 
-        if case .hud = state {
-            // HUD has priority; a pending event resurfaces on the revert —
-            // as the new event's reactive appearance (its linger too), exactly
-            // as it would surface outside the HUD. Quiet mode never
-            // self-surfaces, so the revert just returns to hidden.
-            if surfacesReactively, reactiveNowPlaying {
-                resumeNowPlayingAfterHUD = true
-                oweLinger(nowPlayingLinger, invoked: false)
-            }
-            return
-        }
-
+        // A HUD changes none of what follows: the appearance under it takes the
+        // event exactly as it would with no HUD up, and a surface drawing both
+        // shows it when the HUD reverts. Only its tuck waits for the revert
+        // (`restartLingerTimer`).
+        //
         // A refinement must preserve the current expansion: an invoked player
         // in the uncommitted-hover window (pointer inside, intent not fired)
         // would otherwise collapse under artwork arriving a beat later.
         let wasExpanded: Bool
-        if case .nowPlaying(_, let expanded) = state {
+        if let appearance = layers.nowPlaying {
             guard contentChanged else { return }
-            wasExpanded = expanded
+            wasExpanded = appearance.expanded
         } else {
             // From hidden, only a surfacing event appears — and only in reactive
             // mode. Quiet mode still tracks nowPlaying/mediaActive above (so
@@ -797,7 +821,10 @@ final class Coordinator {
         if surfacingEvent {
             oweLinger(nowPlayingLinger, invoked: false)
         }
-        state = .nowPlaying(update, expanded: surfacingEvent ? isHovering : (isHovering || wasExpanded))
+        layers.nowPlaying = PresentationLayers.Appearance(
+            track: update,
+            expanded: surfacingEvent ? isHovering : (isHovering || wasExpanded)
+        )
         if isHovering {
             cancelLinger() // hover holds the appearance
         } else {
@@ -839,21 +866,17 @@ final class Coordinator {
         discardActiveMedia()
     }
 
-    /// Drops the active snapshot and everything armed on it: surface, click zone,
-    /// hover, the names the menu bar shows, and the HUD's promise to resurface.
-    /// Shared by stream end, the browser filter and the live filter toggle — all
-    /// mean "there is no media the
-    /// app should represent". A scrub in flight dies with it: a dead snapshot
-    /// cannot retain a position target.
+    /// Drops the active snapshot and everything armed on it: the appearance,
+    /// click zone, hover, and the names the menu bar shows. Shared by stream end,
+    /// the browser filter and the live filter toggle — all mean "there is no
+    /// media the app should represent". A scrub in flight dies with it: a dead
+    /// snapshot cannot retain a position target.
     ///
-    /// The resume promise goes for the same reason the surface does: a discard
-    /// means the appearance would now be hidden, and a hidden surface owes no
-    /// resume (`publishHUD` writes that same false when a HUD rises over hidden).
-    /// Under a HUD this is the only write that happens — the state is `.hud`, so
-    /// `hide()` below is skipped — and without it the revert resurfaces whatever
-    /// landed next, which after a discard is typically a paused app that arms no
-    /// resume of its own (docs/DECISIONS.md: ghost-discard). A snapshot that is
-    /// news re-earns the promise through handleNowPlayingUpdate's .hud branch.
+    /// The appearance goes under a HUD too, so the revert has nothing to bring
+    /// back; kept, it would come back showing whatever landed next, which after a
+    /// discard is typically a paused app that would not surface on its own
+    /// (docs/DECISIONS.md: ghost-discard). A snapshot that is news earns a new
+    /// appearance through handleNowPlayingUpdate.
     private func discardActiveMedia() {
         endScrubGrace()
         nowPlaying = nil
@@ -861,12 +884,11 @@ final class Coordinator {
         // sit above a transport that reads enabled for a track no live source can
         // command.
         publishTrackNames(title: nil, artist: nil)
-        resumeNowPlayingAfterHUD = false
         if mediaActive {
             mediaActive = false
         }
-        if case .nowPlaying = state {
-            hide()
+        if layers.nowPlaying != nil {
+            hideNowPlaying()
         }
     }
 
@@ -899,18 +921,15 @@ final class Coordinator {
 
     /// Puts a reading on screen: the same path an arriving HUD and a drag's own
     /// optimistic echo both take, so a dragged level and a reported one behave
-    /// identically (revert timer, pointer hold, now-playing resume).
+    /// identically (revert timer, pointer hold, the appearance's return).
     private func publishHUD(_ hud: SystemHUD) {
-        if case .nowPlaying = state {
-            resumeNowPlayingAfterHUD = true
-        } else if state == .hidden {
-            resumeNowPlayingAfterHUD = false
-        }
+        // The appearance under it, visible or not, stays as it is; only its tuck
+        // waits (`restartLingerTimer`).
         cancelLinger()
-        state = .hud(hud)
+        layers.hud = hud
         // A key while the pointer holds the HUD must not re-arm the revert —
         // the hold owns dismissal until the pointer leaves.
-        if !pointerInside { restartHUDRevertTimer() }
+        if !pointerHoldsHUD { restartHUDRevertTimer() }
     }
 
     /// The one home for the cancellable display-timer idiom: sleep on the
@@ -939,34 +958,36 @@ final class Coordinator {
     }
 
     private func revertHUD() {
-        guard case .hud = state else { return }
-        // Ahead of the branch, because both arms take the bar away: resuming the
-        // appearance dismisses it exactly as hiding does.
+        guard layers.hud != nil else { return }
         forgetTheBarUnderTheFinger()
-        // Only a pending media event (or the HUD having interrupted a visible
-        // appearance) earns a resurface — a pointer merely resting on the
-        // region during the HUD does not: the region sits on the menu-bar
-        // traffic lane, and resurrecting a tucked appearance from a stray
-        // cursor is the accidental-appearance class the click-invoke model
-        // removed. The pointer still decides how it resumes: expanded under a
-        // committed hover, and no tuck timer while it stays. The resume path
-        // deliberately does not require isPlaying: a pause event during the
-        // HUD earns its paused appearance (the linger bounds it), exactly as
-        // it would outside the HUD.
-        if resumeNowPlayingAfterHUD, let track = nowPlaying {
-            state = .nowPlaying(track, expanded: isHovering)
-            if !isHovering, !pointerInside {
-                restartLingerTimer()
-            }
-        } else {
-            hide()
+        // The appearance comes back only if one is there: the HUD rose over it,
+        // or a media event earned it during the HUD. A pointer merely resting on
+        // the region during the HUD earns none: the region sits on the menu-bar
+        // traffic lane, and resurrecting a tucked appearance from a stray cursor
+        // is the accidental-appearance class the click-invoke model removed. The
+        // pointer still decides how it comes back: expanded under a committed
+        // hover, and no tuck timer while it stays. One write for both layers, so
+        // no frame pass sees the HUD gone with the appearance not yet settled.
+        var next = layers
+        next.hud = nil
+        next.nowPlaying?.expanded = isHovering
+        layers = next
+        releaseEmptiedSurfaces()
+        if layers.nowPlaying != nil, !isHovering, !pointerHoldsAppearance {
+            restartLingerTimer()
         }
     }
 
     /// Arms the tuck on whatever the appearance currently owes. No per-call
     /// duration: one source for the number is what keeps a refinement from
     /// re-arming a tail the hover already shortened (see `currentLinger`).
+    ///
+    /// Never while a HUD is up: on a surface drawing both, the appearance under
+    /// the HUD is not on screen to be read, and its tuck would leave the revert
+    /// nothing to bring back. Wherever the HUD is drawn the rule is the same, so
+    /// the appearance has one lifetime; the revert arms the tuck again.
     private func restartLingerTimer() {
+        guard layers.hud == nil else { return }
         lingerTask?.cancel()
         lingerTask = scheduleTimer(after: currentLinger) { [weak self] in self?.tuckNowPlaying() }
     }
@@ -983,8 +1004,8 @@ final class Coordinator {
         // reaching here expanded means the invoked player opened under a
         // click and the cursor moved straight out before any hover committed;
         // the appearance must still be able to end.
-        guard case .nowPlaying = state, !isHovering, !pointerInside else { return }
-        hide()
+        guard layers.nowPlaying != nil, !isHovering, !pointerHoldsAppearance else { return }
+        hideNowPlaying()
     }
 
     /// Fires a one-shot actuator command; failures are logged, never fatal.
