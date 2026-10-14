@@ -2,8 +2,8 @@
 // from the app icon's mark, the same vector (crema-mark.svg) filled solid:
 // a 16 pt mark centered in the 18 pt slot. Monochrome black + alpha; the
 // asset's template rendering intent lets the system tint it for
-// dark/light/accent. At 18 pt the wave's tapering point thins to nothing —
-// the cut as a whole is what survives, and it is enough.
+// dark/light/accent. At 18 pt the crema's fine point thins to nothing — the
+// hollow as a whole is what survives, and it is enough.
 // Run: swift design/icon/makemenubaricon.swift  (writes the imageset PNGs)
 import AppKit
 import SwiftUI
