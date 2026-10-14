@@ -953,6 +953,40 @@
         }
       }
     },
+    "settings.displays.drawing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drawing %@"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra o %@"
+          }
+        }
+      }
+    },
+    "settings.displays.drawing.noNotch": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drawing %@ — no notch here"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra o %@ — sem notch aqui"
+          }
+        }
+      }
+    },
     "settings.displays.showNowPlaying": {
       "extractionState": "manual",
       "localizations": {
@@ -983,23 +1017,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "O player aparece em cada tela marcada aqui. Ativado por padrão na tela integrada."
-          }
-        }
-      }
-    },
-    "settings.displays.style.footer.noNotch": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This display has no notch, so Notch draws as Card here."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Esta tela não tem notch, então o Notch aparece como Card aqui."
           }
         }
       }
@@ -1163,13 +1180,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Follow all displays (%@)"
+            "value": "Follow all displays"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Seguir todas as telas (%@)"
+            "value": "Seguir todas as telas"
           }
         }
       }
@@ -1289,6 +1306,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Preenchido"
+          }
+        }
+      }
+    },
+    "settings.hud.indicator.footer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Displays drawing Card: %@."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telas que mostram o Card: %@."
           }
         }
       }

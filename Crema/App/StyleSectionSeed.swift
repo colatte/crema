@@ -11,7 +11,10 @@ import AppKit
 @MainActor
 struct StyleSectionSeed {
     let style: Style
-    let rendersCard: Bool
+    /// The displays drawing Card. The General tab names them under the Card
+    /// indicator; the tour only asks whether there are any.
+    let cardDisplays: Set<DisplayUUID>
+    var rendersCard: Bool { !cardDisplays.isEmpty }
     let rendersNotch: Bool
     let wallpaper: NSImage?
     /// "On" includes pending approval: a registration BTM is still holding is an
@@ -24,7 +27,7 @@ struct StyleSectionSeed {
 
     init(core: AppCore) {
         style = core.declaredStyle()
-        rendersCard = core.rendersAnywhere(.card)
+        cardDisplays = core.displaysRendering(.card)
         rendersNotch = core.rendersAnywhere(.notch)
         wallpaper = core.tileWallpaper()
         launchesAtLogin = core.loginItem.isEnabled || core.loginItem.requiresApproval

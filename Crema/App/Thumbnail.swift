@@ -1,14 +1,14 @@
 import SwiftUI
 
-/// The frame both rows of Settings pictures wear — the numbers AND the ring
-/// drawn from them.
+/// The frame every Settings picture wears — the numbers AND the ring drawn from
+/// them.
 ///
-/// It lives in a file of its own because it belongs to neither picker: the style
-/// tiles and the indicator mini-tiles under them sit in one Settings section and
-/// have to look like one family, so a second copy of these numbers is how they
-/// would come to wear two frames. Keeping the constants shared while each picker
-/// re-drew the ring from them was the same exposure one step later — the numbers
-/// could not diverge, the eleven lines tracing them could.
+/// It lives in a file of its own because it belongs to no one picture: the style
+/// tiles, the indicator mini-tiles and the thumbnail heading each display row sit
+/// in one Settings pane and have to look like one family, so a second copy of
+/// these numbers is how they would come to wear two frames. Sharing the constants
+/// alone is not enough: with each picture tracing its own ring, the numbers cannot
+/// diverge but the lines drawing them can.
 enum Thumbnail {
     /// Sized to the row it sits in, not to taste: three of these plus their gaps
     /// and the "Style" label have to fit the 500 pt Settings window, whose grouped
@@ -50,17 +50,24 @@ extension View {
     /// the sentence naming it stays at the call site and only the drawing
     /// lives here.
     func thumbnailSelectionRing(isSelected: Bool) -> some View {
+        thumbnailHairline()
+            .padding(Thumbnail.ringInset)
+            .overlay {
+                RoundedRectangle(
+                    cornerRadius: Thumbnail.cornerRadius + Thumbnail.ringInset,
+                    style: .continuous
+                )
+                .strokeBorder(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear), lineWidth: 2.5)
+            }
+    }
+
+    /// The hairline alone, for a picture that is not an option — the one heading
+    /// each display row says what that screen draws and selects nothing, so it
+    /// wears the tiles' frame without their ring.
+    func thumbnailHairline() -> some View {
         overlay {
             RoundedRectangle(cornerRadius: Thumbnail.cornerRadius, style: .continuous)
                 .strokeBorder(.separator, lineWidth: 0.5)
-        }
-        .padding(Thumbnail.ringInset)
-        .overlay {
-            RoundedRectangle(
-                cornerRadius: Thumbnail.cornerRadius + Thumbnail.ringInset,
-                style: .continuous
-            )
-            .strokeBorder(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear), lineWidth: 2.5)
         }
     }
 }
