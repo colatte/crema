@@ -20,6 +20,9 @@ enum Thumbnail {
     /// what a tile is shaped like.
     static let referenceAspectRatio = StylePreview.notchedReference.frame.width / StylePreview.notchedReference.frame.height
     static let cornerRadius: CGFloat = 6
+    /// The gap between the small tiles of the Card's rows — the indicator
+    /// close-ups and the placement screens — tighter than the style tiles' row.
+    static let smallTileSpacing: CGFloat = 4
     /// Room between the picture and the selection ring.
     fileprivate static let ringInset: CGFloat = 3
     /// Floor for the menu-bar strip and the slit that cuts it. Scenery, like the
@@ -38,6 +41,35 @@ enum Thumbnail {
     /// to taste; the rationale for exaggerating at all is on `surfaceSize`.
     static let stripSurfaceWidthBoost: CGFloat = 2.0
     static let stripSurfaceHeightBoost: CGFloat = 1.35
+    /// How dark every picture draws a floating surface: it stands in for a material
+    /// that cannot be drawn in Settings, dark enough that the surface on the desk
+    /// reads as the app's (docs/DECISIONS.md: hud-fixed-dark-palette).
+    static let floatingSurfaceOpacity = 0.62
+
+    /// The menu bar strip's height in a picture `pictureHeight` tall, from its
+    /// fraction of the screen, floored at `minMenuBar`.
+    static func menuBarHeight(fraction: CGFloat, pictureHeight: CGFloat) -> CGFloat {
+        max(fraction * pictureHeight, minMenuBar)
+    }
+}
+
+/// The strip that makes a picture read as a SCREEN, which is what gives the
+/// surfaces in it a top edge to be near. One drawing for every picture of a
+/// screen in Settings, so they cannot come to wear two menu bars.
+struct ThumbnailMenuBar: View {
+    let width: CGFloat
+    let height: CGFloat
+
+    var body: some View {
+        Rectangle()
+            .fill(.white.opacity(0.85))
+            .frame(width: width, height: height)
+            // The bar's own bottom edge: over a pale desk the white strip melts
+            // into the sky and the slit loses the thing it takes a bite out of.
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(.black.opacity(0.18)).frame(height: 0.5)
+            }
+    }
 }
 
 extension View {

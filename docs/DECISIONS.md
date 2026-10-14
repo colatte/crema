@@ -418,7 +418,11 @@ side it keeps `hudSideMargin` (16 pt) from the edge. The margins are fixed, by
 agreement with the author: the Dock is not read (`ScreenGeometry` carries no
 visible frame), so a Dock taller than the bottom margin sits over a bottom HUD.
 Placements are places on the glass — left and right do not swap under a
-right-to-left interface.
+right-to-left interface. Settings picks one from a grid of eight small screens
+whose bars are the rule's own frames on the reference panel (`StylePreview.hudBar`,
+`PlacementThumbnail`); magnified to read at that size, each bar keeps its
+proportions and its share of the room around it, so a corner stays a corner, and
+the grid's hand-written arrangement is checked against where those bars land.
 
 **The bar runs along the edge it sits on.** Flat along the top and bottom edges,
 corners included; upright in the middle of a side (`HUDPlacement.axis`). Upright,
