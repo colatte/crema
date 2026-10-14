@@ -13,7 +13,7 @@ struct CremaApp: App {
     var body: some Scene {
         // The status icon is the app's identity, not the generic SF capsule:
         // a TEMPLATE image (the system tints it for dark/light/accent) of the
-        // pill silhouette with the crema line, generated at @1x/@2x by
+        // app icon's mark, generated at @1x/@2x by
         // design/icon/makemenubaricon.swift — regenerate there, never edit
         // the PNGs by hand.
         MenuBarExtra(

@@ -121,7 +121,10 @@ Developer ID (section 3).
 - Tick **"Let me override defaults"** and set the validity to **3650 days**: the
   365-day default means a new certificate (a new identity!) every year — and a
   new certificate means users **re-grant** Accessibility **and** Sparkle refuses
-  the swap (different signer). One certificate, reused for every release.
+  the swap (different signer). One certificate, reused for every release. Its
+  SHA-256 is published in the README ("Verifying the download"), and
+  `release.sh` refuses to ship under any other, so a new certificate means
+  updating that line in the same release.
 - On the first `codesign`, macOS asks for access to the private key — click
   **Always Allow**.
 - Confirm it shows up:

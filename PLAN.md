@@ -54,7 +54,7 @@ Depends on: an Apple Developer account existing. The script path is already writ
 ## Phase 4 (deferred) — A Tahoe-native icon
 
 Objective: an Icon Composer `.icon` alongside the classic appiconset, additive and without breaking macOS 14 (which falls back to the appiconset automatically).
-Depends on: the author exporting the art in separate layers (background / pill / wave). Without them, Tahoe already applies its system treatment to the classic icon on its own, which is why this is deferred rather than open.
+Depends on: the art in separate layers (background / mark), which exist: the mark is one vector over a flat ground (`design/icon/crema-mark.svg`). Tahoe already applies its system treatment to the classic icon on its own.
 
 - [ ] T12.2 — Tahoe icon (Icon Composer, Liquid Glass) · módulo: design
   - Verification: visual, on Tahoe and on Sonoma, from one build.

@@ -1019,7 +1019,7 @@ same `declaredStyle` key, same sweep, same resolver.
 
 What travelled with the address change is the control itself. The per-display
 style stopped being a row of thumbnails and became a POPUP of names whose first
-item is "Follow all displays (<declaration>)"; the separate "Use the all-displays
+item is "Follow all displays"; the separate "Use the all-displays
 style" button died with it, because inheriting is now one of the options instead
 of a button beside them (the write is still `clearStyle` — inheriting IS the
 absence of the key). Three pieces of provenance chose that shape, and they are
@@ -1067,17 +1067,26 @@ therefore carries its own wording (`tour.step.style.replacesPerDisplay`) rather
 than sharing a string that would have to lose the pointer to be true in both
 windows.
 
-The step deliberately left for later, with the gate that reopens it: a thumbnail
-at the head of each row, so a per-display choice can show its shape the way the
-declaration does. It already has its resolver — `StylePreview.shapes(for:on:)`,
-kept as a seam for it (see `rendered-style-gates-settings`) — and it reopens the
-moment a row can hold a picture without turning a two-monitor pane into a scroll.
+Each row is headed by what that display DRAWS: a thumbnail
+(`StylePreview.shapes(for:on:)`, which resolves before drawing — see
+`rendered-style-gates-settings`) and a caption in words
+(`DisplayStyleOptions.caption`), "Drawing Card — no notch here" where the style in
+force does not fit the panel. The popup names the CHOICE and the row says what is
+on screen beside it, never in a note correcting the control; that is why the
+inherit item names no style — naming the declaration puts "Notch" over a screen
+drawing Card. The thumbnail is 60 pt wide, the tiles' picture with the same point
+floors, and its condition is the pane's height: a two-monitor General tab stays
+unscrolled.
 
 **Amendment (2026-08-01, fourth): the Card's indicator came home too, and it came
 back as pictures.** The third amendment sent that picker to the Indicators tab,
 "its thematic home". The clause is spent: with style asked in General again, the
-indicator belongs directly under the tiles that declare the style it is an
-indicator FOR. It sits in the same Section, one row below them, drawn as two
+indicator belongs next to the displays drawing the style it is an indicator FOR.
+It has a Section of its own after the display rows (`CardIndicatorSection`), and
+its footer names those displays in the rows' own words
+(`WindowManager.displays(rendering:)`): under the declaration's tiles, a mixed
+setup puts it beneath a selected Notch with nothing saying which display it
+serves. It is drawn as two
 mini-tiles instead of a popup of two nouns — "Line" and "Filled" name bodies the
 reader has not seen, and the whole difference between them is visual, which is the
 argument the style tiles above are already made of. The tiles render the REAL HUD
@@ -1086,14 +1095,12 @@ one reading and at the SAME reading in both: a hand-drawn likeness would be a
 second description of the indicator, and two levels would let the eye read the
 difference between the bodies as a difference in loudness.
 
-The cross-tab footer died with the distance it was paying for. "Applies to the
-Card style, which is chosen in the General tab" existed because a control and the
-picker governing it were a tab apart and a sentence was the only thing that could
-carry a reader between them. Under that picker there is nothing left for it to
-say, so the string was deleted rather than reworded — the same rule the sweep
-footer follows in the other direction: a footer that restates its neighbour
-teaches the reader to skip footers. Adjacency says it again, which is what
-adjacency is for.
+No cross-tab footer: "Applies to the Card style, which is chosen in the General
+tab" pays only for distance — a control and the picker governing it a tab apart,
+with a sentence as the only thing carrying a reader between them — and in the
+picker's own pane there is none to pay for. Same rule as the sweep footer in the
+other direction: a footer that restates its neighbour teaches the reader to skip
+footers. Adjacency says it again, which is what adjacency is for.
 
 Nothing about the choice itself moved: the same `hudIndicatorStyleKey` the panels
 read, the same `setHUDIndicatorStyle` applying it live, now held by the pane that
@@ -1154,11 +1161,9 @@ every reader asking IT. The disabled tile reads that same resolver as a yes/no �
 enabled for a style its screen would silently swap out. (Amended 2026-08-01:
 there is no disabled tile any more — the per-display control is a popup, and the
 yes/no it reads is `DisplayStyleOptions.isEnabled`, still `Style.isHonoured(on:)`,
-still the same resolver. `StylePreview.shapes(for:on:)` therefore has no caller in
-the app today and stays as a SEAM rather than dead code: the resolve-before-drawing
-rule lives in that function and the suite is what pins it, the same standing
-`Preferences.setShowsNowPlaying` has. The named next caller is a thumbnail at the
-head of each per-display row.)
+still the same resolver. `StylePreview.shapes(for:on:)` is what each per-display
+row draws, with that row's own screen, so the resolve-before-drawing rule reaches
+Settings through it.)
 Drawing per display produced one measured number worth keeping: a slitless
 display's menu bar is 24 pt, against the 32 pt safe area a notched panel reports
 (that panel's real bar is 37). The preview needs a bar for the surfaces to have a
@@ -1176,20 +1181,21 @@ dependent-setting pattern — and the reason was DISTANCE: from the Indicators t
 the control that could turn the gate true was a tab away, so a row that simply
 vanished would have left nothing to reason about, and a greyed row named for what
 it governs plus a footer pointing at General was the cheapest honest report. The
-row now sits in the same Section as that declaration, immediately under it
-(`global-style-default`), so the answer to "why is there no indicator row?" is
-drawn above the space where it would be, and declaring Card makes the row appear
-at once — live, off the mirror this pane already re-reads on every write.
+row sits in the same pane as that declaration, after the display rows whose
+thumbnails show what each display draws (`global-style-default`), so the answer to
+"why is there no indicator row?" is drawn above the space where it would be, and a
+pick that starts a display drawing Card makes the row appear at once — live, off
+the mirror this pane re-reads after every style write.
 Visible-but-disabled buys nothing once that distance is gone; it spends a row on a
 control nobody can use.
 
-The residual is the seed-once deal this mirror has always taken (S4, the tradeoff
+The residual is the seed-once deal of S4 (the tradeoff
 `one-screen-reading-per-edge` names when it explains why the per-display list does
-NOT take it): the mirror is seeded when the pane is built, so a per-display
-override — or a monitor plugged in — with the window open leaves the row on the
-previous answer until Settings is reopened. The list next to it is reactive
-because its rows ARE displays; this row is not a display, so it keeps the cheaper
-deal.
+NOT take it): the mirror is seeded when the pane is built and re-read after every
+style write in the pane and every roster change, so a style picked from the menu
+bar's Style submenu with the window open leaves the row on the previous answer
+until Settings is reopened. The list next to it is reactive because its rows ARE
+displays; this row is not a display, so it keeps the cheaper deal.
 
 **Amendment (2026-08-15): the per-display list is offered for every roster that
 is not empty.** It used to be gated — two displays, or a sole external, or an

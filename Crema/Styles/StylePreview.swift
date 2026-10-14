@@ -128,13 +128,8 @@ enum StylePreview {
     /// mapping lives in one function and every reader asks IT
     /// (docs/DECISIONS.md: rendered-style-gates-settings).
     ///
-    /// `on:` has no caller in the app today — the per-display control is a popup of
-    /// names, not pictures — and it stays anyway: the resolution it selects is a
-    /// rule embedded in the line below, and the suite is what pins it, so the
-    /// parameter is the seam that reaches that rule rather than an unused argument
-    /// (the same standing `Preferences.setShowsNowPlaying` has). The next caller is
-    /// already named: tiles at the head of each per-display row, which would have to
-    /// picture that row's own screen.
+    /// `on:` is what each display row in Settings calls, with that row's own
+    /// screen, to head itself with what that screen draws (`DisplayStyleRow`).
     static func shapes(
         for style: Style,
         on geometry: ScreenGeometry = Self.notchedReference

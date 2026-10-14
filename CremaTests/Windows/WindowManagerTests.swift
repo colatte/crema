@@ -344,6 +344,25 @@ struct WindowManagerTests {
         #expect(h.manager.renders(.card))
     }
 
+    /// Settings names the displays the Card indicator reaches, so the answer has to
+    /// be per display and has to move with a per-display override: an ANY would
+    /// name every display, and a stale set would name one that stopped drawing Card.
+    @Test func displaysRenderingNamesEachDisplayByWhatItDraws() {
+        let h = Harness()
+        let laptop = Self.notchedScreen("N")
+        let monitor = Self.screen("EXT", isInternal: false, frame: CGRect(x: 1512, y: 0, width: 1920, height: 1080))
+        h.manager.updateScreens([laptop, monitor])
+
+        #expect(h.manager.displays(rendering: .card) == [monitor.id])
+        #expect(h.manager.displays(rendering: .notch) == [laptop.id])
+
+        h.preferences.setStyle(.classic, for: monitor.id)
+        h.manager.refreshStyles()
+
+        #expect(h.manager.displays(rendering: .card).isEmpty)
+        #expect(h.manager.displays(rendering: .classic) == [monitor.id])
+    }
+
     @Test func safeTopChangeOnAKeptDisplayRebuildsThePanel() {
         let h = Harness()
         let notched = Self.notchedScreen("N")   // safeTop 32
