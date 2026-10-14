@@ -377,13 +377,13 @@ and stays bare; the now-playing scrubber kept the stock Slider
 the third amendment below**.
 Two amendments from the hardware follow-up (2026-07-28): (1) the fill's end is
 now CURVED — a capsule, not the native flat cut — a deliberate deviation by
-author taste (the iOS Music/players language); the fill width floors at the
+author taste (the iOS Music/players language); the fill length floors at the
 4 pt thickness so a low value reads as a circle-capped nub, never a squashed
-vertical oval, and exactly 0% stays empty. (2) The knob no longer clamps to
+oval across the track, and exactly 0% stays empty. (2) The knob no longer clamps to
 the fill boundary: the boundary-clamp mapping froze it for the last ~half-knob
 of travel at each extreme while the value and the fill kept following the
 pointer — the jam reported from hardware at 0/100%. It now travels the inset
-track [halfKnob, width − halfKnob] linearly with the value (the native thumb
+track [halfKnob, length − halfKnob] linearly with the value (the native thumb
 mapping); the fill boundary never escapes the knob's own body
 (|boundary − center| ≤ halfKnob), so the capsule still reads as one piece.
 
@@ -408,6 +408,44 @@ hovering a HUD holds it open and the affordance belongs to the whole surface.
 The scrubber's is LOCAL to the row: it sits inside a bigger card that hover does
 not hold, so the honest question there is whether the pointer is on the BAR —
 which is also what Control Center does.
+
+### card-hud-placement
+Where the Card's HUD sits is a rule of its own: the top centre it shares with the
+now-playing card, where it morphs from that card, or one of seven places on the
+screen's edges (`HUDPlacement`). One rule places all eight
+(`CardStyle.hudFrame(at:on:)`), and the top centre IS the card's `.hud` frame — the
+frame rule asks the placement rule rather than keeping a second description of
+that spot. Along the top edge the HUD hangs from the card's own top anchor, below
+the safe area; along the bottom it sits where macOS drew its own HUD, the native
+OSD's 140 pt that Classic reproduces (`hudBottomMargin` reads
+`ClassicMetrics.bottomMargin`, so the two bottom HUDs stand at one height); on a
+side it keeps `hudSideMargin` (16 pt) from the edge. The margins are fixed, by
+agreement with the author: the Dock is not read (`ScreenGeometry` carries no
+visible frame), so a Dock taller than the bottom margin sits over a bottom HUD.
+Placements are places on the glass — left and right do not swap under a
+right-to-left interface.
+
+**The bar runs along the edge it sits on.** Flat along the top and bottom edges,
+corners included; upright in the middle of a side (`HUDPlacement.axis`). Upright,
+it is the same strip transposed (`CardMetrics.hudSize(for:)`), never a second
+declared size, and it fills from the BOTTOM in every language: a level rises, it is
+not read. So the track has an axis rather than a rotation (`CapsuleTrack.axis`,
+threaded through `HUDLevelSlider` and `CardHUDIndicator`): rotated, the knob's
+shadow would point sideways and the drag would depend on rotated coordinates; with
+an axis, the shadow stays light-from-above and the drag reads the y it means.
+Every axis-dependent choice is asked of the track, once: the bar's start as
+coordinates (`CapsuleTrack.runsReversed` — the far end of the view's own axis,
+the leading edge under right-to-left, the bottom of an upright bar) and as layout
+(`startAlignment`, `startEdge`), which side of a size or a pointer is the length
+(`length(of:)`, `coordinate(of:)`), and the knob's transposition (`knobFrame`).
+The pointer→value mapping lives once on the track too (`CapsuleTrack.fraction`),
+and both bars drawn on it, the HUD level and the scrubber, map their pointer
+there. Upright, the glyph sits under the bar in a row
+of the same fixed slot (`CardHUDIndicator.hudIconSlot`), centred across it; the
+filled bar's glyph keeps the same inset from the bar's start, which clears the
+12 pt corner curve in both orientations because the bar is 42 pt thick either
+way. Classic's segmented bar has no upright form: it runs horizontal whatever axis
+it is handed.
 
 ### hud-fixed-dark-palette
 Every skin surface commits to one fixed dark palette, in every state and under

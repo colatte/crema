@@ -49,7 +49,7 @@ struct ScrubberRow: View {
 
     /// The bar's 0…1 fill. A fraction needs a denominator, and live content
     /// reports none: with no duration the bar is BARE, the same "zero stays
-    /// empty" rule `CapsuleTrack.capsuleFillWidth` draws. No stand-in
+    /// empty" rule `CapsuleTrack.capsuleFillLength` draws. No stand-in
     /// denominator: a `max(position, 1)` span pins the fraction at 1 from the
     /// first second onward, drawing a radio stream as a permanently finished
     /// track. Nothing interactive is lost: the row is not a control without a
@@ -157,15 +157,18 @@ struct ScrubberRow: View {
             }
     }
 
-    /// Pointer → seconds, over the FULL width: the ends of the row must reach 0
-    /// and the duration, which is why this is not inset by the knob's half-width
-    /// the way the knob's own travel is (`CapsuleTrack.knobCenterX`).
+    /// Pointer → seconds: the track's own pointer mapping (`CapsuleTrack.fraction`,
+    /// over the FULL width, so the row's ends reach 0 and the duration) scaled by
+    /// the span. The scrubber is always horizontal.
     static func position(
         atX x: CGFloat, width: CGFloat, span: Double, layoutDirection: LayoutDirection
     ) -> Double {
-        guard width > 0, span > 0 else { return 0 }
-        let physical = layoutDirection == .rightToLeft ? width - x : x
-        return min(max(Double(physical / width), 0), 1) * span
+        guard span > 0, let fraction = CapsuleTrack.fraction(
+            at: x,
+            trackLength: width,
+            reversed: CapsuleTrack.runsReversed(axis: .horizontal, layoutDirection: layoutDirection)
+        ) else { return 0 }
+        return fraction * span
     }
 
     /// Locale-aware via FormatStyle — never hand-assembled digits.
