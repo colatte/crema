@@ -119,6 +119,24 @@ struct CardViewTests {
         #expect(await eventually { h.volume.commands == [.setVolume(0.7, display: nil)] })
     }
 
+    @Test func aPanelDrawingOneLayerShowsThatLayerAlone() async {
+        // The Card's HUD on a panel of its own: the HUD's panel never shows the
+        // appearance, and the card's panel keeps it while the HUD is up.
+        let h = CoordinatorHarness()
+        let hudOnly = CardView(coordinator: h.coordinator, displayPolicy: SurfaceDisplayPolicy(surface: .hud))
+        let cardOnly = CardView(coordinator: h.coordinator, displayPolicy: SurfaceDisplayPolicy(surface: .nowPlaying))
+
+        let track = CoordinatorHarness.playingTrack()
+        h.nowPlayingSource.emit(track)
+        #expect(await eventually { cardOnly.contentKind == .nowPlayingCompact(track) })
+        #expect(hudOnly.contentKind == .empty)
+
+        let hud = SystemHUD(kind: .volume, value: 0.5)
+        h.hudSource.emit(hud)
+        #expect(await eventually { hudOnly.contentKind == .hud(hud) })
+        #expect(cardOnly.contentKind == .nowPlayingCompact(track))
+    }
+
     @Test func displayPolicySuppressesNowPlaying() async {
         let h = CoordinatorHarness()
         let policy = SurfaceDisplayPolicy()

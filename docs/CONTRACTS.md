@@ -29,7 +29,7 @@
 
 ## Windows, regions and coordinates
 
-**G2 — Fixed-window invariant.** One NSPanel per display, created once at the union of every state's rule frame plus overshoot headroom, never resized nor ordered out; only SwiftUI content animates inside it. The window must contain every animatable state, or the morph clips at the window edge.
+**G2 — Fixed-window invariant.** One NSPanel per surface a display draws (`PanelSurface`: both layers on a skin's own panel, the Card's HUD off its spot on a panel of its own), created once at the union of every state's rule frame plus overshoot headroom, never resized nor ordered out; only SwiftUI content animates inside it. The window must contain every animatable state, or the morph clips at the window edge.
 
 **G3 — Rendered-truth regions with decoupled hover.** The click-interactive region follows the rendered surface (zeroed while hidden); hover is judged against stable screen-space hysteresis regions decoupled from the animating frame, retargeted on every apply (rule frame ∩ last rendered, erring tight) and on every size report (the rendered truth) — every style, the same truth clicks use; exit = enter + per-edge band. Both armed only while a surface is visible on that display.
 

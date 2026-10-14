@@ -102,9 +102,15 @@ extension SurfaceStyleBody {
 
     // MARK: - Content derivation (state in)
 
+    /// What this panel shows of the Coordinator's layers: both on a skin's own
+    /// panel, one where the Card's HUD has a panel of its own.
+    var presentedState: PresentationState {
+        coordinator.layers.state(on: displayPolicy.surface)
+    }
+
     var contentKind: StyleContent {
         StyleContent(
-            state: coordinator.state,
+            state: presentedState,
             showsNowPlaying: displayPolicy.showsNowPlaying,
             showsHUD: displayPolicy.showsHUD
         )
@@ -120,7 +126,7 @@ extension SurfaceStyleBody {
     }
 
     var isExpanded: Bool {
-        if case .nowPlaying(_, expanded: true) = coordinator.state { return true }
+        if case .nowPlaying(_, expanded: true) = presentedState { return true }
         return false
     }
 

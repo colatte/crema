@@ -460,6 +460,26 @@ surface a dismissal leaves empty lets go of its pointer, since ordering a panel 
 reports no exit. The notch's debounced hover names no surface: the notch draws
 both layers on one.
 
+**A panel per surface.** A display drawing Card with the HUD off the top centre
+gets two panels, the card's reading the appearance alone and the HUD's reading the
+HUD alone (`PanelSurface`); every other display keeps one panel drawing both. The
+HUD's panel draws the Card's own view, so the HUD is the Card's drawing and only
+where it sits is a rule of its own (`CardHUDStyle`): its fixed window hangs the HUD
+from its top edge exactly onto the placement, with the overshoot headroom every
+skin has. Each panel's hover names its layers, so a pointer on the HUD holds the
+HUD and a pointer on the card never does. Moving the HUD between two places off the
+top centre rebuilds only the HUD's panel; moving it to or from the top centre swaps
+one panel for two or two for one, and a geometry change rebuilds both, since each
+panel captures geometry at creation.
+A click on the card's empty spot invokes nothing on any Card panel (the floating
+skins have no invoke zone), so a HUD up elsewhere changes nothing there. The card
+shown beside a HUD keeps the one lifetime above: it does not tuck while the HUD is
+up, a HUD held under the pointer included. Letting it tuck on its own schedule
+would make the Coordinator's timers depend on how each display arranges its
+panels — on a display drawing both layers on one panel, the tuck would take the
+appearance the revert brings back — and the rule's cost is a card that stays while
+the user adjusts a level beside it.
+
 ### hud-fixed-dark-palette
 Every skin surface commits to one fixed dark palette, in every state and under
 either system appearance: Card and Classic pin `.colorScheme = .dark`
@@ -962,7 +982,7 @@ the seam-and-recorder pair that existed before with the loop actually closed
 through `AppCore.wireBrightnessEcho` and a real neighbour source.
 
 ### hud-belongs-to-its-display
-The app has ONE state and one panel per screen, so every panel drew every HUD.
+The app has ONE state, drawn by every display's panels, so unscoped every panel draws every HUD.
 Harmless while nothing named a display — and wrong the moment something did: a
 brightness bar for the external monitor, drawn on the laptop, is a control for a
 screen the user is not looking at, and its drag would dim the neighbour in
@@ -2185,8 +2205,10 @@ still in `entries` the pass applied to the panel just closed and re-armed its ho
 reinstalling a pair of NSEvent monitors that nothing disarms again once the entry does
 leave — a dead panel sampling the cursor against regions on a screen that may be gone.
 The re-entrancy guard in `runFramePass` does not cover it: that guard defers a pass
-nested INSIDE a pass, and this one starts outside. Decision: `retirePanel(_:)` removes
-the entry FIRST and closes second, so a re-entrant pass cannot see the dead panel; the
+nested INSIDE a pass, and this one starts outside. Decision: a panel leaves the
+roster FIRST and closes second — `retirePanels(_:)` drops a gone display's entry,
+`reconcile(_:)` rewrites a kept display's entry without the panels that leave — so a
+re-entrant pass cannot see the dead panel; the
 caller's trailing pass covers whatever takes its place. The general shape, third time
 in this codebase: a teardown that crosses into another subsystem comes back through
 the front door, so order the local bookkeeping before the crossing rather than

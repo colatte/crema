@@ -54,7 +54,7 @@
 | didChangeScreenParameters observer → updateScreens | PROTECTED |
 | Display UUID as a key (fresh on every describeAll) | PROTECTED |
 | NSEvent monitors for hover / for clicks | PROTECTED (closed cycle) |
-| One NSPanel per display (rebuilt by UUID/geometry) | PROTECTED |
+| One NSPanel per surface per display (rebuilt by UUID/geometry/style/HUD placement) | PROTECTED |
 | Accessibility permission (re-read on every use, 2 s poll) | PROTECTED |
 | Long-lived tasks/streams/continuations | PROTECTED (with the caveat about the brightness sources below) |
 | Sparkle / SMAppService | PROTECTED (no live resource held) |

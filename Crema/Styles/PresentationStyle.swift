@@ -13,9 +13,10 @@ protocol PresentationStyle {
     /// the WindowManager applies the result to the NSPanel by hand.
     func frame(for state: PresentationState, on geometry: ScreenGeometry) -> CGRect
 
-    /// The skin's view. Reads `coordinator.state`/`coordinator.nowPlaying`
-    /// (through the display policy — per-display now-playing suppression) and
-    /// reports intents back as Coordinator method calls.
+    /// The skin's view. Reads the Coordinator's layers and `coordinator.nowPlaying`
+    /// through the display policy — which names the layers this panel draws and
+    /// suppresses now playing per display — and reports intents back as
+    /// Coordinator method calls.
     @MainActor @ViewBuilder func makeView(coordinator: Coordinator, displayPolicy: SurfaceDisplayPolicy) -> StyleView
 
     /// The panel's fixed window frame. A protocol requirement (not just an

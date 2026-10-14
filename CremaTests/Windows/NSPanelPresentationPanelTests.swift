@@ -23,11 +23,15 @@ struct NSPanelPresentationPanelTests {
     }
 
     private func panel(_ style: Style = .card) -> (NSPanelPresentationPanel, ScreenDescription, CoordinatorHarness) {
+        panel(surface: .skin(style))
+    }
+
+    private func panel(surface: PanelSurface) -> (NSPanelPresentationPanel, ScreenDescription, CoordinatorHarness) {
         let harness = CoordinatorHarness()
         let screen = screen()
         return (
             NSPanelPresentationPanel(
-                screen: screen, style: style, coordinator: harness.coordinator, lowPower: nil
+                screen: screen, surface: surface, coordinator: harness.coordinator, lowPower: nil
             ),
             screen, harness
         )
@@ -53,6 +57,25 @@ struct NSPanelPresentationPanelTests {
             #expect(panel.contentIsBarredFromSizingTheWindow)
             withExtendedLifetime(harness) {}
         }
+    }
+
+    @Test func aSplitCardPanelDrawsItsOwnLayerInItsOwnWindow() {
+        // Built from its surface: the HUD's panel reads the HUD alone, runs the bar
+        // the way its placement does, and sits in a window around that spot — the
+        // card's view in the card's window would be clipped there, and a flat bar
+        // would lie across an upright surface.
+        let (hudPanel, screen, _) = panel(surface: .cardHUD(.middleLeft))
+        #expect(hudPanel.drawnLayers == .hud)
+        #expect(hudPanel.hudAxis == .vertical)
+        #expect(hudPanel.currentWindowFrame == PanelSurface.cardHUD(.middleLeft).windowFrame(on: screen.geometry))
+
+        let (cardPanel, _, _) = panel(surface: .cardNowPlaying)
+        #expect(cardPanel.drawnLayers == .nowPlaying)
+        #expect(cardPanel.hudAxis == .horizontal)
+        #expect(cardPanel.currentWindowFrame == Style.card.windowFrame(on: screen.geometry))
+
+        let (shared, _, _) = panel(.card)
+        #expect(shared.drawnLayers == .both)
     }
 
     @Test func theWindowIsPlacedOnceAndNeverMovesWithTheState() {

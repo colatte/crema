@@ -250,6 +250,22 @@ struct Preferences {
         nonmutating set { defaults.set(newValue.rawValue, forKey: Self.hudIndicatorStyleKey) }
     }
 
+    /// Where the Card draws the HUD, one choice for every display drawing Card,
+    /// like the indicator above. Persisted as the enum rawValue, and the reading
+    /// rule is the same: an unknown value degrades to
+    /// `HUDPlacement.shippedDefault`, the card's own spot.
+    static let hudPlacementKey = "hudPlacement"
+    var hudPlacement: HUDPlacement {
+        get {
+            guard let raw = defaults.string(forKey: Self.hudPlacementKey),
+                  let placement = HUDPlacement(rawValue: raw) else {
+                return .shippedDefault
+            }
+            return placement
+        }
+        nonmutating set { defaults.set(newValue.rawValue, forKey: Self.hudPlacementKey) }
+    }
+
     // MARK: - Launch at login (the user's INTENT, not the system's state)
 
     /// What the user asked for — never the truth about the registration, which

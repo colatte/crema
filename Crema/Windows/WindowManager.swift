@@ -1,21 +1,28 @@
 import CoreGraphics
 import os
 
-/// Owns one panel per screen, resolves the style per display via Preferences,
-/// and pushes the state's rule frame to each panel by hand — the panel uses it
-/// as the click-interactive region of its fixed window. Window frames never
-/// come from SwiftUI layout.
+/// Owns every screen's panels — one per surface its style draws there
+/// (`PanelSurface`) — resolves the style per display via Preferences, and pushes
+/// each panel's rule frame by hand: the panel uses it as the click-interactive
+/// region of its fixed window. Window frames never come from SwiftUI layout.
 @MainActor
 final class WindowManager {
     private struct Entry {
         var screen: ScreenDescription
+        /// The display's resolved style, which every panel on it belongs to.
         var style: Style
-        var panel: any PresentationPanel
+        /// In `PanelSurface.surfaces(for:hudPlacement:)` order.
+        var panels: [Panel]
+    }
+
+    private struct Panel {
+        let surface: PanelSurface
+        let window: any PresentationPanel
     }
 
     private let coordinator: Coordinator
     private let preferences: Preferences
-    private let makePanel: @MainActor (ScreenDescription, Style, Coordinator) -> any PresentationPanel
+    private let makePanel: @MainActor (ScreenDescription, PanelSurface, Coordinator) -> any PresentationPanel
     private var entries: [DisplayUUID: Entry] = [:]
     private var isApplyingFrames = false
     private var needsReapply = false
@@ -40,7 +47,7 @@ final class WindowManager {
     init(
         coordinator: Coordinator,
         preferences: Preferences,
-        makePanel: @escaping @MainActor (ScreenDescription, Style, Coordinator) -> any PresentationPanel
+        makePanel: @escaping @MainActor (ScreenDescription, PanelSurface, Coordinator) -> any PresentationPanel
     ) {
         self.coordinator = coordinator
         self.preferences = preferences
@@ -55,8 +62,8 @@ final class WindowManager {
     }
 
     /// Reconciles the panel set against the currently connected screens:
-    /// new screen → new panel; gone screen → panel closed; kept screen → kept
-    /// panel (geometry refreshed).
+    /// new screen → its panels; gone screen → its panels closed; kept screen →
+    /// its panels reconciled (`reconcile(_:)`).
     func updateScreens(_ screens: [ScreenDescription]) {
         // First key wins rather than trapping. `Dictionary(uniqueKeysWithValues:)`
         // has "must not have duplicate keys" as a PRECONDITION, so a roster with
@@ -73,64 +80,70 @@ final class WindowManager {
         }
 
         for id in entries.keys where incoming[id] == nil {
-            retirePanel(id)
+            retirePanels(id)
         }
-
-        for (id, screen) in incoming {
-            if let entry = entries[id] {
-                let style = resolvedStyle(for: screen)
-                // The panel captures geometry-derived state at creation — the
-                // slit inset, the per-state surface sizes, and the hover regions
-                // (screen-space rects). Any geometry change on a kept UUID —
-                // scale/resolution change, display rearrangement moving the
-                // frame origin — leaves that state stale (content in the camera
-                // dead zone, hover detecting at the old screen position), so the
-                // panel is rebuilt. Only per-state frames flow fresh through
-                // apply(frame:).
-                if entry.style != style || entry.screen.geometry != screen.geometry {
-                    retirePanel(id)
-                    entries[id] = Entry(screen: screen, style: style, panel: makePanel(screen, style, coordinator))
-                } else {
-                    var updated = entry
-                    updated.screen = screen
-                    entries[id] = updated
-                }
-            } else {
-                let style = resolvedStyle(for: screen)
-                entries[id] = Entry(screen: screen, style: style, panel: makePanel(screen, style, coordinator))
-            }
+        for screen in incoming.values {
+            reconcile(screen)
         }
 
         runFramePass()
     }
 
-    /// Re-resolves the style of every display against Preferences; a changed
-    /// style swaps view + frame rule by recreating that display's panel —
-    /// nothing in Sources/Domain/Coordinator is involved.
+    /// Re-resolves every display's panels against Preferences — its style and,
+    /// where it draws the Card, the HUD placement — swapping view and frame rule
+    /// by recreating the panels that changed; nothing in Sources/Domain/Coordinator
+    /// is involved.
     func refreshStyles() {
-        for (id, entry) in entries {
-            let style = resolvedStyle(for: entry.screen)
-            if style != entry.style {
-                retirePanel(id)
-                entries[id] = Entry(screen: entry.screen, style: style, panel: makePanel(entry.screen, style, coordinator))
-            }
+        for screen in entries.values.map(\.screen) {
+            reconcile(screen)
         }
         runFramePass()
     }
 
-    /// Closes a panel, and the roster drops it FIRST — the order is the whole
-    /// point. Closing stops the panel's hover monitor, which reports its pending
-    /// exit through the Coordinator, whose state write runs a frame pass
-    /// synchronously (`onPresentationChange`). With the entry still in `entries`
+    /// Brings one display's panels in line with what it should draw. A panel whose
+    /// surface is still wanted is kept; the rest close and the missing are built.
+    /// Every panel captures geometry-derived state at creation — the slit inset,
+    /// the per-state surface sizes, and the hover regions (screen-space rects) —
+    /// so any geometry change on a kept UUID (scale/resolution change, display
+    /// rearrangement moving the frame origin) rebuilds them all: kept, that state
+    /// would put content in the camera dead zone and detect hover at the old
+    /// screen position. Only per-state frames flow fresh through apply(frame:).
+    ///
+    /// The leaving panels drop out of the roster BEFORE they close, for the reason
+    /// `retirePanels(_:)` spells out.
+    private func reconcile(_ screen: ScreenDescription) {
+        let style = resolvedStyle(for: screen)
+        let wanted = PanelSurface.surfaces(for: style, hudPlacement: preferences.hudPlacement)
+        let current = entries[screen.id]
+        let reusable = current?.screen.geometry == screen.geometry ? current?.panels ?? [] : []
+        let kept = reusable.filter { wanted.contains($0.surface) }
+        let leaving = (current?.panels ?? []).filter { panel in !kept.contains { $0.surface == panel.surface } }
+
+        entries[screen.id] = Entry(screen: screen, style: style, panels: kept)
+        for panel in leaving {
+            panel.window.close()
+        }
+        entries[screen.id]?.panels = wanted.map { surface in
+            kept.first { $0.surface == surface }
+                ?? Panel(surface: surface, window: makePanel(screen, surface, coordinator))
+        }
+    }
+
+    /// Closes a display's panels, and the roster drops them FIRST — the order is
+    /// the whole point. Closing stops a panel's hover monitor, which reports its
+    /// pending exit through the Coordinator, whose state write runs a frame pass
+    /// synchronously (`onPresentationChange`). With the panel still in `entries`
     /// that pass would apply to the panel just closed and re-arm its hover,
     /// reinstalling a pair of NSEvent monitors that nothing disarms again once the
-    /// entry does leave — a dead panel sampling the cursor against regions on a
+    /// panel does leave — a dead panel sampling the cursor against regions on a
     /// screen that may no longer exist. Out of the roster first, the re-entrant
     /// pass simply cannot see it, and the caller's trailing pass covers whatever
     /// takes its place.
-    private func retirePanel(_ id: DisplayUUID) {
+    private func retirePanels(_ id: DisplayUUID) {
         guard let entry = entries.removeValue(forKey: id) else { return }
-        entry.panel.close()
+        for panel in entry.panels {
+            panel.window.close()
+        }
     }
 
     /// Re-applies the current per-frame preferences (show now playing, show
@@ -184,56 +197,68 @@ final class WindowManager {
         let builtInPanel = entries.values.first { $0.screen.isInternal }?.screen.id
         logIfNoPanelOwns(state, builtInPanel: builtInPanel)
         for entry in entries.values {
-            let effective = effectiveState(state, for: entry.screen, builtInPanel: builtInPanel)
             // Per display: "show now playing here" off ⇒ never armed, and the
             // panel's view suppresses now-playing content.
             let shows = preferences.showsNowPlaying(on: entry.screen.id, isInternal: entry.screen.isInternal)
-            // Hover is armed only while a surface is visible on this display —
-            // it expands/holds what is on screen (a paused appearance stays
-            // holdable during its linger). An empty region never reacts to
-            // the pointer: invocation is the click zone below.
-            let hoverArmed = effective != .hidden
-            // Content-level scoping, the other half of `effectiveState`: the
-            // window is fixed and never orders out, so a panel the HUD's target
-            // does not speak for has to be told not to DRAW it — an empty frame
-            // only stops it from being touched, and a bar still rendered there is
-            // a live control for a screen the user is not looking at
-            // (docs/DECISIONS.md: hud-target-is-a-role,
-            // hud-belongs-to-its-display).
-            let showsHUD: Bool
-            if case .hud = state {
-                showsHUD = effective != .hidden
-            } else {
-                showsHUD = true
+            for panel in entry.panels {
+                apply(panel, on: entry.screen, showsNowPlaying: shows, builtInPanel: builtInPanel)
             }
-            // Click-invoke zone: media playing, nothing visible here — the
-            // style's own zone rule (the notch's physical slit; nil for the
-            // floating styles, whose region sits over live app content)
-            // captures clicks to surface the appearance. Everything outside
-            // it keeps falling through to the menu bar and windows below.
-            // Keyed on the GLOBAL state, not this panel's: a panel hidden only
-            // because the HUD belongs elsewhere must not arm the slit, or the
-            // click it captures would die against `invoke()`'s hidden-only guard
-            // instead of falling through to the menu bar.
-            let invokeZone: CGRect?
-            if state == .hidden, coordinator.mediaActive, shows {
-                invokeZone = entry.style.invokeZone(on: entry.screen.geometry)
-            } else {
-                invokeZone = nil
-            }
-            entry.panel.apply(
-                frame: entry.style.frame(for: effective, on: entry.screen.geometry),
-                hoverArmed: hoverArmed,
-                showsNowPlaying: shows,
-                showsHUD: showsHUD,
-                showsControls: preferences.showsPlaybackControls,
-                hudIndicatorStyle: preferences.hudIndicatorStyle,
-                invokeZone: invokeZone
-            )
         }
     }
 
-    /// Per-display policy: what this display shows of the app's single state.
+    /// One panel's share of the pass: what it draws of the layers, scoped to its
+    /// display.
+    private func apply(
+        _ panel: Panel,
+        on screen: ScreenDescription,
+        showsNowPlaying shows: Bool,
+        builtInPanel: DisplayUUID?
+    ) {
+        let drawn = coordinator.layers.state(on: panel.surface.layers)
+        let effective = effectiveState(drawn, for: screen, builtInPanel: builtInPanel)
+        // Hover is armed only while a surface is visible on this panel — it
+        // expands/holds what is on screen (a paused appearance stays holdable
+        // during its linger). An empty region never reacts to the pointer:
+        // invocation is the click zone below.
+        let hoverArmed = effective != .hidden
+        // Content-level scoping, the other half of `effectiveState`: the window is
+        // fixed and never orders out, so a panel the HUD's target does not speak
+        // for has to be told not to DRAW it — an empty frame only stops it from
+        // being touched, and a bar still rendered there is a live control for a
+        // screen the user is not looking at (docs/DECISIONS.md:
+        // hud-target-is-a-role, hud-belongs-to-its-display).
+        let showsHUD: Bool
+        if case .hud = drawn {
+            showsHUD = effective != .hidden
+        } else {
+            showsHUD = true
+        }
+        // Click-invoke zone: media playing, nothing visible here — the style's
+        // own zone rule (the notch's physical slit; nil for the floating styles,
+        // whose region sits over live app content) captures clicks to surface the
+        // appearance. Everything outside it keeps falling through to the menu bar
+        // and windows below. Keyed on the GLOBAL state, not this panel's: a panel
+        // hidden only because the HUD belongs elsewhere must not arm the slit, or
+        // the click it captures would die against `invoke()`'s hidden-only guard
+        // instead of falling through to the menu bar.
+        let invokeZone: CGRect?
+        if coordinator.state == .hidden, coordinator.mediaActive, shows {
+            invokeZone = panel.surface.invokeZone(on: screen.geometry)
+        } else {
+            invokeZone = nil
+        }
+        panel.window.apply(
+            frame: panel.surface.frame(for: effective, on: screen.geometry),
+            hoverArmed: hoverArmed,
+            showsNowPlaying: shows,
+            showsHUD: showsHUD,
+            showsControls: preferences.showsPlaybackControls,
+            hudIndicatorStyle: preferences.hudIndicatorStyle,
+            invokeZone: invokeZone
+        )
+    }
+
+    /// Per-display policy: what this display shows of what one panel draws.
     ///
     /// Two rules, from two different reasons. "Show now playing here"
     /// (Preferences) is the user's choice and suppresses the now-playing surface
@@ -315,7 +340,7 @@ final class WindowManager {
     /// Runs synchronously inside the Coordinator's state write (didSet), so
     /// hover arming and click routing track the state in the same beat as the
     /// render (the windows themselves are fixed — no frame is racing anything).
-    /// The hook fires only on `state`/`mediaActive` writes, so the position
+    /// The hook fires only on `layers`/`mediaActive` writes, so the position
     /// tick still causes no pass.
     private func presentationDidChange() {
         runFramePass()

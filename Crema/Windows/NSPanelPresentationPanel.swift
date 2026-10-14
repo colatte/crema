@@ -17,15 +17,16 @@ import SwiftUI
 @MainActor
 final class NSPanelPresentationPanel: PresentationPanel {
     private let panel: NSPanel
-    private let style: Style
+    private let surface: PanelSurface
     /// Cursor-vs-stable-region hover detection; nil for styles without a
     /// distinct expanded surface.
     private let hoverMonitor: SurfaceHoverMonitor?
     /// Every skin animates its sized surface inside this window, which never
     /// resizes.
     private let fixedWindowFrame: CGRect
-    /// Per-display now-playing suppression, forwarded into the view.
-    private let displayPolicy = SurfaceDisplayPolicy()
+    /// Render context forwarded into the view: the layers this panel draws, and
+    /// per-display now-playing suppression.
+    private let displayPolicy: SurfaceDisplayPolicy
     /// Bridges the view's rendered-size reports (environment closure, baked at
     /// init before `self` is available) to the panel.
     private let sizeRelay = SurfaceSizeRelay()
@@ -66,6 +67,13 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// retarget — see `SurfaceHoverMonitor.currentRegions`.
     var currentHoverRegions: SurfaceHoverRegions? { hoverMonitor?.currentRegions }
 
+    /// The layers this panel's view reads and the direction its HUD bar runs.
+    /// Read-only, for the tests that pin which panel draws what: a panel built
+    /// for the Card's HUD alone that read both layers would draw the card in a
+    /// window sized for the HUD.
+    var drawnLayers: PresentationLayers.Surface { displayPolicy.surface }
+    var hudAxis: Axis { displayPolicy.hudAxis }
+
     /// The click-interactive rect. Read-only, and it exists to pin where this rect
     /// comes from: the rendered surface, from the first apply onward.
     var currentInteractiveRect: CGRect { interactiveRect }
@@ -83,9 +91,10 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// `lowPower` carries no default on purpose: forgetting it at the factory then
     /// fails to compile instead of shipping panels whose waveform never stops
     /// (the lesson the `wire*` seams were extracted for).
-    init(screen: ScreenDescription, style: Style, coordinator: Coordinator, lowPower: LowPowerModeMirror?) {
-        self.style = style
+    init(screen: ScreenDescription, surface: PanelSurface, coordinator: Coordinator, lowPower: LowPowerModeMirror?) {
+        self.surface = surface
         self.coordinator = coordinator
+        displayPolicy = SurfaceDisplayPolicy(surface: surface.layers, hudAxis: surface.hudAxis)
         panel = NSPanel(
             contentRect: .zero,
             styleMask: [.borderless, .nonactivatingPanel],
@@ -122,29 +131,26 @@ final class NSPanelPresentationPanel: PresentationPanel {
         // mirror rides along, but as a REFERENCE the composition root keeps
         // reporting into: an engage/disengage reaches a surface built long before
         // it, with no panel rebuild — the two captured values above cannot.
-        let stateSizes = style.stateSizes(on: screen.geometry)
-        let root = style.makeView(coordinator: coordinator, displayPolicy: displayPolicy)
+        let stateSizes = surface.stateSizes(on: screen.geometry)
+        let root = surface.makeView(coordinator: coordinator, displayPolicy: displayPolicy)
             .environment(\.notchSlitInset, screen.geometry.safeTop)
             .environment(\.surfaceStateSizes, stateSizes)
             .environment(\.lowPowerMode, lowPower)
             .environment(\.surfaceSizeReporter, { [sizeRelay] size in sizeRelay.onChange?(size) })
 
-        fixedWindowFrame = style.windowFrame(on: screen.geometry)
+        fixedWindowFrame = surface.windowFrame(on: screen.geometry)
 
         // Hover detection decoupled from the animating surface: sample
         // the real cursor against this style's stable regions and forward to the
-        // Coordinator. The notch debounces (top edge); the others commit at once.
-        if let regions = style.hoverRegions(on: screen.geometry) {
-            let commit = style.hoverCommit
+        // Coordinator, naming the layers this panel draws. The notch debounces (top
+        // edge); the others commit at once.
+        if let regions = surface.hoverRegions(on: screen.geometry) {
             hoverMonitor = SurfaceHoverMonitor(regions: regions) { [weak coordinator, displayPolicy] inside in
                 // Panel-local first: the capsule knob is per-display, so only
                 // the hovered surface reveals it; the Coordinator keeps the
                 // global record its timers key on.
                 displayPolicy.pointerInside = inside
-                switch commit {
-                case .immediate: coordinator?.hover(inside)
-                case .debounced: coordinator?.hoverIntent(inside)
-                }
+                Self.forwardHover(inside, from: surface, to: coordinator)
             }
             // Activated per-display by apply(frame:hoverArmed:).
         } else {
@@ -172,6 +178,17 @@ final class NSPanelPresentationPanel: PresentationPanel {
         panel.setFrame(fixedWindowFrame, display: true)
         panel.orderFrontRegardless()
         installMouseRouting()
+    }
+
+    /// A hover on this panel, as the Coordinator takes it: naming the layers the
+    /// panel draws, so a pointer on the Card's HUD alone holds the HUD and nothing
+    /// else. Static and internal so the tests reach the dispatch the monitor's
+    /// callback runs — the monitor itself samples the real cursor.
+    static func forwardHover(_ inside: Bool, from surface: PanelSurface, to coordinator: Coordinator?) {
+        switch surface.hoverCommit {
+        case .immediate: coordinator?.hover(inside, on: surface.layers)
+        case .debounced: coordinator?.hoverIntent(inside)
+        }
     }
 
     // swiftlint:disable function_parameter_count - one parameter per contract note, as PresentationPanel declares
@@ -208,10 +225,10 @@ final class NSPanelPresentationPanel: PresentationPanel {
         // hover-follows-the-eye).
         if !frame.isEmpty {
             let rendered = reportedSurfaceSize.map { size in
-                SurfaceClickThrough.surfaceRect(size: size, window: fixedWindowFrame, anchor: style.surfaceVerticalAnchor)
+                SurfaceClickThrough.surfaceRect(size: size, window: fixedWindowFrame, anchor: surface.surfaceVerticalAnchor)
             }
             if let regions = SurfaceHoverRegions.forApply(
-                ruleFrame: frame, lastRendered: rendered, margins: style.hoverExitMargins
+                ruleFrame: frame, lastRendered: rendered, margins: surface.hoverExitMargins
             ) {
                 hoverMonitor?.updateRegions(regions)
             }
@@ -265,7 +282,7 @@ final class NSPanelPresentationPanel: PresentationPanel {
         guard let size = reportedSurfaceSize else { return }
         var visible: CGRect = currentFrame.isEmpty
             ? .zero
-            : SurfaceClickThrough.surfaceRect(size: size, window: fixedWindowFrame, anchor: style.surfaceVerticalAnchor)
+            : SurfaceClickThrough.surfaceRect(size: size, window: fixedWindowFrame, anchor: surface.surfaceVerticalAnchor)
         if tightensToRuleFrame {
             // Apply path only: the reported size predates the state, so the
             // click region may not exceed the state's tight rule frame — the
@@ -281,7 +298,7 @@ final class NSPanelPresentationPanel: PresentationPanel {
         // next apply retargets before arming) and never adopts the empty
         // branch's window-tall report.
         if pushesHoverRegions, !visible.isEmpty {
-            hoverMonitor?.updateRegions(.around(visible, margins: style.hoverExitMargins))
+            hoverMonitor?.updateRegions(.around(visible, margins: surface.hoverExitMargins))
         }
         routeClicks(at: NSEvent.mouseLocation)
     }

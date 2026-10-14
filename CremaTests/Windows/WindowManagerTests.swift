@@ -28,8 +28,8 @@ struct WindowManagerTests {
             manager = WindowManager(
                 coordinator: base.coordinator,
                 preferences: preferences
-            ) { [recorder] screen, style, _ in
-                recorder.make(screen, style)
+            ) { [recorder] screen, surface, _ in
+                recorder.make(screen, surface)
             }
             manager.start()
         }
@@ -117,9 +117,9 @@ struct WindowManagerTests {
 
     /// Retirement ORDER: a panel leaves the roster BEFORE it is closed, so a
     /// frame pass re-entered by the close itself cannot apply to the closed
-    /// panel — all three retirement paths (disconnect, geometry/style rebuild,
-    /// refreshStyles) route through the same seam, so pinning the order once
-    /// covers them (docs/DECISIONS.md: a-panel-leaves-the-roster-before-it-closes).
+    /// panel. Two seams close panels — a display that leaves, here, and a display
+    /// that stays but changes what it draws, in CardHUDPanelTests — so each is
+    /// pinned (docs/DECISIONS.md: a-panel-leaves-the-roster-before-it-closes).
     @Test func aRetiredPanelReceivesNothingFromThePassItsCloseReenters() {
         let base = CoordinatorHarness()
         let store = EphemeralDefaults()
