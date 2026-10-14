@@ -8,7 +8,7 @@
 > Four are carried as **known-accepted tensions** rather than settled law: S4,
 > P5, G2 and MG1 (the Card's width). They are debt the author took on purpose;
 > a reader finding code that bends one of them is looking at a decision, not a
-> bug. Where a contract has since become a rule of the house, AGENTS.md states
+> bug. Where a contract is also a rule of the house, AGENTS.md states
 > it and this file is the depth.
 
 ## Motion and geometry

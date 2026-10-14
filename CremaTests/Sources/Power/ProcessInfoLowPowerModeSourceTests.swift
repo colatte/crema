@@ -15,7 +15,7 @@ import Testing
 /// authoritative state and emits WHAT IT READ.
 ///
 /// Posting through a private center is also what pins the subscription itself: the
-/// observer is installed unconditionally, so a name constant that no longer matches
+/// observer is installed unconditionally, so a name constant that stops matching
 /// what the tests post delivers nothing, `next()` times out to nil, and the
 /// assertion right after fails with this test's name (asserting the constant would
 /// have proved nothing about what was subscribed to).

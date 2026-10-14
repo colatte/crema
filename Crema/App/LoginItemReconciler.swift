@@ -6,8 +6,8 @@
 /// a reinstall, and — the one that will hit every installed user at once — the
 /// eventual move to Developer ID). The app can't see that happen: the status
 /// simply reads `.notRegistered` afterwards, and without a persisted intent the
-/// user's choice disappears in silence, which is exactly what was diagnosed on
-/// hardware (docs/DECISIONS.md: login-item-intent, the J7 class).
+/// user's choice disappears in silence — a loss confirmed on hardware
+/// (docs/DECISIONS.md: login-item-intent, the J7 class).
 ///
 /// The intent alone is not enough to warn honestly, because "gone" has two very
 /// different authors: macOS revoking it (the user should hear about it) and the

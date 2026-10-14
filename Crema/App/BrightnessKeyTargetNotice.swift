@@ -7,7 +7,7 @@
 /// looking at (docs/DECISIONS.md: brightness-key-follows-the-pointer). The rule is
 /// invisible while it works — the key simply does what was expected — so the menu
 /// states it in the one arrangement where it explains something, which is also the
-/// arrangement where the old behavior read as a bug
+/// arrangement where the key's target, left unsaid, reads as a bug
 /// (docs/DECISIONS.md: brightness-key-target-in-the-menu).
 enum BrightnessKeyTargetNotice: Equatable {
     /// Nothing worth saying: the built-in panel is the only display in use, so the

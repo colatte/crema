@@ -2,7 +2,7 @@
 /// so every style derives its content from `PresentationState` the same way.
 /// `showsNowPlaying` and `showsHUD` are the per-display policy: with either off
 /// the matching content maps to empty — content-level suppression, because the
-/// fixed window can no longer hide a display by ordering out. They are separate
+/// fixed window never hides a display by ordering out. They are separate
 /// because their reasons are: one is the user's preference, the other is which
 /// display a reading belongs to.
 enum StyleContent: Equatable {

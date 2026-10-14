@@ -94,7 +94,7 @@ The landing page's palette **is Colatte's espresso dialect**, value for value
 | `--cream`      | `#d6bd94`                  | `--esp-cream`   | **The one accent**: eyebrow, emphasis, primary button, meter fill, every hover |
 | `--cream-hi`   | `#eedcbb`                  | `--esp-cream-hi`| Only as the accent's hover                          |
 | `--ink`        | `#efe8dd`                  | `--esp-ink`     | Text; never pure white                              |
-| `--ink-2/-3`   | ink at .72 / .55           | —               | Two lower steps; the faintest still clears 4.5:1 on the ground (measured — the previous .38 read as decoration shaped like text) |
+| `--ink-2/-3`   | ink at .72 / .55           | —               | Two lower steps; the faintest still clears 4.5:1 on the ground (measured — .38 reads as decoration shaped like text) |
 | `--line/-hi`   | cream at .12 / .28         | —               | Hairlines                                           |
 
 **One cream.** A second accent is what turns a palette into a mood board — the

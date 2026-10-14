@@ -31,7 +31,7 @@ struct SuppressionUnlockReinstallSeamTests {
     ///
     /// The sibling test below injects its own center, which pins the join and
     /// says nothing about which center is joined: a mutation pointing the wiring
-    /// at a throwaway `NotificationCenter()` left the whole suite green while, in
+    /// at a throwaway `NotificationCenter()` leaves every other test green while, in
     /// production, no wake would ever reinstall the tap. That failure has no
     /// local symptom — a tap that stopped delivering reads exactly like an idle
     /// one — so this is the only place it can be seen.

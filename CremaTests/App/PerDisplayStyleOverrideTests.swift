@@ -11,7 +11,7 @@ struct PerDisplayStyleOverrideTests {
     @Test func aRetiredRawValueReadsAsInheritsNeverAsAChoice() {
         #expect(PerDisplayStyleOverride.value(fromRawValue: nil) == nil)
         #expect(PerDisplayStyleOverride.value(fromRawValue: "card") == .card)
-        // "pill" shipped once and was retired; an override the app can no longer
+        // "pill" is a shipped and retired rawValue; an override the app cannot
         // name must read as INHERITS (fall to the declaration), not as a choice.
         #expect(PerDisplayStyleOverride.value(fromRawValue: "pill") == nil)
     }

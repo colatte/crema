@@ -10,8 +10,9 @@ import Testing
 /// RUNS, and produces a wrong-but-plausible app rather than a crash or a type
 /// error. The rest are recorded as an accepted gap in AGENTS.md.
 ///
-/// The sibling suite AppCoreHandbackWiringTests measured the whole class: deleting
-/// one arm of the hand-back switch left all 900-odd tests green.
+/// The sibling suite AppCoreHandbackWiringTests pins the whole class: deleting one
+/// arm of the hand-back switch, measured over 900-odd tests, leaves every other
+/// test green.
 @MainActor
 struct AppCoreWiringSeamTests {
 

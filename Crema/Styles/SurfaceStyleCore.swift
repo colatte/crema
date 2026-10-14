@@ -9,8 +9,8 @@ enum SurfaceLayoutKind: Equatable {
 }
 
 /// The pure layout rules every skin shares — one implementation, so a contract
-/// fix cannot land on two skins and miss the third (the empty-boundary freeze
-/// did exactly that before it was pinned). Each view keeps a one-line static
+/// fix cannot land on two skins and miss the third, the failure a per-skin copy
+/// of the empty-boundary freeze invites. Each view keeps a one-line static
 /// delegating here; the per-skin parameter is only which Metrics constant
 /// feeds `controlsSectionHeight` (docs/DECISIONS.md: shared-skin-skeleton).
 enum SurfaceLayout {

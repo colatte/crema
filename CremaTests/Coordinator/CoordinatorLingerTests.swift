@@ -270,7 +270,7 @@ struct CoordinatorLingerTests {
         // A cursor resting on the region while the HUD shows is not a media
         // event: it holds the HUD (docs/DECISIONS.md: hud-capsule-track), but
         // reviving the tucked appearance from it is the accidental-appearance
-        // class the click-invoke model removed. After the pointer leaves, the
+        // class the click-invoke model rules out. After the pointer leaves, the
         // HUD reverts to hidden; only a pending event (or a click) earns a
         // resurface.
         h.coordinator.hoverIntent(true)

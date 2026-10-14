@@ -14,14 +14,14 @@ import Testing
 ///
 /// Honest about its reach: what these pin is the constants and their relations,
 /// never the view sites that stroke them — deleting an overlay in
-/// `vibrantSurface` or hard-coding the old white 0.12 back into a body leaves
+/// `vibrantSurface` or hard-coding a white 0.12 into a body leaves
 /// this suite green. That is the confessed view-body class from the
 /// composition-root gap (AGENTS.md), and the smoke item "borda 2026 em sala
 /// clara/escura" is what covers the wiring.
 struct SurfaceChromeTests {
 
     @Test func theOuterRimDarkensInsteadOfLightening() throws {
-        // The pre-2026 border was a single white hairline: it defines nothing
+        // A border that is a single white hairline defines nothing
         // over a bright wallpaper, which is exactly where a floating surface
         // needs its boundary most. The rim must sit at the dark end.
         #expect(SurfaceChrome.outerHairlineWhite < 0.5)

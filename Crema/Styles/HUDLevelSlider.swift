@@ -17,7 +17,7 @@ import SwiftUI
 /// - `.capsule` — the default every skin gets: the Tahoe banner's bar, drawn by
 ///   us. Owning the drawing is the point — Crema replaces the system's HUD, so
 ///   it tracks the system's HUD look (thumbless 4 pt capsule), not the system's
-///   control, whose stock thumb was the misalignment being replaced. One
+///   control, whose stock thumb is the misalignment this replaces. One
 ///   deliberate deviation: the fill's end is CURVED (a capsule, the iOS
 ///   Music/players language), not the native flat cut (docs/DECISIONS.md:
 ///   hud-capsule-track). A knob fades in under the pointer, the measured

@@ -49,8 +49,8 @@ struct SystemHUDSettingsView: View {
                     // counters of every tap on the machine — a Form body is rebuilt
                     // whenever SwiftUI likes, so binding it here would turn a
                     // settings pane into a periodic system-wide probe. The sentence
-                    // above was flatly false in two whole arrangements until this
-                    // one existed: with the pointer on any other display, and on a
+                    // above, alone, is flatly false in two whole arrangements:
+                    // with the pointer on any other display, and on a
                     // Mac with no built-in panel at all
                     // (docs/DECISIONS.md: brightness-key-follows-the-pointer).
                     Text(String(
@@ -59,8 +59,8 @@ struct SystemHUDSettingsView: View {
                         defaultValue: "Screen brightness is replaced only on the built-in display, while the pointer is on it — a key aimed at any other display is left to the system."
                     ))
                     // Two different absences behind one disabled switch, and only one
-                    // of them is the reader's to fix. Told apart because the joint
-                    // gate said "needs Accessibility access" to someone who had
+                    // of them is the reader's to fix. Told apart because a joint
+                    // gate says "needs Accessibility access" to someone who has
                     // already granted it — accusing the user of withholding the one
                     // thing they did, with no way to make the sentence go away.
                     if !core.permissionMonitor.isGranted {

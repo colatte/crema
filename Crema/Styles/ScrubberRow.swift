@@ -96,7 +96,7 @@ struct ScrubberRow: View {
                 reduceMotion: reduceMotion,
                 layoutDirection: layoutDirection
             )
-            // The whole row is the target, as the stock slider's track was: a
+            // The whole row is the target, as the stock slider's track is: a
             // drag anywhere scrubs, and a tap (minimumDistance 0) seeks at the
             // touch point.
             .contentShape(Rectangle())

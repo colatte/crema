@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Per-display presentation policy the panel injects into its view — rendering
 /// context, like the slit inset, not domain state. With the window fixed and
-/// never ordered out, hiding can no longer happen at the window level: a
+/// never ordered out, hiding cannot happen at the window level: a
 /// display whose "show now playing here" is off must suppress the now-playing
 /// content while still rendering HUDs. A reference box because the panel builds
 /// its root view once; the flag is updated on every frame pass.

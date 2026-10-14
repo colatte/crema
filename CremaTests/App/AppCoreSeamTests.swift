@@ -5,8 +5,8 @@ import Testing
 /// the Coordinator. The two halves are pinned in isolation elsewhere — the chain
 /// fires onActiveSourceEnded (ChainedNowPlayingSourceTests) and the Coordinator
 /// discards on activeNowPlayingSourceEnded (CoordinatorSourceLifecycleTests) —
-/// but the wiring that joins them lived only in the composition root, untested:
-/// break the seam and both isolated suites stay green while the ghost resurrects
+/// but the wiring that joins them lives only in the composition root: break
+/// the seam and both isolated suites stay green while the ghost resurrects
 /// in production. This drives the real seam end to end, over the SAME wiring
 /// AppCore uses (AppCore.wireActiveSourceEnded), with mocks on both sides.
 @MainActor

@@ -150,8 +150,8 @@ struct PreferencesTests {
 
     @Test func declaringAStyleEverywhereDropsEveryOverrideAndSparesOtherPreferences() {
         let preferences = Preferences(defaults: store.defaults)
-        // Overrides written the way the old all-displays writer did — one of
-        // these displays stands for a monitor not attached right now.
+        // Overrides written the way a per-display all-displays writer leaves
+        // them — one of these displays stands for a monitor not attached right now.
         preferences.setStyle(.notch, for: internalDisplay)
         preferences.setStyle(.card, for: externalDisplay)
         preferences.setShowsNowPlaying(false, on: internalDisplay)

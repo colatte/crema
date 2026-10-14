@@ -48,7 +48,7 @@ requirement, no linear history (merges are merge commits by design — squash an
 rebase are switched off at the repository level, so the buttons do not exist).
 
 **What the rule costs the release.** With `enforce_admins` on, the appcast
-commit can no longer be pushed straight to `main` — it travels on
+commit cannot be pushed straight to `main` — it travels on
 `release/X.Y.Z`, through a pull request that `Build & test` gates, in the same
 sitting as the Release; and `main` comes back into `dev` through a pull request
 as well (`main` → `dev`), never a local merge pushed by hand. The whole

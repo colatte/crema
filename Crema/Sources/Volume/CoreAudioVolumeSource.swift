@@ -150,11 +150,11 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unch
     /// Runs on `queue`, never on the caller's thread. The caller is the
     /// suppressor's post-apply hook on the MainActor, and these three round trips
     /// are the same blocking Core Audio IPC the suppressor deadline-races for
-    /// exactly this reason — doing them inline froze the whole app (HUD, now
+    /// exactly this reason — doing them inline freezes the whole app (HUD, now
     /// playing, menu) on a coreaudiod stall, on the HEALTHY path, once per volume
-    /// key, and froze it precisely while the key had been swallowed. Sharing the
+    /// key, and freezes it precisely while the key has been swallowed. Sharing the
     /// listener queue also orders this against `emitCurrentState`, so a sample and
-    /// a property callback can no longer interleave their reads.
+    /// a property callback cannot interleave their reads.
     func sample() {
         queue.async { [weak self] in self?.sampleOnQueue() }
     }

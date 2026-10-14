@@ -229,8 +229,8 @@ struct MenuStatusTests {
         //
         // So the row speaks only where Crema is the one that writes: opted in,
         // available, and no domain suspended. Everywhere else another line speaks —
-        // the neighbour's row, or the suspension warning. The pointer row left this
-        // block as a copy of the Indicators footer; the gate did NOT leave with it,
+        // the neighbour's row, or the suspension warning. The pointer row is not
+        // in this block — the Indicators footer carries it; the gate stays here,
         // because "Crema can't control screen brightness" makes exactly the same
         // promise about who applies.
         for target in [BrightnessKeyTargetNotice.noBuiltInDisplay] {

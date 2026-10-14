@@ -14,8 +14,8 @@ import SwiftUI
 /// Whether this row exists at all is the CALLER's question, not this view's: it is
 /// offered only where some connected display renders Card. That gate is an
 /// EXISTENCE one — the row is absent rather than greyed out — because the sentence
-/// a greyed row needed ("applies to the Card style, which is chosen in the General
-/// tab") was paying for the distance to that picker, and there is no distance left
+/// a greyed row would need ("applies to the Card style, which is chosen in the
+/// General tab") pays for the distance to that picker, and there is no distance
 /// to pay for beside it (docs/DECISIONS.md: rendered-style-gates-settings).
 struct IndicatorPicker: View {
     /// The persisted rawValue rather than the enum, because the caller holds this

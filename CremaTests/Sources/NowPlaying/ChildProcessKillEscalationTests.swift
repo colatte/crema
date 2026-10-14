@@ -10,7 +10,7 @@ import Testing
 /// named for ("the child is abandoned AND killed", docs/DECISIONS.md:
 /// child-process-deadline, born of a hung child stalling the whole now-playing
 /// chain) is a signal sequence, and a fake cannot ignore a signal. A mutation
-/// deleting the SIGKILL left the entire suite green.
+/// deleting the SIGKILL leaves every other test green.
 ///
 /// So this suite spawns a real child — deliberately, and narrowly: it is
 /// `/bin/sh` with a trap and nothing of the app in it, it cannot outlive the
@@ -20,12 +20,12 @@ import Testing
 /// the border may never be exercised at all.
 struct ChildProcessKillEscalationTests {
 
-    /// A child that catches SIGTERM and keeps running — the shape that hung the
-    /// chain before the escalation existed. It echoes AFTER installing the trap:
+    /// A child that catches SIGTERM and keeps running — the shape that hangs the
+    /// chain without the escalation. It echoes AFTER installing the trap:
     /// between exec and the trap there is a window where SIGTERM still kills it,
-    /// and on a starved runner the test's terminate landed inside that window —
-    /// the child died politely and the "SIGTERM alone did nothing" assertion
-    /// failed. The echo is the proof the trap is armed; the test waits for it
+    /// and on a starved runner the test's terminate can land inside that window —
+    /// the child dies politely and the "SIGTERM alone did nothing" assertion
+    /// fails. The echo is the proof the trap is armed; the test waits for it
     /// (bounded) before it lets the deadline fire.
     private func deafChild() -> Process {
         let process = Process()

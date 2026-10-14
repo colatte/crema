@@ -6,7 +6,7 @@ import Testing
 /// its programmatic writes through Core Audio, so its indicator follows and the
 /// revert timer refreshes for free; the brightness sources emit only through a
 /// key-gated poll, so a drag with no key would leave the indicator stuck and let
-/// the HUD tuck mid-drag. The fix: on a successful brightness write the
+/// the HUD tuck mid-drag. So on a successful brightness write the
 /// Coordinator fires `onBrightnessApplied`, which AppCore wires to poke the
 /// matching sampler (re-read + emit). These tests pin that at the Coordinator
 /// level with the hook wired to echo the applied value, mirroring the real sampler.

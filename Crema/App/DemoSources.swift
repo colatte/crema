@@ -171,7 +171,7 @@ final class DemoHUDEngine: SystemHUDSource, VolumeController, ScreenBrightnessCo
     /// A command carries the ACTUATION spelling, where nil means "my own panel", so
     /// the loopback has to put the role back the way the real producers state it —
     /// otherwise the demo bar would jump from the built-in panel to every screen
-    /// mid-drag, which is the shipped bug this menu exists to reproduce without
+    /// mid-drag, the bug this menu exists to reproduce without
     /// hardware (docs/DECISIONS.md: hud-target-is-a-role).
     private static func target(_ kind: SystemHUD.Kind, _ display: DisplayUUID?) -> SystemHUD.Target {
         guard kind == .screenBrightness else { return .noDisplay }

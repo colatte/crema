@@ -45,8 +45,8 @@ struct BrightnessKeyTargetingTests {
     }
 
     @Test func thePointerOnTheMonitorNeverFallsBackToTheLaptop() {
-        // The reported bug as a test: the key used to dim the laptop while the
-        // user was reading the monitor. There is no fallback to the built-in
+        // The reported bug as a test: a key that dims the laptop while the
+        // user is reading the monitor. There is no fallback to the built-in
         // panel, because that fallback IS the bug.
         #expect(Self.target(CGPoint(x: 2000, y: 100), [Self.laptop, Self.monitorBeside]) == .anotherDisplay)
     }
@@ -88,8 +88,8 @@ struct BrightnessKeyTargetingTests {
     }
 
     @Test func aPointerOnTheHorizontalSeamBelongsToExactlyOneDisplay() {
-        // The other half of "half-open on BOTH axes", and the one the suite was
-        // missing: the vertical-seam test exercises x, and the menu-bar test puts the
+        // The other half of "half-open on BOTH axes", and the one nothing else in
+        // the suite covers: the vertical-seam test exercises x, and the menu-bar test puts the
         // monitor ABOVE, where the built-in tie-break answers `.builtIn` either way
         // and so hides a closed bound instead of exposing it. Measured — with the
         // monitor BELOW, changing `point.y < maxY` to `<=` leaves the whole suite

@@ -54,9 +54,9 @@ struct LowPowerModeWiringTests {
         // that an equal-value write to an @Observable property does not
         // invalidate on its own (recorded at DisplayRosterTests), so a "nothing
         // invalidated" assertion here would stay green with the guard deleted —
-        // and the earlier draft of this test asserted exactly that behind a
-        // yield-count settle, the negative-without-a-barrier shape the TDD rules
-        // forbid. What CAN be pinned is that a duplicate sitting ahead of a real
+        // and asserting exactly that behind a yield-count settle is the
+        // negative-without-a-barrier shape the TDD rules forbid. What CAN be
+        // pinned is that a duplicate sitting ahead of a real
         // transition on the same ordered stream does not swallow it.
         let source = MockLowPowerModeSource(lowPower: false)
         let mirror = LowPowerModeMirror()

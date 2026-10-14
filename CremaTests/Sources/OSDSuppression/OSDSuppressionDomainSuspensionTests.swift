@@ -44,9 +44,8 @@ struct OSDSuppressionDomainSuspensionTests {
         h.keys.press(.screenBrightnessUp)
         #expect(await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) })
 
-        // Volume keeps being consumed and applied — the old bug, before
-        // per-domain suspension, was a brightness failure killing volume
-        // suppression too.
+        // Volume keeps being consumed and applied — without per-domain
+        // suspension, a brightness failure kills volume suppression too.
         h.keys.press(.volumeUp)
         #expect(await eventually { h.volume.applied == [0.5 + OSDTest.step] })
         #expect(h.suppressor.isEngaged)
@@ -376,9 +375,9 @@ struct OSDSuppressionDomainSuspensionTests {
     }
 
     @Test func anUnreadableMutePlaneOnVolumeUpFailsTheApplyInsteadOfSkippingTheUnmute() async {
-        // A nil mute read on the unmute-first step used to read as "not muted":
-        // the unmute was skipped in silence, the level step verified fine and
-        // the apply returned verified — key consumed, bar rising, Mac still
+        // A nil mute read on the unmute-first step taken as "not muted" skips
+        // the unmute in silence, the level step verifies fine and the apply
+        // returns verified — key consumed, bar rising, Mac still
         // muted, no failure axis touched. `applyMute` throws
         // currentValueUnreadable on the SAME nil; this pins volume-up to the
         // same line. Both halves: a real `false` skips the unmute and verifies
@@ -481,10 +480,10 @@ struct OSDSuppressionDomainSuspensionTests {
 /// Apple documents the delay as the general case, not an exotic device:
 /// `AudioObjectSetPropertyData` — "the value of the property should not be
 /// considered changed until the HAL has called the listeners as many properties
-/// values are changed asynchronously" (AudioHardware.h:302). The apply cycle
-/// read back on the very next line, so an unmoved value read as a failed write:
-/// the domain suspended, the keys went back to the system, and the menu told
-/// the user Crema could not change a volume it had just changed.
+/// values are changed asynchronously" (AudioHardware.h:302). An apply cycle that
+/// reads back on the very next line takes an unmoved value for a failed write:
+/// the domain suspends, the keys go back to the system, and the menu tells the
+/// user Crema cannot change a volume it has just changed.
 @MainActor
 struct OSDLateWritePublicationTests {
 
@@ -497,8 +496,8 @@ struct OSDLateWritePublicationTests {
         // signal this test needs. Waiting on `applied` instead would prove
         // nothing: the channel records the write BEFORE the read-back runs, so
         // the "not suspended" assertion would land before the verification it
-        // is about — and it did, until a mutation that removed the second read
-        // failed to turn this red.
+        // is about — and a mutation that removes the second read would then
+        // fail to turn this red.
         let verified = CounterBox()
         h.suppressor.onApplied = { _ in verified.count += 1 }
         h.suppressor.setEngaged(true)

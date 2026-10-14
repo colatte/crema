@@ -74,14 +74,14 @@ struct OSDSuppressionUnlockRegressionTests {
     // (records) but the value never moves, so the read-back verification fails
     // and the domain suspends — yet
     // the recovery probe only reads, and the read returns a value, so it
-    // re-engages a channel that still cannot apply. Pre-fix this flapped
-    // suspend/re-engage forever and never escalated (each read-only re-engage
-    // discarded the escalation counter), so the user saw the native OSD
-    // "permanently" on brightness with no stable signal. The fix adds a
-    // write-health escalation axis (unconfirmedApplyFailures) that survives the
-    // optimistic re-engage and is reset only by a verified apply, so a
-    // persistently un-appliable channel surfaces in the menu. This pins that
-    // fixed outcome (pre-fix it failed at the final expect).
+    // re-engages a channel that still cannot apply. Without a write-health axis
+    // this flaps suspend/re-engage forever and never escalates (each read-only
+    // re-engage discards the escalation counter), so the user sees the native OSD
+    // "permanently" on brightness with no stable signal. The write-health
+    // escalation axis (unconfirmedApplyFailures) survives the optimistic
+    // re-engage and is reset only by a verified apply, so a persistently
+    // un-appliable channel surfaces in the menu. This pins that outcome
+    // (without the axis it fails at the final expect).
     @Test func writeDeadReadOKChannelEscalatesToTheMenuInsteadOfFlappingForever() async {
         let h = OSDSuppressorHarness()
         h.screen.writeIsDead = true     // write records but never moves; read stays OK
@@ -108,7 +108,7 @@ struct OSDSuppressionUnlockRegressionTests {
         #expect(reengagedAfterFailure > 0)
         // … but the write-health axis escalated it, so the user gets a stable
         // signal that the channel is broken instead of a silent native-OSD-only
-        // brightness key forever. This is the pin the regression violated.
+        // brightness key forever. This is the pin the regression violates.
         #expect(h.suppressor.longSuspendedDomains.contains(.screenBrightness),
                 "a persistently un-appliable channel must surface in the menu, not flap in silence")
     }
@@ -118,7 +118,7 @@ struct OSDSuppressionUnlockRegressionTests {
     // It must not flicker off on each read-only re-engage.
     // The failure mode this guards: escalate on the flap axis, then let a
     // read-only probe re-engage and CLEAR the warning, so the menu blinks on and
-    // off every cycle. The fix keeps the warning up across an optimistic
+    // off every cycle. The warning stays up across an optimistic
     // re-engage (only a verified apply may clear it), so once surfaced it stays
     // surfaced while the write stays dead — and onSuspensionStateChange fires
     // exactly once for the escalation, not once per flap.
@@ -150,7 +150,7 @@ struct OSDSuppressionUnlockRegressionTests {
 
     // The first VERIFIED apply after the write comes back clears the warning and
     // the flap axis. This is the field scenario (the wake ramp settles in
-    // seconds), and proves the fix does not strand the domain long-suspended
+    // seconds), and proves the write-health axis does not strand the domain long-suspended
     // forever.
 
     @Test func writeDeadChannelHealsOnTheFirstVerifiedApplyAfterTheWriteReturns() async {
@@ -318,13 +318,13 @@ struct OSDSuppressionUnlockRegressionTests {
                 return !h.suppressor.suspendedDomains.contains(.screenBrightness)
             }
         }
-        // Escalated to the menu and momentarily re-engaged — the exact state the
-        // suspended-only retry loop skipped.
+        // Escalated to the menu and momentarily re-engaged — the exact state a
+        // suspended-only retry loop skips.
         #expect(h.suppressor.longSuspendedDomains.contains(.screenBrightness))
         #expect(!h.suppressor.suspendedDomains.contains(.screenBrightness))
 
         // The user clicks "Try to reactivate now": the latch clears and the menu
-        // warning goes away (pre-fix the button did nothing in this state).
+        // warning goes away (a suspended-only retry does nothing in this state).
         h.suppressor.retrySuspendedNow()
         #expect(h.suppressor.longSuspendedDomains.isEmpty,
                 "the retry button left a re-engaged domain's menu warning stuck")

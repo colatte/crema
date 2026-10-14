@@ -136,7 +136,7 @@ struct LoginItemSeamTests {
         preferences.launchesAtLogin = true
         preferences.launchesAtLoginBuild = "10200"
 
-        // `.userRemoved` is the one verdict that used to carry a write, and the
+        // `.userRemoved` is the one verdict a write could ride on, and the
         // caller is a view body — the app does not choose when it runs. Read
         // three times on purpose: a write would make the second read `.quiet`.
         for _ in 0..<3 {

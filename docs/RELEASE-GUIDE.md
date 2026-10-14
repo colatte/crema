@@ -8,7 +8,7 @@
 
 Crema is distributed as a `Crema.dmg` — a direct download from the
 [Releases](https://github.com/colatte/crema/releases) page, outside the Mac App
-Store. Since Sparkle was integrated, every release also **regenerates the
+Store. Every release also **regenerates the
 appcast** (`docs/appcast.xml`), served by GitHub Pages, so that anyone who
 already has the app installed is updated in place. `scripts/release.sh` builds,
 stamps the version, signs (including the nested Sparkle), notarizes when the

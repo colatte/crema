@@ -5,9 +5,10 @@ import Testing
 /// The real panel, instantiated.
 ///
 /// Everything above it (reconciliation, frame math, style resolution) is well
-/// pinned, and everything this class *binds* was invisible: two mutations, one
-/// handing SwiftUI the power to size the window and one dropping the fixed frame
-/// altogether, both left all 729 tests green. Those are the same two invariants
+/// pinned, and everything this class *binds* is invisible from there: two
+/// mutations, one handing SwiftUI the power to size the window and one dropping
+/// the fixed frame altogether, both leave every other test green (measured
+/// across 729 tests). Those are the same two invariants
 /// AGENTS.md names in "Never do" as the cure for a whole family of
 /// intermittent blinks, so they get a witness here.
 @MainActor
@@ -101,9 +102,9 @@ struct NSPanelPresentationPanelTests {
     }
 
     @Test func everyApplyRetargetsHoverAtTheStateItJustDrew() {
-        // The region math is pinned in SurfaceHoverModelTests; what was invisible
-        // is whether the panel PUSHES it. A mutation dropping the retarget left
-        // the suite green while the previous state's silhouette stayed live —
+        // The region math is pinned in SurfaceHoverModelTests; what is invisible
+        // there is whether the panel PUSHES it. A mutation dropping the retarget
+        // leaves every other test green while the previous state's silhouette stays live —
         // an invisible band that keeps holding the surface open where nothing is
         // drawn any more (docs/DECISIONS.md: hover-follows-the-eye).
         let (panel, screen, harness) = self.panel()

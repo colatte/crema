@@ -40,9 +40,9 @@ struct ScrubberTrackTests {
     // MARK: - What the bar draws when there is nothing to draw
 
     @Test func contentWithNoDurationDrawsABareBarInsteadOfAFinishedOne() {
-        // The fraction has no denominator, and the row used to invent one —
-        // `max(position, 1)` — which is exactly 1 from the first second onward. A
-        // radio stream therefore drew a full bar, permanently, and full means
+        // The fraction has no denominator, and a row that invents one —
+        // `max(position, 1)` — gets exactly 1 from the first second onward. A
+        // radio stream then draws a full bar, permanently, and full means
         // "finished" to everyone who has ever seen a player.
         #expect(ScrubberRow.fill(position: 1, duration: nil) == 0)
         #expect(ScrubberRow.fill(position: 4200, duration: nil) == 0)

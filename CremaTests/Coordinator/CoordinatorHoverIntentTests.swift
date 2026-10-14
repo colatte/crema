@@ -162,8 +162,8 @@ struct CoordinatorHoverIntentTests {
     }
 
     /// The control pair: a genuinely in-flight debounced gesture still routes
-    /// `hover(false)` through the intent path — the fix narrows the guard to
-    /// live tasks, it does not remove it.
+    /// `hover(false)` through the intent path — the guard is narrowed to live
+    /// tasks, not removed.
     @Test func hoverOutDuringAnInFlightIntentStillTakesTheDebouncedPath() async {
         let h = await showingCompact()
 

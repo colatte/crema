@@ -45,7 +45,7 @@ struct WaveformGlyphTests {
 
     @Test func aVetoedGlyphStillSaysPlaying() {
         // The bug this rule exists for: with the pulse vetoed and every bar at
-        // rest, playing and paused drew the same four 4 pt stubs — and on the
+        // rest, playing and paused draw the same four 4 pt stubs — and on the
         // compact surfaces this glyph is the ONLY thing that says playing at all.
         // The vetoes forbid movement and spending, not information.
         let playing = WaveformGlyph.stillHeights(animating: true, reduceMotion: true, lowPower: false)

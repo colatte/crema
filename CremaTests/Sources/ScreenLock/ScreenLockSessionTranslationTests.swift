@@ -2,12 +2,12 @@ import Foundation
 import Testing
 @testable import Crema
 
-/// The session-dictionary decoding — the half of the lock source that used to be
-/// unreachable from a test. Every test of the source injects a `sessionReader`,
-/// so the production read and its defaults (what a missing key means, what an
-/// unreadable session means) were policy nothing pinned: flipping either default
-/// broke no test while changing whether the app suppresses the native OSD over a
-/// lock shield.
+/// The session-dictionary decoding — the half of the lock source no test of the
+/// source reaches. Every test of the source injects a `sessionReader`, so the
+/// production read and its defaults (what a missing key means, what an
+/// unreadable session means) are policy nothing else pins: flipping either
+/// default breaks no other test while changing whether the app suppresses the
+/// native OSD over a lock shield.
 ///
 /// The fixture values are `NSNumber(value: Bool)` because that IS the runtime
 /// class the real dictionary carries (`__NSCFBoolean`, a bridged CFBoolean —

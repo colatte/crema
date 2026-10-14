@@ -2,10 +2,10 @@ import CoreGraphics
 import Testing
 @testable import Crema
 
-/// The monitor's own arm/disarm behaviour, which nothing in the suite could see:
+/// The monitor's own arm/disarm behaviour, which nothing else in the suite sees:
 /// the region math is pinned in SurfaceHoverModelTests and the panel's retarget
 /// in NSPanelPresentationPanelTests, while the pending exit that disarming
-/// reports lives only here — a mutation deleting it left every test green. That
+/// reports lives only here — a mutation deleting it leaves every other test green. That
 /// report is what keeps the Coordinator's pointer record true when a display
 /// stops being armed: a silent reset leaves the record holding a pointer that is
 /// not on any surface, and the timers keyed on it (the HUD waits for the pointer

@@ -77,8 +77,8 @@ struct SettingsView: View {
 ///
 /// Style leads because it is what a person came here to change, and both of its
 /// scopes are in one pane on purpose: the all-displays declaration SWEEPS the
-/// per-display styles, and a tab away that sweep was a warning about sections the
-/// reader could not see. So the declaration sits above the very list it replaces.
+/// per-display styles, and a tab away that sweep would be a warning about sections
+/// the reader cannot see. So the declaration sits above the very list it replaces.
 ///
 /// The per-display list is reactive; the rendered-style mirrors are seeded once and
 /// re-read after every write this pane makes and every display change — a
@@ -243,8 +243,8 @@ private struct GeneralSettingsView: View {
                     Text(String(localized: "settings.general.displays", defaultValue: "Displays"))
                 } footer: {
                     // One sentence for the list rather than one per row: the toggle
-                    // above it repeats per display, and so did its explanation, which
-                    // made a two-monitor pane read as the same paragraph printed
+                    // above it repeats per display, and an explanation per row would
+                    // make a two-monitor pane read as the same paragraph printed
                     // twice.
                     Text(String(
                         localized: "settings.displays.showNowPlaying.footer",
@@ -323,11 +323,11 @@ private struct NowPlayingSettingsView: View {
 
     var body: some View {
         Form {
-            // The degradation this tab was silent about: with nothing reporting,
-            // every switch below configures a surface that never appears, and the
-            // menu was the only place saying so. Same shape the Indicators tab gives
-            // the neighbour integration, and the footer names the channel rather than
-            // a fault — the resting case is nobody playing anything.
+            // The degradation this tab states: with nothing reporting, every switch
+            // below configures a surface that never appears, and without it here the
+            // menu would be the only place saying so. Same shape the Indicators tab
+            // gives the neighbour integration, and the footer names the channel rather
+            // than a fault — the resting case is nobody playing anything.
             //
             // `isActive` is safe to read from a Form body, unlike the readings behind
             // the menu: it is a guarded mirror written only on a chain selection edge
