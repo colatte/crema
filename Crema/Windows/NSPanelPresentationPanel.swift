@@ -139,7 +139,7 @@ final class NSPanelPresentationPanel: PresentationPanel {
             hoverMonitor = SurfaceHoverMonitor(regions: regions) { [weak coordinator, displayPolicy] inside in
                 // Panel-local first: the capsule knob is per-display, so only
                 // the hovered surface reveals it; the Coordinator keeps the
-                // global mirror its timers key on.
+                // global record its timers key on.
                 displayPolicy.pointerInside = inside
                 switch commit {
                 case .immediate: coordinator?.hover(inside)

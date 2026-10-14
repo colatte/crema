@@ -184,7 +184,7 @@ enum NotchMetrics {
     /// from it rather than re-declared: both skins draw the same icon-beside-bar
     /// row, and the column is what holds the bar still while the volume family
     /// steps through four symbols of different widths (HUDPresentation).
-    static let hudIconColumnWidth: CGFloat = CardHUDIndicator.hudIconColumnWidth
+    static let hudIconColumnWidth: CGFloat = CardHUDIndicator.hudIconSlot
     /// Expanded: the cutout stretching down (Dynamic Island). The width never
     /// changes (see the frame rule); the drop is derived from the reference
     /// layout's stacked sections (header, thin scrubber, transport) — like the

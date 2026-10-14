@@ -47,7 +47,7 @@ struct ScrubberTrackTests {
         #expect(ScrubberRow.fill(position: 1, duration: nil) == 0)
         #expect(ScrubberRow.fill(position: 4200, duration: nil) == 0)
         // Zero seconds in is the same picture from the other side: a bare track,
-        // never a phantom nub (CapsuleTrack.capsuleFillWidth draws that rule).
+        // never a phantom nub (CapsuleTrack.capsuleFillLength draws that rule).
         #expect(ScrubberRow.fill(position: 0, duration: 180) == 0)
     }
 
@@ -125,8 +125,8 @@ struct ScrubberTrackTests {
         // Shared with the HUD, and worth restating from the scrubber's side: a
         // track one second into a song must not draw a squashed vertical oval,
         // and a track at zero must not draw a phantom dot.
-        #expect(CapsuleTrack.capsuleFillWidth(for: 0, trackWidth: 200) == 0)
-        #expect(CapsuleTrack.capsuleFillWidth(for: 0.001, trackWidth: 200) == CapsuleTrack.trackThickness)
-        #expect(CapsuleTrack.capsuleFillWidth(for: 0.5, trackWidth: 200) == 100)
+        #expect(CapsuleTrack.capsuleFillLength(for: 0, trackLength: 200) == 0)
+        #expect(CapsuleTrack.capsuleFillLength(for: 0.001, trackLength: 200) == CapsuleTrack.trackThickness)
+        #expect(CapsuleTrack.capsuleFillLength(for: 0.5, trackLength: 200) == 100)
     }
 }

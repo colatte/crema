@@ -29,64 +29,86 @@ struct CardHUDIndicator: View {
     let isHovered: Bool
     let onChange: (Double) -> Void
     let onRelease: () -> Void
+    /// The direction the bar runs: horizontal by default; `HUDPlacement.axis`
+    /// names the placements where it stands upright. Upright, the glyph sits
+    /// under the bar, where the level starts.
+    var axis: Axis = .horizontal
 
-    /// Fixed column for the leading glyph, owned here because the glyph is drawn
-    /// here — the skins' Metrics derive from it rather than each declaring 22.
-    /// The volume family steps through four symbols of different widths as the
-    /// level moves (`HUDPresentation`), so without a column each swap would shift
+    /// Fixed slot for the glyph along the bar — a column beside a horizontal bar,
+    /// a row under an upright one — owned here because the glyph is drawn here;
+    /// the skins' Metrics derive from it rather than each declaring 22. The
+    /// volume family steps through four symbols of different widths as the level
+    /// moves (`HUDPresentation`), so without a fixed slot each swap would shift
     /// the bar beside it — motion the level animation would then carry.
-    nonisolated static let hudIconColumnWidth: CGFloat = 22
+    nonisolated static let hudIconSlot: CGFloat = 22
 
     @ViewBuilder var body: some View {
         switch indicatorStyle {
         case .slider:
-            // Icon beside the capsule row (the Notch's layout too); Classic keeps its bezel's segmented bar.
-            HStack(spacing: CardMetrics.contentGap) {
-                // Pinned to the column's leading edge, not centred in it: the column
-                // is wider than the narrowest glyph of the family, so a centred
-                // symbol slides sideways on every swap — the exact motion the fixed
-                // column exists to remove. The `.filled` body below pins its own the
-                // same way, and hides it from VoiceOver for the same reason: the bar
-                // beside it already names the reading (HUDLevelSlider).
-                Image(systemName: presentation.iconSystemName)
-                    .frame(width: Self.hudIconColumnWidth, alignment: .leading)
-                    .accessibilityHidden(true)
-                    .symbolReplace(on: presentation.iconSystemName)
-                HUDLevelSlider(
-                    kind: kind,
-                    value: presentation.value,
-                    onChange: onChange,
-                    onRelease: onRelease,
-                    appearance: HUDLevelSlider.appearance(for: indicatorStyle),
-                    isHovered: isHovered
-                )
+            // Icon beside the capsule row (the Notch's layout too), or under it
+            // when the bar stands upright; Classic keeps its bezel's segmented
+            // bar. The padding along the bar is the card's horizontal content
+            // padding, turned with it.
+            if axis == .horizontal {
+                HStack(spacing: CardMetrics.contentGap) {
+                    // Pinned to the column's leading edge, not centred in it: the
+                    // column is wider than the narrowest glyph of the family, so a
+                    // centred symbol slides sideways on every swap — the exact
+                    // motion the fixed column exists to remove.
+                    sliderGlyph.frame(width: Self.hudIconSlot, alignment: .leading)
+                    slider(appearance: HUDLevelSlider.appearance(for: indicatorStyle))
+                }
+                .padding(.horizontal, CardMetrics.contentPaddingHorizontal)
+            } else {
+                VStack(spacing: CardMetrics.contentGap) {
+                    slider(appearance: HUDLevelSlider.appearance(for: indicatorStyle))
+                    // Centred across the bar: upright, a width change grows the
+                    // glyph about its centre and moves nothing else, because the
+                    // bar sits above it and the row's height is fixed.
+                    sliderGlyph.frame(height: Self.hudIconSlot)
+                }
+                .padding(.vertical, CardMetrics.contentPaddingHorizontal)
             }
-            .padding(.horizontal, CardMetrics.contentPaddingHorizontal)
         case .filled:
             // Fused, full-bleed: the bar fills the whole HUD frame (no padding,
             // no inner track) and the HOST's rounded-rect clip rounds the sweep —
             // the card's own (vibrantSurface), the picker tile's on its stand-in
-            // surface. The icon rides inside at the leading edge, over the fill at
+            // surface. The icon rides inside at the bar's start, over the fill at
             // high levels and the dark remainder at low ones.
-            HUDLevelSlider(
-                kind: kind,
-                value: presentation.value,
-                onChange: onChange,
-                onRelease: onRelease,
-                appearance: .filled
-            )
-            .overlay(alignment: .leading) {
-                Image(systemName: presentation.iconSystemName)
-                    .foregroundStyle(CardMetrics.hudFilledIconColor)
-                    .padding(.leading, CardMetrics.hudFilledIconLeading)
-                    .accessibilityHidden(true)
-                    // The bar underneath owns the whole drag/tap surface; the
-                    // glyph is decoration and must let touches through to it.
-                    .allowsHitTesting(false)
-                    // Overlay glyph — a separate subtree from the fill below, so
-                    // the swap animates the icon without touching the bar.
-                    .symbolReplace(on: presentation.iconSystemName)
-            }
+            slider(appearance: .filled)
+                .overlay(alignment: CapsuleTrack.startAlignment(axis: axis)) {
+                    Image(systemName: presentation.iconSystemName)
+                        .foregroundStyle(CardMetrics.hudFilledIconColor)
+                        .padding(CapsuleTrack.startEdge(axis: axis), CardMetrics.hudFilledIconInset)
+                        .accessibilityHidden(true)
+                        // The bar underneath owns the whole drag/tap surface; the
+                        // glyph is decoration and must let touches through to it.
+                        .allowsHitTesting(false)
+                        // Overlay glyph — a separate subtree from the fill below, so
+                        // the swap animates the icon without touching the bar.
+                        .symbolReplace(on: presentation.iconSystemName)
+                }
         }
+    }
+
+    /// The `.slider` body's glyph, hidden from VoiceOver because the bar beside
+    /// it already names the reading (HUDLevelSlider); the `.filled` body hides its
+    /// own for the same reason.
+    private var sliderGlyph: some View {
+        Image(systemName: presentation.iconSystemName)
+            .accessibilityHidden(true)
+            .symbolReplace(on: presentation.iconSystemName)
+    }
+
+    private func slider(appearance: HUDLevelSlider.Appearance) -> HUDLevelSlider {
+        HUDLevelSlider(
+            kind: kind,
+            value: presentation.value,
+            onChange: onChange,
+            onRelease: onRelease,
+            appearance: appearance,
+            isHovered: isHovered,
+            axis: axis
+        )
     }
 }

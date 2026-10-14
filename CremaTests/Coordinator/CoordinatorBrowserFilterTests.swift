@@ -64,8 +64,8 @@ struct CoordinatorBrowserFilterTests {
         #expect(await eventually { h.coordinator.state == .hud(SystemHUD(kind: .volume, value: 0.5)) })
 
         // The feed video steals focus while the HUD owns the surface: the
-        // revert must find nothing to resurface (a stale resume flag must not
-        // revive a discarded snapshot).
+        // revert must find nothing to resurface (the appearance under the HUD
+        // goes with the snapshot it showed).
         h.nowPlayingSource.emit(browserTrack())
         #expect(await eventually { h.coordinator.nowPlaying == nil })
 
@@ -76,19 +76,19 @@ struct CoordinatorBrowserFilterTests {
         #expect(!h.coordinator.mediaActive)
     }
 
-    @Test func aPausedHandbackDuringAHUDIsNotSurfacedByTheDiscardedPromise() async {
+    @Test func aPausedHandbackDuringAHUDIsNotSurfacedByTheDiscardedAppearance() async {
         // The repopulation half of aBrowserTakeoverDuringAHUDLeavesNothingToResurface:
         // that one stops at nowPlaying == nil, and it is the REPOPULATION that
-        // spends a promise the discard should have killed. The HUD interrupted a
-        // visible appearance (promise armed), the browser discard drops the
-        // snapshot it was armed for, and the app handed the focus next is paused —
-        // arming nothing of its own. The card must stay shut.
+        // would show up in an appearance the discard should have taken down. The
+        // HUD rose over a visible appearance, the browser discard drops the
+        // snapshot it showed, and the app handed the focus next is paused —
+        // earning no appearance of its own. The card must stay shut.
         let h = CoordinatorHarness()
         let volumeHUD = SystemHUD(kind: .volume, value: 0.5)
         let track = CoordinatorHarness.playingTrack()
         h.nowPlayingSource.emit(track)
-        // Asserted, not discarded: an appearance that never became visible leaves
-        // the promise unarmed, and the test would pass for the wrong reason.
+        // Asserted, not discarded: with no appearance under the HUD there is
+        // nothing to take down, and the test would pass for the wrong reason.
         #expect(await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) })
 
         h.hudSource.emit(volumeHUD)
