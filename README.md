@@ -149,6 +149,26 @@ Crema, and click **Open Anyway** — confirm once more and it opens.
 xattr -dr com.apple.quarantine /Applications/Crema.app
 ```
 
+### Verifying the download
+
+Because macOS can't vouch for Crema, you can. Every release is signed with the
+same certificate, and this is its SHA-256 fingerprint:
+
+```
+e63ac01ad80ea8cb9846840ab5a568c5d65725ef16623abf3da8657986b81b37
+```
+
+Before opening Crema for the first time, check that your copy carries it:
+
+```bash
+codesign -d --extract-certificates=/tmp/crema /Applications/Crema.app && shasum -a 256 /tmp/crema0
+```
+
+The first word printed must be the fingerprint above. If it isn't, don't open
+the app — [open an issue](https://github.com/colatte/crema/issues) instead.
+Each release's notes also list the SHA-256 of `Crema.dmg`, which
+`shasum -a 256 ~/Downloads/Crema.dmg` prints.
+
 ## Usage
 
 - **Play something.** When the track changes, Crema shows it near the notch for a

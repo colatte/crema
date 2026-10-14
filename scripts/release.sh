@@ -383,6 +383,12 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     codesign -d --extract-certificates="$BUILD_DIR/signing-cert" "$APP" >/dev/null 2>&1 \
         || fail "could not extract the signing certificate from $APP_NAME"
     CERT_SHA256="$(shasum -a 256 "$BUILD_DIR/signing-cert0" | cut -d' ' -f1)"
+    # The README publishes this fingerprint as the constant a first download is checked
+    # against ("Verifying the download"); a release signed by any other certificate would
+    # make that page tell people to refuse a genuine copy, so the two match or nothing ships.
+    README_CERT_SHA256="$(grep -Eo '^[0-9a-f]{64}$' "$REPO_ROOT/README.md" | head -1 || true)"
+    [[ "$README_CERT_SHA256" == "$CERT_SHA256" ]] \
+        || fail "the signing certificate's SHA-256 ($CERT_SHA256) is not the one README.md publishes (${README_CERT_SHA256:-none}) — a new certificate means updating \"Verifying the download\" in the same release."
 
     if [[ "$SIGN_IDENTITY" == "Developer ID Application"* ]]; then
         info "Signed with Developer ID (hardened runtime + entitlements + timestamp)."
@@ -720,6 +726,7 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     info "   and put these two lines in the Release body, for whoever checks a first download by hand:"
     info "     SHA-256 of Crema.dmg: $DMG_SHA256"
     info "     SHA-256 of the signing certificate: ${CERT_SHA256:-}"
+    info "     How to check both: https://github.com/colatte/crema#verifying-the-download"
     info "3. Publish the appcast (Pages serves /docs from main, and main takes no direct push — docs/GITHUB.md) — this script did NOT commit:"
     info "   git checkout -b release/$VERSION && git add docs/appcast.xml && git commit -m \"chore(release): appcast $VERSION\""
     info "   git push -u origin release/$VERSION && gh pr create --base main --title \"chore(release): appcast $VERSION\" --body \"…\" && gh pr checks --watch && gh pr merge --merge"
