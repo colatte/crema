@@ -1573,7 +1573,7 @@ word available.
 built-in panel among others left the menu — not because the sentence was wrong,
 but because the Indicators tab states it UNCONDITIONALLY, under the switch that
 turns the replacement on, so the menu was carrying a gated copy of an ungated
-sentence (`menu-status-before-warnings`, fourth amendment). `.noBuiltInDisplay`
+sentence (`menu-status-before-warnings`). `.noBuiltInDisplay`
 keeps its row: it is the one arrangement no other surface in the app names.
 `.quiet` is unchanged, and so is every gate above — the `cremaApplies` gate, the
 three causes of silence, the ACTIVE-display census the line is read from and the

@@ -84,6 +84,22 @@ struct MenuStatus {
         case openLoginItemsSettings
     }
 
+    /// A warning that offers no repair, so the fact itself is its item.
+    enum Fact: Equatable {
+        case betterDisplayAheadAndSilent
+        case anotherAppAhead(String)
+        case mediaControlsBlocked
+    }
+
+    /// What a warning's item IS: the repair it offers or, with none, the fact.
+    /// Exhaustive on both sides, so a warning cannot be added without choosing one,
+    /// and a fact cannot be added without its words — `CremaMenu` maps `Fact`
+    /// exhaustively, where an optional lookup would let a warning draw nothing.
+    enum Item: Equatable {
+        case repair(Action)
+        case fact(Fact)
+    }
+
     /// Something the user can act on, or at least needs to know. Ordered by
     /// urgency; see `init`.
     enum Warning: Equatable {
@@ -98,17 +114,25 @@ struct MenuStatus {
         case loginItemRevoked
         case loginItemNeedsApproval
 
-        /// The repair this warning offers. Exhaustive on purpose: a warning added
-        /// without deciding whether it has an action does not compile.
-        var action: Action? {
+        /// Exhaustive on purpose: a warning added without deciding whether it is a
+        /// repair or a fact does not compile.
+        var item: Item {
             switch self {
-            case .accessibilityMissing: .grantAccessibility
-            case .suppressionSuspended: .retrySuppression
-            case .nowPlayingUnavailable: .openPermissionsTab
-            case .loginItemRevoked: .reactivateLoginItem
-            case .loginItemNeedsApproval: .openLoginItemsSettings
-            case .betterDisplayAheadAndSilent, .anotherAppAhead, .mediaControlsBlocked: nil
+            case .accessibilityMissing: .repair(.grantAccessibility)
+            case .suppressionSuspended: .repair(.retrySuppression)
+            case .nowPlayingUnavailable: .repair(.openPermissionsTab)
+            case .loginItemRevoked: .repair(.reactivateLoginItem)
+            case .loginItemNeedsApproval: .repair(.openLoginItemsSettings)
+            case .betterDisplayAheadAndSilent: .fact(.betterDisplayAheadAndSilent)
+            case .anotherAppAhead(let app): .fact(.anotherAppAhead(app))
+            case .mediaControlsBlocked: .fact(.mediaControlsBlocked)
             }
+        }
+
+        /// The repair this warning offers, read off `item`.
+        var action: Action? {
+            guard case .repair(let action) = item else { return nil }
+            return action
         }
     }
 

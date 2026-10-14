@@ -208,6 +208,16 @@ struct MenuStatusTests {
         #expect(MenuStatus.Warning.mediaControlsBlocked.action == nil)
     }
 
+    @Test func aWarningWithoutARepairIsItsOwnFact() {
+        // The item a warning draws is chosen here, exhaustively: a repair becomes the
+        // button, and a warning with none is drawn as its fact. Kills a fact mapped to
+        // the wrong one — or losing the neighbour's name on the way.
+        #expect(MenuStatus.Warning.betterDisplayAheadAndSilent.item == .fact(.betterDisplayAheadAndSilent))
+        #expect(MenuStatus.Warning.anotherAppAhead("Some Other App").item == .fact(.anotherAppAhead("Some Other App")))
+        #expect(MenuStatus.Warning.mediaControlsBlocked.item == .fact(.mediaControlsBlocked))
+        #expect(MenuStatus.Warning.accessibilityMissing.item == .repair(.grantAccessibility))
+    }
+
     @Test func theBrightnessRowSpeaksOnlyWhereCremaIsTheOneApplying() {
         // Field evidence, and the reason this gate exists at all. With a neighbour
         // ahead in the tap chain the brightness keys follow the display under the

@@ -120,14 +120,15 @@ struct CremaMenu: View {
     /// One warning, one item. With a repair, the repair IS the item and the fact is
     /// its subtitle — the button says what to do, the line under it says why, and no
     /// sentence sits apart from the button that answers it. Without one, the fact is
-    /// a disabled item and what it costs is its subtitle. The pairing comes from the
-    /// warning's own action, so a fact and its repair cannot drift apart.
+    /// a disabled item and what it costs is its subtitle. Which of the two comes
+    /// from the warning's own `item`, so a fact and its repair cannot drift apart.
     @ViewBuilder
     private func warningItem(_ warning: MenuStatus.Warning) -> some View {
-        if let action = warning.action {
+        switch warning.item {
+        case .repair(let action):
             MenuItemNote.item(title(for: action), note: note(for: warning)) { perform(action) }
-        } else if let fact = fact(for: warning) {
-            MenuItemNote.item(fact, note: note(for: warning), action: nil)
+        case .fact(let fact):
+            MenuItemNote.item(text(for: fact), note: note(for: warning), action: nil)
         }
     }
 
@@ -159,8 +160,8 @@ struct CremaMenu: View {
     }
 
     /// The title of a warning that has no repair to be titled by.
-    private func fact(for warning: MenuStatus.Warning) -> String? {
-        switch warning {
+    private func text(for fact: MenuStatus.Fact) -> String {
+        switch fact {
         case .betterDisplayAheadAndSilent:
             String(localized: "menu.betterDisplay.silent", defaultValue: "BetterDisplay receives the brightness keys")
         case .anotherAppAhead(let app):
@@ -174,9 +175,6 @@ struct CremaMenu: View {
                 localized: "menu.mediaControlsBlocked",
                 defaultValue: "The last playback command didn’t get through"
             )
-        case .accessibilityMissing, .suppressionSuspended, .nowPlayingUnavailable,
-             .loginItemRevoked, .loginItemNeedsApproval:
-            nil
         }
     }
 

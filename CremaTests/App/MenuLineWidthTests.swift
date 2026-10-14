@@ -4,10 +4,11 @@ import Testing
 
 /// The menu's width ceiling, read off the strings that actually ship.
 ///
-/// An NSMenu is exactly as wide as its widest item, so one 116-character row opened
-/// this menu at roughly 1500 pt in the field. The ceiling is about 72 characters a
-/// LINE, the breaks live in the catalog, and both languages carry the same number of
-/// them (docs/DECISIONS.md: menu-status-before-warnings, third amendment).
+/// An NSMenu is exactly as wide as its widest item, so one 116-character line opened
+/// this menu at roughly 1500 pt in the field. Every line — an item's title, its
+/// subtitle, a fallback line — stays within 72 characters, and a menu string that
+/// carries a break carries the same number in both languages
+/// (docs/DECISIONS.md: menu-status-before-warnings).
 ///
 /// Measured against the compiled `.lproj` tables rather than the source catalog for
 /// the reason `SparkleUpdaterTests` gives: the catalog gate checks the file, and a
@@ -37,10 +38,9 @@ struct MenuLineWidthTests {
     }
 
     /// The one menu line with a hole the app fills from a CLOSED set, measured at its
-    /// widest: every domain suspended at once. Written as a single line it reached 85
-    /// characters in English and 86 in Portuguese — a wide menu reachable by turning
-    /// the feature on and having three channels fail
-    /// (docs/DECISIONS.md: menu-status-before-warnings, fifth amendment).
+    /// widest: every domain suspended at once — a wide menu reachable by turning the
+    /// feature on and having three channels fail
+    /// (docs/DECISIONS.md: menu-status-before-warnings).
     ///
     /// The domain names come from `OSDSuppressionDomain.allCases` through an
     /// exhaustive switch, so a fourth domain cannot be added without this test being
