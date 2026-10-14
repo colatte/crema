@@ -1,6 +1,6 @@
 /// What the menu bar says about the media, decided as a value so its three shapes
-/// — and the transport gate that follows from them — are pinned without a view in
-/// the loop.
+/// — and the media section's existence, which follows from them — are pinned
+/// without a view in the loop.
 ///
 /// Three cases because merging any two of them ships a defect: a missing artist
 /// composed anyway leaves a dangling separator ("Breathe — "), and an absent
@@ -12,7 +12,8 @@
 /// rebuild the menu — and the event-tap pull-read beside it — at 1 Hz
 /// (docs/DECISIONS.md: menu-reads-mirrors).
 enum NowPlayingMenuLine: Equatable {
-    /// No media to name. Said in words, because a blank row says nothing.
+    /// No media to name: the menu shows no media section at all, rather than a
+    /// blank row or a line saying so.
     case nothing
     /// A title with no artist to pair it with.
     case title(String)
@@ -33,14 +34,5 @@ enum NowPlayingMenuLine: Equatable {
             return
         }
         self = .titleAndArtist(title: title, artist: artist)
-    }
-
-    /// Whether the line names real media — the menu transport's own gate, and
-    /// deliberately derived from the SAME value the row is drawn from. A separate
-    /// `title != nil` test is how the two drift: the emptiness guard above turns a
-    /// blank title into "Nothing playing" while that test still reports media,
-    /// which is an enabled Pause over a row saying nothing is playing.
-    var namesMedia: Bool {
-        self != .nothing
     }
 }

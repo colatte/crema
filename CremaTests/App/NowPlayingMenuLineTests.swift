@@ -1,10 +1,10 @@
 import Testing
 @testable import Crema
 
-/// The menu's status row and the transport gate as one value: three shapes and the
-/// predicate that follows from them, pinned without a view, because two of the
-/// merges are defects the user sees — a dangling separator and a blank menu row —
-/// and the third is an enabled Pause over "Nothing playing".
+/// The line naming the media, and with it whether the Now Playing section exists:
+/// three shapes, pinned without a view, because merging any two is a defect the
+/// user sees — a dangling separator ("Breathe — "), or a section built over a blank
+/// row.
 struct NowPlayingMenuLineTests {
 
     @Test func noMediaReadsAsNothing() {
@@ -30,26 +30,5 @@ struct NowPlayingMenuLineTests {
 
     @Test func anEmptyTitleNeverBecomesABlankRow() {
         #expect(NowPlayingMenuLine(title: "", artist: "Pink Floyd") == .nothing)
-    }
-
-    /// The gate and the row come off the same value on purpose: an empty title that
-    /// reads as "Nothing playing" must not also read as commandable media, or the
-    /// menu offers Pause over a row saying nothing is playing.
-    @Test func onlyARealNameEnablesTheTransport() {
-        #expect(!NowPlayingMenuLine(title: nil, artist: nil).namesMedia)
-        #expect(!NowPlayingMenuLine(title: "", artist: "Pink Floyd").namesMedia)
-        #expect(NowPlayingMenuLine(title: "Breathe", artist: nil).namesMedia)
-        #expect(NowPlayingMenuLine(title: "Breathe", artist: "Pink Floyd").namesMedia)
-    }
-
-    /// The same predicate over the three SHAPES rather than over the inputs that
-    /// build them, because it now decides whether the transport EXISTS: stopped
-    /// media leaves the row alone in the block, so a case answering the wrong way
-    /// hides three working buttons or ships three dead ones. Total on purpose — a
-    /// fourth shape must come here and choose.
-    @Test func everyShapeAnswersWhetherThereIsMediaToActOn() {
-        #expect(!NowPlayingMenuLine.nothing.namesMedia)
-        #expect(NowPlayingMenuLine.title("Breathe").namesMedia)
-        #expect(NowPlayingMenuLine.titleAndArtist(title: "Breathe", artist: "Pink Floyd").namesMedia)
     }
 }
