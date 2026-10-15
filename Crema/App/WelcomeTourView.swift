@@ -255,11 +255,11 @@ struct WelcomeTourView: View {
                 Text(fallbackIsInEffect
                     ? String(
                         localized: "settings.general.style.footer.fallingBack",
-                        defaultValue: "Applies to every display. No connected display has a notch, so every one is drawing Card."
+                        defaultValue: "Changes every display at once. None of your displays has a notch, so they all use Card."
                     )
                     : String(
                         localized: "settings.general.style.footer",
-                        defaultValue: "Applies to every display. On a display without a notch, the Notch style falls back to Card."
+                        defaultValue: "Changes every display at once. On a display without a notch, Notch shows as Card."
                     ))
                 // Picking a tile calls the same `setStyleEverywhere` the Settings
                 // declaration does, which SWEEPS the per-display styles — on an
@@ -274,12 +274,12 @@ struct WelcomeTourView: View {
                 if hasPerDisplayStyles {
                     Text(String(
                         localized: "tour.step.style.replacesPerDisplay",
-                        defaultValue: "This also replaces the per-display styles in Settings."
+                        defaultValue: "This also clears the styles set for single displays in Settings."
                     ))
                 }
                 Text(String(
                     localized: "tour.step.style.body",
-                    defaultValue: "You can give a single display its own style later, in Settings → General."
+                    defaultValue: "Later, in Settings → General, you can give one display a style of its own."
                 ))
             }
             .font(.footnote)
@@ -343,7 +343,7 @@ struct WelcomeTourView: View {
                 Text(String(
                     localized: "settings.hud.suppress.footer.brightnessScope",
                     // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
-                    defaultValue: "Screen brightness is replaced only on the built-in display, while the pointer is on it — a key aimed at any other display is left to the system."
+                    defaultValue: "Brightness is only replaced on the built-in display, while the pointer is on it. With the pointer on another display, macOS shows its own."
                 ))
                 // Split for the reason the Indicators tab states it: the joint gate
                 // told someone who HAD granted Accessibility that the grant was

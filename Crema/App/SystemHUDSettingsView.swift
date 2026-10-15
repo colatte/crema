@@ -52,7 +52,7 @@ struct SystemHUDSettingsView: View {
                     Text(String(
                         localized: "settings.hud.suppress.footer.brightnessScope",
                         // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
-                        defaultValue: "Screen brightness is replaced only on the built-in display, while the pointer is on it — a key aimed at any other display is left to the system."
+                        defaultValue: "Brightness is only replaced on the built-in display, while the pointer is on it. With the pointer on another display, macOS shows its own."
                     ))
                     // Two different absences behind one disabled switch, and only one
                     // of them is the reader's to fix. Told apart because a joint

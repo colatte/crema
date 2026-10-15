@@ -28,7 +28,7 @@ struct CardIndicatorSection: View {
             LabeledContent {
                 IndicatorPicker(selection: $indicatorStyle, wallpaper: wallpaper)
             } label: {
-                Text(String(localized: "settings.hud.indicator", defaultValue: "Card indicator"))
+                Text(String(localized: "settings.hud.indicator", defaultValue: "Volume and brightness indicator on Card"))
             }
             .onChange(of: indicatorStyle) { _, new in
                 core.setHUDIndicatorStyle(HUDIndicatorStyle(rawValue: new) ?? .shippedDefault)
@@ -45,7 +45,7 @@ struct CardIndicatorSection: View {
             // number, or xcstringstool refuses to compile it.
             Text(String(
                 localized: "settings.hud.indicator.footer",
-                defaultValue: "\(displayNames.count) displays drawing Card: \(listedNames)."
+                defaultValue: "Applies to \(displayNames.count) displays: \(listedNames)."
             ))
             .settingsFootnote()
         }

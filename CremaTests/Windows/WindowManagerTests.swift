@@ -214,7 +214,7 @@ struct WindowManagerTests {
         // The hotplug an all-displays picker misses when it keys only the
         // displays attached at pick time: a monitor plugged in afterwards falls
         // to the shipped default (notch → card on a slitless panel) while
-        // Settings promises "Applies to every display".
+        // Settings promises "Changes every display at once."
         // (docs/DECISIONS.md: global-style-default)
         let h = Harness()
         let a = Self.screen("A")

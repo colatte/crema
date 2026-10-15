@@ -548,7 +548,7 @@ final class AppCore {
         }
     }
 
-    /// The menu's "try to reactivate now" action: forces an immediate recovery
+    /// The menu's "Try Again" action: forces an immediate recovery
     /// probe of every suspended suppression domain, ahead of the backoff.
     func retryOSDSuppression() {
         osdSuppressor?.retrySuspendedNow()
@@ -1289,7 +1289,7 @@ extension AppCore {
     }
 
     /// The only path from the suppressor's escalation to the user: the menu's
-    /// warning and its "try to reactivate now" button both hang off what the
+    /// warning and its "Try Again" button both hang off what the
     /// monitor holds. Fires on escalation AND on recovery, and both directions are
     /// load-bearing — a mirror that never fills leaves the user's keys quietly back
     /// with the system while the menu reports health, and one that never clears

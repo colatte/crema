@@ -51,7 +51,7 @@ struct StylePicker: View {
         // One control, three options: without this the three buttons are read out
         // as unrelated, and the Style label above never reaches them.
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(String(localized: "settings.general.style", defaultValue: "Style"))
+        .accessibilityLabel(String(localized: "settings.general.style", defaultValue: "Style for all displays"))
     }
 }
 

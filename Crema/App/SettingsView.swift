@@ -179,7 +179,7 @@ private struct GeneralSettingsView: View {
                 LabeledContent {
                     StylePicker(selection: $style, wallpaper: wallpaper)
                 } label: {
-                    Text(String(localized: "settings.general.style", defaultValue: "Style"))
+                    Text(String(localized: "settings.displays.allDisplays", defaultValue: "All displays"))
                 }
                 // The declaration decides what every display renders, so the
                 // rendered-style mirrors are re-read from the panels right after
@@ -190,7 +190,11 @@ private struct GeneralSettingsView: View {
                     rereadRenderedStyles()
                 }
             } header: {
-                Text(String(localized: "settings.displays.allDisplays", defaultValue: "All displays"))
+                // "Style" over "All displays", and "Each display" over the list:
+                // the two places a style is chosen are named for their reach, so
+                // the declaration and the per-display rows cannot read as two
+                // spellings of one choice.
+                Text(String(localized: "settings.general.style.header", defaultValue: "Style"))
             } footer: {
                 // Say what is happening HERE, not only what could happen. With Notch
                 // declared on hardware that has none, the generic sentence alone
@@ -201,13 +205,13 @@ private struct GeneralSettingsView: View {
                     Text(fallbackIsInEffect
                         ? String(
                             localized: "settings.general.style.footer.fallingBack",
-                            defaultValue: "Applies to every display. No connected display has a notch, so every one is drawing Card."
+                            defaultValue: "Changes every display at once. None of your displays has a notch, so they all use Card."
                         )
                         : String(
                             localized: "settings.general.style.footer",
-                            defaultValue: "Applies to every display. On a display without a notch, the Notch style falls back to Card."
+                            defaultValue: "Changes every display at once. On a display without a notch, Notch shows as Card."
                         ))
-                    // "Applies to every display" is only half of what picking here
+                    // "Changes every display at once" is only half of what picking here
                     // does: it also drops the per-display styles. Said only when
                     // there is something to replace — a warning about nothing
                     // teaches the reader to skip the footer.
@@ -217,10 +221,19 @@ private struct GeneralSettingsView: View {
                     // list, so whenever this line is drawn the section it names is
                     // drawn under it. The welcome tour makes the same declaration
                     // with no list beneath it, and owes its own wording for that.
+                    // Where the other choice is: the declaration alone does not say
+                    // a single display can differ, and the list it would be made in
+                    // is drawn right under this section.
+                    if offersPerDisplayList {
+                        Text(String(
+                            localized: "settings.general.style.footer.perDisplay",
+                            defaultValue: "To give one display a different style, choose it under Each display, below."
+                        ))
+                    }
                     if hasPerDisplayStyles {
                         Text(String(
                             localized: "settings.general.style.footer.replacesPerDisplay",
-                            defaultValue: "This also replaces the per-display styles below."
+                            defaultValue: "Choosing here also clears the styles set for single displays below."
                         ))
                     }
                 }
@@ -240,7 +253,7 @@ private struct GeneralSettingsView: View {
                         }
                     }
                 } header: {
-                    Text(String(localized: "settings.general.displays", defaultValue: "Displays"))
+                    Text(String(localized: "settings.general.displays", defaultValue: "Each display"))
                 } footer: {
                     // One sentence for the list rather than one per row: the toggle
                     // above it repeats per display, and an explanation per row would
@@ -248,7 +261,7 @@ private struct GeneralSettingsView: View {
                     // twice.
                     Text(String(
                         localized: "settings.displays.showNowPlaying.footer",
-                        defaultValue: "The player appears on each display switched on here. On by default for the built-in display."
+                        defaultValue: "The player appears only on the displays switched on here. The built-in display starts switched on."
                     ))
                     .settingsFootnote()
                 }
@@ -325,17 +338,16 @@ private struct NowPlayingSettingsView: View {
             Section {
                 LabeledContent {
                     Text(core.nowPlayingMonitor.isActive
-                        ? String(localized: "settings.nowPlaying.source.reporting", defaultValue: "Reporting")
-                        : String(localized: "settings.nowPlaying.source.notReporting", defaultValue: "Not reporting"))
+                        ? String(localized: "settings.nowPlaying.source.reporting", defaultValue: "Working")
+                        : String(localized: "settings.nowPlaying.source.notReporting", defaultValue: "No answer"))
                         .foregroundStyle(core.nowPlayingMonitor.isActive ? .primary : .secondary)
                 } label: {
-                    Text(String(localized: "settings.nowPlaying.source", defaultValue: "Media source"))
+                    Text(String(localized: "settings.nowPlaying.source", defaultValue: "Reading what’s playing"))
                 }
             } footer: {
                 Text(String(
                     localized: "settings.nowPlaying.source.footer",
-                    // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
-                    defaultValue: "Crema reads what’s playing from the system. With nothing reporting, the player stays hidden and the options below have nothing to act on."
+                    defaultValue: "Crema asks macOS what’s playing. With no answer, the player stays hidden and the options below have no effect."
                 ))
                 .settingsFootnote()
             }

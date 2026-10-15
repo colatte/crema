@@ -41,7 +41,7 @@ protocol NativeOSDSuppressor: AnyObject {
     /// long-suspended one recovers) so the owner can refresh the menu.
     var onSuspensionStateChange: (@MainActor () -> Void)? { get set }
     /// Forces an immediate recovery probe of every suspended domain — the
-    /// menu's "try to reactivate now" action for an active user who fixed the
+    /// menu's "Try Again" action for an active user who fixed the
     /// cause and does not want to wait out the backoff.
     func retrySuspendedNow()
 }

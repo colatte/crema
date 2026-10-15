@@ -78,7 +78,7 @@ struct AppCoreWiringSeamTests {
 
     @Test func theMenuMirrorFollowsTheSuppressorInBothDirections() {
         // This closure is the only path from an escalation to the user: the menu's
-        // warning and its "try to reactivate now" button both hang off what the
+        // warning and its "Try Again" button both hang off what the
         // monitor holds. Frozen empty, the user's keys go quietly back to the
         // system while the menu reports health and the repair button never
         // appears; frozen full, a healed domain leaves a permanent false warning.

@@ -302,7 +302,7 @@ struct OSDSuppressionUnlockRegressionTests {
 
     // A write-dead channel can be re-engaged by the read-only probe while its
     // menu warning stays latched (writeStillUnconfirmed); the retry must clear
-    // that latch, or the "Try to reactivate now" button is a no-op in exactly
+    // that latch, or the "Try Again" button is a no-op in exactly
     // this state and a warning left by a silently-healed write (the user stopped
     // pressing, so no verified apply clears it) can never be dismissed.
     @Test func retryClearsALatchedWriteDeadWarningOnAReengagedDomain() async {
@@ -323,7 +323,7 @@ struct OSDSuppressionUnlockRegressionTests {
         #expect(h.suppressor.longSuspendedDomains.contains(.screenBrightness))
         #expect(!h.suppressor.suspendedDomains.contains(.screenBrightness))
 
-        // The user clicks "Try to reactivate now": the latch clears and the menu
+        // The user clicks "Try Again": the latch clears and the menu
         // warning goes away (a suspended-only retry does nothing in this state).
         h.suppressor.retrySuspendedNow()
         #expect(h.suppressor.longSuspendedDomains.isEmpty,

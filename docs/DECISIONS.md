@@ -1066,7 +1066,7 @@ never leaks into the Coordinator: the app's state stays whole and a drag on the
 panel that shows the bar still acts on the display the bar names.
 
 ### global-style-default
-The Settings picker footer says "Applies to every display", and a writer that
+The Settings picker footer says "Changes every display at once", and a writer that
 loops over the displays attached at that instant, writing one key per display
 UUID (`style.<uuid>`), breaks the promise: a monitor plugged in afterwards has no
 key, so it falls to the shipped default — Notch, resolved to Card on a slitless
@@ -1127,8 +1127,8 @@ a string.
 
 **Both scopes are asked in one pane.** Style asked in two tabs (one declaring
 it, another overriding it) reads in the field as two settings instead of one
-asked at two scopes. So General leads with the declaration as an "All displays"
-section and puts the per-display list as a "Displays" section immediately under
+asked at two scopes. So General leads with the declaration as a "Style" section
+(its one row reads "All displays") and puts the per-display list as an "Each display" section immediately under
 it — the pane a person opens first is the pane where style is asked at both of
 its scopes, and the sweep its footer warns about is visible in the same pane as
 the thing swept. Where it is asked is address, not rule: the same
@@ -1189,7 +1189,7 @@ windows.
 Each row is headed by what that display DRAWS: a thumbnail
 (`StylePreview.shapes(for:on:)`, which resolves before drawing — see
 `rendered-style-gates-settings`) and a caption in words
-(`DisplayStyleOptions.caption`), "Drawing Card — no notch here" where the style in
+(`DisplayStyleOptions.caption`), "Using Card, since this display has no notch" where the style in
 force does not fit the panel. The popup names the CHOICE and the row says what is
 on screen beside it, never in a note correcting the control; that is why the
 inherit item names no style — naming the declaration puts "Notch" over a screen

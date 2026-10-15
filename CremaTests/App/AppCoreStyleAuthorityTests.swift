@@ -22,7 +22,7 @@ struct AppCoreStyleAuthorityTests {
         //
         // writes the ATTACHED displays and nothing else, so a monitor plugged in
         // afterwards resolves to the shipped default under a picker that promises
-        // "applies to every display" — and it leaves an override behind on a
+        // "changes every display at once" — and it leaves an override behind on a
         // detached display, which then outranks the declaration when it comes
         // back (docs/DECISIONS.md: global-style-default).
         //

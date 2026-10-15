@@ -45,7 +45,7 @@ struct IndicatorPicker: View {
         // One control, two options: without this the buttons are read out as
         // unrelated and the row's own label never reaches them.
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(String(localized: "settings.hud.indicator", defaultValue: "Card indicator"))
+        .accessibilityLabel(String(localized: "settings.hud.indicator", defaultValue: "Volume and brightness indicator on Card"))
     }
 }
 
