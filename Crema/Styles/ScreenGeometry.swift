@@ -16,4 +16,12 @@ struct ScreenGeometry: Equatable, Sendable {
     /// Backing scale (device pixels per point): frame rules snap pixel-critical
     /// edges with it. Defaults to 2 — every modern Mac panel.
     var scale: CGFloat = 2
+    /// The room the Dock keeps along the bottom, left and right edges: the gap
+    /// between `frame` and NSScreen's visible frame on that edge, which leaves out
+    /// "the area currently occupied by the dock" (Apple docs,
+    /// NSScreen.visibleFrame). Zero on an edge without the Dock; a hidden Dock
+    /// keeps at most the small strip the system watches to reveal it.
+    var dockBottom: CGFloat = 0
+    var dockLeft: CGFloat = 0
+    var dockRight: CGFloat = 0
 }
