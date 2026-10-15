@@ -108,6 +108,10 @@ final class WindowManager {
     /// rearrangement moving the frame origin) rebuilds them all: kept, that state
     /// would put content in the camera dead zone and detect hover at the old
     /// screen position. Only per-state frames flow fresh through apply(frame:).
+    /// A change to the Dock's room alone rebuilds only the panels whose rule
+    /// reads it (`PanelSurface.readsTheDock`): the rest captured nothing from it,
+    /// and rebuilding them would drop a hovered or expanded card for a Dock that
+    /// merely hid.
     ///
     /// The leaving panels drop out of the roster BEFORE they close, for the reason
     /// `retirePanels(_:)` spells out.
@@ -115,7 +119,13 @@ final class WindowManager {
         let style = resolvedStyle(for: screen)
         let wanted = PanelSurface.surfaces(for: style, hudPlacement: preferences.hudPlacement)
         let current = entries[screen.id]
-        let reusable = current?.screen.geometry == screen.geometry ? current?.panels ?? [] : []
+        let reusable: [Panel] = if current?.screen.geometry == screen.geometry {
+            current?.panels ?? []
+        } else if current?.screen.geometry.withoutDock == screen.geometry.withoutDock {
+            current?.panels.filter { !$0.surface.readsTheDock } ?? []
+        } else {
+            []
+        }
         let kept = reusable.filter { wanted.contains($0.surface) }
         let leaving = (current?.panels ?? []).filter { panel in !kept.contains { $0.surface == panel.surface } }
 

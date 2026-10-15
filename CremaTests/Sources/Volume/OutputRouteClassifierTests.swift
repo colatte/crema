@@ -54,7 +54,17 @@ struct OutputRouteClassifierTests {
         #expect(route(transport, name: "AirPods Pro") == .airPodsPro)
         #expect(route(transport, name: "AirPods") == .airPods)
         #expect(route(transport, name: "Beats Studio Pro") == .beats)
-        #expect(route(transport, name: "Powerbeats Pro") == .beats)
+        #expect(route(transport, name: "Beats Solo 4") == .beats)
+    }
+
+    @Test(arguments: ["blue", "blea"])
+    func beatsThatAreNotHeadphonesNeverTakeTheHeadphoneMark(transport: String) {
+        // The mark may only refer to Beats headphones: the brand's earbuds and
+        // speakers fall back to the unrestricted glyph.
+        #expect(route(transport, name: "Powerbeats Pro") == .bluetoothHeadphones)
+        #expect(route(transport, name: "Beats Studio Buds +") == .bluetoothHeadphones)
+        #expect(route(transport, name: "Beats Fit Pro") == .bluetoothHeadphones)
+        #expect(route(transport, name: "Beats Pill") == .bluetoothHeadphones)
     }
 
     @Test(arguments: ["blue", "blea"])

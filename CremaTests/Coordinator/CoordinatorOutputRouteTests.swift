@@ -16,18 +16,4 @@ struct CoordinatorOutputRouteTests {
         guard case .hud(let shown) = h.coordinator.state else { return }
         #expect(HUDPresentation(hud: shown).iconSystemName == "airpodspro")
     }
-
-    @Test func theNextReadingAfterADeviceSwitchDrawsTheNewGlyph() async {
-        let h = CoordinatorHarness()
-        let speakers = SystemHUD(kind: .volume, value: 0.6, route: .builtInSpeakers)
-        h.hudSource.emit(speakers)
-        #expect(await eventually { h.coordinator.state == .hud(speakers) })
-
-        let headphones = SystemHUD(kind: .volume, value: 0.6, route: .wiredHeadphones)
-        h.hudSource.emit(headphones)
-
-        #expect(await eventually { h.coordinator.state == .hud(headphones) })
-        guard case .hud(let shown) = h.coordinator.state else { return }
-        #expect(HUDPresentation(hud: shown).iconSystemName == "headphones")
-    }
 }

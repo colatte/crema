@@ -89,6 +89,13 @@ final class NSPanelPresentationPanel: PresentationPanel {
         panel.layoutIfNeeded()
     }
 
+    /// Whether the hosted SwiftUI content spans the whole fixed window: it sits
+    /// in a plain content view, so nothing but its autoresizing keeps it there.
+    var hostedContentFillsTheWindow: Bool {
+        guard let content = panel.contentView, let hosted = content.subviews.first else { return false }
+        return hosted.frame == content.bounds && content.bounds.size == panel.frame.size
+    }
+
     /// `lowPower` carries no default on purpose: forgetting it at the factory then
     /// fails to compile instead of shipping panels whose waveform never stops
     /// (the lesson the `wire*` seams were extracted for).

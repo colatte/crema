@@ -28,12 +28,17 @@ enum OutputRouteClassifier {
 
     /// Most specific first: "AirPods Max" and "AirPods Pro" both contain
     /// "AirPods", so the bare model is asked last.
-    private static let bluetoothModels: [(token: String, route: AudioOutputRoute)] = [
+    private static let airPodsModels: [(token: String, route: AudioOutputRoute)] = [
         ("AirPods Max", .airPodsMax),
         ("AirPods Pro", .airPodsPro),
         ("AirPods", .airPods),
-        ("Beats", .beats),
     ]
+
+    /// Beats' headphone mark may only refer to Beats headphones (CoreGlyphs'
+    /// `symbol_restrictions.strings`), and the brand's earbuds and speakers carry
+    /// marks of their own. Its headphone lines are Solo and Studio; Studio Buds
+    /// are earbuds, so "Buds" rules a name out.
+    private static let beatsHeadphoneLines = ["Beats Solo", "Beats Studio"]
 
     /// `dataSource` is nil when the device has no data-source control; `name` is
     /// nil when it could not be read.
@@ -70,8 +75,10 @@ enum OutputRouteClassifier {
 
     private static func bluetoothRoute(name: String?) -> AudioOutputRoute {
         guard let name else { return .bluetoothHeadphones }
-        let match = bluetoothModels.first { name.range(of: $0.token, options: .caseInsensitive) != nil }
-        return match?.route ?? .bluetoothHeadphones
+        func names(_ token: String) -> Bool { name.range(of: token, options: .caseInsensitive) != nil }
+        if let model = airPodsModels.first(where: { names($0.token) }) { return model.route }
+        if beatsHeadphoneLines.contains(where: names), !names("Buds") { return .beats }
+        return .bluetoothHeadphones
     }
 
     /// The big-endian packing Core Audio's four-character constants use.

@@ -23,13 +23,32 @@ struct NSPanelPresentationPanelTests {
         )
     }
 
+    /// A screen with a real slit, where the Notch's window is as narrow as it
+    /// gets: the slit's width plus the overshoot headroom.
+    private func notchedScreen() -> ScreenDescription {
+        ScreenDescription(
+            id: DisplayUUID(rawValue: "PANEL-TEST-NOTCHED"),
+            name: "Built-in Retina Display",
+            geometry: ScreenGeometry(
+                frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+                safeTop: 32,
+                auxLeft: 663.5,
+                auxRight: 663.5
+            ),
+            isInternal: true
+        )
+    }
+
     private func panel(_ style: Style = .card) -> (NSPanelPresentationPanel, ScreenDescription, CoordinatorHarness) {
         panel(surface: .skin(style))
     }
 
-    private func panel(surface: PanelSurface) -> (NSPanelPresentationPanel, ScreenDescription, CoordinatorHarness) {
+    private func panel(
+        surface: PanelSurface,
+        on screen: ScreenDescription? = nil
+    ) -> (NSPanelPresentationPanel, ScreenDescription, CoordinatorHarness) {
         let harness = CoordinatorHarness()
-        let screen = screen()
+        let screen = screen ?? self.screen()
         return (
             NSPanelPresentationPanel(
                 screen: screen, surface: surface, coordinator: harness.coordinator, lowPower: nil
@@ -55,12 +74,23 @@ struct NSPanelPresentationPanelTests {
         // window grants its content's minimum — the window-vs-render race. The
         // upright HUD's window is narrower than the card view's floor, so it is
         // the panel that shows it: widened, its HUD drawn off the screen's edge.
-        let surfaces = [Style.card, .classic, .notch].map(PanelSurface.skin) + [.cardNowPlaying]
-            + HUDPlacement.allCases.filter { $0 != .topCenter }.map(PanelSurface.cardHUD)
-        for surface in surfaces {
-            let (panel, screen, harness) = self.panel(surface: surface)
+        // The Notch is built on a screen with a slit, the only place its window
+        // is narrow; on a slitless screen its window spans the whole width.
+        let surfaces: [(PanelSurface, ScreenDescription?)] =
+            [(.skin(.card), nil), (.skin(.classic), nil), (.skin(.notch), notchedScreen()), (.cardNowPlaying, nil)]
+                + HUDPlacement.allCases.filter { $0 != .topCenter }.map { (.cardHUD($0), nil) }
+        for (surface, onScreen) in surfaces {
+            let (panel, screen, harness) = self.panel(surface: surface, on: onScreen)
+            // AppKit places a window on whole points, so a rule frame on a half
+            // point is born rounded; what SwiftUI must never change is the window
+            // as born, nor its size.
+            let atBirth = panel.currentWindowFrame
+            #expect(atBirth.size == surface.windowFrame(on: screen.geometry).size, "\(surface)")
             panel.layOutWindowNow()
-            #expect(panel.currentWindowFrame == surface.windowFrame(on: screen.geometry), "\(surface)")
+            #expect(panel.currentWindowFrame == atBirth, "\(surface)")
+            // The window holding still is half of it: the content must also fill
+            // it, or the surface draws nowhere inside a correctly placed window.
+            #expect(panel.hostedContentFillsTheWindow, "\(surface)")
             withExtendedLifetime(harness) {}
         }
     }

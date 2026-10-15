@@ -47,15 +47,15 @@ struct CoordinatorHUDPreviewTests {
         #expect(await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) })
     }
 
-    @Test func noDisplaysToShowItOnReadsNothingAndShowsNothing() {
-        // Synchronous refusal: with no display drawing Card there is nothing to
-        // preview, so not even the read is scheduled.
+    @Test func noDisplaysToShowItOnReadsNothingAndShowsNothing() async {
+        // With no display drawing Card there is nothing to preview, so not even
+        // the read is scheduled. The read runs on a task of its own, so the
+        // refusal is read after that task's window, not right after the call.
         let h = CoordinatorHarness()
 
         h.coordinator.previewHUD(on: [])
 
-        #expect(h.volumeReading.reads == 0)
-        #expect(h.coordinator.state == .hidden)
+        #expect(await !footprintAppears { h.volumeReading.reads > 0 || h.coordinator.state != .hidden })
     }
 
     @Test func aFailedReadShowsNothing() async {

@@ -401,6 +401,27 @@ struct WindowManagerTests {
         #expect(h.recorder.created.count == 2)
     }
 
+    @Test func aDockChangeRebuildsOnlyThePanelThatReadsTheDock() throws {
+        // A Dock shown along the bottom moves a bottom-placed Card HUD up, so that
+        // panel is rebuilt; the card's own panel captured nothing from the Dock and
+        // is kept, hover and all.
+        let h = Harness()
+        h.preferences.hudPlacement = .bottomLeft
+        let a = Self.screen("A", isInternal: false)
+        h.manager.updateScreens([a])
+        let card = try #require(h.recorder.panel(for: a.id))
+        let hud = try #require(h.recorder.hudPanel(for: a.id))
+
+        var docked = a.geometry
+        docked.dockBottom = 90
+        h.manager.updateScreens([ScreenDescription(id: a.id, name: a.name, geometry: docked, isInternal: false)])
+
+        #expect(h.recorder.panel(for: a.id) === card)
+        #expect(!card.closed)
+        #expect(hud.closed)
+        #expect(h.recorder.hudPanel(for: a.id) !== hud)
+    }
+
     /// The other side of the two rebuild tests above, and the reason the rebuild
     /// comparison is style + geometry rather than the whole description: the name
     /// is the one field a panel captures nothing from — its slit inset and its

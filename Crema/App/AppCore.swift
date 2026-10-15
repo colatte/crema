@@ -660,14 +660,6 @@ final class AppCore {
         windowManager.refreshPresentation()
     }
 
-    /// Where the Card draws its HUD — persisted and re-applied. Through the style
-    /// refresh, not the render-context one: a new placement builds or retires each
-    /// Card display's HUD panel (docs/DECISIONS.md: card-hud-placement).
-    func setHUDPlacement(_ placement: HUDPlacement) {
-        preferences.hudPlacement = placement
-        windowManager.refreshStyles()
-    }
-
     /// Applies the launch-at-login intent and returns the real resulting state
     /// (the view stays an intent-reporter, like every other Settings control).
     /// `enabled` includes requires-approval so the toggle stays on with the
@@ -1567,12 +1559,28 @@ extension AppCore {
 /// `lockSource` and `windowManager`, both private.
 @MainActor
 extension AppCore {
-    /// Shows the real Card HUD once where it now goes, so the person sees the true
-    /// margin and the bar's true direction rather than a picture of them
-    /// (docs/DECISIONS.md: card-hud-placement). Called after `setHUDPlacement`,
-    /// whose style refresh has already built the panels at the new place.
-    func previewHUDPlacement() {
-        Self.previewHUDPlacement(lock: lockSource, displays: windowManager, coordinator: coordinator)
+    /// Where the Card draws its HUD: persisted, re-applied, and shown once at the
+    /// new place, so the person sees the true margin and the bar's true direction
+    /// rather than a picture of them (docs/DECISIONS.md: card-hud-placement).
+    func chooseHUDPlacement(_ placement: HUDPlacement) {
+        Self.chooseHUDPlacement(
+            placement, preferences: preferences, lock: lockSource, windowManager: windowManager, coordinator: coordinator
+        )
+    }
+
+    /// One intent, in its order: the style refresh, not the render-context one,
+    /// builds or retires each Card display's HUD panel for the new place, and only
+    /// then is the preview asked of those panels. Static so a test drives it.
+    static func chooseHUDPlacement(
+        _ placement: HUDPlacement,
+        preferences: Preferences,
+        lock: any ScreenLockSource,
+        windowManager: WindowManager,
+        coordinator: Coordinator
+    ) {
+        preferences.hudPlacement = placement
+        windowManager.refreshStyles()
+        previewHUDPlacement(lock: lock, displays: windowManager, coordinator: coordinator)
     }
 
     /// Static for the reason the other wiring statics are: through an instance

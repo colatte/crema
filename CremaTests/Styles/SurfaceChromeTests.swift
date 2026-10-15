@@ -18,8 +18,8 @@ import Testing
 /// never the view sites that stroke them — deleting an overlay in
 /// `vibrantSurface` or hard-coding a white 0.12 into a body leaves
 /// this suite green. That is the confessed view-body class from the
-/// composition-root gap (AGENTS.md), and the smoke item "borda 2026 em sala
-/// clara/escura" is what covers the wiring.
+/// composition-root gap (AGENTS.md), and docs/ACCEPTANCE.md item 25 (Card and
+/// Classic over a white page) is what covers the wiring.
 struct SurfaceChromeTests {
 
     @Test func theFilmDarkensTheSurfaceWithoutHidingTheMaterial() throws {

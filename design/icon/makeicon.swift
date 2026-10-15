@@ -29,8 +29,8 @@ let mark = "srgb:0.83922,0.74118,0.58039,1.00000"
 /// past this lets the ground muddy the mark's lower half.
 let translucency = 0.3
 let shadowOpacity = 0.5
-/// The web export sits on the macOS icon grid, the body 824 of 1024, so the
-/// README and the landing frame it as they framed every icon before it.
+/// The web export sits on the macOS icon grid, the body 824 of 1024, with the
+/// transparent margin the README and the landing frame an app icon by.
 let webSide = 512
 let webBodyShare: CGFloat = 824 / 1024
 
@@ -75,6 +75,31 @@ let repo = scriptDir.deletingLastPathComponent().deletingLastPathComponent()
 let svg = scriptDir.appendingPathComponent("crema-mark.svg")
 let document = repo.appendingPathComponent("Crema/AppIcon.icon")
 let assets = document.appendingPathComponent("Assets")
+
+// Icon Composer's own renderer, resolved before anything is written: a run that
+// cannot render the web export must leave the document and the export as they
+// were, never a new document beside an old picture.
+let select = Process()
+let selected = Pipe()
+select.executableURL = URL(fileURLWithPath: "/usr/bin/xcode-select")
+select.arguments = ["-p"]
+select.standardOutput = selected
+try! select.run()
+select.waitUntilExit()
+let developerPath = String(decoding: selected.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+let developer = URL(fileURLWithPath: developerPath.trimmingCharacters(in: .whitespacesAndNewlines))
+let ictool = developer.deletingLastPathComponent()
+    .appendingPathComponent("Applications/Icon Composer.app/Contents/Executables/ictool").path
+guard FileManager.default.isExecutableFile(atPath: ictool) else {
+    fatalError("ictool not found at \(ictool): select a full Xcode with xcode-select -s")
+}
+
+// The placement below measures the mark in the SVG's own units against a canvas
+// of the same size, which holds only while the viewBox is that canvas.
+let svgText = try! String(contentsOf: svg, encoding: .utf8)
+guard svgText.contains("viewBox=\"0 0 \(Int(canvas)) \(Int(canvas))\"") else {
+    fatalError("crema-mark.svg must keep viewBox=\"0 0 \(Int(canvas)) \(Int(canvas))\", the canvas the placement measures against")
+}
 
 // The mark is placed by its own bounds, so a redrawn mark keeps its share and
 // its centre without a number changing here. Icon Composer centres the SVG's
@@ -140,23 +165,14 @@ print("wrote \(document.path)")
 
 // The web export: Icon Composer's own rendering of the document, set on the
 // icon grid's transparent margin.
-let select = Process()
-let selected = Pipe()
-select.executableURL = URL(fileURLWithPath: "/usr/bin/xcode-select")
-select.arguments = ["-p"]
-select.standardOutput = selected
-try! select.run()
-select.waitUntilExit()
-let developerPath = String(decoding: selected.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-let developer = URL(fileURLWithPath: developerPath.trimmingCharacters(in: .whitespacesAndNewlines))
-let ictool = developer.deletingLastPathComponent()
-    .appendingPathComponent("Applications/Icon Composer.app/Contents/Executables/ictool").path
 let body = Int((CGFloat(webSide) * webBodyShare).rounded())
 let rendered = fm.temporaryDirectory.appendingPathComponent("crema-icon-body.png")
 run(ictool, [
     document.path, "--export-image", "--output-file", rendered.path,
     "--platform", "macOS", "--rendition", "Default",
     "--width", "\(body)", "--height", "\(body)", "--scale", "1",
+    // Pinned so the export does not follow whichever Xcode is selected.
+    "--design-generation", "27",
 ])
 guard let art = NSImage(contentsOf: rendered) else { fatalError("no ictool output") }
 let rep = NSBitmapImageRep(

@@ -91,7 +91,7 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, Volum
             guard let self else { return }
             logger.notice("coreaudiod restarted; re-establishing volume listeners")
             installServiceRestartListener()
-            observeCurrentDefaultDevice()
+            receive(.defaultDevice, from: nil)
         }
         let previous = lock.withLock {
             let old = serviceRestartBlock
@@ -174,7 +174,7 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, Volum
             return
         }
         let muted = CoreAudioSystemOutput.readMute(device) ?? false
-        let route = lock.withLock { observedDevice == device ? observedRoute : nil }
+        let route = route(of: device)
         guard let hud = VolumeConversion.boundaryRefreshHUD(rawVolume: raw, isMuted: muted, route: route) else { return }
         continuation.yield(hud)
     }
@@ -192,13 +192,16 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, Volum
                     return
                 }
                 let muted = CoreAudioSystemOutput.readMute(device) ?? false
-                // The observed device's cached route, as a key press would carry
-                // it; a device observation has not reached yet is read here.
-                let cached = self.lock.withLock { self.observedDevice == device ? self.observedRoute : nil }
-                let route = cached ?? CoreAudioSystemOutput.readRoute(device)
-                continuation.resume(returning: VolumeConversion.hud(rawVolume: raw, isMuted: muted, route: route))
+                continuation.resume(returning: VolumeConversion.hud(rawVolume: raw, isMuted: muted, route: self.route(of: device)))
             }
         }
+    }
+
+    /// The route a reading taken outside the listeners carries: the observed
+    /// device's cached one, as a key press would carry it, or, for a device the
+    /// observation has not reached yet, one read now. On `queue`.
+    private func route(of device: AudioDeviceID) -> AudioOutputRoute {
+        lock.withLock { observedDevice == device ? observedRoute : nil } ?? CoreAudioSystemOutput.readRoute(device)
     }
 
     // MARK: - Observation

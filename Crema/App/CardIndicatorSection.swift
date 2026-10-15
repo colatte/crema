@@ -31,8 +31,7 @@ struct CardIndicatorSection: View {
             }
             HUDPlacementPicker(selection: $placement)
                 .onChange(of: placement) { _, new in
-                    core.setHUDPlacement(HUDPlacement(rawValue: new) ?? .shippedDefault)
-                    core.previewHUDPlacement()
+                    core.chooseHUDPlacement(HUDPlacement(rawValue: new) ?? .shippedDefault)
                 }
         } footer: {
             // Names the displays, because this is the one control in the pane that

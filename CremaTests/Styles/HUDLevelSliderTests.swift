@@ -109,8 +109,9 @@ struct HUDLevelSliderTests {
     }
 
     @Test func anUprightKnobRestsAtTheBottomAtZero() {
-        // The upright HUD is the transposed 210 pt strip: at 0 the knob sits half
-        // its length above the bottom edge, at 1 the same distance below the top.
+        // The upright HUD is the strip transposed, here a 210 pt track: at 0 the
+        // knob sits half its length above the bottom edge, at 1 the same distance
+        // below the top.
         let reversed = CapsuleTrack.runsReversed(axis: .vertical, layoutDirection: .leftToRight)
         #expect(CapsuleTrack.knobCenter(for: 0, trackLength: 210, reversed: reversed) == 210 - 8.75)
         #expect(CapsuleTrack.knobCenter(for: 1, trackLength: 210, reversed: reversed) == 8.75)

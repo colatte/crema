@@ -61,9 +61,10 @@ generated, never hand-edited:
 - `design/icon/crema-mark.svg` is the mark's single source, one filled path.
   `makeicon.swift` writes the Icon Composer document `Crema/AppIcon.icon` from
   it (the ground, the mark at 56% of the width, and the Liquid Glass material),
-  the only form of the icon the build ships. Xcode renders it with the system's
-  glass and generates from it the images for releases older than the material;
-  the About tab shows the running app's `NSApp.applicationIconImage`. The
+  the only form of the icon the build ships. An Icon Composer file replaces any
+  icon asset catalog, and Xcode generates from it the images for releases older
+  than the material (Apple docs, Xcode, "Creating your app icon using Icon
+  Composer"); the About tab shows the running app's `NSApp.applicationIconImage`. The
   document is never edited in Icon Composer, which only previews it: the next
   run overwrites an edit made there. The same run renders the web export,
   `docs/assets/icon.png`, through Icon Composer's own `ictool`, on the icon
@@ -80,7 +81,8 @@ generated, never hand-edited:
 What the drawing must keep:
 
 - **The crema ends in one fine point**, above the hollow; the hollow itself is
-  rounded.
+  rounded. One size is exempt: at 16 pt @1x the hollow reads as a notch, since
+  the document takes one artwork for every size and the system scales it down.
 - **The disc stays full around the hollow.** Thinned toward an outline, two
   pointed ends on a heavy side read as a crescent moon.
 

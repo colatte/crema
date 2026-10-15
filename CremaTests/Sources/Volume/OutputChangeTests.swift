@@ -7,14 +7,8 @@ import Testing
 struct OutputChangeTests {
 
     @Test func onlyALevelChangePopsTheHUD() {
+        // A device switch and a data-source change are the sound moving, not the
+        // user turning it up: neither may pop the HUD by itself.
         #expect(OutputChange.allCases.filter(\.popsHUD) == [.level])
-    }
-
-    @Test func aDeviceSwitchNeverPopsTheHUD() {
-        #expect(!OutputChange.defaultDevice.popsHUD)
-    }
-
-    @Test func aDataSourceChangeNeverPopsTheHUD() {
-        #expect(!OutputChange.dataSource.popsHUD)
     }
 }

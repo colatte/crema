@@ -413,16 +413,18 @@ screen's edges (`HUDPlacement`). One rule places all eight
 (`CardStyle.hudFrame(at:on:)`), and the top centre IS the card's `.hud` frame — the
 frame rule asks the placement rule rather than keeping a second description of
 that spot. Along the top edge the HUD hangs from the card's own top anchor, below
-the safe area; along the bottom and on a side it keeps `hudEdgeMargin` (16 pt)
-from where the Dock ends. The Dock's room on each edge is the gap between the
-screen's frame and its visible frame (`ScreenGeometry.dockBottom`, `dockLeft`,
-`dockRight`), read at the border on every topology pass, which
-`didChangeScreenParameters` starts when the Dock appears, hides or moves
-(measured, scripts/probes/dock-visible-frame.swift). With the Dock hidden the bar
-rests 16 pt from the bottom edge, and the Dock revealed on hover passes over it as
-over any window. The bottom margin is the sides' own, not the native OSD's 140 pt
-that Classic keeps: that height suits a 200 pt square, and leaves a thin bar
-floating over the apps.
+the safe area; along the bottom and on a side it keeps `hudEdgeMargin` from
+where the Dock ends. The Dock's room on each edge is the gap between the screen's
+frame and its visible frame (`ScreenGeometry.dockRoom`), read at the border on
+every topology pass, which `didChangeScreenParameters` starts when the Dock is
+shown or hidden, moved to a side or resized (measured,
+scripts/probes/dock-visible-frame.swift); a Dock moving between displays is
+unmeasured. A change to the Dock's room alone rebuilds only the panel that reads
+it (`PanelSurface.readsTheDock`). With the Dock hidden the bar rests that margin
+from the bottom edge, and the Dock revealed on hover passes over it as over any
+window. The bottom margin is the sides' own, not the native OSD's height that
+Classic keeps (`ClassicMetrics.bottomMargin`): that height suits Classic's
+square, and leaves a thin bar floating over the apps.
 Placements are places on the glass — left and right do not swap under a
 right-to-left interface.
 
@@ -520,15 +522,16 @@ morph — one appearance per surface, always. Consequence: the artwork accent
 needs a single brightness band (there is no light band).
 
 The material alone does not hold that commitment over a bright desktop: it takes
-on what is behind it, and over a white page it measures `#b5b5b9`, leaving the
-white ink at 2.0:1. So Card and Classic lay a black film over the material
-(`SurfaceChrome.scrimOpacity`, 0.44), set so that worst case keeps the ink at
-4.5:1 or better (4.8:1 measured); over a dark desktop the material is already
-near black and the film changes almost nothing. Liquid Glass was measured as
-the alternative on macOS 27 and does not replace it: in a never-key panel it
-draws no specular edge and is as light as the material over white (1.8:1), and
-with semantic ink it follows the system appearance rather than the backdrop,
-faint over white and black alike (scripts/probes/hud-surface-contrast.swift).
+on what is behind it, and over a white page it turns light grey, leaving the
+white ink under the 3:1 a UI element needs. So Card and Classic lay a black film
+over the material (`SurfaceChrome.scrimOpacity`), set so that worst case keeps
+the ink at 4.5:1 or better; over a dark desktop the material is already near
+black and the film changes almost nothing. Liquid Glass was measured as the
+alternative on macOS 27 and does not replace it: in a never-key panel it draws no
+specular edge and is as light as the material over white, and with semantic ink
+it follows the system appearance rather than the backdrop, faint over white and
+black alike. The numbers live in scripts/probes/hud-surface-contrast.swift, which
+a retune re-runs.
 Reopening gate: never-key glass drawing its edge, or semantic ink reaching
 4.5:1 over both a white and a black backdrop on that probe.
 
@@ -2397,8 +2400,8 @@ the clip (`compositingGroup`), and the material, an AppKit view masked apart fro
 the SwiftUI layer above it, stops `SurfaceChrome.materialInset` (half a point)
 inside the outline. Clipped layer by layer, the dark beneath shows through the
 edge pixels of a light fill: a grey fringe round the filled HUD over a bright
-desktop, measured on screen, where the composite alone left a trace and the inset
-alone left the fringe; together they leave a clean edge.
+desktop, which scripts/probes/hud-surface-contrast.swift (mode `edge`) measures
+against the shipped surface's clean edge.
 
 The numbers live in one place (`SurfaceChrome`) because the Settings tiles draw
 this same edge in miniature, and two literals drift. A tile draws ONE flat
@@ -2433,7 +2436,7 @@ Decision: the Card HUD and every cover nested in a surface corner take their
 radius from one of these rules, derived in code rather than declared. The Card
 HUD is a fixed shape whose radius is a third of its height
 (`CardMetrics.hudSystemCornerRadius`), the corner of the author's reference
-indicator, a filled level bar near 5.8:1, which 220×38 reproduces. A cover nested in a surface corner is concentric: the parent's radius minus the
+indicator, a filled level bar near 5.8:1, which `CardMetrics.hudSystemSize` reproduces. A cover nested in a surface corner is concentric: the parent's radius minus the
 tighter of its two insets (`CardMetrics.compactArtworkRadius`,
 `expandedArtworkRadius`, `NotchMetrics.compactArtworkRadius`). With unequal insets
 no radius is exactly concentric; subtracting the tighter one keeps the inner
@@ -3176,8 +3179,10 @@ data source decides (IOAudioTypes.h: `'hdpn'` is the headphone jack; `'ispk'`,
 or no data-source control, the speakers; any other selection, unknown) and the
 name never does. On Bluetooth, classic or LE, the name decides by a
 case-insensitive match, most specific first — "AirPods Max", "AirPods Pro",
-"AirPods", "Beats" — and any other Bluetooth device is plain `headphones`, the
-glyph that claims no product. AirPlay draws `airplayaudio`; HDMI and DisplayPort
+"AirPods" — then Beats' headphone lines, "Beats Solo" and "Beats Studio" without
+"Buds": the brand's earbuds and speakers carry marks of their own, reserved like
+the headphones'. Any other Bluetooth device is plain `headphones`, the glyph that
+claims no product. AirPlay draws `airplayaudio`; HDMI and DisplayPort
 draw `display`, a screen that does not call a monitor a television. USB,
 Thunderbolt, aggregates and virtual devices keep the speaker family: USB carries
 headsets, DACs and a display's speakers on one transport, and an aggregate's main
@@ -3187,7 +3192,9 @@ the speaker at every level, since the bar already shows the level; mute keeps
 `speaker.slash.fill`. The macOS 14 spellings `airpodspro`, `airpodsmax` and
 `airplayaudio` are the ones emitted; macOS 15 and later resolve them as aliases
 (`name_aliases.strings`). A device or data-source change re-reads the route in
-silence, and the next volume event draws it: a switch never pops the HUD.
+silence and pops nothing by itself; the next volume event draws it. A volume
+notification the switch itself causes is a level event and does pop, and one that
+lands before the data-source notification draws the previous glyph.
 Paths not taken: `kAudioDevicePropertyModelUID` could name a model without the
 name, but its format on Bluetooth is unmeasured; `scripts/probes/output-device-route.swift`
 harvests it. The output stream's terminal type (`kAudioStreamPropertyTerminalType`)
