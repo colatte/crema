@@ -1120,7 +1120,7 @@ Two mechanics are load bearing. A display's NAME is not an identity: two identic
 monitors report the same `localizedName`, so a row is LABELLED by the name and
 KEYED by the UUID (and the built-in panel is labelled in the app's own vocabulary
 instead of AppKit's). And the panel rebuild predicate never takes the whole
-description (the predicate itself: docs/CONTRACTS.md, G5) — a display renamed
+description (the predicate itself: docs/CONTRACTS.md, W4) — a display renamed
 under a live panel keeps that panel and its hover regions, since neither derives
 from the name; rebuilding on the description would tear a live surface down for
 a string.
@@ -2530,370 +2530,20 @@ panes read the store when they are built, so a wallpaper changed with the window
 open shows up the next time it opens.
 
 ### the-lock-screen-is-a-space
-~~**Superseded: the app has no lock-screen widget and no private window API**
-(see the-lock-screen-was-built-and-taken-out). The entry stays because the hardware
-knowledge is the durable part and is not re-derivable from the code: no window
-LEVEL reaches the shield, the shield is a SPACE at absolute level 300, a
-private SkyLight space at 400 composites over it, and clicks reach it — all
-proven by probe before a line of surface code was written.~~
 
-Five window levels were swept over the lock shield — up to
-`kCGMaximumWindowLevel` — and every one of them lost. The file that recorded it
-(docs/LOCKSCREEN-INVESTIGATION.md) concluded there was no window path at all, and
-the sweep was sound. The inference was not: `NSWindow.level` orders windows
-**inside** a space, and the shield **is** a space, at absolute level 300. Holding
-the space at the default while varying only the level cannot tell "impossible"
-apart from "wrong knob" — all five readings were the same window in the same
-space, losing for a reason the sweep never varied.
-Decision: the lock-screen now-playing widget lives in a SkyLight space at
-absolute level 400, and that is the ONLY place in this app where a private
-window API is taken. Proven on hardware before a line of surface code was
-written (`scripts/probes/lockscreen-space.swift`, in git history only), with the
-control that makes it
-mean something: two markers, one raised and one at `kCGMaximumWindowLevel`, both
-visible before the lock, only the raised one after. A second probe
-(`lockscreen-events.swift`) closed the two behaviour questions the first left
-open — clicks reach a raised-space window while locked (10 logged `LOCKED`
-against 5 unlocked as the control), and a screen-sized one behaves like the small
-one across three lock cycles.
-
-**Why this is not a precedent for the panel layer.**
-`NSPanelPresentationPanel` carries a line refusing SkyLight, and it still holds.
-The two are not the same trade: the panels draw a HUD several times a day on a
-surface the user is already looking at, and a WindowServer wedge there breaks the
-app's core function for everyone; this draws one opt-in window on a surface that
-otherwise shows nothing, and its total absence is a feature not appearing. Same
-API, different blast radius, and the refusal beside `NSPanelPresentationPanel`
-was amended in the same diff rather than left to read as forbidding the file next
-to it.
-
-**The four rules the edge follows**, each of which is why this is not a new
-category of risk for this codebase — it is the category the codebase is built on
-(DisplayServices, CoreBrightness, and now this):
-1. Behind a protocol (`RaisedSpace`) like every other system contact, so the
-   presenter and its tests never see a private symbol.
-2. **Every one of the five symbols checked** at dlsym time; any nil ⇒
-   `isAvailable == false`, the presenter refuses to build a panel, and Settings
-   says "not on this macOS" instead of offering a switch that does nothing.
-   Building anyway would put a window on the DESKTOP that the user never asked
-   for — the failure mode is not invisibility, it is a wrong window.
-3. The window's public half is load-bearing and easy to miss:
-   `canBecomeVisibleWithoutLogin = true`. Without it AppKit refuses to show the
-   window while no session is logged in, and the raised space alone does not save
-   you.
-4. Whether the space survives display sleep, wake or hotplug was NOT measured —
-   no such edge fired during the probe run, and the log says so rather than
-   guessing. Covered by action instead of by a read, per
-   `J7-estado-do-outro-lado`: the panel re-adopts its space unconditionally on
-   the same four edges the media-key tap reinstalls on (`preventive-reinstall`).
-   `adopt` is idempotent, so acting costs one cheap call; a local `isVisible`
-   read would answer "fine" either way and cost a surface that silently stopped
-   appearing.
-
-**The window over the shield takes no clicks it did not draw.** It is the size of
-the display, and transparency does NOT pass a click through — measured for the
-desktop panels, which carry the same machinery. So a clear window that size
-captures the password field, the avatar and the Cancel/Switch-User buttons.
-Nobody is locked out by that (keyboard delivery is unaffected and the field is
-focused by default, which is exactly why it survives a hardware test), but it is
-the worst thing this surface can do, so the panel is born `ignoresMouseEvents`
-and a cursor monitor opens it only over the card's RENDERED rect. Two rules make
-that safe rather than merely correct: the default is capture-nothing, so any
-failure of the routing costs a click on the card and never one on the login UI;
-and only the card ever captures, in BOTH states — expanded, the cover fills the
-display but stays click-through, with the card still there to collapse it, so the
-hidden login UI is never clickable-but-invisible.
-
-That the monitor is delivered over the shield at all is MEASURED
-(`scripts/probes/lockscreen-mouse-routing.swift`, 2026-08-07: 1092 global
-mouse-moved events while locked). It was worth measuring because Apple documents
-that a global monitor "would not be able to detect Command-Tab or a system
-alert" and the lock screen is loginwindow's UI — the restriction does not
-generalize. The same run found `NSEvent.mouseLocation` polling alive there, which
-is a standing fallback rather than a hypothesis: it is a question to the
-WindowServer instead of a subscription, so it survives if delivery ever stops.
-The run also carries a lesson about controls — the global monitor read ZERO
-unlocked, and an earlier verdict called the whole thing inconclusive for that
-reason. A control gives meaning to a silence; there was no silence on the side
-being measured, and a positive reading stands without one.
-
-**Where it sits is measured, and the measurement has an expiry the code names.**
-The card was first placed 96 pt off the bottom, from a mock, with a comment
-claiming that cleared the avatar and the password field. It did the opposite:
-macOS **Sonoma moved the login UI down** — clock to the top, user tile to the
-bottom section — so 96 pt is exactly where the password field now lives. Reported
-from hardware, then measured with a ruler drawn over the shield
-(`scripts/probes/lockscreen-geometry.swift`, 2026-08-07): a card at 96 pt lands
-on the avatar; a 300 pt square centred on the display touches nothing.
-
-Two things make a measured constant acceptable here, and both are the reason the
-obvious fix — read a number off the ruler and freeze it — was not enough on its
-own. The app requires **macOS 14+, and Sonoma IS the release that moved the
-login**, so every version in range shares this layout. And the axis that has
-moved between releases is the vertical one: horizontally the login has been
-centred in every version, which is what lets the surface stay centred without a
-second thought. The ruler is kept so the claim can be re-checked rather than
-re-guessed when a release moves the layout again.
-
-The same measurement forced the expanded state's shape: expanded is **one 300 pt
-tile** with the words and controls laid over the cover, which centres to exactly
-the rectangle that was measured clear. The reason recorded here for rejecting the
-alternative was wrong, and is corrected rather than deleted because it is the
-kind a reader reconstructs. It said cover (300) stacked over the card (152) is
-464 pt and "centring that puts its bottom edge back inside the login's strip";
-re-measured 2026-08-08, the stack centres to 259…723 on the real 1512×982 panel
-and clears the login — whose top is at or below 180 — by 79 pt. What is true is
-the other end: 723 leaves the 641 ceiling the ruler proved, putting a large
-picture where nobody has looked. And the interaction reason never depended on any
-of it, which is why it is the stronger one: only the drawn surface takes a click,
-so with the controls on the cover the cover IS the surface, where a separate hero
-above a card was a large picture that covered the login UI and then ignored every
-click aimed at it.
-
-**The backdrop's fade, and the fraction that never existed.** ~~Superseded by
-the-lock-surface-is-a-card: there is no backdrop and no fade. Kept because the
-anchoring argument below outlived them — `clearBandFloor` is still the one
-constant, now for the card and the tile — and because the fabricated fraction is
-exactly the kind of number that gets reconstructed from memory.~~ The expanded
-state's blurred backdrop took the whole display, which meant it also took the
-clock, the avatar and the password field. It cleared the band below
-`clearBandFloor` and ramped back to opaque over `backdropFadeBand` (180 pt,
-taste) above it — a hard edge there reads as a rendering bug. The anchor was that
-constant and not a new one: "where the card may rest" and "where the backdrop
-must stop" are one fact — the login owns everything below this line — and a
-second constant would be a second answer free to drift from the first.
-
-The rejected alternative is worth naming because it was almost shipped. This
-design was specified as a fade "between 50% and 72% of the height", with 72%
-described as where the ruler measured the login's top. It was not: it is
-1 − 250/900, off a private test fixture whose "about 250 pt" was a guess and
-whose attributed 1440×900 panel was not the machine that ran the probe. A
-fraction would also have given the app two contradictory answers to where the
-login begins — the collapsed card is placed with a screen-free constant, and the
-two models cross at a display height of 1071 pt and sit ~100 pt apart on a
-27-inch, which is reachable in clamshell. So no fraction of the display height
-appears in the surface at all, and the guarantee is structural rather than
-stated: the file has no screen-height source, so `0.72 * height` cannot be
-written there without plumbing a reviewer would see.
-
-Because that layer covers the system's clock, the surface draws **its own** — in
-the expanded state only, on the same condition as the backdrop, since one `if`
-for one fact is what keeps ours from ever appearing beside theirs. It answers to
-none of the drift vetoes, and the third one points the opposite way:
-`settlesAfter` exists because a picture still moving on an idle desk at 4 a.m. is
-wear, whereas a clock still running at 4 a.m. is the entire point of one. It also
-cannot ride the surface's 1 Hz position tick, which is installed only while
-something is PLAYING — pause, lock, walk away, and a clock riding it shows the
-minute of the pause all night.
-
-**Reopening gate.** A macOS release that removes or renames any of the five
-symbols degrades this to "not offered" on its own — that is the designed
-behaviour, not a reopening. What WOULD reopen it: Apple shipping a public path
-(the sanctioned one today is `SFAuthorizationPluginView`, an authorization
-plug-in, which is the wrong tool), or evidence that a raised space destabilises
-the WindowServer the way the panel layer's refusal anticipates. Neither is a
-reason to widen the API's use to the panels without measuring that separately.
+~~Superseded: the app has no lock-screen widget and no private window API (the-lock-screen-was-built-and-taken-out). What holds, proven on hardware and kept in docs/LOCKSCREEN-INVESTIGATION.md: no window level reaches the shield, the shield is a space at absolute level 300, a private SkyLight space at 400 composites over it, and clicks reach a window there. The panels refuse SkyLight at any level: they draw several times a day over the user's work, a public level does the job, and a WindowServer wedge there breaks the app's core function for everyone. Full entry in git (c67c9f1 and earlier).~~
 
 ### the-cover-comes-from-the-archive-not-the-store
-~~**Superseded: there is no cover lookup.** It existed for a 300 pt expanded
-lock-screen tile; a 50 pt thumbnail — 100 px at 2x against the 300-600 px the
-player already hands over — is a slot already oversupplied, and a network request
-naming what somebody is listening to cannot be justified by it (see
-the-lock-surface-is-a-card). The entry stays because the reasoning that chose the
-source is the durable part and would otherwise be re-derived: Apple's terms are
-the reason the obvious endpoint is the wrong one.~~
 
-The high-resolution cover lookup shipped against Apple's iTunes Search API,
-chosen because it needs no token, no account and no developer program — all
-true, and none of it the question that mattered. The Search API's terms grant
-the use of promotional content, *album art* named explicitly, only **(i)** on
-pages promoting that content, **(ii)** proximate to a "Download on iTunes"
-badge acting as a link to the purchase page, and **(v)** never "for independent
-entertainment value apart from its promotional purpose". A large cover filling
-a lock screen, with no badge and no link, is precisely that fifth thing.
-Decision: the use is outside what the terms grant, and the fix is
-to change SOURCE rather than to add a purchase button to a lock screen or to
-drop the feature. The **Cover Art Archive** (MusicBrainz) exists for this use
-and imposes no badge. The swap is contained because `ArtworkLookup` was already
-a protocol with the endpoint behind it, and every failure on that path is
-already silence.
-
-Two things worth keeping straight for whoever revisits this. The rate limit was
-never the issue on the old endpoint — ~20 calls per minute, against one call per
-track identity. And this says nothing about the *technique*: rewriting the size
-in the returned artwork URL is how the store served a larger image, and the
-archive simply serves fixed sizes instead.
-
-**`CoverArtArchiveLookup` rests on four measurements, because three of them are
-not what the obvious design assumes.**
-
-*The unit is the release GROUP, not the release.* `release/?query=…` for one
-album returns several pressings, each with its own art and no way to tell which
-carries any; `release-group/…/front-1200` is one cover per record. Measured:
-HTTP 200, 77 KB, two redirects into archive.org (500 → 18 KB). Missing art is a
-404 and a malformed identifier a 400 — both arrive as perfectly successful
-`URLSession` responses with a body, which is why the status is checked at the
-edge rather than inferred from the bytes.
-
-*Without an album there is no release-group search at all.* `recording:"…"`
-inside a release-group query returns **zero** results — the field does not exist
-there. The path in is `/ws/2/recording/`, whose answer carries the release groups
-inline, so it is still one request. This matters because the JXA fallback reports
-no album AND carries no bitmap: that path is not an upgrade there, it is the only
-cover the surface will ever get.
-
-*That path ranks bootlegs first, and one field separates them.* "Creep" by
-Radiohead returns eight live recordings ahead of *Pablo Honey* — every one a real
-release with real, wrong art. `secondary-types` is empty on exactly the studio
-record. So the guessed path demands an empty one and the album path must **not**:
-the filter exists to break a tie the app had to guess, and someone playing a live
-record asked for the live record. The asymmetry is the decision, not an oversight.
-
-*MusicBrainz is a guest relationship and it is written down.* One request per
-second per source IP, and a `User-Agent` naming the application and a way to
-reach its maintainers — without it the request is refused. Exceeding the limit
-costs a block for the shared address, so it is paid by users who never touched
-the feature; hence `RequestPacer`, whose slot is reserved in the same breath it
-is read (an actor releases isolation at every `await`, and read-then-sleep-then-
-record lets a burst leave together). The archive publishes neither requirement
-and its half goes straight out, carrying the header only out of courtesy.
-
-Reopening gate: an affiliate/partner arrangement that grants the use, or a
-surface where a purchase badge would genuinely belong. Neither is a lock screen.
+~~Superseded: there is no cover lookup, and the app makes no artwork request (the-click-was-the-last-thing-holding-the-lookup-up). The reasoning that chose the lookup's source over the iTunes Search API, whose terms tie album art to promoting a purchase, is in git (c67c9f1 and earlier).~~
 
 ### animated-artwork-is-withheld-not-missing
-Motion covers keep being proposed for the lock surface, and the reason they
-cannot ship is easy to state as a property of the bridge — "only static art via
-MediaRemote". That framing invites the wrong fix: replace the bridge. There are
-three independent walls and any one is fatal, so this does not reopen when a new
-bridge appears.
-Decision: not implementable by a third party on this platform. Recorded so nobody
-re-researches it.
-1. **Apple withholds the data from every third party.** `editorialVideo`, where
-   motion artwork lives, is not exposed to third-party apps through the Apple
-   Music API — developer token or not. For albums the only extended attribute a
-   third party can load is `artistUrl`.
-2. **`MPMediaItemAnimatedArtwork` is a provider API** — how a music app hands
-   animation *to* the system. Crema observes whatever is playing and never
-   receives it. (It is not iOS-only: Apple lists it on macOS 26 alongside every
-   other platform. The provider half alone is what makes it fatal for an
-   observer.)
-3. **The bridge carries no such key.** The vendored adapter emits 45 fields and
-   exactly one image (`artworkData` + `artworkMimeType`): no artwork identifier,
-   no URL, no animated variant. Apple Music's motion art never crosses the
-   MediaRemote boundary.
 
-The consequence is not a gap but a shape: the expanded state's slow drift on the
-blurred backdrop is the honest form of the idea here, and it carries the app's
-two standing animation vetoes (Reduce Motion, Low Power Mode) plus a third this
-surface invents — **time**. A HUD lives 1.5 s; this can sit lit all night, so the
-drift settles after three minutes. Battery, and OLED burn-in.
-
-The same boundary explains the **cover lookup**, which is a different question
-with a different answer. `MRMediaRemoteGetNowPlayingInfo` takes no options
-dictionary — there is no size to negotiate and the dimensions received are not
-even reported — so the roughly 300–600 px a player publishes is all there is, and
-a larger cover has to come from somewhere else entirely. The Cover Art Archive
-serves it addressed by release group, in fixed sizes, with no token and no
-account (measured: 500 → 18 KB, 1200 → 77 KB; which source, and why not the
-store, is `the-cover-comes-from-the-archive-not-the-store`).
-
-~~**Superseded for the cover-lookup half only: there is no lookup.** The lock
-surface it fed does not exist (the-lock-screen-was-built-and-taken-out), and the
-app makes no artwork request. The three walls above still close the motion
-question; what follows describes the lookup's opt-in gate and invariants, kept as
-the reasoning a future lookup would need again.~~ It was **off by
-default** because it is a network request carrying what
-you are listening to — neither an account nor analytics, the two things the app
-promises it does not do, but traffic tied to listening all the same.
-
-Two invariants governed it, and each is a bug that would otherwise ship.
-**There is always something to draw**: the upgrade improves the player's own
-cover and never stands in for having one, so the surface is complete the instant
-it appears and an answer that arrives later only ever replaces a cover with a
-better one — nothing waits, nothing blanks, and every failure (no match, no
-network, a decode that did not fit) is the same silence.
-**Bytes never outlive the identity they belong to**: the fetched cover and the
-title+artist+album it answers are cleared together, because held past a track
-change they put one album's cover on the next song's surface — visible and wrong,
-where the absence would merely be absent. That identity is also why a lookup
-needs `album` in the domain, which drops it at the border while nothing reads
-it: keyed on the snapshot instead, the 1 Hz position tick would
-re-ask the endpoint once a second for the same song.
+~~Superseded: no surface the app carries asks for motion artwork. The three walls recorded against it for any third party (the data withheld by Apple, a provider-only API, a bridge that carries one static image) and the cover lookup's invariants are in git (c67c9f1 and earlier).~~
 
 ### the-lock-surface-is-a-card
-~~**Superseded: the surface this decision shaped does not exist**
-(the-lock-screen-was-built-and-taken-out). The entry stays because the chain of
-costs that ended the backdrop — the Mach band, the self-erasing clock, the
-safety obligations of covering the login — is the reasoning anyone proposing a
-lock-screen ground would otherwise re-derive.~~
 
-The lock-screen widget shipped with a full-screen blurred backdrop: the cover,
-scaled past the display, blurred at 46, drifting on a 26 s cycle, masked so its
-alpha reached zero over the bottom 300 pt the login owns. Because that layer
-also covered the system's clock, the surface drew a clock of its own. The whole
-composition existed to answer one wish — that the artwork reach all four edges.
-
-Decision: **the lock surface paints no ground.** Both states are bounded objects
-on the user's own wallpaper — the 340 pt card resting on `clearBandFloor`, and
-the 300 pt tile centred in the rectangle the ruler proved free. The backdrop,
-the clearance band, the fade and the clock are deleted rather than tuned.
-
-**What ended it was not taste, it was a chain of costs that only pointed one
-way.** The fade's boundary is a Mach band — a retinal artifact at a derivative
-discontinuity — so lengthening or softening the ramp cannot remove it and can
-isolate the two kinks instead; the accepted fixes all cost either a 15-stop
-eased table or a Metal shader, to mitigate an artifact the surface manufactures
-for itself. On a light cover the backdrop erased its own clock: The White Album
-measures 0.996 mean relative luminance, and white type over it is invisible,
-which means the clock the backdrop obliged could not be relied on to survive the
-thing that obliged it. And covering the login turns a cosmetic feature into a
-safety-critical one: a Crema wedged on the main thread leaves its window on
-screen with no code running, so any covering design owes a dead-man's mechanism,
-an idle signal proven to survive the shield, and vetoes for VoiceOver, Reduce
-Transparency, Increase Contrast, the Accessibility Keyboard and Switch Control —
-none of which the surface had.
-
-**Three independent precedents say the same thing, and all three were found
-rather than assumed.** The SkyLight level this window occupies is named
-`kSLSSpaceAbsoluteLevelNotificationCenterAtScreenLock`: Apple's own tenant there
-draws bounded cards, and Droppy, Alcove and boring.notch — the three shipping
-apps at the same level — all draw bounded cards too. Android built precisely
-this backdrop (`MediaArtworkProcessor`: downsample 6, blur 25, flooded with the
-extracted swatch at 70%), shipped it from Android 8 through 10, removed it in 11
-with a one-line justification, and has not restored it in five releases — from a
-position strictly better than ours, since their layer sat behind all system UI
-while ours sits in front of it. GNOME, Windows, elementary and Spotify each keep
-album art as a bounded image and derive the ground from something else.
-
-**The clock left with the backdrop, and that is the load-bearing consequence.**
-It only ever existed because the backdrop covered the system's. With no ground,
-the shield's clock is visible, and drawing a second one beside it is the
-two-clocks defect — the same defect that disqualified the one catalogue entry
-which tried to bloom colour over an uncovered wallpaper. One fact, one absence.
-
-**Not rejected, and available without reopening this**: the artwork reaching all
-four edges on a display that carries no credential cluster. Crema is
-main-display-only by decision and the login lives on the main display; a
-secondary display needs no clearance, no idle poll, no retreat and no
-dead-man's switch. That is a feature, not a workaround, and it is on the roadmap
-rather than in this entry because it changes what the surface is offered on, not
-what it draws.
-
-**Reopening gate, and it is a measurement rather than an argument.** Everything
-above concerns a window ABOVE the shield. Nobody has asked whether a SkyLight
-space at a level BELOW 300 composites behind it — the level was inherited from
-the widget's need to be seen, never from the backdrop's need to be a ground. If
-a lower space shows through, the system draws the login on top and the entire
-chain of costs above retires at once: no clearance, no clock, no wedge story, no
-accessibility veto. The probe that would answer it,
-`scripts/probes/lockscreen-space.swift`, took the level as a parameter and was
-removed with the surface — it lives only in git history (`bb7bb73^`), so
-reopening starts by recovering it from there and running it at 250 and 310
-before anyone re-argues this from taste. The other reopening is the reverse of the first: a macOS that stops
-drawing a lock-screen clock, which would make ours a replacement rather than a
-duplicate.
-
+~~Superseded: the surface this decision shaped does not exist (the-lock-screen-was-built-and-taken-out). The chain of costs that ended its backdrop (the Mach band at the fade, the clock the backdrop obliged, the safety cost of covering the login) is in git (c67c9f1 and earlier); the open question of a space below level 300 stands in the-lock-screen-was-built-and-taken-out.~~
 
 ### the-click-was-the-last-thing-holding-the-lookup-up
 A corollary of the-lock-surface-is-a-card rather than a new decision, recorded
@@ -2953,68 +2603,44 @@ scratch, never restored on precedent.
 
 ### the-lock-screen-was-built-and-taken-out
 Crema draws nothing on the lock screen, and the app has **no private window API
-at all**. A lock-screen surface is a fully explored path — designed, proven on
-hardware, shipped into a signed build, redesigned four times and removed within
-the same session — and its absence is a decision rather than a gap somebody
-should fill.
+at all**. A lock-screen surface is an explored path, built and proven on
+hardware, and its absence is a decision rather than a gap somebody should fill.
+The reason is the author's and concerns return, not correctness: the surface
+drew, the clicks routed and the geometry was measured, and the design still
+converged on a card that reads as thin. "Não está compensando" is a complete
+argument for stopping, and it does not require the work to have been wrong.
 
-**What is not in the tree**, all of it in git history: the surface
-(`LockWidgetView`, `LockWidgetMetrics`, `SourceBadge`), its window
-(`LockScreenPanel`, `LockScreenPresenter`), its click-through rule, the SkyLight
-bridge and the `RaisedSpace` protocol behind it, the `LockScreenMirror` second
-reader on the lock source, the preference and its Settings section, five hardware
-probes, and roughly fourteen test suites.
+With nothing drawn over the shield, lock-aware suppression is what leaves the
+keys their native feedback: OSD suppression never stays engaged while the screen
+is locked (`SuppressionLockController`).
 
-**The reason is the author's and it is about return, not about correctness.**
-Everything in it worked: the surface drew, the clicks routed, the geometry was
-measured rather than guessed, the suite was green at every step. What does not
-hold is the ratio: four passes of design research — 130, 123 and 156 findings,
-three adversarial critics, three artifacts — converge on a card that still reads
-as thin, and each pass's fix exposes the next one's problem. "Não está
-compensando" is a complete argument for stopping and it does not require the
-work to have been wrong.
+**The shared files carry nothing for it.** `TrackTextStack` has one type ramp,
+with no scale for a surface read at two or three metres; `SurfaceChrome` has no
+light palette, and `vibrantSurface` no material or palette parameter. An API with
+no caller is removed in the diff that orphans it.
 
-**The removal is surgical rather than a revert of the range**, and the
-distinction matters to anyone reading the history. The feature spans forty
-commits, and that range also carries i18n corrections, an audit queue, the
-progress bar joining the HUD bar's decision, and three SDK claims that were
-wrong — a blanket revert would take all of it. One commit removes the feature
-from the tree instead.
+**What remains.** `docs/LOCKSCREEN-INVESTIGATION.md` holds the hardware facts,
+which a codebase without the feature cannot rederive: no window LEVEL reaches the
+shield; the shield is a SPACE at absolute level 300; a private SkyLight space at
+400 composites over it; clicks reach a window there; a screen-sized window
+behaves; the login's top edge sits at or below 180 pt on a 1512×982 panel. The
+anchors that record design findings stay too (the concentric radius rule, the
+Mach band diagnosis, the measured contrast arithmetic), because none of them is
+about the lock screen. The surface, its window, the SkyLight bridge behind
+`RaisedSpace`, the second reader on the lock source, the preference, the probes
+and their test suites are in git (`bb7bb73^`).
 
-**The shared files carry nothing for it.** `TrackTextStack` has one type ramp —
-no `.glance` scale for a surface read at two or three metres, waiting in the file
-for a caller. `SurfaceChrome` has no light palette for the same reason, and
-`vibrantSurface` no material or palette parameter — the desktop skins never pass
-either. Same discipline that keeps `SurfaceAnimation.morph(expanding:)` out of the
-tree (the-click-was-the-last-thing-holding-the-lookup-up): an API with no caller is
-removed in the diff that orphans it.
+**What a future attempt owes before writing any code**: whether a SkyLight space
+BELOW level 300 composites BEHIND the shield. Nothing needs the artwork above the
+login, only behind it; if a lower space shows through, the system draws the login
+on top, and the clearance band, the clock a backdrop obliges, the accessibility
+vetoes and the panel-height arithmetic retire at once. `lockscreen-space.swift`,
+in git only (`bb7bb73^`), takes the level as a parameter and was never run at 250.
 
-**What is kept, deliberately.** `docs/LOCKSCREEN-INVESTIGATION.md`, with a
-status banner at the top so nobody reads it as current. The knowledge in it is
-expensive and is not recoverable from a codebase that does not contain the
-feature: no window LEVEL reaches the shield; the shield is a SPACE at absolute
-level 300; a private SkyLight space at 400 composites over it; clicks reach; a
-screen-sized window behaves; the login's top edge sits at or below 180 pt on a
-1512×982 panel. The anchors that record design findings stay too — the
-concentric radius rule, the Mach band diagnosis, the measured contrast
-arithmetic — because none of them are about the lock screen specifically.
-
-**What a future attempt owes before writing any code**, and it is the one
-question the design passes never asked: whether a SkyLight space BELOW level 300
-composites BEHIND the shield. Every design assumed level 400 because that is
-what the widget needed to be seen; nothing needs the artwork to be above the
-login, only behind it. If a lower space shows through, the system draws the
-login on top and the entire chain of difficulty — the clearance band, the clock
-the backdrop obliged, the wedge story, the accessibility vetoes, the panel-height
-arithmetic — retires at once. `lockscreen-space.swift` is not in
-`scripts/probes/` (git history only, `bb7bb73^`); it took the level as a
-parameter and was never run at 250.
-
-**The reopening gate is not a measurement, it is a scope.** What makes this
-expensive is not the private API and not the geometry: it is that the surface
-has to be beautiful, legible at three metres, safe over a credential field, and
-correct on every panel size, all at once, on a display the app does not own.
-Anyone proposing it again should say which of those four they are dropping.
+**The reopening gate is a scope, not a measurement.** The surface has to be
+beautiful, legible at three metres, safe over a credential field and correct on
+every panel size, all at once, on a display the app does not own. Anyone
+proposing it again says which of those four they are dropping.
 
 ### the-slit-is-found-from-its-edges
 One rule finds the cutout, from its edges — `frame.minX + auxLeft`,
@@ -3190,8 +2816,11 @@ stayed alive, mapped Sparkle and printed nothing.
 Decision: on the self-signed path the app's own executable is signed with
 `--options runtime` and `Crema-SelfSigned.entitlements`, which carries that one
 exception. The Developer ID path is unchanged (a real Team ID satisfies validation).
-The nested code (Sparkle's helpers, the vendored adapter) keeps the signature it
-shipped with: it holds no grant, and the update path it runs is not touched.
+The nested code (Sparkle's framework and helpers, the vendored adapter) is
+re-signed with Crema's identity on every identity path, and without the runtime
+on the self-signed one: it holds no grant. A helper without the runtime honours
+`DYLD_*` variables; that residual is recorded under docs/KNOWN-GAPS.md's
+"Files inside Crema.app" entry.
 What it does not close: turning validation off lets the process load a library of
 any signer from its own bundle, so whoever can replace files inside `Crema.app`
 still runs code in it, the same class docs/KNOWN-GAPS.md records for the adapter.

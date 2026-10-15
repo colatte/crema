@@ -218,9 +218,10 @@ xattr -dr com.apple.quarantine /Applications/Crema.app
   wins is decided at login, so it can differ from one boot to the next. Crema
   names the app in its menu when it happens.
 - **With BetterDisplay, the two can share.** Turn on **Settings → Application →
-  Integration → OSD notification** in BetterDisplay (version 4.2.1 or newer) and
-  Crema draws its brightness HUD from what BetterDisplay reports — BetterDisplay
-  keeps the keys and its own brightness curve, Crema keeps the HUD. Turn off
+  Integration → OSD notification** in BetterDisplay (version 4.2.1 or newer;
+  Crema is measured against 5.1.1) and Crema draws its brightness HUD from what
+  BetterDisplay reports — BetterDisplay keeps the keys and its own brightness
+  curve, Crema keeps the HUD. Turn off
   BetterDisplay's own OSD in that same pane so only one bar appears. Nothing to
   enable on Crema's side; it listens whenever BetterDisplay is there and stays
   quiet when it isn't. Dragging that bar sends the new level back through
@@ -254,8 +255,8 @@ Nothing else leaves your machine.
 
 ## Build from source
 
-Requirements: **Xcode 16** or later (Crema's tests use Swift Testing). The app
-targets macOS 14 and builds with the macOS SDK bundled with Xcode.
+Requirements: **Xcode 27**, whose macOS 27 SDK is the one the app links against
+(Crema's tests use Swift Testing). The app targets macOS 14.
 
 ```bash
 git clone https://github.com/colatte/crema.git

@@ -13,7 +13,7 @@ what is open, docs/DECISIONS.md the design memory, docs/KNOWN-GAPS.md the debts.
 
 ```bash
 xcodebuild -project Crema.xcodeproj -scheme Crema -configuration Debug build
-xcodebuild -project Crema.xcodeproj -scheme Crema test # Swift Testing; serial
+xcodebuild -project Crema.xcodeproj -scheme Crema test # Swift Testing
 swiftlint lint --strict && swiftformat --lint .        # CI pins 0.65.0, 0.62.1
 python3 scripts/check-catalog-selftest.py && python3 scripts/check-catalog.py .
 ```
@@ -70,7 +70,7 @@ design/           # icon/badge sources; outputs (AppIcon.icon) never by hand
   and stops (docs/DECISIONS.md: media-key-chain-contention).
 - Never keep OSD suppression engaged with the screen locked; nothing is drawn
   over it (docs/DECISIONS.md: the-lock-screen-was-built-and-taken-out).
-- Never couple a skin to the core; it conforms to `SurfaceStyleCore` and draws.
+- Never couple a skin to the core; it conforms to `SurfaceStyleBody` and draws.
 - Never size or move a window from SwiftUI; the NSPanel is fixed and only the
   content animates (docs/DECISIONS.md: hover-follows-the-eye).
 - Never trust the chrome for a write guarantee; the pure rule refuses
@@ -90,13 +90,13 @@ design/           # icon/badge sources; outputs (AppIcon.icon) never by hand
   is self-signed; the release ritual: docs/RELEASE-GUIDE.md.
 - Naming: one main type per file; a protocol names the capability (`Source`),
   an implementation technology + capability (`BetterDisplayOSDSource`).
-- Concurrency: `@MainActor` on Coordinator, WindowManager and `Crema/Styles/`;
-  sources produce anywhere, consumption is on main. Timers are Tasks over the
-  injected `SleepClock`. A blocking call raced against a deadline runs on
-  `DispatchQueue.global()` (docs/DECISIONS.md: J3-deadline-cooperativo).
-- Sources: every system contact, a neighbour app included, sits behind a
-  mockable protocol, `updates: AsyncStream<T>` plus `isAvailable()`;
-  unavailability is state (the stream ends). Depth: docs/SOURCES.md.
+- Concurrency: `@MainActor` on Coordinator, WindowManager, views and skin view
+  state, not pure values; sources produce anywhere, main consumes; timers are
+  Tasks on the injected `SleepClock`. A blocking call raced against a deadline
+  runs on `DispatchQueue.global()` (docs/DECISIONS.md: J3-deadline-cooperativo).
+- Sources: each system contact, neighbour apps too, sits behind a mockable
+  protocol, `updates: AsyncStream<T>` plus `isAvailable()` probed where a
+  chain picks; one that cannot run ends its stream or says so. docs/SOURCES.md.
 - State: one `@Observable` of presentation state, the Coordinator; the others
   are read mirrors with guarded writes. Skins are a pure function of state,
   always dark; motion vetoes gate in `SurfaceAnimation`; docs/STATE-FLOW.md.
@@ -129,8 +129,8 @@ design/           # icon/badge sources; outputs (AppIcon.icon) never by hand
 
 ## Known gaps
 
-- G1 — `AppCore.init` mostly unpinned by decision; 5 wirings are pinned seams.
-- G2 — Brightness and volume conversions share 8 lines on purpose (rule of 3).
+- G1 — `AppCore.init` mostly unpinned by decision; 25 static seams are pinned.
+- G2 — Three 0...1 clamps unshared; the third refuses NaN, so the gate is met.
 - G3 — The waveform carries no time veto; reopens with a power measurement.
 - G4 — A process ending is not its children's; `release.sh` reaps the adapter.
 - G5 — Backlight client resolved once, never rebuilt; needs a hardware repro.
@@ -143,6 +143,7 @@ design/           # icon/badge sources; outputs (AppIcon.icon) never by hand
 - G12 — No sender identity on BetterDisplay's channel: readings can be forged.
 - G13 — The vendored adapter's binaries carry no upstream commit or digest.
 - G14 — Whoever can write Crema.app swaps the adapter or a library in it.
+- G16 — Two hover hypotheses and two motion constants await a hardware probe.
 
 ## Open decisions
 

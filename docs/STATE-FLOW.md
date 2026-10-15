@@ -66,11 +66,7 @@ Card and Classic pin `.environment(\.colorScheme, .dark)` **wrapping** the `vibr
 
 ## Animation contracts
 
-Audited and pinned by test.
-
-1. Crossing `hidden` — appearing or vanishing — is an **opacity fade at the final rect**: geometry (frame and corner radius) never travels across the empty↔visible boundary, and the rule governs **all** layers of the surface (outer frame, radius, material clip, opacity), not just the outermost.
-2. Visible↔visible morphs use a **directional spring chosen by the destination** — open when expanding, close (critically damped, no overshoot against the menu bar) when collapsing.
-3. Value animations (slider level, symbol swap) are **scoped to the value itself** — they never reach the surface morph, the window frame or the appear/vanish timing — and suspend under drag and under Reduce Motion.
+Crossing `hidden`, the directional spring and value-scoped animations are contracts MG1–MG4 in docs/CONTRACTS.md, which holds their text; each is pinned by test.
 
 ## Style dispatch and coordinate space
 

@@ -1,154 +1,58 @@
-# HUDs on the lock screen — reopened investigation
+# The lock screen — what the hardware says
 
-> **STATUS, 2026-08-08 — READ THIS FIRST.** Everything below was proven, and
-> then built, and then removed. The app draws nothing over the lock shield
-> today; there is no SkyLight space, no panel, no preference and no probe left
-> in the tree (docs/DECISIONS.md: the-lock-screen-was-built-and-taken-out).
->
-> This file is kept because the KNOWLEDGE is not recoverable from the code, and
-> because it is the file that stops the same sweep being run a third time. What
-> it records and what still holds: no window LEVEL reaches the shield; the
-> shield is a SPACE at absolute level 300; a private SkyLight space at 400
-> composites over it; clicks reach a window there; a screen-sized window
-> behaves; the login's top edge sits at or below 180 pt on a 1512×982 panel.
->
-> What it does NOT record, and what a future attempt owes: whether a space
-> BELOW 300 composites behind the shield, which would let the system draw the
-> login on top and retire most of the difficulty at once. Nobody ran that.
+> The measured facts about drawing over the macOS lock shield, kept because a
+> codebase without the feature cannot rederive them. The app draws nothing over
+> the shield, by decision (docs/DECISIONS.md:
+> the-lock-screen-was-built-and-taken-out); these facts are the evidence behind
+> lock-aware suppression (`SuppressionLockController`; docs/DECISIONS.md:
+> J6-latch-do-edge, unreadable-session-is-unsafe) and the starting point of any
+> attempt to reopen the surface. Every measurement below was taken by the author
+> on Apple Silicon under macOS 26; a macOS release is the signal to re-measure
+> before leaning on any of them. The probes named here are not in the tree:
+> `lockprobe` and `locktap-probe` lived outside the repository, and the four
+> `scripts/probes/lockscreen-*.swift` are in git (`bb7bb73^`).
 
+## Why suppression steps aside under lock
 
-> **STATUS AS IT STOOD ON 2026-08-07 — superseded by the banner above.** For one
-> day this file read: reopened and partly shipped — the mechanism this file left
-> unexplained had been found, proven on hardware, and taken. Everything below
-> still held as written: no window LEVEL composites over the shield, and there
-> was still no PUBLIC path; what was wrong was the framing, not a fact — the
-> barrier is not the level axis at all. The opt-in now-playing widget (item b)
-> shipped on a raised SkyLight space; the **HUDs** over the lock (item a2) did
-> not, and the lock-aware suppression policy this file argued for was unchanged —
-> its justification moved from "we cannot draw there" to "we have not chosen to
-> draw the HUDs there". "The reopening", "The second round" and "What shipped"
-> at the end record that day; the banner at the top says where it ended.
+With the Mac locked, the session event tap keeps receiving the volume and
+brightness keys, and with suppression on Crema consumes them, suppresses the
+native OSD and applies the writes itself. No window of the app's composites over
+the shield, so without lock-aware suppression the user gets no feedback at all.
 
-> Investigation concluded on 2026-07-10, with both probes run by the author on
-> real hardware (macOS 26.5.2, Apple Silicon). Every decisive claim below is
-> **VERIFIED** — by code or by experiment. Distilled here from the author's
-> working notes because it is the evidence behind a rule the app still lives by:
-> suppression steps aside under lock (`SuppressionLockController`;
-> docs/DECISIONS.md: J6-latch-do-edge, unreadable-session-is-unsafe).
+- **The tap keeps receiving under lock** (`locktap-probe`, 2026-07-10, macOS
+  26.5.2): dozens of `KEY volume/brightness owned=true` events between
+  `SCREEN LOCKED` and `SCREEN UNLOCKED`, heartbeat alive. The session tap receives,
+  and can consume, the media keys while the screen is locked.
+- **The lock-detection stack behaves as designed** (same run):
+  `com.apple.screenIsLocked`/`Unlocked` fire on the edges, the
+  `CGSSessionScreenIsLocked` poll flips as the authoritative state, and
+  `kCGSSessionOnConsoleKey` stays stable (it excludes fast user switching). This
+  is the stack `DistributedNotificationScreenLockSource` wires.
+- **The native OSD appears under lock** because OSDUIHelper runs in the
+  LoginWindow session (`LimitLoadToSessionType = [LoginWindow, Aqua]`, read in its
+  launchd plist). The shield is a session and policy boundary
+  (loginwindow/WindowServer), not a race between window levels; Apple DTS's
+  position is that third-party code does not draw over the lock, and the one
+  sanctioned path, `SFAuthorizationPluginView`, is an authorization plug-in.
 
-## The symptom
+## No window level reaches the shield
 
-With the Mac locked, the volume/brightness keys work (the hardware responds),
-but Crema's HUDs do not appear — and with OSD suppression on, the user is left
-with NO visual feedback at all: not the native one (Crema suppresses it), not
-ours.
+`lockprobe` (2026-07-10, macOS 26.5.2) mirrors Crema's panel at five levels —
+`mainMenu+3` (27, the panels' own level), `screenSaver` (1000),
+`assistiveTechHigh` (1500), `CGShieldingWindowLevel()` (2147483628) and
+`kCGMaximumWindowLevel` (2147483631). Each is visible on the desktop before
+locking, which makes the run valid, and none composites over the lock screen.
 
-## Verified facts
+## The shield is a space
 
-### In the code (as it stood when the investigation opened)
-- **Zero lock awareness in the app** (grep for `screenIsLocked`,
-  `CGSessionCopyCurrentDictionary`, `sessionDidResignActive` = nothing).
-- The tap is `.cgSessionEventTap`/`.defaultTap` on NX_SYSDEFINED; **with
-  suppression on it swallows the keys in both phases and the suppressor itself
-  performs the write** (read → step → write → verify), which is why volume and
-  brightness still change with no HUD.
-- Apply+verify had a global **auto-disengage**: a write/read-back failure or the
-  2 s timeout turned suppression off **and persisted `suppressesNativeOSD =
-  false`** — the risk of a silent self-disable under lock.
-- Panels: level `mainMenu+3` (= 27), ordered once and never removed — far below
-  the shield; invisible under lock (now playing does not leak through today).
-
-### In the author's probes (real hardware)
-- **Window probe (`lockprobe`), H0 confirmed**: a mirror of Crema's panel at
-  **five levels** — mainMenu+3 (27), screenSaver (1000), assistiveTechHigh
-  (1500), `CGShieldingWindowLevel()` (2147483628) and `kCGMaximumWindowLevel`
-  (2147483631) — and **none** composited over the lock screen (visible on the
-  desktop before locking in every run = valid test). A user-session window does
-  not appear over the lock at any level on this macOS.
-- **Key probe (`locktap-probe`), H1 confirmed**: dozens of
-  `KEY volume/brightness owned=true` events **between** `SCREEN LOCKED` and
-  `SCREEN UNLOCKED`, heartbeat alive — **the session tap goes on receiving (and
-  is able to consume) the media keys while the screen is locked**.
-- Bonus from the logs: lock detection behaved exactly as designed —
-  `com.apple.screenIsLocked/Unlocked` notifications on the edges, a
-  `CGSSessionScreenIsLocked` poll as the authoritative state, `onConsole=1`
-  stable.
-
-### The end-to-end conclusion, proven
-With suppression on and the screen locked, Crema **consumes** the keys (the tap
-is alive), **suppresses** the native OSD, **applies** the writes, and **cannot**
-show its own HUD (no public window path over the shield). That is a real
-downgrade from the native behaviour — and not fixable by any window level, which
-is what "showing our HUD there" meant when this was written. A private path does
-exist; see "The reopening".
-
-## Mechanism (research)
-- The lock shield is a **session/policy** boundary (loginwindow/WindowServer),
-  not a race between window levels — Apple DTS: third-party code does not draw
-  over the lock; the only sanctioned path is `SFAuthorizationPluginView` (an
-  authorization plug-in — the wrong tool). The **native** OSD appears under lock
-  because OSDUIHelper runs in the LoginWindow session
-  (`LimitLoadToSessionType = [LoginWindow, Aqua]` — verified in its plist).
-- **WidgetScreen** (indie, macOS 15+, notarized) shows widgets over the lock —
-  market proof that *some* mechanism exists on 15+, but demonstrably **not a
-  window level** (probe H0 on this machine). This paragraph used to end "the
-  mechanism is unexplained without inspecting the binary". It is explained now,
-  and no binary had to be opened: see "The reopening".
-- Lock detection (the de-facto pattern: stable, non-public — fine outside the
-  Mac App Store): `com.apple.screenIsLocked/Unlocked` (edges) +
-  `CGSSessionScreenIsLocked` (authoritative state) + `kCGSSessionOnConsoleKey`
-  (excludes fast user switching).
-
-## Verdicts
-| Item | Verdict |
-|---|---|
-| (a1) Suspend suppression under lock (palliative → fix) | **GO — bug priority, v1.1** |
-| (a2) Crema's HUD over the lock | **NO public path** (proven on hardware) · a PRIVATE one exists and is proven too — see "The reopening"; the verdict is now a choice, not a wall |
-| (b) Now-playing widget on the lock (opt-in) | **SHIPPED** — the mechanism blocker named here is gone, the second round of probes closed the behaviour questions, and the private space API was taken for this and only this. See "What shipped" |
-| (c1) Replacing the SYSTEM's lock wallpaper | **NO-GO** — unaddressable; nothing here reaches loginwindow's own background |
-| (c2) Our own artwork filling the lock screen | **SHIPPED** — a raised-space window of our own, which is a different claim from (c1) and was hiding inside it |
-| (c3) Animated / motion covers | **NO-GO**, and not for the reason this row used to give. See "Animated artwork" |
-
-## Stage 1 — the design (validated by the probes)
-- `ScreenLockSource` behind a protocol (edges + authoritative poll + onConsole
-  guard), mocked in tests — the source pattern of AGENTS.md.
-- Locked (or off the console): **suspend suppression** without touching the
-  user's preference → the keys go back to the system → the native OSD appears →
-  feedback restored. Unlocked: re-engage if (and only if) the preference is on.
-  A user with suppression off: zero change.
-- It kills a second problem on the way: the auto-disengage risk under lock
-  (suspended means no apply → no failure → no silent write to the preference).
-- Care needed: no flicker on unlock (re-engage after unlocked + onConsole);
-  auto-disengage inert during the transition.
-
-## Probe record
-The throwaway sources and binaries lived in a scratch folder on the author's
-machine, outside the repository, and can be deleted; the decisive logs are
-quoted above (2026-07-10, ~10:43–10:57 local).
-
----
-
-## The reopening (2026-08-07) — the axis was wrong
-
-This file swept `NSWindow.level` across five values and concluded that no window
-path exists. The sweep was sound and its result stands; the inference did not,
-because **level and the shield answer to different things**:
-
-- `NSWindow.level` orders windows **within** a space.
-- The lock shield **is a space**, at absolute level 300.
-
-No window level can lift a window out of the space it lives in. Holding the
-space at the default (absolute level 0) and varying only the level cannot tell
-"impossible" apart from "wrong knob" — every one of the five readings was a
-window sitting in the same space as before, losing to the shield for a reason
-the sweep never varied.
-
-SkyLight exposes the other knob. The ladder of absolute space levels, read off
-`Lakr233/SkyLightWindow` (MIT):
+`NSWindow.level` orders windows **within** a space, and the lock shield **is** a
+space, at absolute level 300; no window level lifts a window out of the space it
+lives in. The ladder of absolute space levels, read off `Lakr233/SkyLightWindow`
+(MIT):
 
 | level | occupant |
 |---|---|
-| 0 | default — where all five probe windows stayed |
+| 0 | default, where every window of the level sweep stays |
 | 100 | setup assistant |
 | 200 | security agent |
 | **300** | **the lock shield** |
@@ -156,194 +60,41 @@ SkyLight exposes the other knob. The ladder of absolute space levels, read off
 | 500 | boot progress |
 | 600 | VoiceOver |
 
-The recipe is five calls plus one public property:
+A private SkyLight space at 400 composites over the shield
+(`lockscreen-space.swift`, 2026-08-07): one window moved into the raised space,
+one ordinary window at `kCGMaximumWindowLevel` as the control, both visible before
+locking, only the raised one after. The calls are `SLSMainConnectionID`,
+`SLSSpaceCreate`, `SLSSpaceSetAbsoluteLevel`, `SLSShowSpaces` and
+`SLSSpaceAddWindowsAndRemoveFromSpaces`, plus the public
+`canBecomeVisibleWithoutLogin = true` on the window, without which AppKit does not
+show it while no session is logged in. There is no PUBLIC path.
 
-```swift
-let connection = SLSMainConnectionID()
-let space = SLSSpaceCreate(connection, 1, 0)
-SLSSpaceSetAbsoluteLevel(connection, space, 400)     // above the shield's 300
-SLSShowSpaces(connection, [space] as CFArray)
-SLSSpaceAddWindowsAndRemoveFromSpaces(connection, space, [win.windowNumber] as CFArray, 7)
-// and on the NSWindow, the public half this file also missed:
-window.canBecomeVisibleWithoutLogin = true
-```
+## A window in the raised space
 
-**Proved on hardware, 2026-08-07** (macOS 26, Apple Silicon), by
-`scripts/probes/lockscreen-space.swift`. The probe draws two markers and the
-control is what makes the result mean anything: one window moved into the raised
-space, one ordinary window at `kCGMaximumWindowLevel` — the best of the five this
-file already tried. Both visible before locking. **After locking, only the raised
-one survived.** The control vanishing beside it is the whole finding: same
-machine, same OS, same moment, one variable.
+- **Clicks reach it while locked** (`lockscreen-events.swift`, 2026-08-07): 10
+  clicks logged `LOCKED`, against 5 logged `unlocked` as the control. The probe
+  reads the session dictionary itself and stamps each click with the lock state,
+  so a silent log is distinguishable from a broken probe.
+- **A screen-sized window behaves like a small one**: both stayed visible across
+  three lock/unlock cycles (same run).
+- **macOS draws no media controls of its own** on the lock screen (same run).
+- **The cursor is readable from a window that refuses clicks**
+  (`lockscreen-mouse-routing.swift`, 2026-08-07): with a screen-sized window set to
+  `ignoresMouseEvents`, while locked, 1092 global mouse-moved events, 281 local, and
+  117 live readings from polling `NSEvent.mouseLocation`. A screen-sized window
+  that took events over the shield could swallow the clicks meant for the password
+  field, so the click-through split is a safety property.
+- **Not measured: sleep, wake and hotplug.** No such edge fired during the runs.
 
-### What this does and does not change
+## Where the login sits
 
-- **"No PUBLIC path" survives intact.** SkyLight is private, dlopen'd, and this
-  file's care with that word is the reason the sentence did not have to be
-  retracted. The Apple DTS position quoted above is unchanged.
-- **The private-API objection is weaker here than it looks.** This app already
-  resolves DisplayServices and CoreBrightness exactly this way — dlopen, dlsym,
-  every symbol checked, nil ⇒ the capability reports unavailable and degrades.
-  A sixth private framework is not a new category of risk for this codebase; it
-  is the category the codebase is built on. All five symbols were confirmed
-  present on macOS 26 before the probe ran.
-- **The lock-aware suppression policy stays** (`SuppressionLockController`), and
-  every mechanical claim behind it stays: the tap keeps receiving keys under
-  lock, the writes still land, the native OSD is still what the user gets. What
-  changes is the JUSTIFICATION. It was "we cannot draw there". It is now "we
-  have not chosen to draw there" — a product decision about spending a private
-  space API on a security surface, which nobody has made yet. Anyone re-reading
-  the old wording would have concluded the question was settled; it is not.
-- **Not proven, and not to be assumed:** that HUDs over the lock are a good
-  idea; that this survives a macOS update; that a raised space behaves for
-  hover, click routing or multi-display the way the app's panels do today. The
-  probe answers one question — whether pixels reach the lock screen — and
-  nothing else. (Two of these were closed by the second probe, below. The macOS
-  update remains open by nature.)
+`lockscreen-geometry.swift` draws labelled bands over the shield for the author
+to read (2026-08-08, a 1512×982 panel): the login never leaves the centre column,
+its top edge sits at or below 180 pt, and a rect at 220 pt reads clear. The
+2026-08-07 run puts a surface 96 pt off the bottom on the avatar.
 
----
+## The open question
 
-## The second round (2026-08-07) — do events reach, and does a big one behave
-
-The paragraph above named three unknowns and the widget's design rested on two
-of them: its expanded state exists only if a click lands, and expanding covers
-the display, which a 460×120 marker never tested.
-`scripts/probes/lockscreen-events.swift` settled both, with the same control
-discipline — it reads the session dictionary itself and stamps every click with
-the lock state at the moment it arrived, so a silent log is distinguishable from
-a broken probe.
-
-**Measured by the author on hardware** (macOS 26, Apple Silicon):
-
-- **5 clicks logged `unlocked`** — the control. Clicks reach this window at all.
-- **10 clicks logged `LOCKED`** — events reach a raised-space window over the
-  shield. The expanded state is viable.
-- **Both windows stayed visible across three lock/unlock cycles**, so a
-  screen-sized window in the raised space behaves like the small one.
-- **macOS drew no media controls of its own** on the lock screen. This is not a
-  second player competing with the system's.
-- **Not answered: sleep, wake and hotplug.** No such edge fired during the run,
-  so the log carries no evidence either way. Left open deliberately rather than
-  guessed at, and covered by action instead of by a read — see below.
-
-A FOURTH probe, `lockscreen-geometry.swift`, answered where the surface may sit.
-The card had been placed 96 pt off the bottom from a mock, with a comment
-claiming that cleared the avatar and the password field; on hardware the
-opposite was true, because Sonoma moved the login UI DOWN. The ruler draws
-labelled bands and candidate rects over the shield and the author reads it.
-**Measured 2026-08-07:** the login never leaves the centre column (the
-horizontal invariant every version has kept), a card at 96 pt lands on the
-avatar, and a 300 pt square centred on the display touches nothing. That is why
-the collapsed card now rests at 300 pt and the expanded state is a 300 pt tile
-centred rather than a cover stacked over a card (docs/DECISIONS.md:
-the-lock-screen-is-a-space).
-
-**Re-run 2026-08-08**, because that first run answered three of its own five
-questions and the silence read as an answer. It now records the display size
-(1512×982), puts the login's top at or below 180 pt, and reads candidate B clear
-at 220 — so 300 clears the login by at least 120 pt rather than by a margin
-nobody had measured. Two claims died with it. The stack was rejected here for
-"its bottom edge lands back on the login": on the real panel it centres to
-259…723 and clears the login by 79 pt, so the true reason is the other end — 723
-leaves the 641 ceiling the ruler proved — plus the interaction one, that a hero
-above a card is a large picture ignoring every click aimed at it. And a "72% of
-the height" that had reached CLAUDE.md turned out to be 1 − 250/900 off a test
-fixture, not a reading.
-
-**And then the backdrop went, entirely** (2026-08-08, docs/DECISIONS.md:
-the-lock-surface-is-a-card). For one round it merely stopped erasing the login —
-clearing the band below `clearBandFloor`, ramping back to opaque above it, and
-drawing a clock of its own because that layer covered the system's. The round
-after deleted the layer instead of tuning it: the fade's boundary is a Mach band
-and cannot be softened away, a light cover erased the very clock the backdrop
-obliged, and covering a login turns a cosmetic feature into a safety-critical
-one. What ships is two bounded objects on the user's own wallpaper. There is no
-Crema clock any more, and there must not be one: with no ground, the shield's
-own clock is visible, and a second beside it is a defect rather than a feature.
-
-Everything below about clicks, cursor routing and the raised space still holds —
-those questions belong to the WINDOW, which is unchanged.
-
-A third probe, `lockscreen-mouse-routing.swift`, was needed once the surface
-shipped, and its question is the mirror of the second one's: not "do clicks
-reach a window that wants them" but "can a window that deliberately REFUSES them
-still learn where the cursor is". A screen-sized clear window captures every
-click on the display, so the panel has to stay click-through and open only over
-the card — which requires tracking the cursor while capturing nothing. Apple
-documents that a global event monitor "would not be able to detect Command-Tab
-or a system alert", and the lock screen is loginwindow's UI, so this was a real
-doubt. **Measured 2026-08-07: it does not generalize.** While locked, with a
-window in exactly that configuration: 1092 global mouse-moved events, 281 local,
-and 117 live readings from `NSEvent.mouseLocation` polling — all three
-mechanisms alive, the third being a standing fallback if delivery ever stops.
-
-The probe splits into two windows on purpose, and the split is a safety property
-rather than a convenience: the screen-sized one sets `ignoresMouseEvents`, so it
-can never swallow a click meant for the password field. A screen-sized window
-that ate events over the lock shield would be a probe that locks you out of your
-Mac.
-
----
-
-## What shipped
-
-Item (b), opt-in and born off (`showsLockScreenWidget`). The pieces:
-
-| | |
-|---|---|
-| `Crema/Sources/SkyLight/SkyLightSpace.swift` | The private edge, behind `RaisedSpace` like every other system contact — dlopen, dlsym, **every one of the five symbols checked**; any nil ⇒ `isAvailable == false` and the feature is simply not offered |
-| `Crema/Windows/LockScreenPanel.swift` | One screen-sized borderless panel, `canBecomeVisibleWithoutLogin = true` |
-| `Crema/Windows/LockScreenPresenter.swift` | Owns the window's whole lifetime; the policy is the pure `LockWidgetPresence.shouldPresent(enabled:locked:spaceAvailable:)` |
-| `Crema/Styles/LockWidgetView.swift` | The surface: collapsed card, expanded cover, both states |
-
-Three decisions worth not re-deriving:
-
-- **It reads the raw `locked` bit, never `!isSuppressionSafe`.** That predicate
-  collapses locked with off-console, and drawing this user's listening onto
-  another account's lock screen after a fast user switch is a worse mistake than
-  not drawing at all. The pair survives in `ScreenLockSessionTranslation.decode`.
-- **A second reader of the lock needs a mirror, not a second `for await`.**
-  `ScreenLockSource.updates` is a single-consumer `AsyncStream` the suppression
-  controller already owns; a second loop would silently split the values. The
-  house template is `LowPowerModeMirror`, and `LockScreenMirror` follows it —
-  reported **before** the reconciler, deliberately, because the reconciler
-  deduplicates on `safe` and would swallow a lock→lock-with-different-console
-  edge this mirror needs to see.
-- **The sleep/wake unknown is covered by action, not by a read.** Whether a
-  raised space survives a display sleep is state living in the WindowServer, and
-  the J7 lesson in this codebase is that such state cannot be audited from
-  inside the process — a local read answers "fine" either way. So the panel
-  re-adopts its space unconditionally on all four edges the media-key tap
-  already reinstalls on (`docs/DECISIONS.md: preventive-reinstall`,
-  `J7-estado-do-outro-lado`). `adopt` is idempotent; acting costs one cheap
-  call, trusting a local read costs a surface that silently stopped appearing.
-
-## Animated artwork
-
-Row (c) used to read "only static art via MediaRemote — no Canvas or animated
-covers", stated as a limitation of the bridge. That is one of three walls, and
-not the load-bearing one. Any of them alone is fatal, so this does not reopen
-when a new bridge appears:
-
-- **Apple withholds the data from every third party.** `editorialVideo`, where
-  motion artwork lives, is not exposed to third-party apps through the Apple
-  Music API — developer token or not. For albums, the only extended attribute a
-  third party can load is `artistUrl`.
-- **`MPMediaItemAnimatedArtwork` is a provider API.** It is how a music app
-  hands animation *to* the system. Crema observes whatever is playing and never
-  receives it. It is also iOS-only.
-- **The bridge has no such key.** The vendored adapter emits 45 fields and
-  exactly one image: `artworkData` + `artworkMimeType`. No artwork identifier,
-  no URL, no animated variant — and `MRMediaRemoteGetNowPlayingInfo` takes no
-  options dictionary, so there is no size to negotiate and the dimensions
-  received are not even reported. Apple Music's motion art never crosses the
-  MediaRemote boundary.
-
-The consequence has outlived the thing it was written for. It once justified the
-slow drift on the blurred backdrop as the honest form of the idea on this
-platform; the backdrop is gone and the finding is unaffected, because it was
-never about the backdrop — no animated artwork reaches this app by any route, so
-no future lock composition can plan on one. And the same paragraph explains the
-**cover lookup** (`ArtworkLookup`, opt-in, off by default): the size is not negotiable
-at the MediaRemote boundary either, so a larger cover has to come from somewhere
-else entirely.
+Whether a SkyLight space BELOW level 300 composites BEHIND the shield. Nobody has
+run it; `lockscreen-space.swift` takes the level as a parameter. If a lower space
+shows through, the system draws the login on top of whatever sits there.

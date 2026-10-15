@@ -1,170 +1,72 @@
 # System-contact inventory
 
-> Every place Crema touches a resource that can die underneath it, enumerated in
-> five classes: live physical-world resources, parity that holds only by
-> coincidence, restoration scopes, timeouts, and the blast radius of each
-> protection. About 90 enumerated items — the section headers below carry the source audit's own claimed counts (summing to ~105), which overcount their own tables; the headers are kept as provenance, the tables are the truth. The audit that produced it labelled this section a
-> **checklist for future review** — that is still what it is, and it is published
-> because it is the map you want in hand before changing anything on the fragile
-> border.
->
-> **Dated, and that is load-bearing: the statuses below are from 2026-07-18**,
-> except those carrying a **2026-08-15** stamp, read back against the code on
-> that date — the volume listeners, the tap's port, the adapter↔JXA promotion,
-> both one-shot child processes, the brightness cadence, the wake edges, the
-> suppressor's reads and the ghost discard, each found fixed in code this file
-> did not yet record; the CoreBrightness row, split by the same read into the
-> half that is closed and the half that is a declared gap; and the neighbour's
-> two distributed registrations.
-> An unstamped PROTECTED / SILENTLY-FATAL is the `dev` branch's state on
-> 2026-07-18, and the code carries fixes that state predates (per-domain
-> suspension, the fourth reinstall trigger, per-operation keyboard ID, the child
-> process deadline, the settle tail from init). Re-verify an item against the
-> code before trusting its status; a stale "PROTECTED" is exactly the kind of
-> sentence this project treats as a doc bug. What does not go stale is the
-> enumeration itself — the list of things that can die.
->
-> Provenance: section D of the bug-class audit of 2026-07-18 (5 auditors, 11
-> adversarial verifiers, 5 completeness critics; report only, no fixes applied).
-> The report itself is not kept; this inventory is what survives of
-> it. The `A1…A9`, `B1…B3` and `§C` markers
-> are its own finding IDs, kept as provenance; the findings that mattered are
-> fixed and live as anchors in [DECISIONS.md](https://github.com/colatte/crema/blob/main/docs/DECISIONS.md).
-> The `S…`, `MG…`, `P…` and `G2` markers are contract ids and resolve in
-> [CONTRACTS.md](https://github.com/colatte/crema/blob/main/docs/CONTRACTS.md).
+> Every place Crema touches a resource that can die underneath it: what it
+> touches, where in the code, and what happens when the resource goes away. It is
+> the map to hold before changing anything on the fragile border. Each row names
+> its site, and the site is the authority: re-read it before leaning on a row.
+> Contract ids (`S…`, `MG…`, `W…`, `P…`) resolve in
+> [CONTRACTS.md](https://github.com/colatte/crema/blob/main/docs/CONTRACTS.md);
+> the debts a row names live in
+> [KNOWN-GAPS.md](https://github.com/colatte/crema/blob/main/docs/KNOWN-GAPS.md).
 
-## D1 · Class 1 — live resources of the physical world (23 items + 6 from the critic)
+## Private frameworks and the vendored bridge
 
-| Resource | Status |
-|---|---|
-| dlopen + DisplayServices symbols; displayID per operation | PROTECTED (J2 fix complete) |
-| dlopen + class + **CoreBrightness client instance + keyboardID** | **Split, re-verified 2026-08-15.** The keyboardID half is PROTECTED: enumerated per operation (`copyKeyboardBacklightIDs` + `isKeyboardBuiltIn:`), never frozen at init, and `isAvailable` asks the provider on every call. The client INSTANCE half stands — resolved once in `CoreBrightnessKeyboardBridge.init`, re-created by no wake or session edge, so a connection that dies takes the backlight HUD with it until relaunch. Registered as a deliberate gap ([KNOWN-GAPS.md](https://github.com/colatte/crema/blob/main/docs/KNOWN-GAPS.md)) → A7 |
-| Display ID (brightness write) | PROTECTED |
-| Audio device for the volume/mute write (per operation) | PROTECTED |
-| Volume + mute listeners (device switch re-subscribes) | **PROTECTED, re-verified 2026-08-15** (A9 in the 2026-07-18 audit: a coreaudiod restart is not covered). `CoreAudioVolumeSource` observes `kAudioHardwarePropertyServiceRestarted` — the one property whose purpose is to say every registration is gone — and `installServiceRestartListener` re-adds ITSELF before the device listeners, or it would survive exactly one restart and be deaf to the second. It also removes the previous block before re-adding, so recovery does not depend on the header's premise that the reset took that listener with it. Silent by design: recovery is not a change the user made |
-| observedDevice (cache for routing the listeners) | PROTECTED |
-| Event tap CFMachPort + runLoopSource | **PROTECTED, re-verified 2026-08-15** (A8 in the 2026-07-18 audit: invalidated without reinstall). `healTapLocked` splits the two failure modes — an invalidated port is uninstalled and reinstalled from scratch, since no `setEnabled` revives one, and a valid-but-disabled port is re-enabled keeping its consumer wiring. Reached from the health poll and from the four preventive-reinstall edges, every mutation on the tap's own thread |
-| The tap's consumer | PROTECTED (survives teardown/reinstall) |
-| Streaming Perl subprocess (EOF → finish → re-select, new process) | PROTECTED |
-| **adapter ← JXA preemption** | **PROTECTED, re-verified 2026-08-15** (A4, SILENTLY-FATAL in the 2026-07-18 audit). While a lower-priority source is active, `ChainedNowPlayingSource.startPromotionProbe` polls the preferred candidate on an interval and `armPromotion` arms the cutover for the selection it was started under; the cutover lands at a quiet boundary rather than mid-track, and a source that has emitted nothing since selection is stopped so it cannot wait forever for a boundary it will never reach |
-| One-shot Perl probe (no timeout) | **PROTECTED, re-verified 2026-08-15** (A6, SILENTLY-FATAL in the 2026-07-18 audit). Every one-shot child goes through `runChildProcess` (`ChildProcessDeadline`): a pure single-resume race over `SleepClock`, and on expiry the child is `terminate()`d escalating to SIGKILL and abandoned, never awaited |
-| One-shot osascript (read/probe/commands; AppleEvent ~1–2 min) | **PROTECTED, re-verified 2026-08-15** (A6, SILENTLY-FATAL, bounded, in the 2026-07-18 audit). Same `runChildProcess` deadline — 5 s on the interactive commands, where the user re-taps long before — so the AppleEvent's own ~1–2 min ceiling is not the only bound |
-| The JXA pollTask (never finishes on its own) | contributes to A4 |
-| Lock observers (edge → authoritative re-read) | PROTECTED |
-| didChangeScreenParameters observer → updateScreens | PROTECTED |
-| Display UUID as a key (fresh on every describeAll) | PROTECTED |
-| NSEvent monitors for hover / for clicks | PROTECTED (closed cycle) |
-| One NSPanel per surface per display (rebuilt by UUID/geometry/style/HUD placement) | PROTECTED |
-| Accessibility permission (re-read on every use, 2 s poll) | PROTECTED |
-| Long-lived tasks/streams/continuations | PROTECTED (with the caveat about the brightness sources below) |
-| Sparkle / SMAppService | PROTECTED (no live resource held) |
-| Volume read-modify-write × a device switch | narrow race → A1 map |
-| _From the critic:_ **brightness sources: the isAvailable guard at init, so the pollTask may never be born** | **PROTECTED, re-verified 2026-08-15** (aggravating A7 in the 2026-07-18 audit). `PolledBrightnessSource.startPollingIfAvailable` runs at launch AND at the first key the channel sees, so a channel that answered nothing at a cold boot arms its cadence on the evidence that it exists rather than staying dead for the session. Deliberately not a retry timer: hardware with no backlight at all is still never polled |
-| _From the critic:_ the one-shot Perl command channel (not enumerated) | LOUDLY-FATAL (visible throw) |
-| _From the critic:_ no sleep/wake observer at all | **PARTLY CLOSED, re-verified 2026-08-15.** `AppCore.wireWakeReinstall` reinstalls the media-key tap preventively on `screensDidWake` and `didWake` — with unlock and `didChangeScreenParameters`, the four physical edges — because a tap goes deaf while `isValid`/`isEnabled` keep answering healthy. The volume side is covered by the HAL's own restart property instead of a wake edge. What no edge covers is the keyboard-backlight client (see the CoreBrightness row) |
-| _From the critic:_ the adapter's Pipe fds under respawn (flapping) | low confidence; check under long flapping |
-| _Added 2026-08-01:_ desktop picture file (`NSWorkspace.desktopImageURL` for `NSScreen.main`, behind `DesktopPictureSource`) | PROTECTED (nil is an answer — the Settings tiles draw their own desk; the border is asked on every backdrop, so a wallpaper just changed is a new URL, and the bounded thumbnail decode is cached per URL with failure remembered) |
-| _Added 2026-08-01:_ Low Power Mode (`ProcessInfo.isLowPowerModeEnabled` + `NSProcessInfoPowerStateDidChange` observer) | PROTECTED (edge triggers an authoritative re-read, never a flip — the system posts it for any power-source change; seeded synchronously at init, since a Mac launched already in Low Power posts nothing; observer removed and stream finished in deinit) |
-| _Added 2026-08-07, ~~RETIRED~~ 2026-08-08:_ **SkyLight raised space** | GONE — the app dlopens nothing and holds no private symbol. The five calls (`SLSMainConnectionID`, `SLSSpaceCreate`, `SLSSpaceSetAbsoluteLevel`, `SLSShowSpaces`, `SLSSpaceAddWindowsAndRemoveFromSpaces`) left with the surface that used them (docs/DECISIONS.md: the-lock-screen-was-built-and-taken-out). The row stays as the record that the app once had exactly one private window API and now has none, and that the degradation shape was the right one: every lookup checked, nil meaning the feature is not offered rather than a crash |
-| _Added 2026-08-07, ~~RETIRED~~ 2026-08-08:_ the lock surface's NSPanel (screen-sized, `canBecomeVisibleWithoutLogin`) | GONE — left with the surface, like the raised space above it (docs/DECISIONS.md: the-lock-screen-was-built-and-taken-out) |
-| _Added 2026-08-07:_ **distributed notification DELIVERY for the lock edges** (`com.apple.screenIsLocked`/`Unlocked`) | PROTECTED. Every block-based registration defaults to `NSNotificationSuspensionBehaviorCoalesce` (`NSDistributedNotificationCenter.h`), which is HELD while the centre is suspended — and AppKit suspends it on its own "when the application is not active". Crema is an LSUIElement accessory: never active, and certainly not at the instant the screen locks. Registered with `.deliverImmediately`, the documented opt-out. The settle re-reads and the periodic tail stay; they cover distnoted being best-effort even while it IS delivering |
-| _Added 2026-08-07, ~~RETIRED~~ 2026-08-08:_ **MusicBrainz + the Cover Art Archive** | GONE — the app makes no such request any more. The contact existed to fill a 300 pt expanded tile; that state was removed with the rest of the lock surface, and the largest artwork slots left — the desktop skins' — are thumbnails the player's own bytes already oversupply (docs/DECISIONS.md: the-lock-screen-was-built-and-taken-out). Kept as a row because the guest-relationship discipline it recorded is the reusable part: MusicBrainz publishes 1 request per second per IP and asks for a descriptive User-Agent, and `RequestPacer` reserved its slot BEFORE any await because actors are reentrant and a pacer that awaits first paces nothing. Whoever adds the next rate-limited guest inherits both |
-| _Added 2026-08-08, ~~RETIRED~~ the same day:_ **the wall clock, for the lock surface's own time** | GONE — the contact left with the surface that needed it. The lock widget no longer paints a ground (docs/DECISIONS.md: the-lock-surface-is-a-card), so it no longer covers the system's clock, so it draws no clock and reads no wall time. The row is kept rather than deleted because the measurement behind it is the kind someone re-does: `Task.sleep` waits on an absolute `ContinuousClock` deadline, which counts THROUGH system suspension, so a missed boundary collapses into one wake carrying the current minute rather than a burst — verified over the shield with a dispatch-timer control that delivered the same count, which is what ruled out a scheduler-specific fault, and reproduced with SIGSTOP across five boundaries. Whoever adds a clock back to any surface inherits that and owes no observer |
+| Contact | Where | When it fails |
+|---|---|---|
+| DisplayServices, opened with `dlopen`, symbols resolved with `dlsym` | `DisplayServicesBridge` | A nil symbol means the channel is unavailable, never a crash. The display ID is resolved per operation (docs/DECISIONS.md: J2-display-id-stale). |
+| CoreBrightness's `KeyboardBrightnessClient`, opened with `dlopen` | `CoreBrightnessKeyboardBridge` | The keyboard ID is enumerated per operation (`copyKeyboardBacklightIDs` + `isKeyboardBuiltIn:`). The client instance is resolved once and no edge rebuilds it: a dead client reads nil, writes false, and the channel reports itself absent until relaunch (KNOWN-GAPS: the keyboard-backlight client). |
+| The mediaremote-adapter's streaming Perl process | `MediaRemoteAdapterProcess`, `MediaRemoteAdapterNowPlayingSource` | EOF finishes the stream; `ChainedNowPlayingSource` re-selects and starts a new process. The child outlives a killed parent (KNOWN-GAPS: a process finishing is not its children finishing). |
+| The adapter's one-shot probe and command channel | `MediaRemoteAdapterProbe`, `MediaRemoteAdapterCommandChannel` | Every one-shot child runs under `runChildProcess` (`ChildProcessDeadline`): on expiry it is terminated, escalated to SIGKILL and abandoned, never awaited. A failed command throws. |
 
-| _Added 2026-08-15:_ **distributed notification DELIVERY for the neighbour's two channels** (`pro.betterdisplay.BetterDisplay.osd` and `…​.response`) | PROTECTED against the same defect as the lock edges above, two rows up, found by mirroring that fix outward. A block-based registration defaults to `NSNotificationSuspensionBehaviorCoalesce`, which is held while the centre is suspended; AppKit suspends it whenever the app is not active, and an LSUIElement accessory essentially never is. Both register by selector with `.deliverImmediately` (a shared `DistributedPayloadRelay`, since the suspension behaviour is only on the selector API). On the response side the delivery also closes an asymmetry of our own making: the REQUEST goes out with `deliverImmediately: true`, and a held ANSWER is indistinguishable from silence to the caller — the deadline fires, the drag reports a failed apply, and the bar rolls back over a write that actually landed. Not a proof of delivery: whether the neighbour's post arrives at all remains best-effort, which is why the OSD side stays inert-by-design when nothing comes |
+## Now playing without the adapter
 
-## D2 · Class 2 — parity by coincidence (27 items + 5 from the critic)
+| Contact | Where | When it fails |
+|---|---|---|
+| `osascript` running JXA, for the read, the probe and the commands | `JXANowPlayingSource`, `JXACommandChannel` | The same `runChildProcess` deadline, 5 s on the interactive commands, so the Apple Event's own minutes-long ceiling is never the only bound. |
+| Apple Events consent per player | `AppleEventsAutomationPermission` | A state read never prompts; only the user's click requests. A closed player reads as "not running", not as a refusal. |
+| The chain's promotion back to the adapter | `ChainedNowPlayingSource` | While a lower-priority source runs, a probe polls the preferred one and arms a cutover at a quiet boundary (docs/DECISIONS.md: promotion-quiet-boundary). Every source death drops the snapshot (docs/DECISIONS.md: ghost-discard; S6). |
 
-**By construction (proven)**: MediaKeyStepper identical on all 3 channels; mute
-only on volume, with verify by exact equality; MG7 slider/filled in one place;
-MG1 empty↔visible freeze on all 3 styles, the Notch's included; MG5 Reduce Motion
-gated in `SurfaceAnimation` (geometry); shared StyleContent; the en↔pt-BR catalog
-with no orphans and no divergent terms (P1/P2 fixed); post-failover command
-routing (`activeCommandChannel`); all 3 engage paths converge on
-`applyEngagement → setEngaged`; card-only hover and notch-only slit inset by
-design.
+## Audio
 
-**Coincidence-fine-today (real asymmetry, same result)**: an event-driven source
-(volume) vs. sampled + poke (the brightnesses); boundary refresh through two
-mechanisms (`boundaryRefreshHUD` with no changed-guard vs. the gate with
-`!changed` → a cosmetic double-emit of volume); the volume HUD delayed under
-suppression (the router's comment only holds in OFF mode); boundary + observe:
-brightness shows a HUD, volume does not (the native one covers it);
-`ClassicStyle.windowFrame` expanded-only (G2); the simplified demo sources;
-adapter vs. JXA capabilities (the 1 Hz ticker only on the adapter).
+| Contact | Where | When it fails |
+|---|---|---|
+| Default output device, volume and mute, read and written per operation | `CoreAudioSystemOutput`, `CoreAudioVolumeController` | The device is resolved inside the same off-pool hop as the write, so a write never addresses a device replaced in between. |
+| Volume and mute listeners, re-subscribed on a device switch | `CoreAudioVolumeSource` | A `kAudioHardwarePropertyServiceRestarted` listener re-adds itself before the device listeners, so a coreaudiod restart re-registers everything in silence; a failed registration is logged. |
+| The output route: transport type and the built-in device's data source | `OutputRouteClassifier` | A device it cannot name draws the speaker (docs/DECISIONS.md: the-output-glyph-names-only-what-it-knows). |
 
-**Asymmetries that bite**: continuous vs. quantized verify → **A2**; a frozen
-keyboardID vs. a per-operation display → **A7**; the slider not unmuting while
-the key does → **A3** (from the critic); the Notch's content crossfade outside
-the Reduce Motion house (§C).
+## Keys and the event tap
 
-## D3 · Class 3 — restoration scopes (14 cycles)
+| Contact | Where | When it fails |
+|---|---|---|
+| The media-key event tap (`CFMachPort` + run-loop source) and its consumer | `CGEventTapMediaKeySource` | An invalidated port is reinstalled from scratch; a valid but disabled one is re-enabled with its consumer kept. Reached from the health poll and from the four preventive-reinstall edges, every mutation on the tap's own thread (docs/DECISIONS.md: preventive-reinstall). |
+| Wake and topology edges: `screensDidWake`, `didWake`, `didChangeScreenParameters` | `AppCore.wireWakeReinstall`, `AppCore.wireScreenParameterReinstall` | Each edge reinstalls the tap, which can go deaf while `isValid`/`isEnabled` answer healthy. |
+| The session's tap chain, `CGGetEventTapList` | `EventTapRegistry`, `MediaKeyChainReconciler` | Read only when the menu opens, since each read zeroes every tap's latency counters; Crema names who is ahead and never contests the position. |
+| The pointer and the active display list, for the brightness key | `BrightnessKeyTargetReading` | Read fresh on every press; an answer that is not the built-in panel hands the whole key back. |
+| Accessibility trust (`AXIsProcessTrusted`) | `AXAccessibilityPermission`, `AccessibilityPermissionMonitor` | Re-read on every use and polled every 2 s; without it only key capture falls, and a grant resumes it. |
+| The native OSD's channels, written under suppression | `MediaKeyInterceptionOSDSuppressor`, `SystemOSDChannels` | A failed or hung apply suspends only its domain and hands its keys back; no failure writes a preference (docs/DECISIONS.md: per-domain-suspension, write-health-axis). |
 
-RESTORES-FULLY (with proof): lock/unlock (physical tap + consumer + generation +
-a live guard via `isSuppressionSafe`); auto-disengage → manual re-engage (the
-same `setEngaged`); revoke → re-grant of Accessibility (the consumer is preserved
-across teardown, so suppression auto-resumes); panel rebuild (born showing the
-current state; hover re-sampled); quit (the tap dies with the process — every
-exit path restores the native OSD); volume/screen under sleep/wake (per
-operation); demo enter/exit (relaunch-only, no partial state).
+## Session, screens and windows
 
-DELTAS: **the keyboard under sleep/wake** → A7, the one still open (its reasoning,
-palliative and reopening gate are in
-[KNOWN-GAPS.md](https://github.com/colatte/crema/blob/main/docs/KNOWN-GAPS.md));
-S4 / login-item snapshot-once (B3); MergedSystemHUDSource with no re-subscription
-(§C); the narrow `commandsAvailable` heal (B2).
+| Contact | Where | When it fails |
+|---|---|---|
+| The lock state: `CGSessionCopyCurrentDictionary`, and `com.apple.screenIsLocked`/`Unlocked` registered with `.deliverImmediately` | `DistributedNotificationScreenLockSource` | An edge triggers an authoritative re-read, never a flip; settle re-reads and a periodic tail from construction catch a dropped or early edge (docs/DECISIONS.md: settle-rereads). `.deliverImmediately` opts out of the coalescing an inactive accessory app would otherwise get (`NSDistributedNotificationCenter.h`). |
+| Display UUIDs and the panel roster | `ScreenTranslation`, `DisplayUUID` | UUIDs are read fresh on every `describeAll`; a display whose UUID does not resolve is dropped from the roster and logged. |
+| One `NSPanel` per surface per display | `WindowManager`, `NSPanelPresentationPanel` | Rebuilt when the display's geometry, style or HUD placement changes (W4). |
+| `NSEvent` monitors for hover and clicks | `SurfaceHoverMonitor`, `NSPanelPresentationPanel` | Armed only while a surface is visible on that display (W2). |
+| The desktop picture (`NSWorkspace.desktopImageURL`) | `WorkspaceDesktopPictureSource` | Nil is an answer: the Settings tiles draw their own desk. |
+| Low Power Mode (`isLowPowerModeEnabled` + `NSProcessInfoPowerStateDidChange`) | `ProcessInfoLowPowerModeSource` | Seeded synchronously at init; each edge triggers a re-read, never a flip. |
 
-**Closed, re-verified 2026-08-15**: the preferred source after a failover
-(A4) — the promotion probe arms a cutover that lands at a quiet boundary — and
-ghost discard, which is not quit-only (B1): `fireActiveSourceEnded` fires
-whenever the active source's stream ends, whether its process died or a promotion
-broke the loop, so the consumer drops the stale snapshot and the next selected
-source rebuilds the state from its own.
+## The neighbour app
 
-## D4 · Class 4 — timeouts (24 items + 4 from the critic)
+| Contact | Where | When it fails |
+|---|---|---|
+| BetterDisplay's `.osd` and `.response` distributed notifications, registered by selector with `.deliverImmediately` | `BetterDisplayOSDSource`, `BetterDisplayCommandChannel`, `DistributedPayloadRelay` | Without BetterDisplay nothing arrives and the source sits inert. A held answer would read as silence, so the response side delivers immediately; a request with no answer within its deadline falls back to the system actuator, and when that cannot write either the bar rolls back (docs/DECISIONS.md: the-bar-never-outruns-the-screen). No sender identity (KNOWN-GAPS: BetterDisplay's channel). |
 
-REAL-DEADLINE (with proof): the write's withDeadline (detached +
-single-resume SingleResumeRace, unified at the Sources root — all 4 interleavings traced); the Coordinator's
-timers (revert/linger/hover — cancel + stale-fire guard correct under a burst);
-the tap poll and the 1 Hz ticker (a generation invalidates stale ticks); the
-adapter's stream (EOF finishes, teardown does not wait); the clickable region's
-tighten; artwork decode.
+## The app's own lifecycle
 
-NO-DEADLINE: the Coordinator's fire-and-forget actuators (off-main by
-SE-0338 — leaks a suspended Task, does not freeze; low impact); the brightness
-polls (off-main, isolated degradation); CGSessionCopyCurrentDictionary
-(MainActor, a fast local query); _from the critic:_ SMAppService,
-AXIsProcessTrustedWithOptions, dlopen at boot (§C). BOUNDARY: Sparkle
-(Release-only, the framework's own timeouts).
-
-**Closed, re-verified 2026-08-15**: the suppressor's reads on the MainActor
-(A5) go through `readWithDeadline`, and the one-shot child processes (A6) through
-`runChildProcess`. Both are single-resume races over `SleepClock`, and both put the
-blocking half on `DispatchQueue.global()` rather than the cooperative pool — that
-pool has fixed width and does not overcommit, so blocked orphans there would
-eventually strangle the deadline that is supposed to free them.
-
-**Weak proof corrected**: the @MainActor permission poll is a COOPERATIVE
-deadline (synchronous IPC to tccd with no deadline), not a real one — "it is
-fast" is a premise, not a proof.
-
-## D5 · Class 5 — the blast radius of the protections (17 items)
-
-PROPORTIONATE (with proof): a boundary no-op does not punish; the generation
-guard (S9); an absent capability hands the key back (docs/DECISIONS.md: absent-capability-hands-the-key-back);
-failover on a malformed line (hides 1 tick, self-heals); MediaSourceFilter
-(documented radius + toggle); KeyOriginBrightnessGate (S3 closed; silences only
-the sensor); lock-aware suspension (**never touches the pref** — proven; a total
-radius is the correct design precisely because the app draws nothing over the
-lock shield — not even an opt-in now-playing widget
-(docs/DECISIONS.md: the-lock-screen-was-built-and-taken-out) — and suspending
-suppression is what leaves the KEYS with native feedback); degrading without
-Accessibility (only capture falls; self-heals on grant); an orphaned style and a
-slitless notch resolve at runtime **without rewriting the pref** (proven by a
-grep for setStyle); LoginItem/Sparkle with no persistence on failure; **the only
-non-user pref write in the codebase = J5** (full grep).
-
-DISPROPORTIONATE: **global auto-disengage + a persisted pref** → A1 (full map).
-LATENT: re-enabling the tap with no backoff under non-lock secure input (§C);
-the brightness sources' degradation decided at init (→ A7); `commandsAvailable`
-with a conditional heal (B2).
+| Contact | Where | When it fails |
+|---|---|---|
+| Login item (`SMAppService`) | `LoginItem` | Nothing is persisted on failure; a registration macOS revoked is reported in the menu, never re-registered silently (docs/DECISIONS.md: login-item-intent). |
+| Sparkle (Release builds only) | `UpdaterModel` | The framework's own timeouts; no live resource held. |
+| The Privacy panes, opened by URL | `AppCore` | A renamed pane opens nothing (KNOWN-GAPS: the Privacy panes). |
+| `UserDefaults` | `Preferences` | No failure path writes a preference (docs/DECISIONS.md: J5-raio-global); an unknown stored value degrades to the default (P4). |
