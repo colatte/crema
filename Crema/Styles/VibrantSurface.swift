@@ -71,8 +71,11 @@ enum SurfaceChrome {
     /// for how dark, one for how present. It reads as a shadow of an edge
     /// rather than an edge: over a bright desktop that is the only thing that
     /// keeps the surface's outline; over a dark one the specular carries it.
+    /// The opacity is kept light because WWDC25 session 356 calls custom borders
+    /// on bars unnecessary; 0.20 is a number chosen to be judged on screen, not
+    /// derived from anything.
     static let outerHairlineWhite: Double = 0
-    static let outerHairlineOpacity: Double = 0.35
+    static let outerHairlineOpacity: Double = 0.20
     static let outerHairlineWidth: CGFloat = 0.5
 
     /// The specular's opacity at the very top of the surface.
