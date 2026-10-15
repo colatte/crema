@@ -46,4 +46,40 @@ struct MenuBarPointerPanelTests {
         #expect(StatusItemLocation.frame(among: [(.statusBar, offscreen)], screens: [screen]) == nil)
         #expect(StatusItemLocation.frame(among: [(.statusBar, .zero)], screens: [screen]) == nil)
     }
+
+    /// The icon is built a moment after launch, so a miss is asked again on the
+    /// injected clock — and after the last attempt nothing is left running.
+    @Test func aMissedIconIsAskedForAgainThenLeftAlone() async {
+        let clock = TestSleepClock()
+        let asked = Tally()
+        let pointer = MenuBarPointerPanel(locate: { asked.count += 1; return nil }, clock: clock)
+
+        pointer.show()
+        for _ in 0..<MenuBarPointerPanel.attempts {
+            await clock.waitForSleep(delay: MenuBarPointerPanel.retryInterval)
+            clock.advance(delay: MenuBarPointerPanel.retryInterval)
+        }
+
+        #expect(await eventually { asked.count == MenuBarPointerPanel.attempts })
+        await settle()
+        #expect(clock.pendingSleeps == 0)
+        #expect(asked.count == MenuBarPointerPanel.attempts)
+    }
+
+    /// Hiding mid-search ends it: the tour leaving its last step must not leave
+    /// an arrow that turns up a second later.
+    @Test func hidingStopsTheSearch() async {
+        let clock = TestSleepClock()
+        let asked = Tally()
+        let pointer = MenuBarPointerPanel(locate: { asked.count += 1; return nil }, clock: clock)
+
+        pointer.show()
+        await clock.waitForSleep(delay: MenuBarPointerPanel.retryInterval)
+        pointer.hide()
+        clock.advance(delay: MenuBarPointerPanel.retryInterval)
+        await settle()
+
+        #expect(asked.count == 1)
+        #expect(clock.pendingSleeps == 0)
+    }
 }

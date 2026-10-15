@@ -108,45 +108,6 @@ struct TourFeatureList: View {
     }
 }
 
-/// The notes under the tour's suppression switch, the Indicators tab's own:
-/// what the switch does, where brightness stops, and why it cannot engage yet.
-struct TourSuppressionNotes: View {
-    let core: AppCore
-
-    var body: some View {
-        VStack(spacing: 4) {
-            Text(String(
-                localized: "settings.hud.suppress.footer",
-                defaultValue: "Hides the system volume and brightness indicators and shows Crema’s instead."
-            ))
-            Text(String(
-                localized: "settings.hud.suppress.footer.brightnessScope",
-                // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
-                defaultValue: "Brightness is only replaced on the built-in display, while the pointer is on it. With the pointer on another display, macOS shows its own."
-            ))
-            // Split for the reason the Indicators tab states it: someone who
-            // HAS granted Accessibility must not be told the grant is
-            // missing. The second branch is the honest sentence for a Mac
-            // with nothing to engage.
-            if !core.permissionMonitor.isGranted {
-                Text(String(
-                    localized: "settings.hud.suppress.needsPermission",
-                    defaultValue: "Needs Accessibility access — until then the system’s own indicators stay."
-                ))
-                .foregroundStyle(.orange)
-            } else if core.osdSuppressor == nil {
-                Text(String(
-                    localized: "settings.hud.suppress.unavailable",
-                    defaultValue: "System indicator replacement isn’t available on this Mac."
-                ))
-                .foregroundStyle(.orange)
-            }
-        }
-        .font(.footnote)
-        .foregroundStyle(.secondary)
-    }
-}
-
 /// Said where the tour would point at the player and no display shows it.
 struct TourPlayerOffNote: View {
     var body: some View {
