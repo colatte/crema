@@ -449,10 +449,10 @@ The pointer→value mapping lives once on the track too (`CapsuleTrack.fraction`
 and both bars drawn on it, the HUD level and the scrubber, map their pointer
 there. Upright, the glyph sits under the bar in a row
 of the same fixed slot (`CardHUDIndicator.hudIconSlot`), centred across it; the
-filled bar's glyph keeps the same inset from the bar's start, which clears the
-12 pt corner curve in both orientations because the bar is 42 pt thick either
-way. Classic's segmented bar has no upright form: it runs horizontal whatever axis
-it is handed.
+filled bar's glyph keeps the same inset from the bar's start, equal to the
+corner radius, which clears the corner curve in both orientations because the bar
+is equally thick either way (`inner-corners-are-concentric`). Classic's segmented
+bar has no upright form: it runs horizontal whatever axis it is handed.
 
 **The HUD and the now-playing appearance are two layers.** A HUD placed off the
 top centre is drawn on a surface of its own while the card stays where it is, so
@@ -2352,7 +2352,7 @@ its own at all. And a uniform bright line lies about the light. It claims a
 highlight arriving equally from every direction, including from underneath, which
 nothing on a screen lit from above ever has.
 Decision: the border is a PAIR, and neither half does the other's job. A darkened
-outer rim (black at 0.35, half a point) straddles the outline and DEFINES the
+outer rim (black at 0.20, half a point) straddles the outline and DEFINES the
 surface against any backdrop, light or dark. An inner specular, brightest at the
 top edge and spent within the upper third, supplies the lit-from-above highlight
 the material does not draw itself. The anchor carries a year because the shape is
@@ -2392,6 +2392,28 @@ Glass is the standing candidate and the standing blocker, since `glassEffect`
 renders vivid only while the window is key (the note on `vibrantSurface` carries
 the measurement). The other gate is the Notch: if that skin ever floats instead of
 camouflaging, it takes the border with it.
+
+### inner-corners-are-concentric
+Apple publishes no OSD dimensions; it publishes shape rules. WWDC25 session 356
+names three shapes: a fixed radius, a capsule (half the height), and a concentric
+shape, which "calculate[s] its radius by subtracting padding from the parent's".
+A rounded shape nested near a surface's corner with any other radius reads as
+off, the gap around the corner pinching or bulging.
+Decision: the Card HUD and every cover nested in a surface corner take their
+radius from one of these rules, derived in code rather than declared. The Card
+HUD is a fixed shape whose radius is a third of its height
+(`CardMetrics.hudSystemCornerRadius`), the corner of the author's reference
+indicator, a filled level bar near 5.8:1, which 210×36 reproduces. A cover nested in a surface corner is concentric: the parent's radius minus the
+tighter of its two insets (`CardMetrics.compactArtworkRadius`,
+`expandedArtworkRadius`, `NotchMetrics.compactArtworkRadius`). With unequal insets
+no radius is exactly concentric; subtracting the tighter one keeps the inner
+arc's centre level with the outer one's on that side, so the gap runs from one
+inset to the other with no pinch. A shape whose inset reaches past the parent's
+radius is not nested and keeps its own radius: Classic's covers (centred, 45 pt
+and more from the side under an 18 pt radius), its segments, the Notch's expanded
+cover (below the slit, far from the top corners). The filled HUD's glyph is inset
+by the radius itself, so the corner never reaches it. `CardMetricsShapeTests`
+pins these as relations, never as literals.
 
 ### tile-backdrop-is-the-real-desktop
 A drawn desk under the style tiles — a flat, dim gradient, fixed rather than

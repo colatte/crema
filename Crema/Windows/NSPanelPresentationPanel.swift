@@ -170,9 +170,9 @@ final class NSPanelPresentationPanel: PresentationPanel {
         // min/intrinsic/max constraints; and as the window's content view it
         // updates the window's contentMinSize and contentMaxSize from its content
         // (Apple docs, NSHostingView.sizingOptions). Measured: with the constraints
-        // off, the second still widens the upright HUD's 66 pt window to the card
-        // view's 180 pt floor on the window's first layout, and that HUD lands off
-        // the screen's right edge. So the hosting view sits inside a plain view
+        // off, the second still widens the upright HUD's window, narrower than the
+        // card view's 180 pt floor, to that floor on the window's first layout, and
+        // that HUD lands off the screen's right edge. So the hosting view sits inside a plain view
         // that fills the window; given a frame smaller than its content, it
         // centres the content (same doc), which is where every surface draws.
         let hostingView = NSHostingView(rootView: root)

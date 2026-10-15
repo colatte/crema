@@ -9,7 +9,7 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-// The same reader as makemaster.swift: each script runs standalone with
+// The same reader as makeicon.swift: each script runs standalone with
 // `swift <file>`, so neither can import the other's.
 func markPath(svg: URL) -> CGPath {
     let text = try! String(contentsOf: svg, encoding: .utf8)

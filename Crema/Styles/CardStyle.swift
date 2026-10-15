@@ -102,19 +102,21 @@ enum CardMetrics {
     /// when a short title would hug narrower.
     static let expandedMinWidth: CGFloat = 240
     static let expandedMaxWidth: CGFloat = 280
-    /// Dedicated system-HUD frame, deliberately smaller than the now-playing
-    /// compact strip: that strip is sized around a 40 pt artwork the HUD never
-    /// shows, so reusing it leaves the volume/brightness bar oversized for
-    /// glance-level info. Issue #3's reference indicators are thin
-    /// bars, roughly 4.5–5.5:1 width:height; 210×42 (5:1) sits mid-range. Both
-    /// Card HUD variants lay out in it: the .slider row is the icon column
-    /// (CardHUDIndicator.hudIconSlot) beside the capsule's 16 pt hit row
-    /// (CapsuleTrack.trackHitHeight) centered in the 42 pt height with headroom
-    /// to spare, and the full-bleed .filled bar adapts by construction while its
-    /// leading glyph stays legible at the shorter height. Width and height are
+    /// Dedicated system-HUD frame, smaller than the now-playing compact strip:
+    /// that strip is sized around a 40 pt artwork the HUD never shows. Apple
+    /// publishes no OSD dimensions, only shape rules, so the proportion is read off
+    /// the author's reference indicator, a filled level bar near 5.8:1 with a
+    /// radius about a third of its height; 210×36 is that bar (radius:
+    /// hudSystemCornerRadius). Both Card HUD variants lay out in it. The .slider
+    /// row centres the capsule's 16 pt hit row (CapsuleTrack.trackHitHeight) in
+    /// the 36 pt height, 10 pt clear above and below, and upright the same 16 pt
+    /// runs across the 36 pt width; along the bar, padding, icon column
+    /// (CardHUDIndicator.hudIconSlot) and gap take 16 + 22 + 10 + 16 = 64 of the
+    /// 210, leaving the capsule 146 (CardMetricsShapeTests pins both sums). The
+    /// full-bleed .filled bar adapts by construction. Width and height are
     /// separate calibration knobs.
     static let hudSystemWidth: CGFloat = 210
-    static let hudSystemHeight: CGFloat = 42
+    static let hudSystemHeight: CGFloat = 36
     static let hudSystemSize = CGSize(width: hudSystemWidth, height: hudSystemHeight)
 
     /// The HUD's size as the bar runs: the strip above, or the same strip
@@ -135,12 +137,16 @@ enum CardMetrics {
     /// player reads as a soft block (never a capsule at its taller states).
     static let cornerRadius: CGFloat = 20
     /// HUD-state surface radius, a separate knob from cornerRadius: at the short
-    /// 42 pt HUD height, reusing 20 (≈ half the height) rounds the ends into a
-    /// capsule. Issue #3's reference indicators are rounded rectangles — soft
-    /// corners with straight runs, radius ~1/4 of the height. This rides the same
-    /// layoutKind-keyed surface spring, so HUD↔now-playing morphs the outline
-    /// (RoundedRectangle cornerRadius is animatable) instead of snapping.
-    static let hudSystemCornerRadius: CGFloat = 12
+    /// 36 pt HUD height, reusing 20 (past half the height) rounds the ends into a
+    /// capsule. A third of the height is the reference indicator's corner: a
+    /// fixed-radius rounded rectangle, soft corners with straight runs — of the
+    /// three shapes Apple names (fixed, capsule at h/2, concentric; WWDC25
+    /// session 356), the fixed one. Derived from the height so a retuned bar keeps
+    /// its proportion (docs/DECISIONS.md: inner-corners-are-concentric). This
+    /// rides the same layoutKind-keyed surface spring, so HUD↔now-playing morphs
+    /// the outline (RoundedRectangle cornerRadius is animatable) instead of
+    /// snapping.
+    static let hudSystemCornerRadius: CGFloat = hudSystemHeight / 3
 
     /// Filled HUD indicator (HUDIndicatorStyle.filled): the whole card IS the
     /// bar. The fill sweeps edge to edge under the card's own corners with no
@@ -154,17 +160,31 @@ enum CardMetrics {
     /// remainder — at low levels the icon sits on the empty area.
     static let hudFilledIconColor = Color(white: 0.5)
     /// Inset of the icon riding inside the fused bar, from the bar's start —
-    /// the leading edge, or the bottom of an upright bar. The bar is 42 pt thick
-    /// either way, so the same inset puts the glyph past the 12 pt corner curve
-    /// (hudSystemCornerRadius) in both orientations.
-    static let hudFilledIconInset: CGFloat = 18
+    /// the leading edge, or the bottom of an upright bar. Equal to the corner
+    /// radius: the corner's curve runs that far along the bar, so the glyph
+    /// starts where the straight edges do, and centred across the bar it sits
+    /// clear of both, in either orientation. 12 also sits in the 11–16 pt band Apple gives
+    /// widget content margins (HIG, Widgets: "16 points for most widgets",
+    /// "margins of 11 points can work well").
+    static let hudFilledIconInset: CGFloat = hudSystemCornerRadius
 
     static let compactArtworkSide: CGFloat = 40
-    static let compactArtworkRadius: CGFloat = 10
+    /// Concentric with the card: Apple's rule is the parent's radius minus the
+    /// padding between them (WWDC25 session 356). The artwork sits 12 pt off the
+    /// top and bottom ((64 − 40) / 2) and 16 off the side; with unequal insets no
+    /// single radius is exactly concentric, so the radius subtracts the tighter
+    /// one. That keeps the inner arc's centre level with the card's on that side,
+    /// and the gap around the corner runs from one inset to the other with no
+    /// pinch: 20 − 12 = 8 (docs/DECISIONS.md: inner-corners-are-concentric).
+    static let compactArtworkRadius: CGFloat = cornerRadius - compactArtworkVerticalInset
+    static let compactArtworkVerticalInset: CGFloat = (compact.height - compactArtworkSide) / 2
     /// The artwork anchors the layout but must not dominate it (at 72 it eats
     /// half the card and leaves the rest floating in leftover space).
     static let expandedArtworkSide: CGFloat = 44
-    static let expandedArtworkRadius: CGFloat = 10
+    /// Concentric by the same rule: the header sits contentPaddingVertical (10)
+    /// below the top and contentPaddingHorizontal (16) in from the side, so the
+    /// tighter inset is the top one: 20 − 10 = 10.
+    static let expandedArtworkRadius: CGFloat = cornerRadius - contentPaddingVertical
     /// Fixed row heights so the section sum above is honest — and taken from the
     /// components that fill them, never re-declared: the scrubber row IS the
     /// capsule's hit row (the stock Slider's measured height, which the drag

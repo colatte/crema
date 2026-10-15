@@ -47,13 +47,13 @@ struct HUDLevelSliderTests {
         // height, its drag from y, its knob centered across the width and long
         // along the track, and its fill from the bottom; a flat one the transpose.
         // Whether the view routes every axis choice through them is not read here.
-        let size = CGSize(width: 42, height: 210)
+        let size = CGSize(width: 36, height: 210)
         let pointer = CGPoint(x: 5, y: 150)
         #expect(CapsuleTrack.length(of: size, axis: .vertical) == 210)
-        #expect(CapsuleTrack.length(of: size, axis: .horizontal) == 42)
+        #expect(CapsuleTrack.length(of: size, axis: .horizontal) == 36)
         #expect(CapsuleTrack.coordinate(of: pointer, axis: .vertical) == 150)
         #expect(CapsuleTrack.coordinate(of: pointer, axis: .horizontal) == 5)
-        #expect(CapsuleTrack.point(along: 100, centeredIn: size, axis: .vertical) == CGPoint(x: 21, y: 100))
+        #expect(CapsuleTrack.point(along: 100, centeredIn: size, axis: .vertical) == CGPoint(x: 18, y: 100))
         #expect(CapsuleTrack.point(along: 100, centeredIn: size, axis: .horizontal) == CGPoint(x: 100, y: 105))
         #expect(CapsuleTrack.knobFrame(axis: .horizontal) == CapsuleTrack.knobSize)
         #expect(CapsuleTrack.knobFrame(axis: .vertical) == CGSize(width: 14, height: 17.5))
