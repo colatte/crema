@@ -51,11 +51,16 @@ struct NSPanelPresentationPanelTests {
     }
 
     @Test func swiftUINeverGetsToSizeTheWindow() {
-        // `.standardBounds` (the default) installs constraints that let the view
-        // resize the panel from its own layout — the window-vs-render race.
-        for style in [Style.card, .classic, .notch] {
-            let (panel, _, harness) = self.panel(style)
-            #expect(panel.contentIsBarredFromSizingTheWindow)
+        // The window's own layout pass is where a hosting view in charge of the
+        // window grants its content's minimum — the window-vs-render race. The
+        // upright HUD's window is narrower than the card view's floor, so it is
+        // the panel that shows it: widened, its HUD drawn off the screen's edge.
+        let surfaces = [Style.card, .classic, .notch].map(PanelSurface.skin) + [.cardNowPlaying]
+            + HUDPlacement.allCases.filter { $0 != .topCenter }.map(PanelSurface.cardHUD)
+        for surface in surfaces {
+            let (panel, screen, harness) = self.panel(surface: surface)
+            panel.layOutWindowNow()
+            #expect(panel.currentWindowFrame == surface.windowFrame(on: screen.geometry), "\(surface)")
             withExtendedLifetime(harness) {}
         }
     }
