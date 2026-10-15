@@ -139,10 +139,11 @@ extension SurfaceStyleBody {
         }
     }
 
-    /// Controls are offered only while the write path works; otherwise the
-    /// surface is read-only (no button that silently does nothing).
+    /// Controls are offered only while the write path works and the track is a
+    /// player's; otherwise the surface is read-only (no button that silently
+    /// does nothing).
     var controlsEnabled: Bool {
-        coordinator.commandsAvailable
+        coordinator.controlsEnabled
     }
 
     var skipControlsEnabled: Bool {

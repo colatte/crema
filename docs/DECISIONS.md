@@ -1724,7 +1724,7 @@ Half a contract is worse than none here: a guard that compares is one keystroke
 from a muzzle that never writes, so both directions are pinned — a tick fires no
 observation, a track change does (`CoordinatorMenuMirrorTests`).
 The menu's transport RENDERS the Coordinator's existing verdicts
-(`commandsAvailable`, `skipControlsEnabled` — the same two the surface binds to)
+(`controlsEnabled`, `skipControlsEnabled` — the same two the surface binds to)
 and adds only "is there media at all", which the surface never needs because it
 exists only when media does. One decision, two renderers: a menu that decided
 availability for itself would drift from the surface the first time a source
@@ -2339,43 +2339,60 @@ hold for the popup and generalize. And what keeps an unhonoured pick out of the
 STORE is never the chrome (`the-chrome-is-not-the-guarantee`).
 
 ### the-tour-configures-instead-of-pointing
-The welcome tour is five steps that CONFIGURE the app, not five pictures of it:
-the Accessibility permission, the style every display draws, the switch that
-replaces the system indicators, and opening at login. Every control in it is
-the control the Settings window carries — the same persisted key, applied live
-through the same AppCore call — so nothing in the tour is a second source of
-truth and nothing it does needs undoing: what was picked there is what Settings
-shows afterwards.
+The welcome tour is six steps that SHOW the app on the real screen and CONFIGURE
+it, not pictures of it: what Crema is, the Accessibility permission, the style
+every display draws, a key test with the switch that replaces the system
+indicators, what else Settings holds, and opening at login. Every control in it
+is the control the Settings window carries — the same persisted key, applied
+live through the same AppCore call — so nothing in the tour is a second source
+of truth and nothing it does needs undoing: what was picked there is what
+Settings shows afterwards.
 
-Four rules hold it, and each one names a way this window could go wrong.
+Five rules hold it, and each one names a way this window could go wrong.
 
 The flag is committed BEFORE the window is shown (`hasSeenWelcomeTour`, written
 inside `presentWelcomeTourIfFirstLaunch` ahead of the presentation). A crash or
 a force quit in the middle of the tour must not re-arm it: a window that
-returns after every bad launch is worse than one that was missed once.
+returns after every bad launch is worse than one that was missed once. The way
+back is the menu's Welcome Tour item, which the HIG asks of a tour a person
+skipped (Onboarding), and it starts over from the first step.
 
 The gate asks about no permission. A gate on the Accessibility grant skips
 anyone who already has it — which is every upgrading install — and an install
 that carries the grant is not one that was walked through anything; it is
 usually the one whose first launch went worst. So the tour is shown once per
-install, to everybody, and the legacy flag of the Accessibility-only onboarding
-is not consulted.
+install, to everybody.
 
-No step may hold anyone back. The permission decides what the prominent button
-OFFERS (Grant while it is missing, Continue once it lands, which the polling
-monitor picks up live with the window open), never where the road goes: the
-grant button stands BESIDE Continue rather than replacing it. Crema runs
-without that permission, so a step that could only be left by granting would
-trap someone who declines inside a window whose whole point is that it can be
-left. The rule lives in `WelcomeTourFlow` — pure, stringless, both ends total —
-which is why it is pinned by tests instead of by a view body.
+No step may hold anyone back. The permission decides what the step OFFERS (the
+grant as the step's prominent button while it is missing, picked up live by the
+polling monitor, which brings the window back to the front), never where the
+road goes: the footer's way on reads Continue Without Access until then. Crema
+runs without that permission, so a step that could only be left by granting
+would trap someone who declines inside a window whose whole point is that it
+can be left. The rule lives in `WelcomeTourFlow` — pure, stringless, both ends
+total — which is why it is pinned by tests instead of by a view body.
 
-The window is one fixed size for every step, and the last step spells ⌘, out in
-words instead of offering a button. The size, because the steps hold different
-amounts and a window that resized between them would jump under the pointer at
-the moment a button is being clicked. The words, because `openSettings` is an
-environment action of the Settings scene: from a window built outside that
-scene it is a no-op, so a button there would be one that does nothing.
+The real screen answers, and the sample is no player's. The welcome and the
+style steps hold the player up (`Coordinator.showcase(sample:)`): the playing
+track when there is one, otherwise a sample named as such, held with no tuck
+until the step is left or the window closes, however it closes. The sample
+disables the transport in the skins AND the Coordinator refuses every command
+while it shows (`the-chrome-is-not-the-guarantee`): a command would reach
+whatever player macOS last knew, which is not what the sample shows. The key
+test asks for a volume key because Core Audio reports volume with or without
+the grant, so the one step that teaches by doing never waits on the
+permission.
+
+The window is one fixed size for every step, and the last step says where the
+app lives in words, with an arrow at the real icon, instead of offering a
+Settings button. The size, because the steps hold different amounts and a
+window that resized between them would jump under the pointer at the moment a
+button is being clicked. The words, because `openSettings` is an environment
+action of the Settings scene: from a window built outside that scene it is a
+no-op, so a button there would be one that does nothing. The arrow finds the
+icon as the one window of this process at the status-bar level, read by public
+properties alone; macOS builds that window a moment after launch, so the arrow
+asks a few times and, finding none on a screen, does not show.
 
 ### the-chrome-is-not-the-guarantee
 The per-display style control has to refuse a style the screen cannot draw. The

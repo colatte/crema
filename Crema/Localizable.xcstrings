@@ -103,6 +103,74 @@
         }
       }
     },
+    "accessibility.purpose.brightness": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show its own indicator when you press a brightness key"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar o próprio indicador quando você aperta uma tecla de brilho"
+          }
+        }
+      }
+    },
+    "accessibility.purpose.lead": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "With this access, Crema can:"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Com esse acesso, o Crema pode:"
+          }
+        }
+      }
+    },
+    "accessibility.purpose.privacy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It only listens to keys like volume and brightness, never to what you type."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ele só escuta teclas como volume e brilho, nunca o que você digita."
+          }
+        }
+      }
+    },
+    "accessibility.purpose.replace": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace the system indicators, if you choose to"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Substituir os indicadores do sistema, se você quiser"
+          }
+        }
+      }
+    },
     "app.menubar.title": {
       "extractionState": "manual",
       "localizations": {
@@ -817,19 +885,19 @@
         }
       }
     },
-    "onboarding.body": {
+    "menu.welcomeTour": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Crema uses the Accessibility permission to capture the volume and brightness keys so it can show its own indicators. Without it the app keeps working — it just can’t react to those keys."
+            "value": "Welcome Tour…"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Crema usa a permissão de Acessibilidade para capturar as teclas de volume e brilho e mostrar os próprios indicadores. Sem ela o app continua funcionando — só não reage a essas teclas."
+            "value": "Tour de boas-vindas…"
           }
         }
       }
@@ -2456,6 +2524,23 @@
         }
       }
     },
+    "tour.sample.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your music shows up here"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sua música aparece aqui"
+          }
+        }
+      }
+    },
     "tour.skip": {
       "extractionState": "manual",
       "localizations": {
@@ -2469,6 +2554,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pular"
+          }
+        }
+      }
+    },
+    "tour.start": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Get Started"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Começar"
           }
         }
       }
@@ -2507,19 +2609,36 @@
         }
       }
     },
+    "tour.step.accessibility.without": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue Without Access"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar sem acesso"
+          }
+        }
+      }
+    },
     "tour.step.finish.body": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Crema lives in the menu bar — its icon opens the menu, and Settings is there too."
+            "value": "Crema lives in the menu bar, with no Dock icon. Its menu has Settings, and this tour if you want to see it again."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Crema mora na barra de menus — o ícone dele abre o menu, e os Ajustes estão lá também."
+            "value": "O Crema mora na barra de menus, sem ícone no Dock. O menu dele tem os Ajustes e este tour, se quiser rever."
           }
         }
       }
@@ -2541,36 +2660,189 @@
         }
       }
     },
-    "tour.step.indicators.title": {
+    "tour.step.more.filled.detail": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Volume and brightness, drawn by Crema"
+            "value": "On Card, the whole indicator fills up as the level rises."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Volume e brilho, desenhados pelo Crema"
+            "value": "No Card, o indicador inteiro se enche conforme o nível sobe."
           }
         }
       }
     },
-    "tour.step.style.body": {
+    "tour.step.more.filled.title": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Later, in Settings → General, you can give one display a style of its own."
+            "value": "A filled indicator"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Depois, em Ajustes → Geral, você pode deixar uma tela com outro estilo."
+            "value": "Indicador preenchido"
+          }
+        }
+      }
+    },
+    "tour.step.more.footer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everything else is in Settings, in the Crema menu."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O resto fica nos Ajustes, no menu do Crema."
+          }
+        }
+      }
+    },
+    "tour.step.more.output.detail": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The volume indicator shows where the sound is going: AirPods, headphones, an AirPlay speaker."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O indicador de volume mostra para onde vai o som: AirPods, fones, um alto-falante AirPlay."
+          }
+        }
+      }
+    },
+    "tour.step.more.output.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Where the sound goes"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Para onde vai o som"
+          }
+        }
+      }
+    },
+    "tour.step.more.perDisplay.detail": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notch on the built-in display, Card on an external one."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notch na tela integrada, Card numa tela externa."
+          }
+        }
+      }
+    },
+    "tour.step.more.perDisplay.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A style for each display"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Um estilo para cada tela"
+          }
+        }
+      }
+    },
+    "tour.step.more.position.detail": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On Card, the volume and brightness indicator can sit in one of eight places."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Card, o indicador de volume e brilho pode ficar em um de oito lugares."
+          }
+        }
+      }
+    },
+    "tour.step.more.position.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Where the indicator appears"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onde o indicador aparece"
+          }
+        }
+      }
+    },
+    "tour.step.more.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More, when you want it"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mais, quando você quiser"
+          }
+        }
+      }
+    },
+    "tour.step.style.live": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The player on your screen changes as you pick."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O player na sua tela muda conforme você escolhe."
           }
         }
       }
@@ -2609,19 +2881,104 @@
         }
       }
     },
+    "tour.step.try.heard": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That’s Crema’s indicator."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esse é o indicador do Crema."
+          }
+        }
+      }
+    },
+    "tour.step.try.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Press a volume key"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aperte uma tecla de volume"
+          }
+        }
+      }
+    },
+    "tour.step.try.waiting": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crema’s indicator shows up on your screen."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O indicador do Crema aparece na sua tela."
+          }
+        }
+      }
+    },
     "tour.welcome.body": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Crema shows what’s playing near the top of your screen and can replace the system’s volume and brightness indicators with its own."
+            "value": "Crema shows what’s playing on your screen and draws its own volume and brightness indicators."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Crema mostra o que está tocando perto do topo da tela e pode substituir os indicadores de volume e brilho do sistema pelos dele."
+            "value": "O Crema mostra na tela o que está tocando e desenha os próprios indicadores de volume e brilho."
+          }
+        }
+      }
+    },
+    "tour.welcome.playing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The player on your screen is Crema, showing what’s playing now."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O player na sua tela é o Crema, mostrando o que está tocando agora."
+          }
+        }
+      }
+    },
+    "tour.welcome.sample": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing is playing, so the player on your screen shows a sample. Play a song to see yours."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nada está tocando, então o player na sua tela mostra um exemplo. Toque uma música para ver a sua."
           }
         }
       }

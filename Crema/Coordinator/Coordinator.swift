@@ -161,8 +161,23 @@ final class Coordinator {
     /// swallows a delivered skip without an error, so the failure-driven
     /// flags alone would leave a dead-clicking enabled button.
     var skipControlsEnabled: Bool {
-        commandsAvailable && skipCommandsAvailable && skipSupportedByTrack
+        controlsEnabled && skipCommandsAvailable && skipSupportedByTrack
     }
+
+    /// What the transport's play/pause and scrubber bind to: the write path
+    /// works and the appearance is media a player can be told about — never the
+    /// tour's sample, which no player is playing.
+    var controlsEnabled: Bool {
+        commandsAvailable && !showsSample
+    }
+
+    /// Whether the appearance on screen is the welcome tour's sample rather than
+    /// a player's track (`showcase(sample:)`).
+    private(set) var showsSample = false
+
+    /// The sample the tour holds the player up with; non-nil exactly while a
+    /// showcase is held, which is what keeps every tuck away.
+    @ObservationIgnored private var showcaseSample: NowPlaying?
 
     @ObservationIgnored private let nowPlayingSource: any NowPlayingSource
     @ObservationIgnored private let systemHUDSource: any SystemHUDSource
@@ -441,6 +456,40 @@ final class Coordinator {
         }
     }
 
+    /// Puts the player up and holds it while the welcome tour talks about it:
+    /// the player's own track when there is one, otherwise `sample`, so a Mac
+    /// in silence still sees what the app draws. Held, never lingered, until
+    /// `endShowcase`. A track arriving takes the sample's place as any media
+    /// event would, and media dropped mid-showcase brings the sample back.
+    func showcase(sample: NowPlaying) {
+        showcaseSample = sample
+        cancelLinger()
+        guard layers.nowPlaying == nil else { return }
+        if let nowPlaying {
+            layers.nowPlaying = PresentationLayers.Appearance(track: nowPlaying, expanded: isHovering)
+        } else {
+            showSample(sample)
+        }
+    }
+
+    /// Lets go of the showcase: the sample leaves at once, and a real track
+    /// goes back to its ordinary tuck.
+    func endShowcase() {
+        guard showcaseSample != nil else { return }
+        showcaseSample = nil
+        if showsSample {
+            showsSample = false
+            hideNowPlaying()
+        } else if layers.nowPlaying != nil, !isHovering, !pointerHoldsAppearance {
+            restartLingerTimer()
+        }
+    }
+
+    private func showSample(_ sample: NowPlaying) {
+        showsSample = true
+        layers.nowPlaying = PresentationLayers.Appearance(track: sample, expanded: isHovering)
+    }
+
     /// Immediate hover: expand/collapse now. Used by the floating styles,
     /// whose surfaces aren't on the accident-prone top edge. `surface` is the
     /// one the pointer crossed, and the hover reaches only the layers it draws:
@@ -648,6 +697,10 @@ final class Coordinator {
     }
 
     func togglePlayPause() {
+        // The control is off for the sample (`controlsEnabled`), and this
+        // refuses anyway: a command would reach whatever player macOS last
+        // knew, which is not what the sample shows.
+        guard !showsSample else { return }
         runMediaCommand("togglePlayPause") { [nowPlayingController] in
             try await nowPlayingController.togglePlayPause()
         }
@@ -665,6 +718,7 @@ final class Coordinator {
         // nil duration on purpose); the source re-clamps its anchor
         // defensively against its own snapshot — the same number today, and
         // its ticker's authority if the two ever diverge.
+        guard !showsSample else { return }
         let floored = max(0, seconds)
         let target = nowPlaying?.duration.map { min(floored, $0) } ?? floored
         seekEpoch += 1
@@ -707,12 +761,14 @@ final class Coordinator {
     }
 
     func nextTrack() {
+        guard !showsSample else { return }
         runMediaCommand("nextTrack", updating: \.skipCommandsAvailable) { [nowPlayingController] in
             try await nowPlayingController.nextTrack()
         }
     }
 
     func previousTrack() {
+        guard !showsSample else { return }
         runMediaCommand("previousTrack", updating: \.skipCommandsAvailable) { [nowPlayingController] in
             try await nowPlayingController.previousTrack()
         }
@@ -897,6 +953,9 @@ final class Coordinator {
         if surfacingEvent {
             oweLinger(nowPlayingLinger, invoked: false)
         }
+        if showsSample {
+            showsSample = false
+        }
         layers.nowPlaying = PresentationLayers.Appearance(
             track: update,
             expanded: surfacingEvent ? isHovering : (isHovering || wasExpanded)
@@ -952,7 +1011,9 @@ final class Coordinator {
     /// back; kept, it would come back showing whatever landed next, which after a
     /// discard is typically a paused app that would not surface on its own
     /// (docs/DECISIONS.md: ghost-discard). A snapshot that is news earns a new
-    /// appearance through handleNowPlayingUpdate.
+    /// appearance through handleNowPlayingUpdate. During a showcase the sample
+    /// takes the dropped track's place: it is no player's, so nothing armed on
+    /// it can command dead media.
     private func discardActiveMedia() {
         endScrubGrace()
         nowPlaying = nil
@@ -963,7 +1024,9 @@ final class Coordinator {
         if mediaActive {
             mediaActive = false
         }
-        if layers.nowPlaying != nil {
+        if let showcaseSample {
+            if !showsSample { showSample(showcaseSample) }
+        } else if layers.nowPlaying != nil {
             hideNowPlaying()
         }
     }
@@ -1070,9 +1133,11 @@ final class Coordinator {
     /// Never while a HUD is up: on a surface drawing both, the appearance under
     /// the HUD is not on screen to be read, and its tuck would leave the revert
     /// nothing to bring back. Wherever the HUD is drawn the rule is the same, so
-    /// the appearance has one lifetime; the revert arms the tuck again.
+    /// the appearance has one lifetime; the revert arms the tuck again. Never
+    /// during a showcase either: the tour holds the player for as long as it
+    /// talks about it, and `endShowcase` arms the tuck.
     private func restartLingerTimer() {
-        guard layers.hud == nil else { return }
+        guard layers.hud == nil, showcaseSample == nil else { return }
         lingerTask?.cancel()
         lingerTask = scheduleTimer(after: currentLinger) { [weak self] in self?.tuckNowPlaying() }
     }
@@ -1089,7 +1154,7 @@ final class Coordinator {
         // reaching here expanded means the invoked player opened under a
         // click and the cursor moved straight out before any hover committed;
         // the appearance must still be able to end.
-        guard layers.nowPlaying != nil, !isHovering, !pointerHoldsAppearance else { return }
+        guard layers.nowPlaying != nil, !isHovering, !pointerHoldsAppearance, showcaseSample == nil else { return }
         hideNowPlaying()
     }
 

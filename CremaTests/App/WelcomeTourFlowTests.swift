@@ -2,7 +2,8 @@ import Testing
 @testable import Crema
 
 /// The tour's shape, with no window in it: where the steps run, where they stop,
-/// what the counter says, and what the prominent button offers.
+/// what the counter says, what the prominent button offers, and what the real
+/// screen does behind each step.
 ///
 /// The one rule with teeth here is the permission's: it may change what the
 /// button OFFERS and it may never change where the road goes. A flow that let a
@@ -12,7 +13,7 @@ import Testing
 struct WelcomeTourFlowTests {
 
     @Test func theStepsRunInOneOrderAndBothEndsAreTotal() {
-        #expect(WelcomeTourStep.allCases == [.welcome, .accessibility, .style, .indicators, .finish])
+        #expect(WelcomeTourStep.allCases == [.welcome, .accessibility, .style, .tryIt, .more, .finish])
         // Total at both ends: asking past either one answers "no such step"
         // instead of wrapping around or trapping.
         #expect(WelcomeTourFlow.previous(before: .welcome) == nil)
@@ -42,11 +43,12 @@ struct WelcomeTourFlowTests {
     /// derivation would agree with any off-by-one the code makes.
     @Test func theProgressCounterIsOneBasedOverEveryStep() {
         let expected: [(step: WelcomeTourStep, index: Int, count: Int)] = [
-            (.welcome, 1, 5),
-            (.accessibility, 2, 5),
-            (.style, 3, 5),
-            (.indicators, 4, 5),
-            (.finish, 5, 5),
+            (.welcome, 1, 6),
+            (.accessibility, 2, 6),
+            (.style, 3, 6),
+            (.tryIt, 4, 6),
+            (.more, 5, 6),
+            (.finish, 6, 6),
         ]
         // A step added without a row here fails, instead of being silently uncounted.
         #expect(expected.count == WelcomeTourStep.allCases.count)
@@ -81,5 +83,27 @@ struct WelcomeTourFlowTests {
     @Test func theLastStepFinishes() {
         #expect(WelcomeTourFlow.primaryAction(for: .finish, accessibilityGranted: false) == .done)
         #expect(WelcomeTourFlow.primaryAction(for: .finish, accessibilityGranted: true) == .done)
+    }
+
+    /// The player is held where the step talks about it and nowhere else: the
+    /// key test must find a clear screen for the HUD it asks for, and a player
+    /// left up on the last step would outlive the tour by however long the
+    /// person reads it.
+    @Test func onlyTheWelcomeAndTheStylePickHoldThePlayer() {
+        let holding = WelcomeTourStep.allCases.filter(WelcomeTourFlow.holdsThePlayer)
+        #expect(holding == [.welcome, .style])
+    }
+
+    @Test func onlyTheLastStepPointsAtTheMenuBar() {
+        let pointing = WelcomeTourStep.allCases.filter(WelcomeTourFlow.pointsAtTheMenuBar)
+        #expect(pointing == [.finish])
+    }
+
+    /// The DEBUG flag's vocabulary is the raw values; a renamed case changes the
+    /// harness, and this keeps the names the harness documents.
+    @Test func theStepsParseFromTheirNames() {
+        #expect(WelcomeTourStep(rawValue: "tryIt") == .tryIt)
+        #expect(WelcomeTourStep(rawValue: "finish") == .finish)
+        #expect(WelcomeTourStep(rawValue: "indicators") == nil)
     }
 }

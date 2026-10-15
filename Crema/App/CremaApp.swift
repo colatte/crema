@@ -45,6 +45,11 @@ struct CremaApp: App {
             // app's name.
             Section {
                 SettingsMenuButton(core: core)
+                // The tour's way back, where Settings is: the HIG asks that a tour
+                // a person skipped or finished stay easy to find (Onboarding).
+                Button(String(localized: "menu.welcomeTour", defaultValue: "Welcome Tour…")) {
+                    core.showWelcomeTour()
+                }
                 #if !DEBUG
                 // Release-only: in Debug the item does not exist, matching a build
                 // that never constructs the updater nor contacts the feed.
