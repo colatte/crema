@@ -51,14 +51,14 @@ Depends on: an Apple Developer account existing. The script path is already writ
   - Verification: no unit test — a smoke on the release machine (`spctl --assess` accepts the app; a fresh download opens without the Gatekeeper prompt).
   - Acceptance: SPEC's criterion for notarized distribution passes, and docs/RELEASE-GUIDE.md's Developer ID path is the one release.sh takes by default.
 
-## Phase 4 (deferred) — A Tahoe-native icon
+## Phase 4 — A Tahoe-native icon
 
-Objective: an Icon Composer `.icon` alongside the classic appiconset, additive and without breaking macOS 14 (which falls back to the appiconset automatically).
-Depends on: the art in separate layers (background / mark), which exist: the mark is one vector over a flat ground (`design/icon/crema-mark.svg`). Tahoe already applies its system treatment to the classic icon on its own.
+Objective: the icon is an Icon Composer document, `Crema/AppIcon.icon`, written by `design/icon/makeicon.swift` from the mark's vector. The document replaces the appiconset rather than sitting beside it: Apple's page says an Icon Composer file replaces any icon asset catalog, and that Xcode generates the images for earlier releases from the same file ("Creating your app icon using Icon Composer"). One build serves both, and no classic icon ships.
+Depends on: nothing left; the document ships, and what stays open is its check on the older system.
 
 - [ ] T12.2 — Tahoe icon (Icon Composer, Liquid Glass) · módulo: design
-  - Verification: visual, on Tahoe and on Sonoma, from one build.
-  - Acceptance: the icon reads correctly in Finder, Get Info, Spotlight and Sparkle on both, with no regression at 16/32 pt.
+  - Verification: visual, on Tahoe and on Sonoma, from one build. Tahoe is seen; Sonoma waits on a machine running it.
+  - Acceptance: the icon reads correctly in Finder, Get Info, Spotlight and Sparkle on both, with no regression at 16/32 pt. The 16 pt @1x image keeps the hollow only as a notch: Icon Composer takes one artwork for every size, so the optical zoom a per-size render gave that slot has no counterpart in the document.
 
 ## Risks and dependencies
 
