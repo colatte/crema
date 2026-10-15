@@ -14,18 +14,23 @@ extension View {
     /// the classic vibrancy material forced active — public, stable, and
     /// focus-independent, so it looks intentional regardless of app focus.
     ///
-    /// The border is a PAIR, and neither half does the other's job: a darkened
-    /// outer rim straddling the outline DEFINES the surface against any backdrop
-    /// — a light hairline disappears over a bright desktop, which is where a
-    /// floating surface most needs an edge — while an inner specular, brightest
-    /// at the top and gone within the upper third, supplies the lit-from-above
-    /// highlight the material doesn't draw itself. The specular is a
-    /// `strokeBorder`, which is why the shape must be `InsettableShape`: it
-    /// insets by half the line width so the highlight stays inside the surface
-    /// instead of bleeding a bright edge outward, past the rim that is supposed
-    /// to be the outermost thing here. Both live in `SurfaceChrome`, which the
-    /// Settings tiles read as well — the border they depict must never become a
-    /// second description of this one (docs/DECISIONS.md: surface-border-2026).
+    /// The edge is the surface itself: the film (`SurfaceChrome.scrim`) keeps it
+    /// dark over any desktop, so it stands out from a bright one on its own, and
+    /// the one stroke is an inner specular, brightest at the top and gone within
+    /// the upper third, the lit-from-above highlight the material doesn't draw.
+    /// No dark rim: around the filled HUD's light sweep it reads as a drawn
+    /// outline. The specular is a `strokeBorder`, which is why the shape must be
+    /// `InsettableShape`: it insets by half the line width so the highlight stays
+    /// inside the surface. Its numbers live in `SurfaceChrome`, which the Settings
+    /// tiles read as well — the edge they depict must never become a second
+    /// description of this one (docs/DECISIONS.md: surface-border-2026).
+    ///
+    /// The outline is antialiased once. The content and the film are composited
+    /// before the clip, and the material, an AppKit view masked apart from the
+    /// SwiftUI layer above it, sits `materialInset` inside the outline: clipped
+    /// layer by layer, the dark beneath shows through the edge pixels of a light
+    /// fill, a grey fringe round the filled HUD over a bright desktop (measured on
+    /// screen; either half alone leaves part of it).
     ///
     /// Content is clipped along with the material: mid-morph, the crossfading
     /// outgoing layout can exceed the shrinking surface, and the fixed window
@@ -48,30 +53,26 @@ extension View {
     /// real (if flatter) glass, replace the background with
     /// `glassEffect(.regular, in: shape)` under `#available(macOS 26, *)`.
     func vibrantSurface(in shape: some InsettableShape) -> some View {
-        background {
-            ZStack {
-                VibrancyMaterial()
-                SurfaceChrome.scrim
-            }
+        background { SurfaceChrome.scrim }
+            .compositingGroup()
             .clipShape(shape)
-        }
-        .clipShape(shape)
-        .overlay(shape.strokeBorder(SurfaceChrome.specularGradient, lineWidth: SurfaceChrome.specularWidth))
-        // Last, so the boundary is never dimmed by the highlight that touches
-        // it: the two strokes are adjacent by half a point each.
-        .overlay(shape.stroke(SurfaceChrome.outerHairlineColor, lineWidth: SurfaceChrome.outerHairlineWidth))
+            .background {
+                VibrancyMaterial()
+                    .clipShape(shape)
+                    .padding(SurfaceChrome.materialInset)
+            }
+            .overlay(shape.strokeBorder(SurfaceChrome.specularGradient, lineWidth: SurfaceChrome.specularWidth))
     }
 }
 
-/// The surface border's numbers, in one place: pure and calibratable here, and
-/// read by the Settings tiles that draw the same border in miniature, so the
-/// picture and the thing cannot drift apart.
-///
-/// Why a pair of strokes (the rationale for each half lives on `vibrantSurface`,
-/// where they are applied): the rim carries the boundary, the specular carries
-/// the light. Values are starting points to tune on hardware, like
-/// SurfaceAnimation's — what must survive a retune is the shape of the border,
-/// not any single number (docs/DECISIONS.md: surface-border-2026).
+/// The floating surface's numbers, in one place: pure and calibratable here,
+/// and read by the Settings tiles that draw the same edge in miniature, so the
+/// picture and the thing cannot drift apart. The rationale for each lives on
+/// `vibrantSurface`, where they are applied: the film carries the boundary, the
+/// specular carries the light. Values are starting points to tune on hardware,
+/// like SurfaceAnimation's — what must survive a retune is the shape, a dark
+/// surface lit at the top, not any single number (docs/DECISIONS.md:
+/// surface-border-2026).
 enum SurfaceChrome {
 
     /// The film between the material and the ink, which keeps the surface dark
@@ -85,16 +86,12 @@ enum SurfaceChrome {
     static let scrimOpacity: Double = 0.44
     static var scrim: Color { Color.black.opacity(scrimOpacity) }
 
-    /// The rim as a white component (0 is black) plus its opacity — one number
-    /// for how dark, one for how present. It reads as a shadow of an edge
-    /// rather than an edge: over a bright desktop that is the only thing that
-    /// keeps the surface's outline; over a dark one the specular carries it.
-    /// The opacity is kept light because WWDC25 session 356 calls custom borders
-    /// on bars unnecessary; 0.20 is a number chosen to be judged on screen, not
-    /// derived from anything.
-    static let outerHairlineWhite: Double = 0
-    static let outerHairlineOpacity: Double = 0.20
-    static let outerHairlineWidth: CGFloat = 0.5
+    /// How far inside the outline the material stops: one device pixel on a
+    /// Retina panel, the antialiased ring where the material would otherwise
+    /// darken the edge of a light fill above it (`vibrantSurface`). The ring
+    /// shows the film over the desktop instead, unblurred, which no eye resolves
+    /// at that width.
+    static let materialInset: CGFloat = 0.5
 
     /// The specular's opacity at the very top of the surface.
     static let specularTopOpacity: Double = 0.35
@@ -124,10 +121,6 @@ enum SurfaceChrome {
     /// edge. Derived, never a literal: a forked number here paints a border the
     /// app doesn't have, in the one place the user compares the skins.
     static let tileStrokeTopOpacity: Double = specularTopOpacity
-
-    static var outerHairlineColor: Color {
-        Color(white: outerHairlineWhite).opacity(outerHairlineOpacity)
-    }
 
     static var specularGradient: LinearGradient {
         LinearGradient(

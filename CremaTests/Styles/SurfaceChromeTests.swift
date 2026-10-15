@@ -3,14 +3,16 @@ import SwiftUI
 import Testing
 @testable import Crema
 
-/// The 2026 border, pinned as numbers. Every value here is calibratable on
-/// hardware, so the assertions are about the SHAPE of the border — a rim that
-/// darkens, a specular that falls from the top to nothing, two strokes that
-/// actually paint, one home for the tiles to read — never about a particular
-/// tuning. Each one exists because the opposite compiles, renders and looks
-/// almost right: a white rim vanishes over a bright desktop, an inverted
-/// gradient lights the bottom edge, a zeroed width draws nothing at all, and a
-/// forked number in the Settings tile depicts a border the app does not have.
+/// The floating surface's edge, pinned as numbers. Every value here is
+/// calibratable on hardware, so the assertions are about the SHAPE — a film that
+/// darkens, a specular that falls from the top to nothing and actually paints,
+/// a material kept off the antialiased outline, one home for the tiles to read —
+/// never about a particular tuning. Each one exists because the opposite
+/// compiles, renders and looks almost right: a film at zero leaves the surface
+/// pale over a bright desktop, an inverted gradient lights the bottom edge, a
+/// zeroed width draws nothing at all, a material reaching the outline puts a grey
+/// fringe round a light fill, and a forked number in the Settings tile depicts an
+/// edge the app does not have.
 ///
 /// Honest about its reach: what these pin is the constants and their relations,
 /// never the view sites that stroke them — deleting an overlay in
@@ -20,20 +22,22 @@ import Testing
 /// clara/escura" is what covers the wiring.
 struct SurfaceChromeTests {
 
-    @Test func theOuterRimDarkensInsteadOfLightening() throws {
-        // A border that is a single white hairline defines nothing
-        // over a bright wallpaper, which is exactly where a floating surface
-        // needs its boundary most. The rim must sit at the dark end.
-        #expect(SurfaceChrome.outerHairlineWhite < 0.5)
-        #expect(SurfaceChrome.outerHairlineOpacity > 0)
-        #expect(SurfaceChrome.outerHairlineOpacity < 1)
+    @Test func theFilmDarkensTheSurfaceWithoutHidingTheMaterial() throws {
+        // The film is what keeps the surface dark over a bright desktop: it must
+        // be black, there, and short of opaque, or the material's blur is gone.
+        #expect(SurfaceChrome.scrimOpacity > 0)
+        #expect(SurfaceChrome.scrimOpacity < 1)
+        let film = try #require(NSColor(SurfaceChrome.scrim).usingColorSpace(.deviceGray))
+        #expect(film.whiteComponent == 0)
+        #expect(abs(film.alphaComponent - SurfaceChrome.scrimOpacity) < 0.001)
+    }
 
-        // Through the derived color too: the constants above only govern the
-        // border if the Color the view actually strokes carries them.
-        let rim = try #require(NSColor(SurfaceChrome.outerHairlineColor).usingColorSpace(.deviceGray))
-        #expect(rim.whiteComponent < 0.5)
-        #expect(rim.alphaComponent > 0)
-        #expect(rim.alphaComponent < 1)
+    @Test func theMaterialStopsShortOfTheOutline() {
+        // At zero the material's antialiased edge darkens a light fill's: the
+        // fringe the inset exists to keep off the filled HUD. Past a point it
+        // would show as an unblurred band, so it stays under one stroke width.
+        #expect(SurfaceChrome.materialInset > 0)
+        #expect(SurfaceChrome.materialInset <= SurfaceChrome.specularWidth)
     }
 
     @Test func theSpecularRunsFromTheTopDownToNothing() throws {
@@ -63,10 +67,9 @@ struct SurfaceChromeTests {
         #expect(SurfaceChrome.specularEnd == .bottom)
     }
 
-    @Test func bothStrokesActuallyPaint() {
-        // A zero line width is an invisible border that no other assertion
+    @Test func theSpecularActuallyPaints() {
+        // A zero line width is an invisible highlight that no other assertion
         // here can see: the color and the ramp stay perfectly correct.
-        #expect(SurfaceChrome.outerHairlineWidth > 0)
         #expect(SurfaceChrome.specularWidth > 0)
     }
 
