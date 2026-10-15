@@ -435,20 +435,29 @@ struct OSDSuppressionDomainSuspensionTests {
     }
 
     @Test func aBurstOfFailuresSuspendsOnceAndDropsTheQueue() async {
+        // The burst is as long as the write-health threshold on purpose: a dead
+        // write feeds that axis once per suspension, so were every queued failure
+        // its own suspension the last one would escalate to the menu. Staying
+        // quiet is the observable form of "suspended once".
         let h = OSDSuppressorHarness()
+        let applies = CounterBox()
+        h.suppressor.onApplied = { [applies] _ in applies.count += 1 }
         h.volume.writeIsDead = true
         h.suppressor.setEngaged(true)
 
-        h.keys.press(.volumeUp)
-        h.keys.press(.volumeUp)
-        h.keys.press(.volumeUp)
+        for _ in 0..<MediaKeyInterceptionOSDSuppressor.writeHealthEscalationThreshold {
+            h.keys.press(.volumeUp)
+        }
 
         #expect(await eventually { h.suppressor.suspendedDomains.contains(.volume) })
-        await settle()
+        // The queued entries drain off the actor; a screen press queued behind
+        // them on the one chain reports applied only after they all ran.
+        h.keys.press(.screenBrightnessUp)
+        #expect(await eventually { applies.count == 1 }, "the apply chain never drained")
         // One failure suspends; the queued keys fall through the suspension
         // guard, so only the first write ever reached the actuator.
         #expect(h.volume.applied.count == 1)
-        #expect(h.suspensionChanges == 0)   // transient, no escalation
+        #expect(h.suspensionChanges == 0)   // one suspension, transient: no escalation
     }
 
     @Test func aChannelDyingMidRunSuspendsOnlyThatDomain() async {

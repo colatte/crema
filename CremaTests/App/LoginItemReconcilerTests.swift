@@ -100,18 +100,24 @@ struct LoginItemSeamTests {
     }
 
     @Test func aRevokedRegistrationIsReportedWithoutTouchingTheSystem() {
+        // The launch seam is handed a STATUS, never the login item, so it cannot
+        // register by construction. What it can get wrong is the record the warning
+        // stands on: restamping the build here would file the revocation as the
+        // user's own removal on the next reading, and the warning would go quiet.
         let (preferences, defaults) = prefs()
-        let item = MockLoginItem(status: .notRegistered)
         preferences.launchesAtLogin = true
         preferences.launchesAtLoginBuild = "10200"
 
         let outcome = AppCore.reconcileLoginItemIntent(
-            preferences: preferences, status: item.status, currentBuild: "10300"
+            preferences: preferences, status: .notRegistered, currentBuild: "10300"
         )
 
         #expect(outcome == .revokedByUpdate)
-        #expect(item.registerCount == 0)          // reported, never repaired behind the user
         #expect(preferences.launchesAtLogin)      // the intent survives to be acted on
+        #expect(preferences.launchesAtLoginBuild == "10200")   // reported, never re-recorded
+        #expect(AppCore.reconcileLoginItemIntent(
+            preferences: preferences, status: .notRegistered, currentBuild: "10300"
+        ) == .revokedByUpdate)                    // so the next launch still says so
         withExtendedLifetime(defaults) {}
     }
 
@@ -150,12 +156,21 @@ struct LoginItemSeamTests {
         withExtendedLifetime(defaults) {}
     }
 
-    @Test func theUsersOwnClickIsTheOnlyThingThatRegisters() throws {
+    @Test func theUsersClickIsWhatRegisters() {
+        // The click's seam is the one of the three handed the login item itself;
+        // the launch edge and the menu read take a status and cannot register at
+        // all. So this is where registering has to happen, exactly once per click.
+        let (preferences, defaults) = prefs()
         let item = MockLoginItem(status: .notRegistered)
-        #expect(item.registerCount == 0)
-        try item.setEnabled(true)                 // the menu action / the toggle
+
+        let result = AppCore.applyLaunchesAtLogin(
+            true, to: item, preferences: preferences, currentBuild: "10300"
+        )
+
         #expect(item.registerCount == 1)
         #expect(item.status == .enabled)
+        #expect(result.enabled)
+        withExtendedLifetime(defaults) {}
     }
 
     @Test func theMenusReadNeverWritesTheIntent() {

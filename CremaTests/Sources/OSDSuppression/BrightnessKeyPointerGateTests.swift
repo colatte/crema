@@ -31,7 +31,7 @@ struct BrightnessKeyPointerGateTests {
         harness.suppressor.setEngaged(true)
 
         let press = harness.keys.press(.screenBrightnessUp)
-        await settle()
+        #expect(await appliesDrained(harness))
 
         // Both phases pass: a swallowed down with a leaked up orphans the pair.
         #expect(!press.down)
@@ -50,7 +50,7 @@ struct BrightnessKeyPointerGateTests {
         harness.suppressor.setEngaged(true)
 
         let press = harness.keys.press(.screenBrightnessDown)
-        await settle()
+        #expect(await appliesDrained(harness))
 
         #expect(!press.down)
         #expect(!press.up)
@@ -78,6 +78,7 @@ struct BrightnessKeyPointerGateTests {
         harness.keys.press(.screenBrightnessUp)
 
         #expect(await eventually { declined.count == 1 })
+        #expect(await appliesDrained(harness))
         #expect(harness.screen.applied == [0.5 + OSDTest.step])
     }
 
@@ -107,7 +108,7 @@ struct BrightnessKeyPointerGateTests {
         harness.brightnessTarget.value = .builtIn
         #expect(!harness.keys.pressDown(.screenBrightnessUp))   // autorepeat
         #expect(!harness.keys.pressUp(.screenBrightnessUp))
-        await settle()
+        #expect(await appliesDrained(harness))
         #expect(harness.screen.applied.isEmpty)
 
         // The NEXT press is judged afresh — and now it is ours.
@@ -125,4 +126,15 @@ struct BrightnessKeyPointerGateTests {
         #expect(harness.keys.pressDown(.screenBrightnessUp))   // autorepeat, still ours
         #expect(harness.keys.pressUp(.screenBrightnessUp))     // and the up, or the pair orphans
     }
+}
+
+/// The barrier for "the declined key wrote nothing": applies run off the actor
+/// on ONE chain, so a volume press queued behind whatever the declined key may
+/// have set off lands its own write only after that ran. Volume, because the
+/// pointer never touches it, and it is never handed back.
+@MainActor
+private func appliesDrained(_ harness: OSDSuppressorHarness) async -> Bool {
+    let before = harness.volume.applied.count
+    harness.keys.press(.volumeUp)
+    return await eventually { harness.volume.applied.count == before + 1 }
 }

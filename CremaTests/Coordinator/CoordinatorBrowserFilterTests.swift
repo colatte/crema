@@ -31,7 +31,7 @@ struct CoordinatorBrowserFilterTests {
         let h = CoordinatorHarness()
         let track = CoordinatorHarness.playingTrack()
         h.nowPlayingSource.emit(track)
-        _ = await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) })
 
         // A feed video steals the system's now-playing focus: the real player
         // effectively stopped — surface, snapshot and arming must all drop.
@@ -58,7 +58,7 @@ struct CoordinatorBrowserFilterTests {
         let h = CoordinatorHarness()
         let track = CoordinatorHarness.playingTrack()
         h.nowPlayingSource.emit(track)
-        _ = await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) })
 
         h.hudSource.emit(SystemHUD(kind: .volume, value: 0.5))
         #expect(await eventually { h.coordinator.state == .hud(SystemHUD(kind: .volume, value: 0.5)) })
@@ -107,7 +107,7 @@ struct CoordinatorBrowserFilterTests {
 
         // Waiting for the state to LEAVE the HUD fails loud with the wrong value in
         // one hop, instead of burning the whole deadline on a timeout.
-        _ = await eventually { h.coordinator.state != .hud(volumeHUD) }
+        #expect(await eventually { h.coordinator.state != .hud(volumeHUD) })
         #expect(h.coordinator.state == .hidden)
         // The snapshot is still tracked, so hover/click-invoke stay functional.
         #expect(h.coordinator.nowPlaying == stranger)
@@ -124,24 +124,24 @@ struct CoordinatorBrowserFilterTests {
 
         // Establish a paused Spotify snapshot with the surface tucked away.
         h.nowPlayingSource.emit(spotify)
-        _ = await eventually { h.coordinator.state == .nowPlaying(spotify, expanded: false) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(spotify, expanded: false) })
         h.nowPlayingSource.emit(spotifyPaused)
-        _ = await eventually { h.coordinator.state == .nowPlaying(spotifyPaused, expanded: false) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(spotifyPaused, expanded: false) })
         await h.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
         h.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
-        _ = await eventually { h.coordinator.state == .hidden }
+        #expect(await eventually { h.coordinator.state == .hidden })
 
         // A feed video grabs the system's now-playing (filtered): discarded.
         h.nowPlayingSource.emit(browserTrack())
-        _ = await eventually { h.coordinator.nowPlaying == nil }
+        #expect(await eventually { h.coordinator.nowPlaying == nil })
 
         // The browser media ends; focus returns to the paused Spotify.
         h.nowPlayingSource.emit(spotifyPaused)
-        await settle()
+        // The snapshot is still tracked, so hover/click-invoke stay functional;
+        // its arrival is also the barrier for the negative, decided in the same pass.
+        #expect(await eventually { h.coordinator.nowPlaying == spotifyPaused })
 
         #expect(h.coordinator.state == .hidden)
-        // The snapshot is still tracked, so hover/click-invoke stay functional.
-        #expect(h.coordinator.nowPlaying == spotifyPaused)
     }
 
     @Test func aFilteredBrowserEndingHandsBackToAPlayingAppSurfaces() async {
@@ -150,14 +150,14 @@ struct CoordinatorBrowserFilterTests {
         let spotifyPaused = CoordinatorHarness.playingTrack(isPlaying: false)
 
         h.nowPlayingSource.emit(CoordinatorHarness.playingTrack())
-        _ = await eventually { h.coordinator.state != .hidden }
+        #expect(await eventually { h.coordinator.state != .hidden })
         h.nowPlayingSource.emit(spotifyPaused)
         await h.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
         h.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
-        _ = await eventually { h.coordinator.state == .hidden }
+        #expect(await eventually { h.coordinator.state == .hidden })
 
         h.nowPlayingSource.emit(browserTrack())
-        _ = await eventually { h.coordinator.nowPlaying == nil }
+        #expect(await eventually { h.coordinator.nowPlaying == nil })
 
         let resumed = CoordinatorHarness.playingTrack()
         h.nowPlayingSource.emit(resumed)

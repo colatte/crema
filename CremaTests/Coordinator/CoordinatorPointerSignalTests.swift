@@ -13,9 +13,9 @@ struct CoordinatorPointerSignalTests {
     @Test func pointerMirrorFlipsOnTheIntentEdgeWithoutTheDelay() async {
         let h = CoordinatorHarness()
         h.hudSource.emit(SystemHUD(kind: .volume, value: 0.5))
-        _ = await eventually {
+        #expect(await eventually {
             if case .hud = h.coordinator.state { return true } else { return false }
-        }
+        })
 
         #expect(!h.coordinator.pointerInside)
         h.coordinator.hoverIntent(true)
@@ -29,9 +29,9 @@ struct CoordinatorPointerSignalTests {
         // the knob can never appear.
         let h = CoordinatorHarness()
         h.hudSource.emit(SystemHUD(kind: .volume, value: 0.5))
-        _ = await eventually {
+        #expect(await eventually {
             if case .hud = h.coordinator.state { return true } else { return false }
-        }
+        })
 
         h.coordinator.hover(true, on: .both)
         #expect(h.coordinator.pointerInside)
@@ -44,7 +44,7 @@ struct CoordinatorPointerSignalTests {
         // — the exit buys hoverExitRelinger (1.5 s) before the tuck.
         let h = CoordinatorHarness()
         h.nowPlayingSource.emit(CoordinatorHarness.playingTrack())
-        _ = await eventually { h.coordinator.state != .hidden }
+        #expect(await eventually { h.coordinator.state != .hidden })
 
         h.coordinator.hover(true, on: .both)
         h.coordinator.hover(false, on: .both)
@@ -57,9 +57,9 @@ struct CoordinatorPointerSignalTests {
     @Test func pointerHoldsTheHUDAndExitRestartsTheRevert() async {
         let h = CoordinatorHarness()
         h.hudSource.emit(SystemHUD(kind: .volume, value: 0.5))
-        _ = await eventually {
+        #expect(await eventually {
             if case .hud = h.coordinator.state { return true } else { return false }
-        }
+        })
         await h.clock.waitForSleep()          // the revert timer is parked
 
         h.coordinator.hover(true, on: .both)  // arrival cancels the revert

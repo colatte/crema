@@ -151,6 +151,8 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         // backlight: the native handler no-ops there (prohibited HUD), and
         // suspending would be wrong on ordinary hardware.
         let h = OSDSuppressorHarness()
+        let applies = CounterBox()
+        h.suppressor.onApplied = { [applies] _ in applies.count += 1 }
         h.volume.available = false
         h.volume.muteSupported = false
         h.keyboard.available = false
@@ -159,7 +161,11 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         h.keys.press(.volumeUp)
         h.keys.press(.mute)
         h.keys.press(.keyboardBrightnessUp)
-        await settle()
+        // The no-ops run off the actor; a healthy screen press queued behind them
+        // on the one apply chain reports applied only after all three finished.
+        h.keys.press(.screenBrightnessUp)
+        #expect(await eventually { applies.count == 1 }, "the apply chain never drained")
+        #expect(h.screen.applied == [0.5 + OSDTest.step])
 
         #expect(h.volume.applied.isEmpty)
         #expect(h.volume.mutedWrites.isEmpty)
@@ -176,12 +182,17 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         // goes to the system, which draws it) is pinned in
         // AbsentCapabilityHandbackTests, not here.
         let h = OSDSuppressorHarness()
+        let applies = CounterBox()
+        h.suppressor.onApplied = { [applies] _ in applies.count += 1 }
         h.screen.available = false
         h.suppressor.setEngaged(true)
 
         h.keys.press(.screenBrightnessUp)
         h.keys.press(.screenBrightnessUp)
-        await settle()
+        // A volume press queued behind both reports applied only after they ran.
+        h.keys.press(.volumeUp)
+        #expect(await eventually { applies.count == 1 }, "the apply chain never drained")
+        #expect(h.volume.applied == [0.5 + OSDTest.step])
 
         #expect(h.screen.applied.isEmpty)
         #expect(h.suppressor.isEngaged)
@@ -275,12 +286,14 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         let keys = MockMediaKeyConsuming()
         let hang = ControllableHangOSDChannel()
         let clock = TestSleepClock()
+        let applied = CounterBox()
         let suppressor = MediaKeyInterceptionOSDSuppressor(
             keys: keys, volume: MockOSDVolumeChannel(),
             screen: hang, keyboard: MockOSDChannel(),
             screenBrightnessTarget: { .builtIn },
             clock: clock, readClock: TestSleepClock()
         )
+        suppressor.onApplied = { [applied] _ in applied.count += 1 }
         suppressor.setEngaged(true)
 
         keys.press(.screenBrightnessUp)   // this one hangs
@@ -291,7 +304,11 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         clock.advance(delay: OSDTest.deadline)
 
         #expect(await eventually { suppressor.suspendedDomains.contains(.screenBrightness) })
-        await settle()
+        // A queued key that slipped the suspension guard would start its write off
+        // the actor, after a read; a volume press queued behind both reports
+        // applied only once they are done, which is the barrier for the count.
+        keys.press(.volumeUp)
+        #expect(await eventually { applied.count == 1 }, "the apply chain never drained")
         #expect(hang.writeStartCount == 1)   // only one actuator write ever started
         #expect(hang.applied.isEmpty)
 
@@ -310,19 +327,27 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         h.keys.press(.volumeUp)
         h.suppressor.setEngaged(false)
 
-        await settle()
-        #expect(h.volume.applied.isEmpty)
+        // Nothing is engaged to queue a barrier behind, so the denial gets a
+        // wall-clock window: a key that slipped through would apply off the actor.
+        #expect(await !footprintAppears { !h.volume.applied.isEmpty })
     }
 
     @Test func aStaleKeyFromABygoneEngagementNeverAppliesAfterAReengage() async {
         let h = OSDSuppressorHarness()
         h.suppressor.setEngaged(true)
 
+        let applies = CounterBox()
+        h.suppressor.onApplied = { [applies] _ in applies.count += 1 }
+
         h.keys.press(.volumeUp)
         h.suppressor.setEngaged(false)
         h.suppressor.setEngaged(true)
 
-        await settle()
+        // A screen press under the new engagement is the barrier: its hop lands
+        // after the stale key's, so a stale apply would sit ahead of it on the one
+        // chain and have run by the time it reports.
+        h.keys.press(.screenBrightnessUp)
+        #expect(await eventually { applies.count == 1 }, "the apply chain never drained")
         #expect(h.volume.applied.isEmpty)
         #expect(h.suppressor.isEngaged)
     }

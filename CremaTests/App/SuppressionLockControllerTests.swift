@@ -153,6 +153,19 @@ struct SuppressionLockControllerTests {
         #expect(h.preferences.suppressesNativeOSD)
     }
 
+    @Test func togglingOffWhileEngagedDisengagesAtOnce() {
+        // The reversibility half of the opt-in: turning it off hands every key back
+        // to the system now, not at the next lock edge.
+        let h = Harness(prefOn: true)
+        h.controller.start()
+        #expect(h.suppressor.isEngaged)
+
+        h.controller.setPreferredSuppression(false)
+        #expect(!h.suppressor.isEngaged)
+        #expect(h.suppressor.engageHistory == [true, false])
+        #expect(!h.preferences.suppressesNativeOSD)
+    }
+
     // MARK: - Unlock-edge tap reinstall (ENABLED-but-deaf recovery; docs/DECISIONS.md: J7-estado-do-outro-lado)
 
     @Test func unlockEdgeFiresReinstallBeforeReengage() async {

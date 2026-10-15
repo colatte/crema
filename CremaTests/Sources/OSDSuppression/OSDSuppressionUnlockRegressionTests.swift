@@ -93,7 +93,7 @@ struct OSDSuppressionUnlockRegressionTests {
         var reengagedAfterFailure = 0
         for _ in 0..<(OSDTest.escalation * 4) {
             h.keys.press(.screenBrightnessUp)
-            _ = await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) }
+            #expect(await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) })
             let reengaged = await eventually {
                 h.clock.advance()
                 return !h.suppressor.suspendedDomains.contains(.screenBrightness)
@@ -131,11 +131,11 @@ struct OSDSuppressionUnlockRegressionTests {
         // is momentarily re-engaged (the state where a flicker would show).
         for _ in 0..<(OSDTest.escalation * 3) {
             h.keys.press(.screenBrightnessUp)
-            _ = await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) }
-            _ = await eventually {
+            #expect(await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) })
+            #expect(await eventually {
                 h.clock.advance()
                 return !h.suppressor.suspendedDomains.contains(.screenBrightness)
-            }
+            })
         }
 
         // Escalated and, crucially, still surfaced while re-engaged.
@@ -161,11 +161,11 @@ struct OSDSuppressionUnlockRegressionTests {
         // Flap it to the menu warning.
         for _ in 0..<(OSDTest.escalation + 1) {
             h.keys.press(.screenBrightnessUp)
-            _ = await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) }
-            _ = await eventually {
+            #expect(await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) })
+            #expect(await eventually {
                 h.clock.advance()
                 return !h.suppressor.suspendedDomains.contains(.screenBrightness)
-            }
+            })
         }
         #expect(await eventually { h.suppressor.longSuspendedDomains.contains(.screenBrightness) })
 
@@ -312,11 +312,11 @@ struct OSDSuppressionUnlockRegressionTests {
 
         for _ in 0..<(OSDTest.escalation * 3) {
             h.keys.press(.screenBrightnessUp)
-            _ = await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) }
-            _ = await eventually {
+            #expect(await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) })
+            #expect(await eventually {
                 h.clock.advance()
                 return !h.suppressor.suspendedDomains.contains(.screenBrightness)
-            }
+            })
         }
         // Escalated to the menu and momentarily re-engaged — the exact state a
         // suspended-only retry loop skips.
@@ -345,11 +345,11 @@ struct OSDSuppressionUnlockRegressionTests {
         h.screen.writeIsDead = true                  // write records but never moves
         for _ in 0..<(OSDTest.escalation * 3) {
             h.keys.press(.screenBrightnessUp)
-            _ = await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) }
-            _ = await eventually {
+            #expect(await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) })
+            #expect(await eventually {
                 h.clock.advance()
                 return !h.suppressor.suspendedDomains.contains(.screenBrightness)
-            }
+            })
         }
         #expect(await eventually { h.suppressor.longSuspendedDomains.contains(.screenBrightness) })
 

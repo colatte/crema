@@ -14,12 +14,12 @@ struct CoordinatorSourceLifecycleTests {
     @Test func anEndedSourceDiscardsTheTuckedGhostAndDisarmsInvoke() async {
         let h = CoordinatorHarness()
         h.nowPlayingSource.emit(track)
-        _ = await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) })
         // Let the surface tuck: the ghost now lives only as mediaActive +
         // nowPlaying, arming click-invoke.
         await h.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
         h.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
-        _ = await eventually { h.coordinator.state == .hidden }
+        #expect(await eventually { h.coordinator.state == .hidden })
         #expect(h.coordinator.mediaActive)
 
         // The active source dies (failover / outage / promotion).
@@ -34,7 +34,7 @@ struct CoordinatorSourceLifecycleTests {
     @Test func anEndedSourceHidesAVisibleGhostSurface() async {
         let h = CoordinatorHarness()
         h.nowPlayingSource.emit(track)
-        _ = await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) })
 
         h.coordinator.activeNowPlayingSourceEnded()
 
@@ -47,7 +47,7 @@ struct CoordinatorSourceLifecycleTests {
         let h = CoordinatorHarness()
         let first = CoordinatorHarness.playingTrack(title: "A")
         h.nowPlayingSource.emit(first)
-        _ = await eventually { h.coordinator.state == .nowPlaying(first, expanded: false) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(first, expanded: false) })
 
         // Failover: the old source ended; the new one takes over and emits
         // through the same update path, rebuilding the state.
@@ -66,7 +66,7 @@ struct CoordinatorSourceLifecycleTests {
         // degraded signal is the chain's onActiveChange, tested there).
         let h = CoordinatorHarness()
         h.nowPlayingSource.emit(track)
-        _ = await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) })
 
         h.coordinator.activeNowPlayingSourceEnded()
         await settle()
@@ -102,7 +102,7 @@ struct CoordinatorSourceLifecycleTests {
         await h.clock.waitForSleep(delay: Coordinator.defaultHUDRevertDelay)
         h.clock.advance(delay: Coordinator.defaultHUDRevertDelay)
 
-        _ = await eventually { h.coordinator.state != .hud(volumeHUD) }
+        #expect(await eventually { h.coordinator.state != .hud(volumeHUD) })
         #expect(h.coordinator.state == .hidden)
     }
 

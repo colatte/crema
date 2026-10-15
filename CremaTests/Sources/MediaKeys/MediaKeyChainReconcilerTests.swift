@@ -141,6 +141,36 @@ struct MediaKeyChainSeamTests {
         #expect(notice(registry) == .anotherAppAhead("Some Other App"))
     }
 
+    @Test func losingThePositionIsNamedAndNeverFoughtFor() async {
+        // Contention "stops": the app names who is ahead and does not try to get
+        // back in front. Nothing joins the chain reading to the tap — the seam
+        // above takes a registry and no tap — so the one path that could
+        // out-insert a neighbour is the tap's own self-repair, the health poll.
+        // Losing the position leaves our port valid and enabled, and on such a
+        // port the poll must reinstall nothing, tick after tick
+        // (docs/DECISIONS.md: media-key-chain-contention).
+        let registry = MockEventTapRegistry(
+            taps: [.contender(pid: 200), .contender(pid: 100)],
+            names: [200: "Some Other App"],
+            bundleIDs: [200: "com.example.other"]
+        )
+        #expect(notice(registry) == .anotherAppAhead("Some Other App"))
+
+        let ops = FakeEventTapOperating()
+        let clock = TestSleepClock()
+        let source = CGEventTapMediaKeySource(
+            permission: MockAccessibilityPermission(granted: true), clock: clock, tapOps: ops
+        )
+        for _ in 0..<5 {
+            await clock.waitForSleep()   // the previous tick ran and re-parked
+            clock.advance()
+        }
+        await clock.waitForSleep()
+        #expect(ops.installCount == 1)
+        #expect(ops.isInstalled)
+        withExtendedLifetime(source) {}
+    }
+
     @Test func anUnnamedContenderIsNotAccused() {
         // A daemon with no localized name would surface as a blank or a bare pid;
         // silence beats an accusation the user cannot act on.

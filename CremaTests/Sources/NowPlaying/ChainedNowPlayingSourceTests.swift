@@ -108,7 +108,7 @@ struct ChainedNowPlayingSourceTests {
             clock: clock
         )
 
-        let collector = SnapshotCollector()
+        let collector = SnapshotCollector<NowPlaying>()
         let consumer = Task { for await value in chain.updates { collector.append(value) } }
 
         adapter.emit(track("A"))
@@ -464,24 +464,34 @@ struct ChainedNowPlayingSourceTests {
     }
 
     @Test func reportsActiveStatusChanges() async {
-        let flips = Flag()
-        let active = Flag()
+        let edges = SnapshotCollector<Bool>()
+        let available = Flag()
+        available.value = true
+        let source = MockNowPlayingSource()
+        let clock = TestSleepClock()
         let chain = ChainedNowPlayingSource(
-            candidates: [.init(isAvailable: { true }, makeSource: { MockNowPlayingSource() }, commandChannel: MockCommandChannel())],
-            clock: TestSleepClock(),
-            onActiveChange: { isActive in flips.value = true; active.value = isActive }
+            candidates: [.init(isAvailable: { available.value }, makeSource: { source }, commandChannel: MockCommandChannel())],
+            clock: clock,
+            onActiveChange: { edges.append($0) }
         )
-        _ = chain
-        #expect(await eventuallyOffActor { flips.value && active.value })
+        #expect(await eventuallyOffActor { edges.all == [true] })
+
+        // The source dies and nothing is left to select: the chain says so.
+        available.value = false
+        source.finish()
+        await clock.waitForSleep()   // the re-selection backoff
+        clock.advance()
+        #expect(await eventuallyOffActor { edges.all == [true, false] })
+        withExtendedLifetime(chain) {}
     }
 }
 
-/// Lock-protected sink for the outer stream — the consumer Task appends off the
-/// main actor while the test asserts, so a negative ("no stop emitted") can be
-/// pinned safely.
-private final class SnapshotCollector: @unchecked Sendable {
+/// Lock-protected sink for what the chain reports off the main actor — the outer
+/// stream's snapshots, or its active-status edges — appended while the test
+/// asserts, so a negative ("no stop emitted") can be pinned safely.
+private final class SnapshotCollector<Element: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
-    private var _all: [NowPlaying] = []
-    var all: [NowPlaying] { lock.withLock { _all } }
-    func append(_ value: NowPlaying) { lock.withLock { _all.append(value) } }
+    private var _all: [Element] = []
+    var all: [Element] { lock.withLock { _all } }
+    func append(_ value: Element) { lock.withLock { _all.append(value) } }
 }

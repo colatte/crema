@@ -157,6 +157,10 @@ final class MockOSDChannel: OSDChannel, @unchecked Sendable {
 
     private let hangLock = NSLock()
     private var readsSeen = 0
+    private var readsDone = 0
+    /// Reads that came back to their caller, a hung one only after its release:
+    /// the positive signal that an orphaned read has landed.
+    var readsReturned: Int { hangLock.withLock { readsDone } }
     private var swallowNextRead = false
     private let readGate = DispatchSemaphore(value: 0)
 
@@ -179,6 +183,7 @@ final class MockOSDChannel: OSDChannel, @unchecked Sendable {
             return true
         }
         if shouldHang { readGate.wait() }
+        defer { hangLock.withLock { readsDone += 1 } }
         let swallow = hangLock.withLock {
             let pending = swallowNextRead
             swallowNextRead = false

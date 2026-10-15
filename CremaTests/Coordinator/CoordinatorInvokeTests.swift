@@ -14,10 +14,10 @@ struct CoordinatorInvokeTests {
     /// Drives the appearance to tucked (reactive linger elapsed).
     private func tucked(_ h: CoordinatorHarness) async {
         h.nowPlayingSource.emit(track)
-        _ = await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) })
         await h.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
         h.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
-        _ = await eventually { h.coordinator.state == .hidden }
+        #expect(await eventually { h.coordinator.state == .hidden })
     }
 
     @Test func invokeOpensTheExpandedPlayerWithTheLongerLinger() async {
@@ -49,13 +49,13 @@ struct CoordinatorInvokeTests {
     @Test func invokeWithPausedMediaDoesNothing() async {
         let h = CoordinatorHarness()
         h.nowPlayingSource.emit(track)
-        _ = await eventually { h.coordinator.state != .hidden }
+        #expect(await eventually { h.coordinator.state != .hidden })
         let paused = CoordinatorHarness.playingTrack(isPlaying: false)
         h.nowPlayingSource.emit(paused)
-        _ = await eventually { h.coordinator.state == .nowPlaying(paused, expanded: false) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(paused, expanded: false) })
         await h.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
         h.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
-        _ = await eventually { h.coordinator.state == .hidden }
+        #expect(await eventually { h.coordinator.state == .hidden })
 
         // Paused media is not click-invokable — the same decision as the old
         // paused-resurface rule: only a media event re-earns an appearance.
@@ -68,7 +68,7 @@ struct CoordinatorInvokeTests {
     @Test func invokeWhileASurfaceIsVisibleIsANoOp() async {
         let h = CoordinatorHarness()
         h.nowPlayingSource.emit(track)
-        _ = await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) })
         await h.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
 
         h.coordinator.invoke()

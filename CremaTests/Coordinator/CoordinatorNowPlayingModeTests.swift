@@ -65,7 +65,7 @@ struct CoordinatorNowPlayingModeTests {
         // pop back up on its own.
         await h.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
         h.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
-        _ = await eventually { h.coordinator.state == .hidden }
+        #expect(await eventually { h.coordinator.state == .hidden })
 
         h.coordinator.setReactiveNowPlaying(false)
         let fresh = CoordinatorHarness.playingTrack(title: "B")

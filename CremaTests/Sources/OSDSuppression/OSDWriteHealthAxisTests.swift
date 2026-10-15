@@ -84,9 +84,14 @@ struct OSDWriteHealthAxisTests {
         #expect(h.suppressor.longSuspendedDomains.contains(.volume))
 
         // The output loses its volume control entirely: the apply is a no-op.
+        let applies = CounterBox()
+        h.suppressor.onApplied = { [applies] _ in applies.count += 1 }
         h.volume.available = false
         h.keys.press(.volumeUp)
-        await settle()
+        // The no-op runs off the actor; a screen press queued behind it on the
+        // one apply chain reports applied only after it finished.
+        h.keys.press(.screenBrightnessUp)
+        #expect(await eventually { applies.count == 1 }, "the apply chain never drained")
 
         #expect(h.suppressor.longSuspendedDomains.contains(.volume))
     }
@@ -105,11 +110,11 @@ struct OSDWriteHealthAxisTests {
         // Flap until the escalation lands, leaving the domain suspended at that step.
         for _ in 0..<(OSDTest.escalation * 4) {
             h.keys.press(.screenBrightnessUp)
-            _ = await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) }
-            _ = await eventually {
+            #expect(await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) })
+            #expect(await eventually {
                 h.clock.advance()
                 return !h.suppressor.suspendedDomains.contains(.screenBrightness)
-            }
+            })
         }
         #expect(h.suppressor.longSuspendedDomains.contains(.screenBrightness))
 
@@ -147,13 +152,13 @@ struct OSDWriteHealthAxisTests {
 
         for _ in 0..<(OSDTest.escalation + 2) {
             h.keys.press(.screenBrightnessUp)
-            _ = await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) }
-            _ = await eventually { h.clock.advance(); return true }
+            #expect(await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) })
+            #expect(await eventually { h.clock.advance(); return true })
         }
-        _ = await eventually {
+        #expect(await eventually {
             h.clock.advance()
             return h.suppressor.longSuspendedDomains.contains(.screenBrightness)
-        }
+        })
         #expect(h.suppressor.longSuspendedDomains.contains(.screenBrightness))
 
         h.suppressor.retrySuspendedNow()   // the channel is STILL dead

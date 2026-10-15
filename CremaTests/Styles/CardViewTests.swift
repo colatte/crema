@@ -42,7 +42,7 @@ struct CardViewTests {
         #expect(view.adaptiveWidthKey == key)
 
         h.hudSource.emit(SystemHUD(kind: .volume, value: 0.5))
-        _ = await eventually { view.contentKind == .hud(SystemHUD(kind: .volume, value: 0.5)) }
+        #expect(await eventually { view.contentKind == .hud(SystemHUD(kind: .volume, value: 0.5)) })
         #expect(view.adaptiveWidthKey == nil)   // HUD: fixed width, no key
     }
 
@@ -60,7 +60,7 @@ struct CardViewTests {
         )
 
         h.nowPlayingSource.emit(short)
-        _ = await eventually { h.coordinator.state == .nowPlaying(short, expanded: false) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(short, expanded: false) })
         let compactProposal = CGSize(width: 364, height: CardMetrics.compact.height)
         let compactShort = NSHostingController(rootView: CardView(coordinator: h.coordinator).surface)
             .sizeThatFits(in: compactProposal)
@@ -68,7 +68,7 @@ struct CardViewTests {
         #expect(compactShort.width < CardMetrics.compactMaxWidth)
 
         h.coordinator.hover(true, on: .both)
-        _ = await eventually { h.coordinator.state == .nowPlaying(short, expanded: true) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(short, expanded: true) })
         let expandedProposal = CGSize(width: 364, height: CardMetrics.expanded.height)
         let expandedShort = NSHostingController(rootView: CardView(coordinator: h.coordinator).surface)
             .sizeThatFits(in: expandedProposal)
@@ -76,7 +76,7 @@ struct CardViewTests {
         #expect(expandedShort.width < CardMetrics.expandedMaxWidth)
 
         h.nowPlayingSource.emit(long)
-        _ = await eventually { h.coordinator.state == .nowPlaying(long, expanded: true) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(long, expanded: true) })
         let expandedCapped = NSHostingController(rootView: CardView(coordinator: h.coordinator).surface)
             .sizeThatFits(in: expandedProposal)
         // Truncation lands on a glyph boundary, so the hug settles at or just
@@ -102,7 +102,7 @@ struct CardViewTests {
         #expect(await eventually { h.media.commands == [.togglePlayPause, .previousTrack, .nextTrack, .seek(seconds: 42)] })
 
         h.hudSource.emit(SystemHUD(kind: .volume, value: 0.5))
-        _ = await eventually { view.contentKind == .hud(SystemHUD(kind: .volume, value: 0.5)) }
+        #expect(await eventually { view.contentKind == .hud(SystemHUD(kind: .volume, value: 0.5)) })
         view.hudSliderMoved(to: 0.7)
         #expect(await eventually { h.volume.commands == [.setVolume(0.7, display: nil)] })
     }
@@ -150,7 +150,7 @@ struct CardViewTests {
         let view = CardView(coordinator: h.coordinator, displayPolicy: policy)
 
         h.nowPlayingSource.emit(CoordinatorHarness.playingTrack())
-        _ = await eventually { h.coordinator.state != .hidden }
+        #expect(await eventually { h.coordinator.state != .hidden })
 
         #expect(view.contentKind == .empty)
     }

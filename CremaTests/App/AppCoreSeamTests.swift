@@ -27,7 +27,7 @@ struct AppCoreSeamTests {
         // forwarding from its adapter.
         let ghost = CoordinatorHarness.playingTrack()
         h.nowPlayingSource.emit(ghost)
-        _ = await eventually { h.coordinator.state == .nowPlaying(ghost, expanded: false) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(ghost, expanded: false) })
         adapter.emit(CoordinatorHarness.playingTrack(title: "chain"))
         _ = await chainIterator.next()   // the chain is forwarding
 

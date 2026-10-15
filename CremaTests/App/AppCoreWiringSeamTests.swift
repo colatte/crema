@@ -137,7 +137,14 @@ struct AppCoreWiringSeamTests {
         // Volume never routes here — Core Audio echoes itself.
         coordinator.onBrightnessApplied?(SystemHUD(kind: .volume, value: 0.4))
         #expect(taken == Pokes(screen: 1, keyboard: 1, volume: 0))
-        #expect(seen.all.count == 1)
+        // The neighbour's stream reaches `seen` a hop later, so a stray echo above
+        // would still be on its way. A sentinel sent down that one ordered stream
+        // is the barrier: once it lands, everything ahead of it has.
+        coordinator.onBrightnessApplied?(
+            SystemHUD(kind: .screenBrightness, value: 0.7, authority: .betterDisplay)
+        )
+        #expect(await eventually { seen.all.last?.value == 0.7 })
+        #expect(seen.all.map(\.value) == [0.4, 0.7])
 
         task.cancel()
     }

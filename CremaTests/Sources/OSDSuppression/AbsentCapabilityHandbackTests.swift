@@ -123,11 +123,18 @@ struct AbsentCapabilityHandbackTests {
         // phases swallowed, so the system sees a whole press or none. Without this
         // test, dropping at the mark survives every other one.
         let h = OSDSuppressorHarness()
+        let applies = CounterBox()
+        h.suppressor.onApplied = { [applies] _ in applies.count += 1 }
         h.volume.available = false
         h.suppressor.setEngaged(true)
 
         #expect(h.keys.pressDown(.volumeDown))
-        await settle()   // the absence lands while the key is still down
+        // The absence lands while the key is still down, and the proof is a
+        // brightness press queued behind it on the one apply chain: its verified
+        // apply reports only after the volume apply that records the absence.
+        h.keys.press(.screenBrightnessUp)
+        #expect(await eventually { applies.count == 1 }, "the apply chain never drained")
+        #expect(h.screen.applied == [0.5 + OSDTest.step])
         #expect(h.keys.pressUp(.volumeDown))
     }
 
@@ -269,15 +276,19 @@ struct AbsentCapabilityHandbackTests {
         // handback does not change that.
         let h = OSDSuppressorHarness()
         let handedBack = CounterBox()
+        let applies = CounterBox()
         h.suppressor.onHandedBackToTheSystem = { [handedBack] _ in handedBack.count += 1 }
+        h.suppressor.onApplied = { [applies] _ in applies.count += 1 }
         h.keyboard.available = false
         h.suppressor.setEngaged(true)
 
         // The press that buys the answer is ours: we draw nothing, but nobody else
-        // does either, so there is no window to spend. Negative wait, which is what
-        // settle() is for.
+        // does either, so there is no window to spend. Its apply learns the absence
+        // off the actor, so the barrier for the negative is a volume press queued
+        // behind it on the one apply chain, reporting applied only after it.
         h.keys.press(.keyboardBrightnessUp)
-        await settle()
+        h.keys.press(.volumeUp)
+        #expect(await eventually { applies.count == 1 }, "the apply chain never drained")
         // swiftlint:disable:next empty_count
         #expect(handedBack.count == 0)
 

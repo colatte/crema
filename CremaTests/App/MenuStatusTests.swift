@@ -124,6 +124,7 @@ struct MenuStatusTests {
         #expect(suspended.rows.isEmpty)   // and no claim beside it
     }
 
+    @MainActor
     @Test func theBrightnessTargetIsStatusAndNeverCollidesWithTheNeighboursRow() {
         // One arrangement still has news the user can get nowhere else: no built-in
         // panel in use, so Crema applies no brightness key at all
@@ -134,10 +135,15 @@ struct MenuStatusTests {
         // row would tell a Mac that HAS a built-in display that Crema cannot control
         // screen brightness, which is false.
         #expect(status(brightnessTarget: .builtInAmongOthers).rows.isEmpty)
-        // The composition upstream stands the target down for any chain answer but
-        // `.quiet`, so the neighbour's row and the brightness row are mutually
-        // exclusive by construction — this pins that they never both appear.
-        let drawing = status(chainNotice: .drawingFromBetterDisplay, brightnessTarget: .quiet)
+        // The two rows never both appear because the composition upstream stands
+        // the target down for any chain answer but `.quiet`. So the target here is
+        // the one that composition really produces, for the arrangement that would
+        // otherwise say both: the neighbour reporting, and no built-in panel.
+        let noPanel = (hasBuiltIn: false, count: 1)
+        let target = AppCore.brightnessKeyTargetNotice(
+            chain: .drawingFromBetterDisplay, keysAreCaptured: true, census: { noPanel }
+        )
+        let drawing = status(chainNotice: .drawingFromBetterDisplay, brightnessTarget: target)
         #expect(drawing.rows.contains(.brightnessFromBetterDisplay))
         #expect(!drawing.rows.contains(.brightnessNoBuiltIn))
     }

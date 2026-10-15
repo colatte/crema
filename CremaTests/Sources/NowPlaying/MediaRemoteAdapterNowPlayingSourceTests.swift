@@ -359,8 +359,10 @@ struct MediaRemoteAdapterNowPlayingSourceTests {
         feed.yield(line(position: 5, playing: false))
         #expect(await iterator.next()?.isPlaying == false)
 
-        await settle()
-        #expect(clock.pendingSleeps == 0)   // no ticker parked while paused
+        // The ticker is installed after the emission and parks off the actor, so
+        // the denial gets a wall-clock window; `delays` keeps a park that a later
+        // cancel would have removed from the pending list.
+        #expect(await !footprintAppears { !clock.delays.isEmpty })   // no ticker while paused
     }
 
     @Test func emptyPayloadHidesByMarkingLastNotPlaying() async {

@@ -40,7 +40,7 @@ struct ClassicViewTests {
         #expect(await eventually { h.media.commands == [.togglePlayPause, .previousTrack, .nextTrack, .seek(seconds: 42)] })
 
         h.hudSource.emit(SystemHUD(kind: .volume, value: 0.5))
-        _ = await eventually { view.contentKind == .hud(SystemHUD(kind: .volume, value: 0.5)) }
+        #expect(await eventually { view.contentKind == .hud(SystemHUD(kind: .volume, value: 0.5)) })
         view.hudSliderMoved(to: 0.7)
         #expect(await eventually { h.volume.commands == [.setVolume(0.7, display: nil)] })
     }
@@ -52,7 +52,7 @@ struct ClassicViewTests {
         let view = ClassicView(coordinator: h.coordinator, displayPolicy: policy)
 
         h.nowPlayingSource.emit(CoordinatorHarness.playingTrack())
-        _ = await eventually { h.coordinator.state != .hidden }
+        #expect(await eventually { h.coordinator.state != .hidden })
 
         #expect(view.contentKind == .empty)
     }

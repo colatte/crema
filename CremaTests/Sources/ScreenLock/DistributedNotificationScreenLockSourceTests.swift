@@ -155,9 +155,13 @@ struct DistributedNotificationScreenLockSourceTests {
         // latched at unsafe — precisely the residual latch the tail must break.
         source.handleEdge()
         for _ in 0..<8 {
+            await clock.waitForSleep()
             clock.advance()
-            await settle()
         }
+        // The chain re-parks after each re-read, so a parked sleep proves the last
+        // one ran; the drain then covers its emission reaching the collector.
+        await clock.waitForSleep()
+        await settle()
         #expect(emit.values == [false])          // backoff exhausted, still no recovery
         #expect(!source.isSuppressionSafe)
 
@@ -186,9 +190,11 @@ struct DistributedNotificationScreenLockSourceTests {
 
         source.handleEdge()                       // a redundant safe edge
         for _ in 0..<6 {                          // drain the whole settle chain
+            await clock.waitForSleep()
             clock.advance()
-            await settle()
         }
+        await clock.waitForSleep()                // the last re-read ran and re-parked
+        await settle()
         #expect(emit.values.isEmpty)
         #expect(source.isSuppressionSafe)
 

@@ -14,7 +14,7 @@ struct CoordinatorLingerTests {
 
     private func appeared(_ h: CoordinatorHarness, linger: Double = Coordinator.defaultNowPlayingLinger) async {
         h.nowPlayingSource.emit(track)
-        _ = await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) })
         // Wait until the linger actually parks: cancellations and advances in
         // the test body are deterministic only against a parked sleep.
         await h.clock.waitForSleep(delay: linger)
@@ -24,7 +24,7 @@ struct CoordinatorLingerTests {
     private func tucked(_ h: CoordinatorHarness) async {
         await appeared(h)
         h.clock.advance(delay: linger)
-        _ = await eventually { h.coordinator.state == .hidden }
+        #expect(await eventually { h.coordinator.state == .hidden })
     }
 
     @Test func appearanceTucksAfterTheLingerDelay() async {
@@ -54,10 +54,11 @@ struct CoordinatorLingerTests {
         await tucked(h)
 
         h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(position: 11))
-        await settle()
+        // The tick landing is the barrier: the same pass decides whether to
+        // surface, so the negative below is read after that decision.
+        #expect(await eventually { h.coordinator.nowPlaying?.position == 11 })
 
         #expect(h.coordinator.state == .hidden)
-        #expect(h.coordinator.nowPlaying?.position == 11)
     }
 
     @Test func playPauseFlipResurfacesInBothDirections() async {
@@ -167,7 +168,7 @@ struct CoordinatorLingerTests {
         #expect(await eventually { h.coordinator.state == .nowPlaying(paused, expanded: false) })
         await h.clock.waitForSleep(delay: linger)
         h.clock.advance(delay: linger)
-        _ = await eventually { h.coordinator.state == .hidden }
+        #expect(await eventually { h.coordinator.state == .hidden })
         #expect(!h.coordinator.mediaActive)
 
         h.coordinator.hover(true, on: .both)
@@ -230,10 +231,9 @@ struct CoordinatorLingerTests {
         var withArtwork = track
         withArtwork.artworkData = [1, 2, 3]
         h.nowPlayingSource.emit(withArtwork)
-        await settle()
+        #expect(await eventually { h.coordinator.nowPlaying?.artworkData != nil })
 
         #expect(h.coordinator.state == .hidden)
-        #expect(h.coordinator.nowPlaying?.artworkData != nil)
     }
 
     @Test func artworkArrivingWhileVisibleRefreshesTheAppearance() async {
@@ -276,7 +276,10 @@ struct CoordinatorLingerTests {
         h.coordinator.hoverIntent(true)
         await h.clock.waitForSleep(delay: Coordinator.defaultHoverIntentDelay)
         h.clock.advance(delay: Coordinator.defaultHoverIntentDelay)
-        await settle()
+        // The dwell's commit is the premise: the timer resumes off the actor, so
+        // a drain proves nothing, and under a HUD over a tucked surface the
+        // commit draws nothing — its one footprint is the private hover flag.
+        #expect(await eventually { committedHover(h.coordinator) })
 
         h.coordinator.hoverIntent(false)
         await h.clock.waitForSleep(delay: Coordinator.defaultHUDRevertDelay)
@@ -345,4 +348,12 @@ struct CoordinatorLingerTests {
         h.clock.advance(delay: 0.5)
         #expect(await eventually { h.coordinator.state == .hidden })
     }
+}
+
+/// The Coordinator's committed-hover flag: a hover the dwell commits under a HUD
+/// over a tucked surface changes nothing else observable, and a test whose
+/// premise is that commit needs to know it landed.
+@MainActor
+private func committedHover(_ coordinator: Coordinator) -> Bool {
+    coordinator.hoverIsCommitted
 }
