@@ -95,7 +95,7 @@ A claim about an Apple API carries its primary source, and two questions hide
 behind "what does the app get": what a symbol **requires** is availability,
 what the app **gets** is linkage. `MACOSX_DEPLOYMENT_TARGET` answers the first
 and `xcrun --sdk macosx --show-sdk-version` the second. Measured here: the
-project targets macOS 14 and builds against the macOS 26 SDK, and the
+project targets macOS 14 and builds against the macOS 27 SDK, and the
 platform's current design is granted on LINKAGE — *"absence of the key, or
 `NO`, is the default value for apps linking against the latest SDKs"*
 (`UIDesignRequiresCompatibility`, ignored once the app is built against the

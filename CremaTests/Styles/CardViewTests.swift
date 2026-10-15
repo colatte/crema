@@ -17,7 +17,7 @@ struct CardViewTests {
         h.nowPlayingSource.emit(track)
         #expect(await eventually { view.contentKind == .nowPlayingCompact(track) })
 
-        h.coordinator.hover(true)
+        h.coordinator.hover(true, on: .both)
         #expect(view.contentKind == .nowPlayingExpanded(track))
 
         let hud = SystemHUD(kind: .volume, value: 0.5)
@@ -38,7 +38,7 @@ struct CardViewTests {
         #expect(await eventually { h.coordinator.nowPlaying?.position == 11 })
         #expect(view.adaptiveWidthKey == key)
 
-        h.coordinator.hover(true)
+        h.coordinator.hover(true, on: .both)
         #expect(view.adaptiveWidthKey == key)
 
         h.hudSource.emit(SystemHUD(kind: .volume, value: 0.5))
@@ -67,7 +67,7 @@ struct CardViewTests {
         #expect(compactShort.width >= CardMetrics.compactMinWidth)
         #expect(compactShort.width < CardMetrics.compactMaxWidth)
 
-        h.coordinator.hover(true)
+        h.coordinator.hover(true, on: .both)
         _ = await eventually { h.coordinator.state == .nowPlaying(short, expanded: true) }
         let expandedProposal = CGSize(width: 364, height: CardMetrics.expanded.height)
         let expandedShort = NSHostingController(rootView: CardView(coordinator: h.coordinator).surface)

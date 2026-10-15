@@ -82,12 +82,12 @@ struct CoordinatorLingerTests {
         let h = CoordinatorHarness()
         await appeared(h)
 
-        h.coordinator.hover(true)
+        h.coordinator.hover(true, on: .both)
         #expect(h.coordinator.state == .nowPlaying(track, expanded: true))
         // The linger was cancelled: nothing left to tuck the surface.
         #expect(await eventually { h.clock.pendingSleeps == 0 })
 
-        h.coordinator.hover(false)
+        h.coordinator.hover(false, on: .both)
         #expect(h.coordinator.state == .nowPlaying(track, expanded: false))
         // Hover-out buys the short re-linger, not a fresh full one.
         await h.clock.waitForSleep(delay: Coordinator.hoverExitRelinger)
@@ -101,7 +101,7 @@ struct CoordinatorLingerTests {
 
         // The accidental-appearance fix: an empty region never reacts to the
         // pointer — invocation is a click (or a media event), never hover.
-        h.coordinator.hover(true)
+        h.coordinator.hover(true, on: .both)
         await settle()
 
         #expect(h.coordinator.state == .hidden)
@@ -170,7 +170,7 @@ struct CoordinatorLingerTests {
         _ = await eventually { h.coordinator.state == .hidden }
         #expect(!h.coordinator.mediaActive)
 
-        h.coordinator.hover(true)
+        h.coordinator.hover(true, on: .both)
         await settle()
 
         #expect(h.coordinator.state == .hidden)

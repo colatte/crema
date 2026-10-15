@@ -33,7 +33,7 @@ Depends on: nothing — the items are independent of one another.
 ## Phase 2 (optional) — External displays: what is still missing
 
 Objective: external-display volume and a brightness key Crema applies itself, over the neighbour's channel; Lunar behind the same protocols.
-Depends on: Phase 1 not at all — but on evidence the neighbour's API does not give today (its `get` refuses every spelling of brightness, so the apply+verify cycle has no `before`; docs/DECISIONS.md: external-brightness-is-write-only). Tasks are detailed in the round that opens this phase.
+Depends on: Phase 1 not at all. The neighbour's `get` reads brightness through the feature key (`"brightness":""`), which gives the apply+verify cycle its `before`; the cycle is unbuilt (docs/DECISIONS.md: external-brightness-is-write-only, neighbour-features-are-not-identifiers). Tasks are detailed in the round that opens this phase.
 
 - [ ] T7.1 — Integration detection and selection · módulo: Sources
   - Tests (first): with detection mocked (none / BetterDisplay only / Lunar only / both), the selection offers only what exists and allows one active integration at a time.

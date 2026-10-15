@@ -91,11 +91,11 @@ struct CoordinatorInvokeTests {
         // keeps its longer duration through hover cycles — in production the
         // click lands with the pointer already on the fresh surface, so the
         // initial timer is always replaced by a hover cycle.
-        h.coordinator.hover(true)
+        h.coordinator.hover(true, on: .both)
         #expect(h.coordinator.state == .nowPlaying(track, expanded: true))
         #expect(await eventually { h.clock.pendingSleeps == 0 })   // pointer holds the tuck
 
-        h.coordinator.hover(false)
+        h.coordinator.hover(false, on: .both)
         #expect(h.coordinator.state == .nowPlaying(track, expanded: false))
         await h.clock.waitForSleep(delay: Coordinator.defaultInvokedLinger)
         h.clock.advance(delay: Coordinator.defaultInvokedLinger)
@@ -115,7 +115,7 @@ struct CoordinatorInvokeTests {
         h.coordinator.onPresentationChange = { [coordinator = h.coordinator] in
             if !reentered, case .nowPlaying = coordinator.state {
                 reentered = true
-                coordinator.hover(true)   // the monitor's arming sample
+                coordinator.hover(true, on: .both)   // the monitor's arming sample
             }
         }
         h.coordinator.invoke()
@@ -128,7 +128,7 @@ struct CoordinatorInvokeTests {
         // Pointer leaves: the tuck must run on the invoked linger — a
         // hardcoded-reactive restart is exactly the bug that makes the 5 s
         // unreachable in production.
-        h.coordinator.hover(false)
+        h.coordinator.hover(false, on: .both)
         #expect(h.coordinator.state == .nowPlaying(track, expanded: false))
         await h.clock.waitForSleep(delay: Coordinator.defaultInvokedLinger)
         h.clock.advance(delay: Coordinator.defaultInvokedLinger)

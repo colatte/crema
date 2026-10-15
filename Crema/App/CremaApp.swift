@@ -95,7 +95,7 @@ private struct SettingsMenuButton: View {
 
 #if !DEBUG
 /// Says a scheduled update is waiting and gives the one click that reaches it.
-/// Nothing at all when none is pending — the menu keeps the shape it has today.
+/// Nothing at all when none is pending — the menu keeps its shape without it.
 ///
 /// The shape is the house rule for a fact with a repair: the button is the item and
 /// the fact is its note, in a section of its own

@@ -27,10 +27,11 @@ enum Thumbnail {
     fileprivate static let ringInset: CGFloat = 3
     /// Floor for the menu-bar strip and the slit that cuts it. Scenery, like the
     /// strip itself: the tile scales its screen by `width / that screen's width`,
-    /// so the reference panel's 32 pt safe area derives to roughly 2.3 pt here,
-    /// which reads as nothing. A point value rather than a ratio because what it
-    /// defends is legibility on screen — resize the tile and the derived height
-    /// moves, this floor does not.
+    /// so the reference panel's 32 pt safe area derives to roughly 2.3 pt at the
+    /// style tile's `width` and 1.3 pt in a 60 pt display-row thumbnail, which
+    /// reads as nothing. A point value rather than a ratio because what it defends
+    /// is legibility on screen — resize the tile and the derived height moves,
+    /// this floor does not.
     static let minMenuBar: CGFloat = 3.5
     /// How far below the drawn menu bar a floating surface sits. Enough to be a gap
     /// and not a seam; the true one is a fifth of a point at this size.

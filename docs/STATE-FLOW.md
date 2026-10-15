@@ -7,11 +7,11 @@
 > `@Observable`, before making a view read `nowPlaying` directly, and before
 > touching an animation that crosses the empty↔visible boundary.
 
-## One observable of state, and nine mirrors
+## One observable of state, and its mirrors
 
-A single `@Observable` of **presentation state**: the **Coordinator**. The app's other NINE observables are read mirrors for views, never domain. The state is two layers, the now-playing appearance and the HUD (`PresentationLayers`); what a surface drawing both shows is their projection, the `PresentationState` enum (`hidden` / `nowPlaying` / `hud`), `Equatable`. A pointer event names the surface it came from and reaches only the layers that surface draws (docs/DECISIONS.md: card-hud-placement).
+A single `@Observable` of **presentation state**: the **Coordinator**. The app's other NINE `@Observable` types are read mirrors for views, never domain, and one more mirror is an `ObservableObject`: `UpdaterModel`, whose `@Published` `canCheckForUpdates` and `hasPendingUpdate` the menu reads, because Sparkle's `canCheckForUpdates` is KVO and reaches it through Combine's `publisher(for:)` assigned onto a `@Published` property. The state is two layers, the now-playing appearance and the HUD (`PresentationLayers`); what a surface drawing both shows is their projection, the `PresentationState` enum (`hidden` / `nowPlaying` / `hud`), `Equatable`. A pointer event names the surface it came from and reaches only the layers that surface draws (docs/DECISIONS.md: card-hud-placement).
 
-The nine:
+The nine `@Observable` mirrors:
 
 - the Accessibility and the Automation permission monitors;
 - the suppression and the now-playing ones;
@@ -25,7 +25,7 @@ The nine:
 
 The playback position tick **samples the clock, never accumulates** — the source keeps anchor + instant + rate and every tick recomputes `position + age × rate`, so a late or missed tick corrects itself (docs/DECISIONS.md: sample-dont-integrate).
 
-It **does not pass through `state`**: the Coordinator exposes `state` (shape/layout — what the WindowManager observes to reposition windows) and `nowPlaying` (the live snapshot, with the position advancing every second). A position-only update writes only to `nowPlaying`; views read position/scrubbing from there. This avoids firing the `state` observation (and a frame pass) once per second.
+It **does not pass through `state`**: the Coordinator stores `layers` (shape/layout, whose every write runs the WindowManager's frame pass) and exposes `state` as a computed projection of them, beside `nowPlaying` (the live snapshot, with the position advancing every second). A position-only update writes only to `nowPlaying`, never to `layers`; views read position/scrubbing from there. This avoids firing the `state` observation (and a frame pass) once per second.
 
 ## Whatever shows title/artist outside the surface reads a mirror
 
@@ -44,7 +44,7 @@ Each style = one View + one frame rule. The frame rule takes pure values (a `Scr
 
 The **non-visual skeleton** of the skins (layout/content derivation, the empty-boundary freeze, per-state sizes, the provenance and the animation gates that read it, intents) lives exactly once in `SurfaceStyleCore` (`SurfaceLayoutKind`/`SurfaceLayout`/`SurfaceProvenance`/`SurfaceStyleBody`); each style's View carries only the visual body, the provenance `@State` (the storage is SwiftUI's, the advance rule is not) and 1-line delegates that pin the Metrics parameter — a new skin = conform and draw, never re-copy the skeleton (docs/DECISIONS.md: shared-skin-skeleton).
 
-What DOES repeat in every skin, by construction and not as residue, is the **declarations**: Swift hoists no stored property and no property wrapper through a protocol, so `coordinator`, `displayPolicy`, the environment reads and the provenance `@State` are written out again in each view. The rule they obey is not — **a shared rule restated beside every implementation is the same divergence risk as copied code, minus the compiler**, and it had already produced three drifted accounts of one freeze contract; the view says what is per-skin at the call site where it happens, and points at the shared type for the rest.
+What DOES repeat in every skin, by construction and not as residue, is the **declarations**: Swift hoists no stored property and no property wrapper through a protocol, so `coordinator`, `displayPolicy`, the environment reads and the provenance `@State` are written out again in each view. The rule they obey is not — **a shared rule restated beside every implementation is the same divergence risk as copied code, minus the compiler**: each restatement drifts on its own, and a freeze contract told three times becomes three contracts; the view says what is per-skin at the call site where it happens, and points at the shared type for the rest.
 
 ## The window is fixed; only the content animates
 

@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// Classic skin view. Same discipline as CardView: shape/content derive from
-/// `coordinator.state` (through the display policy), live scrubber position
-/// from `coordinator.nowPlaying`, intents go back as Coordinator method calls,
+/// the Coordinator's layers (through the display policy, which names the ones
+/// this panel draws: `presentedState`), live scrubber position from
+/// `coordinator.nowPlaying`, intents go back as Coordinator method calls,
 /// no domain copies in @State. The surface is sized per state and
 /// bottom-anchored inside the fixed window — the block sits on the native
 /// OSD's line and grows upward.

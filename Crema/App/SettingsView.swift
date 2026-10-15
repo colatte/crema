@@ -193,10 +193,10 @@ private struct GeneralSettingsView: View {
                 Text(String(localized: "settings.displays.allDisplays", defaultValue: "All displays"))
             } footer: {
                 // Say what is happening HERE, not only what could happen. With Notch
-                // declared on hardware that has none, the generic sentence left the
-                // window contradicting itself: the picker reads Notch while every
-                // display draws Card. Naming the fallback as a fact resolves that
-                // instead of explaining it away.
+                // declared on hardware that has none, the generic sentence alone
+                // has the window contradict itself: the picker reads Notch while
+                // every display draws Card. Naming the fallback as a fact resolves
+                // that instead of explaining it away.
                 VStack(alignment: .leading, spacing: 4) {
                     Text(fallbackIsInEffect
                         ? String(
@@ -229,9 +229,9 @@ private struct GeneralSettingsView: View {
 
             // Offered wherever there is a display at all. The style popup on a lone
             // panel does repeat the declaration above — but the row also carries the
-            // only "show the player here" switch the app has, and withholding it left
-            // a single-laptop install with the surface on and no way to turn it off,
-            // the mirror of the sole-external case that first opened this list.
+            // only "show the player here" switch the app has, and withholding it
+            // leaves a single-laptop install with the surface on and no way to turn
+            // it off, the mirror of a lone external display in the same spot.
             if offersPerDisplayList {
                 Section {
                     ForEach(core.displayRoster.displays, id: \.id) { screen in
@@ -256,8 +256,9 @@ private struct GeneralSettingsView: View {
 
             // Offered where some display draws Card, and ABSENT rather than greyed
             // out where none does (docs/DECISIONS.md: rendered-style-gates-settings).
-            // The gate is the rendered-style mirror, re-read after every style write
-            // in this pane, so a pick above makes this section appear or go at once.
+            // The gate is `cardDisplays`, the rendered-style mirror read from
+            // `core.displaysRendering(.card)` and re-read after every style write in
+            // this pane, so a pick above makes this section appear or go at once.
             if rendersCard {
                 CardIndicatorSection(core: core, wallpaper: wallpaper, displayNames: cardDisplayNames)
             }

@@ -37,18 +37,14 @@ applies it and reports back, so the bar appears on the monitor you are looking a
 What is still open is Crema **applying** the change on an external display itself,
 rather than handing the key over. That would give an external monitor the same step
 size and the same fine step (hold Option-Shift) as the built-in panel, and a bar
-even with the neighbour's own OSD reporting turned off. **The mechanism is half
-there, and the missing half was measured rather than assumed.** The neighbour's
-request channel writes brightness — that is what a drag on the bar already uses —
-but it will not *read* it: a `get` was sent for five brightness spellings and
-refused every time, with six metadata spellings answering in the same run to prove
-the request itself was well formed. Stepping a key is read → step → write → verify,
-so without a `before` there is nothing to step from. A relative command would need
-no `before` at all, so nine relative shapes were tried against a working absolute
-`set` as the control; the control answered and none of the nine did. Until one of
-those comes back positive against a newer BetterDisplay, an external display is
-write-only from Crema's side and the key stays handed over (docs/DECISIONS.md:
-external-brightness-is-write-only; the probes are kept in `scripts/probes/`).
+even with the neighbour's own OSD reporting turned off. **The mechanism exists;
+the work is unbuilt.** The neighbour's request channel writes brightness — that is
+what a drag on the bar already uses — and it reads it too, when brightness is
+asked for by its own name rather than as an identifier, which gives stepping
+(read → step → write → verify) its `before`; a relative step is its documented
+`offset` parameter. Until Crema runs that cycle itself, the key stays handed over
+(docs/DECISIONS.md: external-brightness-is-write-only,
+neighbour-features-are-not-identifiers; the probes are kept in `scripts/probes/`).
 One trap is worth writing
 down for whoever builds this, because it costs nothing to avoid and is invisible
 once made: with the laptop closed the pointer is necessarily on an external display,
@@ -60,7 +56,7 @@ brightness-key-follows-the-pointer).
 ## Per-display styles — shipped ✓
 
 Shipped: **Settings → General** declares a style for all displays and overrides it
-per screen, including "Show now playing here" — see the [README](README.md#usage).
+per screen, including "Show now playing here" — see the [README](README.md#features).
 
 ## The surface itself
 

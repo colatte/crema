@@ -156,30 +156,34 @@ final class WindowManager {
     /// This display's declared style (or its per-display override) put through
     /// the render rule, which owns the notch→card fallback for a slitless panel —
     /// an orphaned notch choice degrades to the floating skin instead of drawing
-    /// nothing. The rule lives on `Style` because Settings needs the same answer
-    /// to gate its Card-scoped controls, and a second copy of the slit test would
-    /// drift from this one (docs/DECISIONS.md: rendered-style-gates-settings).
+    /// nothing. The rule lives on `Style` because Settings' per-display rows ask
+    /// the same question (`DisplayStyleOptions`: which styles a screen draws, and
+    /// what its caption names), and a second copy of the slit test would drift
+    /// from this one (docs/DECISIONS.md: rendered-style-gates-settings).
     private func resolvedStyle(for screen: ScreenDescription) -> Style {
         preferences.style(for: screen.id).resolved(on: screen.geometry)
     }
 
     /// Whether any connected display is RENDERING this style right now — read off
     /// the panel roster, whose entries already hold the resolved value, so the
-    /// answer cannot disagree with what is on screen. Settings gates its Card-only
-    /// indicator picker on it: on hardware without a notch the declaration stays
-    /// notch while every panel draws card, and gating on the declaration left that
-    /// picker gray in the shipped default. An ANY over displays, never the leading
-    /// one — a notched laptop with an external monitor renders both skins at once,
-    /// and the Card controls belong to the monitor
+    /// answer cannot disagree with what is on screen. It feeds the notch→card
+    /// fallback sentence (`Style.fallsBackToCard`) of the Settings footer, the
+    /// welcome tour and the menu's status: on hardware without a notch the
+    /// declaration stays notch while every panel draws card. An ANY over
+    /// displays, never the leading one — a notched laptop with an external
+    /// monitor renders both skins at once
     /// (docs/DECISIONS.md: rendered-style-gates-settings).
     func renders(_ style: Style) -> Bool {
         entries.values.contains { $0.style == style }
     }
 
     /// WHICH connected displays are rendering this style, off the same roster as
-    /// `renders(_:)`. Settings names them under the Card indicator, so the one
-    /// control that is not per display says which displays it reaches — the reason
-    /// it is on screen at all in a mixed setup whose declaration is Notch.
+    /// `renders(_:)`. Settings gates its Card-only indicator section on this set
+    /// being non-empty — gated on the declaration, that section is missing in the
+    /// shipped default on hardware without a notch, with the HUD it governs on
+    /// screen — and names the set under the Card indicator, so the one control
+    /// that is not per display says which displays it reaches: the reason it is
+    /// on screen at all in a mixed setup whose declaration is Notch.
     func displays(rendering style: Style) -> Set<DisplayUUID> {
         Set(entries.filter { $0.value.style == style }.keys)
     }
@@ -272,7 +276,7 @@ final class WindowManager {
     /// built-in panel and it appears only on the internal one.
     ///
     /// That last one falls OPEN when the roster carries no internal panel: it then
-    /// shows on every display, which is exactly today's behaviour. The case is
+    /// shows on every display, as a target no screen owns does. The case is
     /// reachable with the key already swallowed — a mirror set collapses to one
     /// NSScreen that may not be the internal one, and a screen with no
     /// NSScreenNumber is dropped from the roster — and a consumed key owes

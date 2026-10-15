@@ -42,10 +42,11 @@ struct HUDLevelSliderTests {
         #expect(CapsuleTrack.fraction(at: 150, trackLength: 200, reversed: reversed) == 0.25)
     }
 
-    @Test func everyAxisChoiceIsAskedOfTheTrack() {
-        // Kills an upright bar that reads the wrong side of anything — a drag on
-        // x, a length taken from the width, a knob lying across the track, a fill
-        // growing from the top — none of which the value math above can see.
+    @Test func eachAxisHelperReadsTheSideOfTheTrackItsAxisNames() {
+        // The pure per-axis helpers: an upright track takes its length from the
+        // height, its drag from y, its knob centered across the width and long
+        // along the track, and its fill from the bottom; a flat one the transpose.
+        // Whether the view routes every axis choice through them is not read here.
         let size = CGSize(width: 42, height: 210)
         let pointer = CGPoint(x: 5, y: 150)
         #expect(CapsuleTrack.length(of: size, axis: .vertical) == 210)

@@ -723,7 +723,7 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     info "   gh release create $TAG \"$DMG_OUT\" \"$DMG_VERSIONED\" --target main --title \"Crema $VERSION\" --notes \"…\" --latest"
     info "     · Crema.dmg          → the README's releases/latest/download/Crema.dmg link"
     info "     · Crema-$VERSION.dmg → the appcast enclosure (its URL in docs/appcast.xml)"
-    info "   and put these two lines in the Release body, for whoever checks a first download by hand:"
+    info "   and put these three lines in the Release body, for whoever checks a first download by hand:"
     info "     SHA-256 of Crema.dmg: $DMG_SHA256"
     info "     SHA-256 of the signing certificate: ${CERT_SHA256:-}"
     info "     How to check both: https://github.com/colatte/crema#verifying-the-download"

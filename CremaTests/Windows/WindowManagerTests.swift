@@ -496,7 +496,7 @@ struct WindowManagerTests {
 
         // Whichever panel the roster reaches first commits the hover mid-apply.
         for panel in panels {
-            panel.onFirstArmedApply = { [coordinator = base.coordinator] in coordinator.hover(true) }
+            panel.onFirstArmedApply = { [coordinator = base.coordinator] in coordinator.hover(true, on: .both) }
         }
         manager.refreshPresentation()
 
@@ -533,7 +533,7 @@ struct WindowManagerTests {
         _ = await eventually { base.coordinator.state == .nowPlaying(track, expanded: false) }
 
         panel.onFirstArmedApply = { [coordinator = base.coordinator] in
-            coordinator.hover(true)
+            coordinator.hover(true, on: .both)
         }
         // updateScreens is one of the passes that must go through the guard.
         manager.updateScreens([Self.screen("A")])
@@ -557,7 +557,7 @@ struct WindowManagerTests {
         // must track the state in the same callout as the write — an async hop
         // would leave a beat where the visible surface and the routed region
         // disagree. No awaits between the intent and the assertions.
-        h.base.coordinator.hover(true)
+        h.base.coordinator.hover(true, on: .both)
 
         let applied = panel.appliedFrames
         #expect(applied.count > before)

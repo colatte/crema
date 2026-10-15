@@ -86,7 +86,7 @@ design/           # icon and badge sources; catalogs generated, never by hand
 ## Conventions
 
 - Stack: Swift 6 mode, SwiftUI over borderless NSPanels, accessory app; target
-  macOS 14 on the macOS 26 SDK; one dependency, Sparkle 2.9.4 exact. Shipping
+  macOS 14 on the macOS 27 SDK; one dependency, Sparkle 2.9.4 exact. Shipping
   is self-signed; the release ritual: docs/RELEASE-GUIDE.md.
 - Naming: one main type per file; a protocol names the capability (`Source`),
   an implementation technology + capability (`BetterDisplayOSDSource`).

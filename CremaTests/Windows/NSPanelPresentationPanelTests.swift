@@ -126,6 +126,34 @@ struct NSPanelPresentationPanelTests {
         withExtendedLifetime(harness) {}
     }
 
+    @Test func aSizeReportRetargetsHoverToTheRenderedSurface() {
+        // The other push the regions depend on: the apply's retarget errs tight on
+        // a report that predates the state, so a surface growing into its new state
+        // is under-armed until the view reports what it drew. Without the report's
+        // retarget the band stays at the apply's guess, short of the pixels the
+        // pointer is over (docs/DECISIONS.md: hover-follows-the-eye).
+        let (panel, screen, harness) = self.panel()
+        let track = CoordinatorHarness.playingTrack()
+        let compact = Style.card.frame(for: .nowPlaying(track, expanded: false), on: screen.geometry)
+        let expanded = Style.card.frame(for: .nowPlaying(track, expanded: true), on: screen.geometry)
+        apply(panel, compact)
+        panel.surfaceSizeChanged(compact.size)
+        apply(panel, expanded)
+
+        let rendered = SurfaceClickThrough.surfaceRect(
+            size: expanded.size,
+            window: Style.card.windowFrame(on: screen.geometry),
+            anchor: Style.card.surfaceVerticalAnchor
+        )
+        let widened = SurfaceHoverRegions.around(rendered, margins: Style.card.hoverExitMargins)
+        #expect(panel.currentHoverRegions != widened, "the apply alone reached the rendered surface")
+
+        panel.surfaceSizeChanged(expanded.size)
+        #expect(panel.currentHoverRegions == widened)
+
+        withExtendedLifetime(harness) {}
+    }
+
     @Test func theClickRegionComesFromTheRenderedSurfaceNotTheRuleFrame() {
         // The hosting view reports its size during CONSTRUCTION, so the reported
         // rect already owns the click region at the very first apply; a rect equal

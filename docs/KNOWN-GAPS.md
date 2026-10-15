@@ -23,7 +23,7 @@ The rest **stays**, in five classes:
 
 Two named survivors, accepted: `MenuStatus.Action` (a 5-case switch — a button could re-register the login item under the re-enable-suppression label; the fix asks for a new protocol, more structure than the risk pays for) and `AppCoreAutomation:14` (a boolean inversion that would erase the Permissions line and leave a blocking consent poll running forever). A residue every `wire*` shares, and one still worth stating: they pin the **wiring**, not the `init` line that installs it.
 
-What generalises, proven twice on a since-removed surface: rules killed by mutation while their call sites were reachable from no test, and extracting a seam refused as merely moving the untested line by one — this entry's verdict covers those cases too.
+What generalises: a rule whose call site no test reaches survives its own mutation, and a seam extracted for it only moves the untested line by one — this entry's verdict covers those cases too.
 
 ## `BrightnessConversion` and `VolumeConversion` hold eight byte-identical lines, and that is the decision
 

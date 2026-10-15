@@ -41,10 +41,11 @@ struct StyleThumbnail: View {
     /// surfaces a top edge to be near. Derived height with a floor, because the
     /// derivation alone is invisible: the tile scales its screen by
     /// `width / that screen's width`, so on the reference panel the 32 pt
-    /// safe area standing in for the bar arrives as roughly 2.3 pt, and the
-    /// furniture meant to turn the slit into a bite taken out of the bar does no
-    /// work at all. The ratio is what to re-check when the tile is resized; the
-    /// point value follows from it.
+    /// safe area standing in for the bar arrives as roughly 2.3 pt in a 108 pt
+    /// style tile and 1.3 pt in a 60 pt row thumbnail, and the furniture meant to
+    /// turn the slit into a bite taken out of the bar does no work at all. The
+    /// floor (`Thumbnail.minMenuBar`) is a point value, so it holds at every tile
+    /// width; only the derived height moves when a tile is resized.
     private var menuBar: some View {
         ThumbnailMenuBar(
             width: width,
@@ -116,9 +117,10 @@ struct StyleThumbnail: View {
     ///
     /// The strip skins are magnified: the second sanctioned exaggeration, same
     /// class as the floating clearance below ("only the size of something real").
-    /// A 1512 pt screen lands in a 108 pt picture, so drawn faithfully the
-    /// top-edge surfaces are 13-to-20 pt slivers whose row of cover-and-lines has
-    /// no room to read — the field verdict on the faithful cut. The gate is the
+    /// A 1512 pt screen lands in a 108 pt style tile (a 60 pt row thumbnail is
+    /// narrower still), so drawn faithfully the tile's top-edge surfaces are
+    /// 13-to-20 pt slivers whose row of cover-and-lines has no room to read — the
+    /// field verdict on the faithful cut. The gate is the
     /// content ARRANGEMENT, not the skin's name: it names the thing that needs
     /// width (a row of content), and the near-square block, already legible at
     /// fidelity, stays faithful.
