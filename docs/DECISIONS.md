@@ -519,6 +519,19 @@ and an appearance scoped per branch would flip the palette mid HUD↔now-playing
 morph — one appearance per surface, always. Consequence: the artwork accent
 needs a single brightness band (there is no light band).
 
+The material alone does not hold that commitment over a bright desktop: it takes
+on what is behind it, and over a white page it measures `#b5b5b9`, leaving the
+white ink at 2.0:1. So Card and Classic lay a black film over the material
+(`SurfaceChrome.scrimOpacity`, 0.44), set so that worst case keeps the ink at
+4.5:1 or better (4.8:1 measured); over a dark desktop the material is already
+near black and the film changes almost nothing. Liquid Glass was measured as
+the alternative on macOS 27 and does not replace it: in a never-key panel it
+draws no specular edge and is as light as the material over white (1.8:1), and
+with semantic ink it follows the system appearance rather than the backdrop,
+faint over white and black alike (scripts/probes/hud-surface-contrast.swift).
+Reopening gate: never-key glass drawing its edge, or semantic ink reaching
+4.5:1 over both a white and a black backdrop on that probe.
+
 ### scrub-grace
 A scrubber whose drag does not own the gesture fights its own stream: every
 drag delta fires a real seek (one subprocess per pixel), the 1 Hz ticker keeps
