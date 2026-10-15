@@ -178,6 +178,14 @@ final class Coordinator {
     /// that integration is not wired (demo sources), and then the system actuator
     /// takes every drag.
     @ObservationIgnored private let externalScreenBrightnessController: (any ScreenBrightnessController)?
+    /// What the placement preview shows: the output's level, read at the moment
+    /// of the preview. Nil on a graph that cannot read it, and then there is no
+    /// preview — a bar at a level the output is not at would be a picture, not
+    /// the HUD.
+    @ObservationIgnored private let volumeReading: (any VolumeReading)?
+    /// Counts the previews asked for and the HUDs reported since: a reading that
+    /// lands after either is no longer the newest thing to show, and is dropped.
+    @ObservationIgnored private var hudPreviewEpoch = 0
     /// Whether the neighbour is still worth asking. Set false by a command it
     /// refused or never answered, and true again by its next report — evidence in
     /// both directions, so a neighbour that quits mid-gesture stops costing every
@@ -291,6 +299,7 @@ final class Coordinator {
         screenBrightnessController: any ScreenBrightnessController,
         keyboardBrightnessController: any KeyboardBrightnessController,
         externalScreenBrightnessController: (any ScreenBrightnessController)? = nil,
+        volumeReading: (any VolumeReading)? = nil,
         clock: any SleepClock = ContinuousSleepClock(),
         hudRevertDelay: Double = Coordinator.defaultHUDRevertDelay,
         nowPlayingLinger: Double = Coordinator.defaultNowPlayingLinger,
@@ -309,6 +318,7 @@ final class Coordinator {
         self.screenBrightnessController = screenBrightnessController
         self.keyboardBrightnessController = keyboardBrightnessController
         self.externalScreenBrightnessController = externalScreenBrightnessController
+        self.volumeReading = volumeReading
         self.clock = clock
         self.hudRevertDelay = hudRevertDelay
         self.nowPlayingLinger = nowPlayingLinger
@@ -393,6 +403,23 @@ final class Coordinator {
         oweLinger(invokedLinger, invoked: true)
         layers.nowPlaying = PresentationLayers.Appearance(track: track, expanded: true)
         restartLingerTimer()
+    }
+
+    /// Shows the volume HUD at the output's current level on `displays` alone, as a
+    /// key press would show it there, and lets it revert like any HUD: Settings'
+    /// way of showing a new Card placement on the real surface. Reads the level,
+    /// never writes it. A drag on the bar is the person's own and goes to the
+    /// output as any drag does; its echo is a reported HUD and is drawn wherever
+    /// its target puts it.
+    func previewHUD(on displays: Set<DisplayUUID>) {
+        guard !displays.isEmpty, let volumeReading else { return }
+        hudPreviewEpoch += 1
+        let epoch = hudPreviewEpoch
+        Task { @MainActor [weak self] in
+            guard let reading = await volumeReading.currentVolume(),
+                  let self, self.hudPreviewEpoch == epoch else { return }
+            self.publishHUD(reading, on: displays)
+        }
     }
 
     /// Immediate hover: expand/collapse now. Used by the floating styles,
@@ -920,17 +947,23 @@ final class Coordinator {
             // spelling of that guard, and a second spelling is what goes stale.
             if hud.kind == .screenBrightness { confirmedScreenBrightness = hud.value }
         }
+        hudPreviewEpoch += 1
         publishHUD(hud)
     }
 
-    /// Puts a reading on screen: the same path an arriving HUD and a drag's own
-    /// optimistic echo both take, so a dragged level and a reported one behave
+    /// Puts a reading on screen: the same path an arriving HUD, a drag's own
+    /// optimistic echo and a placement preview all take, so each behaves
     /// identically (revert timer, pointer hold, the appearance's return).
-    private func publishHUD(_ hud: SystemHUD) {
+    /// `displays` scopes a preview (`PresentationLayers.hudDisplays`); every
+    /// other caller leaves it nil, which also clears a preview's scope.
+    private func publishHUD(_ hud: SystemHUD, on displays: Set<DisplayUUID>? = nil) {
         // The appearance under it, visible or not, stays as it is; only its tuck
         // waits (`restartLingerTimer`).
         cancelLinger()
-        layers.hud = hud
+        var next = layers
+        next.hud = hud
+        next.hudDisplays = displays
+        layers = next
         // A key while the pointer holds the HUD must not re-arm the revert —
         // the hold owns dismissal until the pointer leaves.
         if !pointerHoldsHUD { restartHUDRevertTimer() }
@@ -974,6 +1007,7 @@ final class Coordinator {
         // no frame pass sees the HUD gone with the appearance not yet settled.
         var next = layers
         next.hud = nil
+        next.hudDisplays = nil
         next.nowPlaying?.expanded = isHovering
         layers = next
         releaseEmptiedSurfaces()

@@ -1,18 +1,15 @@
 import SwiftUI
 
 /// A skin's surface in miniature: its shape filled dark, its depth, its border and
-/// what it holds. One drawing for every Settings picture that shows a surface — the
-/// style tiles and the placement map's card — so a surface cannot come to look
-/// different from one picture to the next.
+/// what it holds. One drawing for every Settings picture that shows a surface, so a
+/// surface cannot come to look different from one picture to the next.
 struct PreviewSurface: View {
     let size: CGSize
     let isOpaque: Bool
     let hangsFromTopEdge: Bool
     let arrangement: PreviewContentArrangement
-    /// The corner of a floating surface. The style tiles round every skin alike;
-    /// the placement map derives the card's from the real one, beside a HUD bar
-    /// that is rounded the way the real bar is.
-    var cornerRadius: CGFloat = 2
+    /// The corner of a floating surface: the pictures round every skin alike.
+    private let cornerRadius: CGFloat = 2
 
     var body: some View {
         shape
@@ -100,7 +97,7 @@ struct PreviewSurface: View {
 extension View {
     /// The depth a floating surface casts in the Settings pictures; none for one
     /// welded to the screen's edge. One recipe for every surface those pictures
-    /// draw, so the card and the HUD bar beside it cannot drift apart.
+    /// draw, so no two of them can drift apart.
     func previewDepth(floats: Bool) -> some View {
         shadow(color: .black.opacity(floats ? 0.75 : 0), radius: 2.5, y: 1.5)
     }

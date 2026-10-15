@@ -1,106 +1,113 @@
-import CoreGraphics
+import AppKit
 import Testing
 @testable import Crema
 
-/// The placement map: one screen with the card resting at the top and every place
-/// the HUD can go drawn on it by the Card's own rules. What a person aims at is a
-/// target around each mark, so the targets must cover every place, never overlap,
-/// and stay on the picture.
+/// The Position pop-up: its rows cover the eight places once each, in the order
+/// they sit on the glass, and each item's icon draws the bar where the Card's
+/// rule puts it — on the right edge and third, upright in the middle of a side,
+/// inside the outline, and no two alike.
 struct HUDPlacementPickerTests {
 
-    private let size = PlacementMap.size
-    private let picture = CGRect(origin: .zero, size: PlacementMap.size)
-    private let room = PlacementMap.edgeRoom
-    private let off = HUDPlacement.allCases.filter { $0 != .topCenter }
+    private let interior = HUDPlacementIcon.interior
 
-    @Test func everyPlaceHasATargetOnThePictureAndNoTwoOverlap() {
-        let targets = HUDPlacement.allCases.map(PlacementMap.target(for:))
-        for (placement, target) in zip(HUDPlacement.allCases, targets) {
-            #expect(!target.isEmpty, "\(placement)")
-            #expect(picture.contains(target), "\(placement)")
-        }
-        // Kills a slop or magnification grown until one click lands on two places.
-        for i in targets.indices {
-            for j in targets.indices where j > i {
-                #expect(!targets[i].intersects(targets[j]), "\(HUDPlacement.allCases[i]) / \(HUDPlacement.allCases[j])")
-            }
-        }
-    }
-
-    @Test func eachTargetHoldsItsMarkWithRoomAround() {
-        for placement in off {
-            let bar = PlacementMap.barRect(for: placement)
-            let target = PlacementMap.target(for: placement)
-            #expect(target.contains(bar), "\(placement)")
-            #expect(target.width > bar.width && target.height > bar.height, "\(placement)")
-        }
-        // The top centre is the card, and the bar that replaces it once chosen.
-        let top = PlacementMap.target(for: .topCenter)
-        #expect(top.contains(PlacementMap.cardRect))
-        #expect(top.contains(PlacementMap.barRect(for: .topCenter)))
-    }
-
-    @Test func everyMarkKeepsRoomForItsRingFromTheFrameTheMenuBarAndTheCard() {
-        // A chosen place on an edge is ringed whole: the ring sits outside the mark,
-        // so the mark keeps the ring's room from the frame and the menu bar, and the
-        // ring stays inside the place's own target.
-        #expect(room >= PlacementMap.ringInset + PlacementMap.ringWidth)
-        #expect(PlacementMap.hitSlop >= PlacementMap.ringInset + PlacementMap.ringWidth)
-        for placement in HUDPlacement.allCases {
-            let bar = PlacementMap.barRect(for: placement)
-            #expect(bar.minX >= room, "\(placement)")
-            #expect(bar.maxX <= size.width - room, "\(placement)")
-            #expect(bar.minY >= PlacementMap.menuBarHeight + room, "\(placement)")
-            #expect(bar.maxY <= size.height - room, "\(placement)")
-        }
-        for placement in off {
-            #expect(!PlacementMap.barRect(for: placement).intersects(PlacementMap.cardRect), "\(placement)")
-        }
-    }
-
-    @Test func theCardAndTheTopBarsHangFromOneLine() {
-        // On screen the card and every top placement hang from the same anchor
-        // below the menu bar; the picture keeps that.
-        let line = PlacementMap.cardRect.minY
-        #expect(PlacementMap.cardRect.minY >= PlacementMap.menuBarHeight + room)
-        for placement in [HUDPlacement.topLeft, .topCenter, .topRight] {
-            #expect(abs(PlacementMap.barRect(for: placement).minY - line) < 0.001, "\(placement)")
-        }
-        #expect(abs(PlacementMap.cardRect.midX - size.width / 2) < 0.001)
-    }
-
-    @Test func barsOnOneEdgeLineUpAndCentredOnesStayCentred() {
-        let bar = PlacementMap.barRect(for:)
-        // A corner stays a corner once the bar is magnified.
-        #expect(bar(.topLeft).minX == bar(.middleLeft).minX)
-        #expect(bar(.topLeft).minX == bar(.bottomLeft).minX)
-        #expect(bar(.topRight).maxX == bar(.middleRight).maxX)
-        #expect(bar(.topRight).maxX == bar(.bottomRight).maxX)
-        #expect(bar(.bottomLeft).maxY == bar(.bottomCenter).maxY)
-        #expect(bar(.bottomLeft).maxY == bar(.bottomRight).maxY)
-        #expect(abs(bar(.topCenter).midX - size.width / 2) < 0.001)
-        #expect(abs(bar(.bottomCenter).midX - size.width / 2) < 0.001)
-        #expect(abs(bar(.middleLeft).midY - bar(.middleRight).midY) < 0.001)
-    }
-
-    @Test func theBarAndTheCardKeepTheirTrueProportion() {
-        // One magnification for both: a bar exaggerated alone would picture a HUD
-        // as large as the card it is smaller than.
-        let bar = PlacementMap.barRect(for: .bottomCenter)
-        let card = PlacementMap.cardRect
-        let real = CardMetrics.hudSystemWidth / CardMetrics.compact.width
-        #expect(abs(bar.width / card.width - real) < 0.001)
-        for placement in HUDPlacement.allCases {
-            let rect = PlacementMap.barRect(for: placement)
-            #expect((rect.height > rect.width) == (placement.axis == .vertical), "\(placement)")
-        }
-        let flat = PlacementMap.barRect(for: .bottomCenter).size
-        let upright = PlacementMap.barRect(for: .middleLeft).size
-        #expect(abs(flat.width / flat.height - upright.height / upright.width) < 0.001)
+    @Test func theRowsListEveryPlaceExactlyOnceTopToBottom() {
+        let listed = Array(HUDPlacementPicker.rows.joined())
+        #expect(listed.count == HUDPlacement.allCases.count)
+        #expect(Set(listed) == Set(HUDPlacement.allCases))
+        #expect(HUDPlacementPicker.rows == [
+            [.topLeft, .topCenter, .topRight],
+            [.middleLeft, .middleRight],
+            [.bottomLeft, .bottomCenter, .bottomRight],
+        ])
     }
 
     @Test func everyPlacementHasItsOwnName() {
         let names = HUDPlacement.allCases.map(\.displayName)
         #expect(Set(names).count == names.count)
+    }
+
+    @Test func eachBarSitsInItsPlacesThirdOfTheScreen() {
+        // Independent of the production switch: the table names where each
+        // place is, and the icon has to agree with it.
+        enum Column { case left, center, right }
+        enum Row { case top, middle, bottom }
+        let table: [HUDPlacement: (Column, Row)] = [
+            .topLeft: (.left, .top), .topCenter: (.center, .top), .topRight: (.right, .top),
+            .middleLeft: (.left, .middle), .middleRight: (.right, .middle),
+            .bottomLeft: (.left, .bottom), .bottomCenter: (.center, .bottom), .bottomRight: (.right, .bottom),
+        ]
+        #expect(table.count == HUDPlacement.allCases.count)
+        let third = CGSize(width: interior.width / 3, height: interior.height / 3)
+        for (placement, (column, row)) in table {
+            let bar = HUDPlacementIcon.bar(for: placement)
+            switch column {
+            case .left: #expect(bar.midX < interior.minX + third.width, "\(placement)")
+            case .center: #expect(abs(bar.midX - interior.midX) < 0.01, "\(placement)")
+            case .right: #expect(bar.midX > interior.maxX - third.width, "\(placement)")
+            }
+            switch row {
+            case .top: #expect(bar.midY < interior.minY + third.height, "\(placement)")
+            case .middle: #expect(abs(bar.midY - interior.midY) < 0.01, "\(placement)")
+            case .bottom: #expect(bar.midY > interior.maxY - third.height, "\(placement)")
+            }
+        }
+    }
+
+    @Test func barsOnOneEdgeLineUpSoACornerReadsAsACorner() {
+        let bar = HUDPlacementIcon.bar(for:)
+        #expect(bar(.topLeft).minX == bar(.middleLeft).minX)
+        #expect(bar(.topLeft).minX == bar(.bottomLeft).minX)
+        #expect(bar(.topRight).maxX == bar(.middleRight).maxX)
+        #expect(bar(.topRight).maxX == bar(.bottomRight).maxX)
+        #expect(bar(.topLeft).minY == bar(.topCenter).minY)
+        #expect(bar(.topLeft).minY == bar(.topRight).minY)
+        #expect(bar(.bottomLeft).maxY == bar(.bottomCenter).maxY)
+        #expect(bar(.bottomLeft).maxY == bar(.bottomRight).maxY)
+    }
+
+    @Test func theBarIsUprightInTheMiddleOfASideAndFlatElsewhere() {
+        for placement in HUDPlacement.allCases {
+            let bar = HUDPlacementIcon.bar(for: placement)
+            #expect((bar.height > bar.width) == (placement.axis == .vertical), "\(placement)")
+        }
+    }
+
+    @Test func theBarKeepsTheRealHUDsProportionsAndIsThickEnoughToRead() {
+        // Derived from the metrics, so a resized HUD resizes its icon.
+        let real = CardMetrics.hudSystemWidth / CardMetrics.hudSystemHeight
+        for placement in HUDPlacement.allCases {
+            let bar = HUDPlacementIcon.bar(for: placement)
+            let long = max(bar.width, bar.height)
+            let thick = min(bar.width, bar.height)
+            #expect(abs(long / thick - real) < 0.001, "\(placement)")
+            #expect(thick >= 1.5, "\(placement)")
+        }
+    }
+
+    @Test func everyBarStaysInsideTheOutlineClearOfItsStroke() {
+        let canvas = CGRect(origin: .zero, size: HUDPlacementIcon.size)
+        #expect(canvas.contains(HUDPlacementIcon.screen.insetBy(dx: -HUDPlacementIcon.lineWidth / 2, dy: -HUDPlacementIcon.lineWidth / 2)))
+        let clear = interior.insetBy(dx: HUDPlacementIcon.gap, dy: HUDPlacementIcon.gap)
+        for placement in HUDPlacement.allCases {
+            let bar = HUDPlacementIcon.bar(for: placement)
+            #expect(clear.insetBy(dx: -0.001, dy: -0.001).contains(bar), "\(placement)")
+        }
+    }
+
+    @Test func noTwoPlacesDrawTheSameIcon() {
+        let bars = HUDPlacement.allCases.map(HUDPlacementIcon.bar(for:))
+        for i in bars.indices {
+            for j in bars.indices where j > i {
+                #expect(bars[i] != bars[j], "\(HUDPlacement.allCases[i]) / \(HUDPlacement.allCases[j])")
+            }
+        }
+    }
+
+    @Test func theIconIsATemplateTheMenuCanTint() {
+        for placement in HUDPlacement.allCases {
+            let image = HUDPlacementIcon.image(for: placement)
+            #expect(image.isTemplate, "\(placement)")
+            #expect(image.size == HUDPlacementIcon.size, "\(placement)")
+        }
     }
 }

@@ -7,7 +7,7 @@ import os
 /// translation lives in VolumeConversion; when the default output device
 /// changes, observation moves to the new device (silently — switching devices
 /// must not pop the HUD; the next real change will).
-final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unchecked Sendable {
+final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, VolumeReading, @unchecked Sendable {
     let updates: AsyncStream<SystemHUD>
 
     private let continuation: AsyncStream<SystemHUD>.Continuation
@@ -172,6 +172,24 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unch
         let muted = CoreAudioSystemOutput.readMute(device) ?? false
         guard let hud = VolumeConversion.boundaryRefreshHUD(rawVolume: raw, isMuted: muted) else { return }
         continuation.yield(hud)
+    }
+
+    /// On `queue`, for the reason `sample()` gives: the lookup and the reads are
+    /// blocking Core Audio IPC, and the caller is on the MainActor. Yields
+    /// nothing into the stream — the caller decides what the reading is for.
+    func currentVolume() async -> SystemHUD? {
+        await withCheckedContinuation { continuation in
+            queue.async {
+                guard let device = CoreAudioSystemOutput.defaultOutputDeviceID(),
+                      let raw = CoreAudioSystemOutput.readVolume(device)
+                else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let muted = CoreAudioSystemOutput.readMute(device) ?? false
+                continuation.resume(returning: VolumeConversion.hud(rawVolume: raw, isMuted: muted))
+            }
+        }
     }
 
     // MARK: - Observation
