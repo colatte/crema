@@ -27,11 +27,12 @@ final class DistributedPayloadRelay: NSObject {
         // is the published contract on both of BetterDisplay's channels, and a
         // dictionary would be wrong.
         guard let json = note.object as? String else { return }
-        // A distributed notification is delivered on the run loop of the thread that
-        // registered, and both owners register from their MainActor `init` — so the
-        // MainActor is the current executor and assuming it is what keeps events in
-        // the order they arrived, where a hop would reorder them. Same assumption
-        // the screen-lock source's selector observer makes.
+        // "For multithreaded applications running in macOS 10.3 and later,
+        // distributed notifications are always delivered to the main thread"
+        // (Apple, DistributedNotificationCenter) — so the MainActor is the current
+        // executor, and assuming it is what keeps events in the order they arrived,
+        // where a hop would reorder them. Same assumption the screen-lock source's
+        // selector observer makes.
         MainActor.assumeIsolated { deliver(json) }
     }
 }

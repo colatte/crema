@@ -27,10 +27,15 @@ struct SurfaceHoverMonitorTests {
     private final class Pointer {
         var location: CGPoint
         private(set) var reports: [Bool] = []
+        /// Whether each report came from a mouse event, in step with `reports`.
+        private(set) var byMovement: [Bool] = []
 
         init(_ location: CGPoint) { self.location = location }
 
-        func report(_ inside: Bool) { reports.append(inside) }
+        func report(_ inside: Bool, _ moved: Bool) {
+            reports.append(inside)
+            byMovement.append(moved)
+        }
     }
 
     private let regions = SurfaceHoverRegions.around(CGRect(x: 100, y: 100, width: 200, height: 60))
@@ -42,7 +47,7 @@ struct SurfaceHoverMonitorTests {
         let monitor = SurfaceHoverMonitor(
             regions: regions,
             cursorLocation: { pointer.location },
-            report: { pointer.report($0) }
+            report: { pointer.report($0, $1) }
         )
         return (monitor, pointer)
     }
@@ -105,6 +110,60 @@ struct SurfaceHoverMonitorTests {
         monitor.setActive(true)
 
         #expect(pointer.reports == [true, false])
+        monitor.stop()
+    }
+
+    @Test func theArmingSampleIsNoMovement() {
+        // A surface armed under a resting cursor learns where the cursor is, and
+        // that is all it learns: nobody moved it, so the arrival holds no HUD
+        // (docs/DECISIONS.md: hud-capsule-track).
+        let (monitor, pointer) = self.monitor(at: insideSurface)
+        monitor.setActive(true)
+
+        #expect(pointer.reports == [true])
+        #expect(pointer.byMovement == [false])
+        monitor.stop()
+    }
+
+    @Test func aMouseEventConfirmsAStillPointerOnce() throws {
+        let (monitor, pointer) = self.monitor(at: insideSurface)
+        monitor.setActive(true)
+        try #require(pointer.byMovement == [false])
+
+        // The first mouse event with the pointer still inside is the movement the
+        // arming sample lacked; the ones after it change nothing.
+        monitor.pointerMoved()
+        monitor.pointerMoved()
+
+        #expect(pointer.reports == [true, true])
+        #expect(pointer.byMovement == [false, true])
+        monitor.stop()
+    }
+
+    @Test func aPointerThatMovesInArrivesByMovement() throws {
+        let (monitor, pointer) = self.monitor(at: farOutside)
+        monitor.setActive(true)
+        try #require(pointer.reports.isEmpty)
+
+        pointer.location = insideSurface
+        monitor.pointerMoved()
+        monitor.pointerMoved()
+
+        #expect(pointer.reports == [true])
+        #expect(pointer.byMovement == [true])
+        monitor.stop()
+    }
+
+    @Test func aRegionGrowingUnderAStillPointerIsNoMovement() throws {
+        let (monitor, pointer) = self.monitor(at: CGPoint(x: 500, y: 130))
+        monitor.setActive(true)
+        try #require(pointer.reports.isEmpty)
+
+        // The surface came to the cursor, not the cursor to the surface.
+        monitor.updateRegions(.around(CGRect(x: 100, y: 100, width: 600, height: 60)))
+
+        #expect(pointer.reports == [true])
+        #expect(pointer.byMovement == [false])
         monitor.stop()
     }
 }

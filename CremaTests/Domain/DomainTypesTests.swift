@@ -16,6 +16,22 @@ struct DomainTypesTests {
         #expect(live.duration == nil)
     }
 
+    @Test func trackIdentityIsTitleAndArtist() {
+        // One rule read by the surfacing thresholds and the scrub grace alike.
+        #expect(track.isAnotherTrack(than: nil))
+        var sameTrack = track
+        sameTrack.isPlaying = false
+        sameTrack.position = 100
+        sameTrack.artworkData = [1, 2, 3]
+        #expect(!sameTrack.isAnotherTrack(than: track))
+        var retitled = track
+        retitled.title = "Time"
+        #expect(retitled.isAnotherTrack(than: track))
+        var otherArtist = track
+        otherArtist.artist = nil
+        #expect(otherArtist.isAnotherTrack(than: track))
+    }
+
     @Test func systemHUDDefaultsToNoDisplayAndUnmuted() {
         let hud = SystemHUD(kind: .volume, value: 0.5)
         #expect(hud.target == .noDisplay)

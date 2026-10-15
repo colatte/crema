@@ -43,7 +43,7 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// capture clicks).
     private var currentFrame: CGRect = .zero
     /// Click-invoke region (empty ⇒ none): with media playing and nothing
-    /// visible, a click here surfaces the compact appearance. It is exactly
+    /// visible, a click here opens the expanded appearance. It is exactly
     /// the compact rule frame — for the notch, the slit band — so the menus
     /// flanking it keep falling through untouched.
     private var invokeZone: CGRect = .zero
@@ -153,12 +153,12 @@ final class NSPanelPresentationPanel: PresentationPanel {
         // Coordinator, naming the layers this panel draws. The notch debounces (top
         // edge); the others commit at once.
         if let regions = surface.hoverRegions(on: screen.geometry) {
-            hoverMonitor = SurfaceHoverMonitor(regions: regions) { [weak coordinator, displayPolicy] inside in
+            hoverMonitor = SurfaceHoverMonitor(regions: regions) { [weak coordinator, displayPolicy] inside, byMovement in
                 // Panel-local first: the capsule knob is per-display, so only
                 // the hovered surface reveals it; the Coordinator keeps the
                 // global record its timers key on.
                 displayPolicy.pointerInside = inside
-                Self.forwardHover(inside, from: surface, to: coordinator)
+                Self.forwardHover(inside, byMovement: byMovement, from: surface, to: coordinator)
             }
             // Activated per-display by apply(frame:hoverArmed:).
         } else {
@@ -200,20 +200,26 @@ final class NSPanelPresentationPanel: PresentationPanel {
 
     /// A hover on this panel, as the Coordinator takes it: naming the layers the
     /// panel draws, so a pointer on the Card's HUD alone holds the HUD and nothing
-    /// else. Static and internal so the tests reach the dispatch the monitor's
+    /// else, and whether a mouse event caused the report, since a pointer the
+    /// arming sample found holds no HUD. Static and internal so the tests reach the dispatch the monitor's
     /// callback runs — the monitor itself samples the real cursor.
-    static func forwardHover(_ inside: Bool, from surface: PanelSurface, to coordinator: Coordinator?) {
+    static func forwardHover(
+        _ inside: Bool,
+        byMovement: Bool,
+        from surface: PanelSurface,
+        to coordinator: Coordinator?
+    ) {
         switch surface.hoverCommit {
-        case .immediate: coordinator?.hover(inside, on: surface.layers)
-        case .debounced: coordinator?.hoverIntent(inside)
+        case .immediate: coordinator?.hover(inside, on: surface.layers, byMovement: byMovement)
+        case .debounced: coordinator?.hoverIntent(inside, byMovement: byMovement)
         }
     }
 
     // swiftlint:disable function_parameter_count - one parameter per contract note, as PresentationPanel declares
     /// `frame` arrives in AppKit global screen coordinates (ScreenTranslation
     /// convention) and is the state's tight rule frame. It never touches the
-    /// window: it becomes the click-interactive region (the view animates the
-    /// matching surface on its own).
+    /// window: it bounds the click and hover regions, which follow the rendered
+    /// surface (the view animates that surface on its own).
     func apply(
         frame: CGRect,
         hoverArmed: Bool,
@@ -332,9 +338,10 @@ final class NSPanelPresentationPanel: PresentationPanel {
     }
 
     /// Render context into the view's policy box. Each flag is written only when
-    /// it changes — belt-and-braces, since the @Observable setter short-circuits
-    /// an equal value (Swift 6.2+); the guard keeps the intent at the call site
-    /// for the cost of a comparison.
+    /// it changes — belt-and-braces: an equal write through the generated setter
+    /// is measured to fire nothing (`Coordinator.publishTrackNames` states where),
+    /// but no Apple document promises it, and the guard keeps the intent at the
+    /// call site for the cost of a comparison.
     private func updateDisplayPolicy(
         showsNowPlaying: Bool,
         showsHUD: Bool,

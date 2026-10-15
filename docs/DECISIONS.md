@@ -367,7 +367,11 @@ hold comes with the knob to make the knob's premise real — the pointer's arriv
 cancels the HUD revert timer and its exit restarts the full delay
 (`Coordinator.publishPointer`), so a hovered HUD is genuinely not transient —
 precisely when the affordance matters, and exactly the Control Center's own
-affordance-on-demand. The knob signal is per display
+affordance-on-demand. Only a mouse event is that arrival: the sample a surface
+takes when it is armed or retargeted under a still cursor records the pointer
+and holds the appearance, never the HUD, or a HUD rising under a resting cursor
+stays up until the mouse moves; the first mouse event that finds the pointer
+there hands it the hold (`SurfaceHoverMonitor`, `movedPointerSurfaces`). The knob signal is per display
 (`SurfaceDisplayPolicy.pointerInside`): only the hovered surface reveals it,
 and an active drag keeps it. Scope: the knob belongs to the capsule
 (Notch/Card) and to the now-playing scrubber drawn on the same track (below);
@@ -1022,8 +1026,10 @@ Harmless while nothing names a display — and wrong the moment something does: 
 brightness bar for the external monitor, drawn on the laptop, is a control for a
 screen the user is not looking at, and its drag would dim the neighbour in
 silence. Rule: a HUD that NAMES a display is shown only on that display; every
-other panel treats the state as `.hidden`, which also disarms hover there, so an
-empty region never reacts to the pointer. A HUD that NO screen owns keeps
+other panel draws what lies under it, the now-playing appearance or nothing, as
+the Card's own panel does while its HUD sits on a panel apart. Hover stays
+disarmed on such a panel: the pointer record names surfaces, not displays, so a
+pointer on that appearance would hold the HUD another display shows. A HUD that NO screen owns keeps
 appearing everywhere, deliberately: volume belongs to the output device and the
 keyboard backlight to the one keyboard, so scoping either would move feedback
 nobody asked to move. The exemption covers those two channels and nothing wider:
@@ -1034,8 +1040,10 @@ brightness bar names the built-in panel as a role.
 A HUD naming a
 display that is no longer attached shows nowhere, which is what an unplug between
 the report and the frame pass should look like. The decision lives in
-`WindowManager.effectiveState`, already the per-display policy seam (the
-"show now playing here" preference is its other rule), so presentation scoping
+`WindowManager.hudIsShown`, beside `effectiveState` and its "show now playing
+here" preference in the per-display pass, and reaches the view as
+`SurfaceDisplayPolicy.showsHUD`, which `PresentationLayers.state(on:showsHUD:)`
+reads for frame and view alike, so presentation scoping
 never leaks into the Coordinator: the app's state stays whole and a drag on the
 panel that shows the bar still acts on the display the bar names.
 
@@ -2790,8 +2798,9 @@ network, a decode that did not fit) is the same silence.
 **Bytes never outlive the identity they belong to**: the fetched cover and the
 title+artist+album it answers are cleared together, because held past a track
 change they put one album's cover on the next song's surface — visible and wrong,
-where the absence would merely be absent. That identity is also why `album` was
-added to the domain: keyed on the snapshot instead, the 1 Hz position tick would
+where the absence would merely be absent. That identity is also why a lookup
+needs `album` in the domain, which drops it at the border while nothing reads
+it: keyed on the snapshot instead, the 1 Hz position tick would
 re-ask the endpoint once a second for the same song.
 
 ### the-lock-surface-is-a-card

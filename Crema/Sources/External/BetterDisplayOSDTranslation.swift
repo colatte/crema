@@ -38,9 +38,11 @@ enum BetterDisplayOSDTranslation {
     // never flattened into a `DisplayUUID?`: a built-in the neighbour named would
     // collapse into "nobody said which screen", which presentation reads as "draw
     // on all of them" (docs/DECISIONS.md: hud-target-is-a-role). This border
-    // resolves the neighbour's raw CGDirectDisplayID to a UUID — the numeric ID is
-    // reassigned across sessions and reconnections — and it names the built-in
-    // like any other display rather than collapsing it into a role.
+    // resolves the neighbour's raw CGDirectDisplayID to a UUID — the domain keys
+    // displays by UUID, and a numeric ID only "typically remains constant until
+    // the machine is restarted" (Apple, CGDirectDisplayID), so the topology can
+    // move under one (docs/DECISIONS.md: J2-display-id-stale) — and it names the
+    // built-in like any other display rather than collapsing it into a role.
 
     /// Decodes one payload. `target` resolves BetterDisplay's raw display ID —
     /// injected so this stays a pure function; the system call lives in the

@@ -30,9 +30,12 @@ struct PresentationLayers: Equatable, Sendable {
     /// (`SystemHUD.Target`); a reading published over the preview clears it.
     var hudDisplays: Set<DisplayUUID>?
 
-    /// What `surface` shows of the two layers.
-    func state(on surface: Surface) -> PresentationState {
-        if surface.drawsHUD, let hud { return .hud(hud) }
+    /// What `surface` shows of the two layers. `showsHUD` false is a surface on a
+    /// display the HUD does not belong to: it shows the appearance under the HUD,
+    /// as a surface drawing only the appearance does (docs/DECISIONS.md:
+    /// hud-belongs-to-its-display).
+    func state(on surface: Surface, showsHUD: Bool = true) -> PresentationState {
+        if surface.drawsHUD, showsHUD, let hud { return .hud(hud) }
         if surface.drawsNowPlaying, let nowPlaying {
             return .nowPlaying(nowPlaying.track, expanded: nowPlaying.expanded)
         }

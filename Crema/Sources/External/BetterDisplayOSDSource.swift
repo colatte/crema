@@ -33,7 +33,9 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     /// versions old enough to send only the legacy name predate 4.2.1.
     static let notificationName = "pro.betterdisplay.BetterDisplay.osd"
 
-    static let bundleID = "pro.betterdisplay.BetterDisplay"
+    /// Nonisolated: a constant, read by the workspace observer from a `Sendable`
+    /// closure the compiler does not isolate to the main actor.
+    nonisolated static let bundleID = "pro.betterdisplay.BetterDisplay"
 
     /// Whether BetterDisplay has actually published to us. Presence of the app
     /// proves nothing — its OSD notification integration is a setting the user

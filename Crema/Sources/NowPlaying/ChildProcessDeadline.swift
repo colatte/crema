@@ -46,7 +46,7 @@ private let childProcessKillGrace: Double = 0.5
 
 /// Runs a short-lived child `process` to completion under a `timeout`, mapping
 /// its exit to a value via `interpret`. When `pipe` is given its stdout is read
-/// once at exit (a single short line — safe off the main thread). If the
+/// while the child runs and handed over at exit (`StdoutDrain`). If the
 /// deadline fires first the process is force-terminated (SIGKILL after a short
 /// grace if it ignores SIGTERM, so a genuinely stuck child's termination handler
 /// is guaranteed to fire) and `failureValue` is returned; a spawn failure
@@ -63,17 +63,14 @@ func runChildProcess<T: Sendable>(
     await raceAgainstDeadline(
         {
             await withCheckedContinuation { (continuation: CheckedContinuation<T, Never>) in
+                let drain = pipe.map(StdoutDrain.init)
                 process.terminationHandler = { finished in
-                    let output = pipe.flatMap { pipe -> String? in
-                        let data = try? pipe.fileHandleForReading.readToEnd()
-                        return data
-                            .flatMap { String(data: $0, encoding: .utf8) }?
-                            .trimmingCharacters(in: .whitespacesAndNewlines)
-                    }
+                    let output = drain?.output()
                     continuation.resume(returning: interpret(finished, output))
                 }
                 do {
                     try process.run()
+                    drain?.start()
                 } catch {
                     continuation.resume(returning: failureValue)
                 }

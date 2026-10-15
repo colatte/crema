@@ -192,6 +192,27 @@ struct CoordinatorInvokeTests {
         #expect(await eventually { h.coordinator.state == .hidden })
     }
 
+    @Test func canInvokeIsExactlyWhenInvokeActs() async {
+        // The WindowManager arms the click zone on this predicate, so a click the
+        // zone captures is one `invoke()` takes, and none other.
+        let h = CoordinatorHarness(reactiveNowPlaying: false)
+        #expect(!h.coordinator.canInvoke)            // nothing playing
+
+        let paused = CoordinatorHarness.playingTrack(isPlaying: false)
+        h.nowPlayingSource.emit(paused)
+        #expect(await eventually { h.coordinator.nowPlaying == paused })
+        #expect(!h.coordinator.canInvoke)            // paused media
+        h.coordinator.invoke()
+        #expect(h.coordinator.state == .hidden)
+
+        let track = CoordinatorHarness.playingTrack()
+        h.nowPlayingSource.emit(track)
+        #expect(await eventually { h.coordinator.canInvoke })
+        h.coordinator.invoke()
+        #expect(h.coordinator.state == .nowPlaying(track, expanded: true))
+        #expect(!h.coordinator.canInvoke)            // something visible
+    }
+
     @Test func exposesTheDefaultInvokedLinger() {
         #expect(Coordinator.defaultInvokedLinger == 5.0)
         // The invoked appearance must outlast the reactive one — the user

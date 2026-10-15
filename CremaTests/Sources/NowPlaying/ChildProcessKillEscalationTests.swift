@@ -80,6 +80,43 @@ struct ChildProcessKillEscalationTests {
         #expect(await eventuallyOffActor { !process.isRunning })
     }
 
+    @Test func aChildWritingMoreThanThePipeHoldsExitsBeforeTheDeadline() async {
+        // A pipe buffers a bounded amount ("the size of the buffer is determined by
+        // the underlying operating system", Apple, Pipe); a child writing past it
+        // blocks until someone reads. Read only at exit, it never exits, and the
+        // reply is lost to the deadline. The test clock never advances while the
+        // child runs, so only a reader draining stdout as it arrives lets it finish.
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", "head -c 200000 /dev/zero | tr '\\000' a"]
+        defer { if process.isRunning { kill(process.processIdentifier, SIGKILL) } }
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        let clock = TestSleepClock()
+        let finished = ReadyFlag()
+
+        let run = Task {
+            let count = await runChildProcess(
+                process,
+                readingStdout: pipe,
+                timeout: 5,
+                clock: clock,
+                failureValue: -1,
+                interpret: { _, output in output?.count ?? 0 }
+            )
+            finished.set()
+            return count
+        }
+
+        let exitedOnItsOwn = await eventuallyOffActor { finished.value }
+        if !exitedOnItsOwn {                // frees a child that never finished
+            await clock.waitForSleep()
+            clock.advance()
+        }
+        #expect(exitedOnItsOwn)
+        #expect(await run.value == 200_000)
+    }
+
     @Test func aChildThatHonoursTerminationNeedsNoKill() async {
         // The polite path: terminate is enough, and the caller is freed by the
         // same deadline either way.

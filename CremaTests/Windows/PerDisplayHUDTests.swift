@@ -93,6 +93,31 @@ struct PerDisplayHUDTests {
             == Self.frame(.hidden, on: Self.internalScreen()))
     }
 
+    @Test func aDisplayKeepsItsAppearanceWhileAnotherDisplaysHUDIsUp() async {
+        // The HUD is the other display's; this one still has the appearance under
+        // it, and keeps drawing that, as the Card's own panel does when its HUD
+        // sits on a panel apart. Hover stays disarmed here: the pointer record
+        // names surfaces, not displays, so a pointer on this appearance would hold
+        // the other display's HUD (docs/DECISIONS.md: hud-belongs-to-its-display).
+        let h = makeHarness()
+        let track = CoordinatorHarness.playingTrack()
+        h.base.nowPlayingSource.emit(track)
+        #expect(await eventually { h.base.coordinator.state == .nowPlaying(track, expanded: false) })
+        let hud = SystemHUD(
+            kind: .screenBrightness, value: 0.4, target: .display(Self.externalID), authority: .betterDisplay
+        )
+
+        h.base.hudSource.emit(hud)
+        #expect(await eventually { h.base.coordinator.state == .hud(hud) })
+
+        let quiet = h.recorder.panel(for: Self.internalID)
+        #expect(quiet?.appliedFrames.last == Self.frame(.nowPlaying(track, expanded: false), on: Self.internalScreen()))
+        #expect(quiet?.showsHUDStates.last == false)
+        #expect(quiet?.hoverArmedStates.last == false)
+        #expect(h.recorder.panel(for: Self.externalID)?.appliedFrames.last
+            == Self.frame(.hud(hud), on: Self.externalScreen()))
+    }
+
     @Test func aHUDForADisplayThatIsGoneIsDrawnNowhere() async {
         // Unplugged between the report and the frame pass: no panel claims it.
         let h = makeHarness()
