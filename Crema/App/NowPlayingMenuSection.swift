@@ -13,7 +13,7 @@ import SwiftUI
 /// `CremaApp.body` — moving either read up there gives the expensive body a
 /// dependency on the media state.
 ///
-/// Availability is rendered here, never decided here: `commandsAvailable` and
+/// Availability is rendered here, never decided here: `controlsEnabled` and
 /// `skipControlsEnabled` are the Coordinator's verdicts, the same two the
 /// surface's transport binds to (SurfaceStyleBody) — one decision, two renderers.
 /// Only "is there media at all" is added, because the surface exists only when
@@ -108,7 +108,7 @@ struct NowPlayingMenuSection: View {
     /// gate around the buttons, and a copy of that fact here would be a second
     /// reading of it, still true only by accident the day one of them changes.
     private var transportEnabled: Bool {
-        coordinator.commandsAvailable
+        coordinator.controlsEnabled
     }
 
     private var skipEnabled: Bool {

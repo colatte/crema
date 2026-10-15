@@ -158,6 +158,10 @@ final class AppCore {
     private var wakeObservations: [NSObjectProtocol] = []
     private var onboardingWindow: NSWindow?
     private var welcomeTourWindow: NSWindow?
+    private var welcomeTourClosing: NSObjectProtocol?
+    /// Built once and kept: the tour's last step shows it, every other step and
+    /// the window's close hide it.
+    private lazy var menuBarPointer = MenuBarPointerPanel()
 
     // The composition root wires every source, actuator, and observer; long by nature.
     // swiftlint:disable:next function_body_length
@@ -358,7 +362,7 @@ final class AppCore {
         // The gate's write stays here, before any window; the window waits a turn
         // for the reason the panel roster above does.
         Self.presentWelcomeTourIfFirstLaunch(preferences: preferences) {
-            Task { @MainActor [weak self] in self?.presentWelcomeTour() }
+            Task { @MainActor [weak self] in self?.showWelcomeTour() }
         }
 
         // The one moment the persisted login-item intent is reconciled against
@@ -414,6 +418,7 @@ final class AppCore {
 
         #if DEBUG
         startAdapterObservationIfRequested()
+        showWelcomeTourIfRequested()
         #endif
     }
 
@@ -1091,44 +1096,116 @@ extension AppCore {
         present()
     }
 
-    /// Window built by the same recipe as the Accessibility onboarding above: a
-    /// plain titled window outside the Settings scene, because an accessory app
-    /// has no scene to open one into and `openSettings` is a no-op from here.
-    /// Brought forward like every window the app shows (`bringForward`).
+    /// The menu's way back to the tour, and the launch gate's way in. A tour
+    /// already open is brought forward where it stands; a closed one starts over
+    /// from the first step.
     ///
-    /// The view holds this core and this core holds the window: a cycle whose far
-    /// end is the composition root, which lives for the whole app either way.
-    /// Closing by the title-bar box does not come through `closeWelcomeTour`
-    /// (there is no delegate, exactly as with the Accessibility onboarding above),
-    /// so the window stays retained — deliberately: the guard at the top then
-    /// REUSES it, and a second presentation shows the same window instead of
-    /// building a second one. `closeWelcomeTour` is the programmatic way out, for
-    /// the buttons inside the view.
-    private func presentWelcomeTour() {
+    /// Built by the same recipe as the Accessibility onboarding above: a window
+    /// outside the Settings scene, because an accessory app has no scene to open
+    /// one into and `openSettings` is a no-op from here. Dark whatever the system
+    /// appearance, like the surfaces it shows. Every way out — the buttons, Esc,
+    /// the close box — ends in `welcomeTourDidClose`, which lets go of what the
+    /// tour holds on the real screen.
+    func showWelcomeTour(at step: WelcomeTourStep = .welcome) {
         if let welcomeTourWindow {
             welcomeTourWindow.makeKeyAndOrderFront(nil)
             bringForward()
             return
         }
 
-        let view = WelcomeTourView(core: self, dismiss: { [weak self] in self?.closeWelcomeTour() })
+        let view = WelcomeTourView(core: self, firstStep: step) { [weak self] in self?.welcomeTourWindow?.close() }
         let window = NSWindow(contentViewController: NSHostingController(rootView: view))
-        window.styleMask = [.titled, .closable]
+        window.styleMask = [.titled, .closable, .fullSizeContentView]
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.isMovableByWindowBackground = true
+        // A titled window draws all three buttons; this one can only close.
+        window.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        window.standardWindowButton(.zoomButton)?.isHidden = true
+        window.appearance = NSAppearance(named: .darkAqua)
+        // Hidden from the title bar but kept: it is the name VoiceOver and the
+        // window list read.
         window.title = String(localized: "tour.window.title", defaultValue: "Welcome to Crema")
         window.isReleasedWhenClosed = false
         window.center()
+        welcomeTourClosing = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.welcomeTourDidClose() }
+        }
         welcomeTourWindow = window
         window.makeKeyAndOrderFront(nil)
         bringForward()
     }
 
-    /// Leaving the tour by Skip or by the last button. The close box does not come
-    /// through here (no delegate, as with the onboarding window above) and does not
-    /// need to: nothing records a "finished", because the flag was committed before
-    /// the window existed — leaving early and reaching the end are the same act.
-    private func closeWelcomeTour() {
-        welcomeTourWindow?.close()
+    #if DEBUG
+    /// Screenshot/dev harness: `-CremaWelcomeTourStep finish` opens the tour on
+    /// that step at every launch, whatever the once-per-install flag says. An
+    /// unknown name parses to nil and opens nothing, as the Settings tab flag
+    /// does. A turn later, for the reason the launch gate waits one.
+    func showWelcomeTourIfRequested() {
+        guard let raw = UserDefaults.standard.string(forKey: "CremaWelcomeTourStep"),
+              let step = WelcomeTourStep(rawValue: raw) else { return }
+        Task { @MainActor [weak self] in self?.showWelcomeTour(at: step) }
+    }
+    #endif
+
+    /// What the real screen does behind a step: the player held up or let go,
+    /// the arrow at the menu bar icon shown or hidden (WelcomeTourFlow decides
+    /// which steps).
+    func welcomeTourEntered(_ step: WelcomeTourStep) {
+        if WelcomeTourFlow.holdsThePlayer(step) {
+            coordinator.showcase(sample: Self.tourSample())
+        } else {
+            coordinator.endShowcase()
+        }
+        if WelcomeTourFlow.pointsAtTheMenuBar(step) {
+            menuBarPointer.show()
+        } else {
+            menuBarPointer.hide()
+        }
+    }
+
+    /// The grant lands in System Settings, so the tour is behind it when the
+    /// person comes back for it; it comes forward on its own, the moment the
+    /// monitor sees the switch flip.
+    func bringWelcomeTourForward() {
+        welcomeTourWindow?.makeKeyAndOrderFront(nil)
+        bringForward()
+    }
+
+    private func welcomeTourDidClose() {
+        coordinator.endShowcase()
+        menuBarPointer.hide()
+        if let welcomeTourClosing {
+            NotificationCenter.default.removeObserver(welcomeTourClosing)
+        }
+        welcomeTourClosing = nil
         welcomeTourWindow = nil
+    }
+
+    /// The track the tour shows when nothing is playing: named as the player's
+    /// place, with the app's own icon for the cover.
+    static func tourSample() -> NowPlaying {
+        NowPlaying(
+            title: String(localized: "tour.sample.title", defaultValue: "Your music shows up here"),
+            artist: "Crema",
+            artworkData: appIconPNG(),
+            isPlaying: true,
+            position: 0,
+            duration: nil,
+            supportsSkip: false
+        )
+    }
+
+    private static func appIconPNG() -> [UInt8]? {
+        let icon = NSApp.applicationIconImage
+        var rect = CGRect(x: 0, y: 0, width: 256, height: 256)
+        guard let image = icon?.cgImage(forProposedRect: &rect, context: nil, hints: nil),
+              let data = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else { return nil }
+        return [UInt8](data)
     }
 }
 

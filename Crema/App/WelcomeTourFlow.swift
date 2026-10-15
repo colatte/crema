@@ -1,16 +1,19 @@
 /// One step of the welcome tour, in the order they are walked. The order IS the
-/// declaration order: the permission comes before the two settings it gates, and
-/// the login-item switch comes last, where a person has already seen what they
-/// would be keeping.
-enum WelcomeTourStep: CaseIterable {
+/// declaration order: the permission comes before the key test it makes work,
+/// the style before the test that shows it, and the login-item switch comes
+/// last, where a person has already seen what they would be keeping. The raw
+/// values are the DEBUG step flag's vocabulary and nothing else's.
+enum WelcomeTourStep: String, CaseIterable {
     case welcome
     case accessibility
     case style
-    case indicators
+    case tryIt
+    case more
     case finish
 }
 
-/// Where the tour can go from a step, and what its prominent button offers there.
+/// Where the tour can go from a step, what its prominent button offers there,
+/// and what the real screen does behind it.
 ///
 /// Pure and stringless — the view maps a case to its sentence, the way the menu
 /// maps a `MenuStatus` row — because these are the parts with a rule in them, and
@@ -37,7 +40,7 @@ enum WelcomeTourFlow {
         self.step(offsetting: step, by: -1)
     }
 
-    /// 1-based, because it is read out loud ("Step 2 of 5") and nobody counts
+    /// 1-based, because it is read out loud ("Step 2 of 6") and nobody counts
     /// their way through a window from zero.
     static func progress(_ step: WelcomeTourStep) -> (index: Int, count: Int) {
         let all = WelcomeTourStep.allCases
@@ -50,10 +53,24 @@ enum WelcomeTourFlow {
     /// `next(after:)`, which never sees it.
     static func primaryAction(for step: WelcomeTourStep, accessibilityGranted: Bool) -> PrimaryAction {
         switch step {
-        case .welcome, .style, .indicators: .continue
+        case .welcome, .style, .tryIt, .more: .continue
         case .accessibility: accessibilityGranted ? .continue : .grantAccess
         case .finish: .done
         }
+    }
+
+    /// The steps that hold the real player up while they talk about it: the
+    /// welcome shows what the app draws, and the style step redraws it in each
+    /// pick. Every other step lets it go — the key test wants a clear screen for
+    /// the HUD it asks for.
+    static func holdsThePlayer(_ step: WelcomeTourStep) -> Bool {
+        step == .welcome || step == .style
+    }
+
+    /// The step that points at the menu bar icon: the last one, where the person
+    /// learns where the app lives once the window is gone.
+    static func pointsAtTheMenuBar(_ step: WelcomeTourStep) -> Bool {
+        step == .finish
     }
 
     /// Both ends answer nil rather than wrapping: a tour that looped would have no

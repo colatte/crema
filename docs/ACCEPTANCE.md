@@ -103,11 +103,15 @@
     the HUD is already gone. An honoured drag stays exactly where it was released.
 18. With version N installed and N+1 published in the appcast, the app offers the
     update and applies it.
-19. The first launch of a clean install opens the welcome tour (five steps;
-    the Accessibility step flips to Continue live when the grant lands and never
-    advances on its own). Finishing
-    it — or closing the window — and relaunching shows nothing: the tour runs
-    once per install. An install that already carries the Accessibility grant
+19. The first launch of a clean install opens the welcome tour (six steps;
+    the player shows on the real screen, a sample when nothing plays; the
+    Accessibility step flips to Continue live when the grant lands, comes back
+    to the front, and never advances on its own; a volume key on the key test
+    raises Crema's HUD; the last step points an arrow at the menu bar icon).
+    Finishing it — or closing the window — and relaunching shows nothing: the
+    tour runs once per install, and the menu's Welcome Tour item reopens it
+    from the first step. Closing it mid-step leaves no sample player and no
+    arrow on screen. An install that already carries the Accessibility grant
     still sees it once; the menu's "Grant Accessibility Access…" button remains
     the manual path to the standalone permission window afterwards.
 20. ~~The lock-screen card.~~ **Retired** (docs/DECISIONS.md:
