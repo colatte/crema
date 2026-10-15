@@ -3109,3 +3109,42 @@ grant should survive the update; not measured on an updated install.
 Reopening gate: a Developer ID account, which makes validation pass with a real
 Team ID and lets the exception go.
 
+### the-output-glyph-names-only-what-it-knows
+The volume HUD draws the kind of device the sound goes to, and two facts bound
+what it may claim. A device's name is localized and renamable — the built-in
+speakers read "Alto-falantes (MacBook Pro)" on a pt-BR system, and a Bluetooth
+device answers to whatever the user typed — so a name is evidence only where
+nothing better exists. And CoreGlyphs' `symbol_restrictions.strings` reserves
+`airpods`, `airpods.pro` and `airpods.max` for Apple's AirPods, AirPods Pro and
+AirPods Max, and `beats.headphones` for Beats headphones: a product glyph on the
+wrong device misuses the mark, not only the picture.
+Decision: the transport (`kAudioDevicePropertyTransportType`,
+AudioHardwareBase.h) decides first. On the built-in device the selected output
+data source decides (IOAudioTypes.h: `'hdpn'` is the headphone jack; `'ispk'`,
+or no data-source control, the speakers; any other selection, unknown) and the
+name never does. On Bluetooth, classic or LE, the name decides by a
+case-insensitive match, most specific first — "AirPods Max", "AirPods Pro",
+"AirPods", "Beats" — and any other Bluetooth device is plain `headphones`, the
+glyph that claims no product. AirPlay draws `airplayaudio`; HDMI and DisplayPort
+draw `display`, a screen that does not call a monitor a television. USB,
+Thunderbolt, aggregates and virtual devices keep the speaker family: USB carries
+headsets, DACs and a display's speakers on one transport, and an aggregate's main
+sub-device is its clock (AudioHardware.h: "the AudioDevice that is currently
+serving as the time base"), not where the sound goes. The device glyph replaces
+the speaker at every level, since the bar already shows the level; mute keeps
+`speaker.slash.fill`. The macOS 14 spellings `airpodspro`, `airpodsmax` and
+`airplayaudio` are the ones emitted; macOS 15 and later resolve them as aliases
+(`name_aliases.strings`). A device or data-source change re-reads the route in
+silence, and the next volume event draws it: a switch never pops the HUD.
+Paths not taken: `kAudioDevicePropertyModelUID` could name a model without the
+name, but its format on Bluetooth is unmeasured; `scripts/probes/output-device-route.swift`
+harvests it. The output stream's terminal type (`kAudioStreamPropertyTerminalType`)
+reads 0x301 on the built-in speakers, the USB Audio Class speaker code rather
+than the header's `'spkr'`, so it does not speak the vocabulary its header
+documents (measured with that probe, 2026-10-15, macOS 27.0.1, Mac16,8).
+Unmeasured: whether the jack on Apple Silicon is a data source of the built-in
+device or a device of its own (a device of its own with no data-source control
+draws the speaker); AirPlay, HDMI and DisplayPort transports on real devices; the
+order of the data-source and volume notifications when a jack is plugged in.
+Reopening gate: a harvested ModelUID table for Bluetooth, or a measured jack on
+Apple Silicon.
