@@ -88,10 +88,11 @@ away (the squash and rebase buttons are switched off at the repository level).
 
 Continuous integration gates every pull request, in order: SwiftLint in strict
 mode, SwiftFormat as a lint, the String Catalog checker (`python3
-scripts/check-catalog.py .` — the one gate ⌘U does not run, so run it yourself
-after touching any UI string), the test suite, and a Release build with its
+scripts/check-catalog.py .`), the test suite, and a Release build with its
 signature flags verified (Release is the only configuration that compiles the
-updater). All of it must pass before a change can be merged.
+updater). All of it must pass before a change can be merged. `⌘U` runs only
+the test suite: run the two linters (below) and the catalog checker yourself,
+the checker after touching any UI string.
 
 ### Translations
 
@@ -140,6 +141,10 @@ Command Line Tools:
 ```bash
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swiftlint
 ```
+
+Compiler warnings are not gated: no build setting turns them into errors and CI
+does not count them. A concurrency-isolation warning in app code is fixed when
+it is seen, in the change that sees it.
 
 ## A note on third-party code
 

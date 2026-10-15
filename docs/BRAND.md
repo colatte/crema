@@ -11,7 +11,10 @@
 > Sources, from most to least normative: this file for the rules; the vector
 > mark in `design/icon/` and the tokens in `docs/index.html` for the values;
 > the Colatte brand (`Workspaces/colatte/brand/`, chapter 09 and
-> `design/creditos/`) for everything inherited. Where the two disagree about
+> `design/creditos/`) for everything inherited. Every `Workspaces/colatte/…`
+> path on this page is one of the house's private sources: it is not in this
+> repository, and readers outside the house have only what this page restates
+> from it. Where the two disagree about
 > Crema, this page wins; where this page is silent, the house rule applies.
 
 ## What Crema is, in the words the product uses
@@ -90,7 +93,8 @@ What the drawing must keep:
 
 The landing page's palette **is Colatte's espresso dialect**, value for value
 (`Workspaces/colatte/design/social-web/colatte-pecas.css`, the `--esp-*` set;
-`brand/09-digital.md`). Declared once, in `docs/index.html`:
+`brand/09-digital.md`; both private to the house, not in this repository).
+Declared once, in `docs/index.html`:
 
 | Token          | Value                      | Colatte name    | Role                                               |
 | -------------- | -------------------------- | --------------- | -------------------------------------------------- |

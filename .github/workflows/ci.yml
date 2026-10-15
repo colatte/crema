@@ -8,6 +8,16 @@ on:
   pull_request:
     branches: [main, dev]
 
+# The token reads the repository and nothing else, and every action is pinned
+# by full commit SHA (the tag it resolves to rides beside it): a moved tag
+# cannot run new code here. Primary source: GitHub Docs, "Secure use
+# reference" (docs.github.com/en/actions/security-for-github-actions/
+# security-guides/security-hardening-for-github-actions, read 2026-10): pin
+# actions to a commit SHA; give GITHUB_TOKEN read-only contents by default.
+# A bump re-resolves the SHA from the action's own repository, never a fork.
+permissions:
+  contents: read
+
 # A newer commit on the same ref supersedes an in-flight run.
 concurrency:
   group: ci-${{ github.ref }}
@@ -24,7 +34,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Select Xcode
         # Swift Testing (@Test / #expect) requires Xcode 16+. The app's
@@ -32,7 +42,7 @@ jobs:
         # Pinned like the linters below: latest-stable floats with the runner
         # image, so a toolchain bump lands as a red build on an unrelated PR with
         # nothing in the diff to explain it. Raise this deliberately.
-        uses: maxim-lobanov/setup-xcode@v1
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
           xcode-version: "27.0"
 
@@ -95,7 +105,8 @@ jobs:
         # permission and runs cleanly on a headless runner.
         # TEST_RUNNER_ vars cross into the app-hosted test process with the
         # prefix stripped. The wait budget is widened here because the runner
-        # (3 vCPU / 7 GB) fair-shares one MainActor across every test in flight:
+        # (3 vCPU / 7 GB, measured on the macos-15 arm64 image; the xcode-27
+        # image is unmeasured) fair-shares one MainActor across every test in flight:
         # measured, the same healthy waits that take microseconds locally took
         # ~6 s per test here once the suite grew past ~900 tests, and the local
         # 5 s budget turned starvation into false reds. The bound still exists —
@@ -225,6 +236,6 @@ jobs:
           fi
           echo "signature $FLAGS"
           if grep -q runtime <<<"$FLAGS" && grep -qE 'adhoc' <<<"$FLAGS"; then
-            echo "::error file=Crema.xcodeproj/project.pbxproj::ENABLE_HARDENED_RUNTIME with an ad-hoc/self-signed identity: dyld will abort this app at launch on Sparkle.framework. Set ENABLE_HARDENED_RUNTIME = NO; release.sh adds --options runtime only on the Developer ID path, where a real Team ID satisfies library validation."
+            echo "::error file=Crema.xcodeproj/project.pbxproj::ENABLE_HARDENED_RUNTIME with an ad-hoc/self-signed identity: dyld will abort this app at launch on Sparkle.framework. Set ENABLE_HARDENED_RUNTIME = NO; release.sh adds --options runtime at signing time: on the Developer ID path a real Team ID satisfies library validation, and on the self-signed path Crema-SelfSigned.entitlements turns library validation off."
             exit 1
           fi

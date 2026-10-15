@@ -44,12 +44,12 @@ Depends on: Phase 1 not at all. The neighbour's `get` reads brightness through t
 
 ## Phase 3 (optional) — Notarized distribution
 
-Objective: the downloaded `.dmg` opens with no "unidentified developer" warning.
-Depends on: an Apple Developer account existing. The script path is already written and exercised; nothing in the code changes.
+Objective: SPEC's criterion for notarized distribution (SPEC.md, "Notarized distribution").
+Depends on: an Apple Developer account existing. The script path is written; nothing in the code changes.
 
 - [ ] T8.5 — Signing and notarization · módulo: docs
-  - Verification: no unit test — a smoke on the release machine (`spctl --assess` accepts the app; a fresh download opens without the Gatekeeper prompt).
-  - Acceptance: SPEC's criterion for notarized distribution passes, and docs/RELEASE-GUIDE.md's Developer ID path is the one release.sh takes by default.
+  - Verification: no unit test — SPEC's criterion, checked on the release machine.
+  - Acceptance: that criterion passes, and docs/RELEASE-GUIDE.md's Developer ID path is the one release.sh takes by default.
 
 ## Phase 4 — A Tahoe-native icon
 
@@ -67,7 +67,7 @@ Depends on: nothing left; the document ships, and what stays open is its check o
 - **The whole app depends on private API** (SPEC, constraint 3) → mitigated structurally: every point of contact sits behind a protocol, so an implementation can be swapped without touching the rest. The brightness APIs are chosen and embedded (DisplayServices, CoreBrightness); what remains is the standing risk of breakage on each release, which is why docs/system-contact-inventory.md exists.
 - **The Accessibility permission** (SPEC, constraint 4) → answered by the event tap plus onboarding, and the app runs degraded without it. In development, TCC identifies the binary by its signature — sign with a stable certificate.
 - **BetterDisplay/Lunar is an optional external dependency** (SPEC, "Planned", associated constraint) → Phase 2 is optional for exactly this reason, and degradation is pinned by test: with the integration absent, the essential flows are intact.
-- **The neighbour's API gives no read-back for external brightness** → Phase 2's apply+verify cycle has no `before` to compare against. Plan B is to keep handing the key back to whoever moves that screen, which is what ships today.
+- **The apply+verify cycle over the neighbour's channel is unbuilt** → the read it needs exists (Phase 2), and until the cycle is built the key goes back to whoever moves that screen.
 
 ## Open decisions
 

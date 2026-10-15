@@ -1,4 +1,5 @@
-// Hardware probes left open by the 2026-07-29 audit, in one run.
+// Four hardware questions, in one run: display identity, the keyboard client's
+// thread safety, shared display UUIDs, and who sits in the media-key tap chain.
 //
 // Each one decides whether a specific fix is mandatory or merely defensive, and
 // none of them can be answered from a header or a unit test. Read-only except
