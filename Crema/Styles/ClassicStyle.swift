@@ -44,7 +44,7 @@ struct ClassicStyle: PresentationStyle {
         rect.origin.x -= SurfaceAnimation.overshootHeadroom
         rect.size.width += 2 * SurfaceAnimation.overshootHeadroom
         rect.size.height += SurfaceAnimation.overshootHeadroom
-        return rect
+        return rect.placeableAsWindow(anchor: .bottom)
     }
 
     @MainActor

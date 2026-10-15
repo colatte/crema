@@ -3036,6 +3036,16 @@ the header's sentence is about both rects together, and inventing a rule for
 hardware nobody ships is the centre-inference's own mistake. If such a panel ever
 appears, the rule is re-derived from a measurement of it, not guessed here.
 
+**The window that carries the surface lands on whole points.** AppKit places a
+window's origin on whole points, and the edges the API hands over are not
+promised to keep a slit's centre and width compatible with that: on macOS 27.0.1
+this same 14" panel reports 663.5 pt on each side, a whole-point centre with an
+odd slit width, so the Notch's window starts on a half point and is placed half a
+point left, its surface with it, onto live menu bar. Every fixed window is
+therefore widened, never moved, to a whole-point origin about the same centre,
+its pinned edge kept (`CGRect.placeableAsWindow`); `NSPanelPresentationPanelTests`
+checks the placed window and the surface's centre on that geometry.
+
 ### main-takes-docs-outside-a-release
 `main` is the release branch — every merge into it is a release, and it is what
 `release.sh` builds from. But it is also the **Pages root**: the landing page and

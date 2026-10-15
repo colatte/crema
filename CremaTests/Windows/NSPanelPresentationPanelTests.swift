@@ -81,18 +81,31 @@ struct NSPanelPresentationPanelTests {
                 + HUDPlacement.allCases.filter { $0 != .topCenter }.map { (.cardHUD($0), nil) }
         for (surface, onScreen) in surfaces {
             let (panel, screen, harness) = self.panel(surface: surface, on: onScreen)
-            // AppKit places a window on whole points, so a rule frame on a half
-            // point is born rounded; what SwiftUI must never change is the window
-            // as born, nor its size.
-            let atBirth = panel.currentWindowFrame
-            #expect(atBirth.size == surface.windowFrame(on: screen.geometry).size, "\(surface)")
+            // Born where the rule asks, to the point: a rule frame on a half point
+            // would be placed rounded by AppKit (placeableAsWindow).
+            #expect(panel.currentWindowFrame == surface.windowFrame(on: screen.geometry), "\(surface)")
             panel.layOutWindowNow()
-            #expect(panel.currentWindowFrame == atBirth, "\(surface)")
+            #expect(panel.currentWindowFrame == surface.windowFrame(on: screen.geometry), "\(surface)")
             // The window holding still is half of it: the content must also fill
             // it, or the surface draws nowhere inside a correctly placed window.
             #expect(panel.hostedContentFillsTheWindow, "\(surface)")
             withExtendedLifetime(harness) {}
         }
+    }
+
+    @Test func theNotchSurfaceSitsOnTheSlitToThePoint() throws {
+        // A slit 663.5 pt from each side centres on a whole point with an odd
+        // window width, so the rule's window starts on a half point. Placed by
+        // AppKit, the surface the view centres in that window must still centre on
+        // the slit: half a point off, its edge sits on the live menu bar.
+        let screen = notchedScreen()
+        let (panel, _, harness) = panel(surface: .skin(.notch), on: screen)
+        let hud = Style.notch.frame(for: .hud(SystemHUD(kind: .volume, value: 0.5)), on: screen.geometry)
+        let drawn = SurfaceClickThrough.surfaceRect(size: hud.size, window: panel.currentWindowFrame, anchor: .top)
+        let slit = try #require(NotchStyle.slit(on: screen.geometry))
+        #expect(drawn.midX == slit.midX)
+        #expect(drawn.maxY == hud.maxY)
+        withExtendedLifetime(harness) {}
     }
 
     @Test func aSplitCardPanelDrawsItsOwnLayerInItsOwnWindow() {

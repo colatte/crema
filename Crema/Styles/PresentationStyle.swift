@@ -89,6 +89,32 @@ extension PresentationStyle {
         rect.size.width += 2 * SurfaceAnimation.overshootHeadroom
         rect.origin.y -= SurfaceAnimation.overshootHeadroom
         rect.size.height += SurfaceAnimation.overshootHeadroom
-        return rect
+        return rect.placeableAsWindow(anchor: .top)
+    }
+}
+
+extension CGRect {
+    /// The frame a window takes as asked. AppKit places a window's origin on
+    /// whole points: asked for x 651.5, the Notch's window on a slit 663.5 pt from
+    /// each side lands at 651.0 (`NSPanelPresentationPanelTests`), and the surface
+    /// its view draws at the window's horizontal centre and pinned edge moves with
+    /// it, half a point onto the live menu bar beside the slit. So the window is
+    /// widened, never moved: its left edge goes down to a whole point and its right
+    /// edge mirrors it about the same centre, and its free vertical edge grows to a
+    /// whole point while the pinned one stays put.
+    func placeableAsWindow(anchor: SurfaceVerticalAnchor) -> CGRect {
+        let minX = minX.rounded(.down)
+        let maxX = 2 * midX - minX
+        let minY: CGFloat
+        let maxY: CGFloat
+        switch anchor {
+        case .top:
+            minY = self.minY.rounded(.down)
+            maxY = self.maxY
+        case .bottom:
+            minY = self.minY
+            maxY = self.maxY.rounded(.up)
+        }
+        return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
     }
 }
