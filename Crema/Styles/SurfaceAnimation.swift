@@ -29,8 +29,9 @@ enum SurfaceAnimation {
 
     /// Surface morph springs, chosen by direction: the destination state selects
     /// the spring (see the views). The appearance/disappearance opacity fade uses
-    /// the same pair, picked inline by each view from the destination state (open
-    /// when expanding, close otherwise) — and that fade is the one animation
+    /// the same pair, picked from the destination state by
+    /// `SurfaceStyleBody.fadeAnimation` (open when expanding, close otherwise) —
+    /// and that fade is the one animation
     /// Reduce Motion does NOT suppress: a cross-fade IS what the preference asks
     /// for in place of motion, so gating it would swap the fade for a
     /// single-frame pop, the thing the preference exists to avoid.
@@ -137,8 +138,8 @@ enum SurfaceAnimation {
     private static let hudLevelDamping: Double = 0.86
     static let hudLevel: Animation = .spring(response: hudLevelResponse, dampingFraction: hudLevelDamping)
 
-    /// Headroom the fixed window keeps past the expanded frame (sideways and
-    /// down; the top anchor stays pinned): the open spring's overshoot carries
+    /// Headroom the fixed window keeps past the expanded frame (sideways and away
+    /// from the anchored edge, which stays pinned): the open spring's overshoot carries
     /// the surface a few points past its target, and without headroom the
     /// window edge would crop the peak.
     static let overshootHeadroom: CGFloat = 12

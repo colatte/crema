@@ -1,10 +1,12 @@
 import SwiftUI
 
 /// Tags a crossfade branch with its stable layout identity (a constant per
-/// branch, so a removal-frozen ghost keeps the tag it was built with).
-/// HuggingWidthClamp uses it to pick the measurement driver.
+/// branch, so a removal-frozen ghost keeps the tag it was built with), in the
+/// skins' own vocabulary, so the tag and the layout that names the active
+/// branch cannot be spelled apart. HuggingWidthClamp uses it to pick the
+/// measurement driver.
 struct SurfaceBranch: LayoutValueKey {
-    static let defaultValue: String? = nil
+    static let defaultValue: SurfaceLayoutKind? = nil
 }
 
 /// Width clamp that hugs its content. SwiftUI's flexible frame with both
@@ -28,7 +30,7 @@ struct SurfaceBranch: LayoutValueKey {
 struct HuggingWidthClamp: Layout {
     var minWidth: CGFloat?
     var maxWidth: CGFloat?
-    var activeBranch: String?
+    var activeBranch: SurfaceLayoutKind?
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         guard let child = driver(in: subviews) else { return .zero }

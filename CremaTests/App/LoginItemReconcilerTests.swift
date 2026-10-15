@@ -57,6 +57,18 @@ struct LoginItemReconcilerTests {
         ) == .userRemoved)
     }
 
+    @Test func aStatusTheFrameworkCouldNotReadSaysNothing() {
+        // Neither a revocation nor the user's removal can be told from a failed
+        // lookup, so it warns about nothing and, above all, is never filed as the
+        // user's own removal — that verdict erases the intent.
+        for recorded in ["10200", "10100", nil] as [String?] {
+            let outcome = LoginItemReconciler.outcome(
+                intends: true, recordedBuild: recorded, currentBuild: "10200", status: .unknown
+            )
+            #expect(outcome == .quiet)
+        }
+    }
+
     @Test func anIntentWithNoRecordedBuildErrsTowardWarning() {
         // Only reachable by hand-edited defaults: warning once is recoverable,
         // dropping the user's choice in silence is not.
@@ -120,6 +132,21 @@ struct LoginItemSeamTests {
             preferences: preferences, status: .notRegistered, currentBuild: "10200"
         )
         #expect(second == .quiet)
+        withExtendedLifetime(defaults) {}
+    }
+
+    @Test func aStatusTheFrameworkCouldNotReadKeepsTheIntent() {
+        let (preferences, defaults) = prefs()
+        preferences.launchesAtLogin = true
+        preferences.launchesAtLoginBuild = "10200"
+
+        let outcome = AppCore.reconcileLoginItemIntent(
+            preferences: preferences, status: .unknown, currentBuild: "10200"
+        )
+
+        #expect(outcome == .quiet)
+        #expect(preferences.launchesAtLogin)
+        #expect(preferences.launchesAtLoginBuild == "10200")
         withExtendedLifetime(defaults) {}
     }
 

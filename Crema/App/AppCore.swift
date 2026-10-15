@@ -48,8 +48,9 @@ final class AppCore {
     // `for await` would silently split events with the router.
     //
     // `preferences` being private does NOT mean this core is the only writer — the
-    // Settings view writes five of them straight through @AppStorage, and
-    // Preferences exposes those raw keys on purpose for exactly that. The persisted
+    // Settings window and the welcome tour write seven keys straight through
+    // @AppStorage (one of them per display), and Preferences exposes those raw
+    // keys on purpose for exactly that. The persisted
     // key is the source of truth, and it is written twice: @AppStorage writes it,
     // then the setter here writes the same value again before applying the LIVE
     // effect the @AppStorage write cannot. The second write is idempotent. Which is
@@ -322,7 +323,8 @@ final class AppCore {
             osdSuppressor = suppressor
             // Surface long-suspended domains in the menu. The suppressor fires
             // this on escalation and on recovery; the monitor is pull-read by
-            // CremaApp, so a transient suspension that heals never shows.
+            // `menuStatus` on each menu build, so a transient suspension that
+            // heals never shows.
             Self.wireSuspensionMirror(from: suppressor, to: osdSuppressionMonitor)
             // Suppression is only ever engaged through the lock controller, so a
             // locked/off-console context suspends it (native OSD restored) and
@@ -818,6 +820,39 @@ final class AppCore {
     #endif
 }
 
+// MARK: - Switch gate and activation
+
+/// An extension and not the class body, like the ones below: the body sits at
+/// the `type_body_length` ceiling.
+@MainActor
+extension AppCore {
+    /// Whether turning the replacement on would engage anything: without the
+    /// Accessibility grant there is no tap to consume a key, and without a
+    /// suppressor (demo sources, a key source that cannot consume) there is
+    /// nothing to engage — the preference would persist and do nothing. The one
+    /// gate every switch over the feature disables itself on, and the fact the
+    /// menu's status reads. Read through the permission mirror, so a body that
+    /// reads it rebuilds when the grant flips.
+    var suppressionAvailable: Bool {
+        permissionMonitor.isGranted && osdSuppressor != nil
+    }
+
+    /// Brings the app forward before it shows a window, its own or the Settings
+    /// scene's: an accessory (LSUIElement) app has no Dock tile and no app menu,
+    /// so a window that opens behind whatever is frontmost is one the user cannot
+    /// reach. The one place the app activates itself.
+    ///
+    /// `activate()`, never `activate(ignoringOtherApps:)`: the SDK marks that
+    /// selector API_DEPRECATED and names this replacement, available at this app's
+    /// own deployment target (macOS 14). Nothing warns about the old one — the
+    /// deprecation is spelled API_TO_BE_DEPRECATED, so the compiler stays quiet
+    /// while the call rots. Neither form is a guarantee under cooperative
+    /// activation, which is why the windows still order themselves front.
+    func bringForward() {
+        NSApp.activate()
+    }
+}
+
 // MARK: - The production graph
 
 /// An extension and not the class body, for the reason the others give: the
@@ -1007,7 +1042,7 @@ extension AppCore {
     func presentAccessibilityOnboarding() {
         if let onboardingWindow {
             onboardingWindow.makeKeyAndOrderFront(nil)
-            NSApp.activate()
+            bringForward()
             return
         }
 
@@ -1023,7 +1058,7 @@ extension AppCore {
         window.center()
         onboardingWindow = window
         window.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        bringForward()
     }
 
     private func closeAccessibilityOnboarding() {
@@ -1059,8 +1094,7 @@ extension AppCore {
     /// Window built by the same recipe as the Accessibility onboarding above: a
     /// plain titled window outside the Settings scene, because an accessory app
     /// has no scene to open one into and `openSettings` is a no-op from here.
-    /// `NSApp.activate()` and never `activate(ignoringOtherApps:)` — the app has
-    /// no Dock tile, so it asks for the front the way the system offers it.
+    /// Brought forward like every window the app shows (`bringForward`).
     ///
     /// The view holds this core and this core holds the window: a cycle whose far
     /// end is the composition root, which lives for the whole app either way.
@@ -1073,7 +1107,7 @@ extension AppCore {
     private func presentWelcomeTour() {
         if let welcomeTourWindow {
             welcomeTourWindow.makeKeyAndOrderFront(nil)
-            NSApp.activate()
+            bringForward()
             return
         }
 
@@ -1085,7 +1119,7 @@ extension AppCore {
         window.center()
         welcomeTourWindow = window
         window.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        bringForward()
     }
 
     /// Leaving the tour by Skip or by the last button. The close box does not come
@@ -1184,7 +1218,7 @@ extension AppCore {
     /// The neighbour's source, joined to the local screen source it must silence.
     ///
     /// A factory rather than a bare call because `onReport` carries a default of
-    /// `{}` (BetterDisplayOSDSource.swift:64), so dropping the argument — or
+    /// `{}` (on `BetterDisplayOSDSource.init`), so dropping the argument — or
     /// handing it the KEYBOARD source, the other one in scope — compiles in
     /// silence. What breaks is a whole press: with suppression off, Crema's tap
     /// merely OBSERVES the brightness key and arms its own poll while the
@@ -1388,8 +1422,8 @@ extension AppCore {
             suppressionEnabled: suppressionEnabled,
             // The wish is not the fact: with no permission, or no suppressor in the
             // graph (demo sources), the preference persists and nothing engages —
-            // the same gate the Settings toggle disables itself on.
-            suppressionAvailable: osdSuppressor != nil && permissionMonitor.isGranted,
+            // the same gate every switch for the feature disables itself on.
+            suppressionAvailable: suppressionAvailable,
             suspendedDomains: osdSuppressionMonitor.longSuspendedDomains,
             chainNotice: chain,
             // The chain reading is passed IN rather than taken again: one build of

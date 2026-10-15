@@ -74,11 +74,13 @@ struct CardHUDIndicator: View {
             // no inner track) and the HOST's rounded-rect clip rounds the sweep —
             // the card's own (vibrantSurface), the picker tile's on its stand-in
             // surface. The icon rides inside at the bar's start, over the fill at
-            // high levels and the dark remainder at low ones.
+            // high levels and the dark remainder at low ones, and inverts what lies
+            // beneath it (CardMetrics.hudFilledGlyph says why).
             slider(appearance: .filled)
                 .overlay(alignment: CapsuleTrack.startAlignment(axis: axis)) {
                     Image(systemName: presentation.iconSystemName)
-                        .foregroundStyle(CardMetrics.hudFilledIconColor)
+                        .foregroundStyle(.white)
+                        .blendMode(.difference)
                         .padding(CapsuleTrack.startEdge(axis: axis), CardMetrics.hudFilledIconInset)
                         .accessibilityHidden(true)
                         // The bar underneath owns the whole drag/tap surface; the

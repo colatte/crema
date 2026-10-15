@@ -18,7 +18,8 @@
 /// only honored while its generation is still current.
 enum LoginItemReconciler {
     enum Outcome: Equatable {
-        /// Nothing to say: either the user never asked, or reality matches.
+        /// Nothing to say: the user never asked, reality matches, or the
+        /// framework could not read the status.
         case quiet
         /// Registered but parked by macOS awaiting approval.
         case needsApproval
@@ -48,6 +49,12 @@ enum LoginItemReconciler {
             return .needsApproval
         case .notRegistered:
             return recordedBuild == currentBuild ? .userRemoved : .revokedByUpdate
+        case .unknown:
+            // A lookup that failed tells a revocation from a removal no better
+            // than it tells either from a registration still in place, and
+            // `.userRemoved` is the verdict that erases the intent: quiet, and
+            // the intent waits for a status the framework can read.
+            return .quiet
         }
     }
 }

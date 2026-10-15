@@ -51,15 +51,6 @@ struct CremaMenu: View {
     /// above: the row would go stale the moment the Style submenu declared a new one.
     @AppStorage(Preferences.declaredStyleKey) private var declaredStyle = Preferences.defaultDeclaredStyle.rawValue
 
-    /// Whether the app can replace anything at all: without the Accessibility
-    /// grant there is no tap, and without a suppressor there is nothing to engage.
-    /// The same two values the Settings toggle gates on, and the same two the
-    /// status block already receives — no new observation enters this expensive
-    /// body for the switch.
-    private var canSuppress: Bool {
-        core.permissionMonitor.isGranted && core.osdSuppressor != nil
-    }
-
     var body: some View {
         let status = core.menuStatus(
             style: Preferences.declaredStyle(fromRawValue: declaredStyle),
@@ -99,7 +90,10 @@ struct CremaMenu: View {
     /// feature at all. A real Toggle is also the one place a checkmark belongs in an
     /// NSMenu, and every AppKit status menu the glyph rule cites (Wi-Fi, Bluetooth,
     /// Sound) leads with its switch. The write stays behind a click, so the
-    /// read-only contract on this body holds.
+    /// read-only contract on this body holds. Disabled on the one gate every
+    /// switch for the feature reads (`AppCore.suppressionAvailable`), whose two
+    /// values the status block already receives — no new observation enters this
+    /// expensive body for it.
     @ViewBuilder
     private func replacementSwitch(note: String?) -> some View {
         let isOn = Binding(get: { suppresses }, set: { core.setNativeOSDSuppression($0) })
@@ -109,10 +103,10 @@ struct CremaMenu: View {
                 Text(title)
                 if let note { Text(note) }
             }
-            .disabled(!canSuppress)
+            .disabled(!core.suppressionAvailable)
         } else {
             Toggle(isOn: isOn) { Text(title) }
-                .disabled(!canSuppress)
+                .disabled(!core.suppressionAvailable)
             if let note { Text(note) }
         }
     }
@@ -286,12 +280,11 @@ struct CremaMenu: View {
 
     /// Opens the window ON the tab that carries the fix rather than naming that tab
     /// in a sentence — the same move the Indicators tab makes by putting the grant
-    /// button under the sentence that explains the problem. The activation is what
-    /// an accessory app needs for the window not to open behind whatever is
-    /// frontmost (SettingsMenuButton documents the same requirement).
+    /// button under the sentence that explains the problem. Brought forward first,
+    /// or the window opens behind whatever is frontmost (`AppCore.bringForward`).
     private func openPermissionsTab() {
         core.settingsNavigation.request(.permissions)
-        NSApp.activate()
+        core.bringForward()
         openSettings()
     }
 }

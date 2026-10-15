@@ -12,8 +12,8 @@ enum ArtworkAccent {
     /// The picked tone: hue and saturation already clamped; brightness is kept
     /// raw and resolved into the single display band. One band suffices because
     /// every skin surface pins dark in every state and appearance
-    /// (docs/DECISIONS.md: hud-fixed-dark-palette) — the band is tuned to read
-    /// on the notch's black and the dark vibrancy material.
+    /// (docs/DECISIONS.md: hud-fixed-dark-palette); what the band does not
+    /// promise, legibility on that dark, `displayComponents` adds on top.
     struct Tone: Equatable, Sendable {
         var hue: Double
         var saturation: Double
@@ -26,14 +26,71 @@ enum ArtworkAccent {
             )
         }
 
-        var color: Color {
-            Color(hue: hue, saturation: saturation, brightness: displayBrightness)
+        func color(contrast: ColorSchemeContrast) -> Color {
+            let shown = displayComponents(contrast: contrast)
+            return Color(hue: hue, saturation: shown.saturation, brightness: shown.brightness)
+        }
+
+        /// The colour drawn: the band's, lifted only as far as the HIG's minimum
+        /// on `legibilityBackground` needs. Brightness rises first, which keeps
+        /// the saturation; a hue still short at full brightness (blue, whose
+        /// luminance is mostly its dimmest channel) gives saturation up toward
+        /// white. Luminance rises monotonically along both moves, so a bisection
+        /// finds the least change.
+        func displayComponents(contrast: ColorSchemeContrast) -> (saturation: Double, brightness: Double) {
+            let floor = WCAGContrast.luminance(
+                reaching: WCAGContrast.minimumRatio,
+                above: ArtworkAccent.legibilityBackground(contrast)
+            )
+            let reads = { (saturation: Double, brightness: Double) in
+                WCAGContrast.luminance(hue: hue, saturation: saturation, brightness: brightness) >= floor
+            }
+            if reads(saturation, displayBrightness) {
+                return (saturation, displayBrightness)
+            }
+            if reads(saturation, 1) {
+                return (saturation, ArtworkAccent.nearestPassing(from: displayBrightness, to: 1) { reads(saturation, $0) })
+            }
+            return (ArtworkAccent.nearestPassing(from: saturation, to: 0) { reads($0, 1) }, 1)
         }
     }
 
-    // Calibration. The clamp band is the contrast guarantee: bright enough to
-    // read on the notch's black and the dark material, saturation capped so
-    // the tone suggests rather than shouts.
+    /// The background the tone has to read on. By default the darkest surface:
+    /// the Notch's black and the floating surface over a dark desktop, within a
+    /// hair of each other. Under Increase Contrast the floating surface at its
+    /// lightest, over a white page, where the film guarantees white ink and
+    /// nothing darker — the HIG asks that setting to deliver the minimum where the
+    /// default does not, and over a bright desktop the default does not
+    /// (docs/DECISIONS.md: ink-meets-the-minimum).
+    static func legibilityBackground(_ contrast: ColorSchemeContrast) -> Double {
+        WCAGContrast.backgroundLuminance(
+            underWhiteInkAt: contrast == .increased
+                ? SurfaceChrome.whiteInkRatioOverWhitePage
+                : SurfaceChrome.whiteInkRatioOverBlackDesktop
+        )
+    }
+
+    /// The value nearest `start` that `passes`, given a `start` that fails, an
+    /// `end` that passes and a single crossing between them.
+    private static func nearestPassing(from start: Double, to end: Double, passes: (Double) -> Bool) -> Double {
+        var failing = start
+        var passing = end
+        for _ in 0..<32 {
+            let middle = (failing + passing) / 2
+            if passes(middle) {
+                passing = middle
+            } else {
+                failing = middle
+            }
+        }
+        return passing
+    }
+
+    // Calibration. The band is the tone's character, not its legibility:
+    // saturation capped so the tone suggests rather than shouts, brightness held
+    // off both ends. Alone it promised nothing — a saturated blue at its floor
+    // drew 2.1:1 on the Notch's black — so `displayComponents` lifts what falls
+    // short.
     static let sampleSide = 16
     /// A pixel must be at least this colorful to vote — grays and whites
     /// abstain (white is bright but has no saturation, so the floor below
@@ -62,7 +119,7 @@ enum ArtworkAccent {
     }
 
     /// Full pipeline from raw artwork bytes: bounded decode (the same ImageIO
-    /// thumbnail path the ArtworkView uses), downsample, pick. Nil anywhere
+    /// thumbnail path `artworkImage(from:)` uses), downsample, pick. Nil anywhere
     /// (no bytes, undecodable, monochrome) means neutral.
     static func extract(from data: [UInt8]?) -> Tone? {
         guard let image = ArtworkDecoding.thumbnail(from: data, maxSide: sampleSide) else {
@@ -185,8 +242,8 @@ private struct ArtworkAccentKey: EnvironmentKey {
 extension EnvironmentValues {
     /// The cover's accent tone; nil (no cover, monochrome cover) means every
     /// consumer keeps its neutral style. Carried as the tone, not a resolved
-    /// color: consumers resolve against their own color scheme (the notch
-    /// forces dark; the floating skins follow the system).
+    /// color: the consumer resolves it against the contrast setting it reads
+    /// (`Tone.color(contrast:)`); the colour scheme is dark on every skin.
     var artworkAccent: ArtworkAccent.Tone? {
         get { self[ArtworkAccentKey.self] }
         set { self[ArtworkAccentKey.self] = newValue }
@@ -199,7 +256,7 @@ extension View {
     /// the crossfading branches (one instance per skin view), so the state
     /// survives compact↔expanded and extraction truly runs once per cover —
     /// keyed on the bytes, which position ticks never change — and off the
-    /// concurrency pools entirely (`blockingCall`, same as ArtworkView).
+    /// concurrency pools entirely (`blockingCall`, as `artworkImage(from:)`).
     func artworkAccent(from data: [UInt8]?) -> some View {
         modifier(ArtworkAccentModifier(data: data))
     }
@@ -215,7 +272,7 @@ private struct ArtworkAccentModifier: ViewModifier {
             .environment(\.artworkAccent, accent)
             .task(id: data) { [data] in
                 // Extraction opens with the same blocking ImageIO thumbnail call
-                // ArtworkView makes, so it takes the same exit: off the
+                // `artworkImage(from:)` makes, so it takes the same exit: off the
                 // concurrency pools rather than into a detached task, which would
                 // hold one of the pool's fixed threads (see `blockingCall`).
                 let tone = await blockingCall {

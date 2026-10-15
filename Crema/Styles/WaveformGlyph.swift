@@ -23,7 +23,7 @@ struct WaveformGlyph: View {
         var peakHeight: CGFloat
         var pulsePeriod: Double
 
-        /// The family's shared tuning — every skin uses it today. Override per
+        /// The family's shared tuning, which every skin uses. Override per
         /// call site only on real divergence, so one hardware calibration can
         /// never silently fork identical copies across the skins.
         static let standard = Self(
@@ -64,6 +64,7 @@ struct WaveformGlyph: View {
     /// Nil off the panels (previews, the Settings tiles): no mirror, no veto.
     @Environment(\.lowPowerMode) private var lowPowerMode
     @Environment(\.artworkAccent) private var accent
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
 
     /// Settle time when playback pauses: quick enough to read as an
     /// immediate freeze, slow enough not to snap. Not part of Configuration —
@@ -100,10 +101,13 @@ struct WaveformGlyph: View {
             }
         }
         .frame(height: config.peakHeight)
-        // The bars take the cover's tone (the styling moved in here so all
-        // skins tint identically), clamped into the single dark-surface band.
-        // No usable tone ⇒ the neutral secondary.
-        .foregroundStyle(accent.map { AnyShapeStyle($0.color) } ?? AnyShapeStyle(.secondary))
+        // The bars take the cover's tone, styled here so all skins tint
+        // identically and lifted as far as the contrast setting's background
+        // needs (`ArtworkAccent.Tone.displayComponents`). No usable tone ⇒ the
+        // neutral secondary.
+        .foregroundStyle(
+            accent.map { AnyShapeStyle($0.color(contrast: colorSchemeContrast)) } ?? AnyShapeStyle(.secondary)
+        )
         .onAppear { dancing = shouldDance }
         .onChange(of: shouldDance) { _, dance in
             dancing = dance

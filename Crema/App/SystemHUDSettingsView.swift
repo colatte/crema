@@ -11,17 +11,13 @@ struct SystemHUDSettingsView: View {
         self.core = core
     }
 
-    private var canSuppress: Bool {
-        core.permissionMonitor.isGranted && core.osdSuppressor != nil
-    }
-
     var body: some View {
         Form {
             Section {
                 Toggle(isOn: $suppress) {
                     Text(String(localized: "settings.hud.suppress", defaultValue: "Replace the system indicators"))
                 }
-                .disabled(!canSuppress)
+                .disabled(!core.suppressionAvailable)
                 .onChange(of: suppress) { _, new in core.setNativeOSDSuppression(new) }
 
                 if !core.permissionMonitor.isGranted {

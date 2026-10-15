@@ -539,6 +539,24 @@ a retune re-runs.
 Reopening gate: never-key glass drawing its edge, or semantic ink reaching
 4.5:1 over both a white and a black backdrop on that probe.
 
+### ink-meets-the-minimum
+Two inks were calibrated by eye and called legible: the accent's brightness
+band (a saturated blue at its floor drew 2.1:1 on the Notch's black) and the
+filled HUD's grey glyph (0.5 white comes out near 3:1 on both the fill and the
+remainder it rides over). Decision: ink on the surfaces is held to the
+Accessibility HIG's 4.5:1 for text and icons up to 17 pt, computed with WCAG
+2.2's formulas (`WCAGContrast`) against the background it actually lands on,
+and pinned as a worst case in tests rather than a tuning. The accent keeps its
+band as character and is lifted, brightness first and then saturation toward
+white, only as far as the darkest surface needs; the filled HUD's glyph is
+white under a difference blend, inverting whatever the bar lays beneath it,
+because no single ink reads on both of its backgrounds. Over a bright desktop
+the floating surface guarantees white ink and nothing darker
+(hud-fixed-dark-palette), so no tone meets the minimum there by default; Increase
+Contrast resolves the accent against that lightest surface, which leaves it
+near white, and pushes the filled bar's fill and remainder apart — the higher
+contrast scheme the HIG asks that setting to provide where the default does not.
+
 ### scrub-grace
 A scrubber whose drag does not own the gesture fights its own stream: every
 drag delta fires a real seek (one subprocess per pixel), the 1 Hz ticker keeps

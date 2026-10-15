@@ -6,8 +6,8 @@ import SwiftUI
 /// second label there comes straight out of the drag range — its content is
 /// ~101 pt wide at the narrowest scale mode (NotchWidthBudgetTests). The card and
 /// the classic block are several times that wide and show both. Position and
-/// duration come from the caller's live `nowPlaying` read; the scrub intent flows
-/// back through the caller into the Coordinator.
+/// duration come from `LiveScrubberRow`'s live `nowPlaying` read; the scrub intent
+/// flows back through the caller into the Coordinator.
 ///
 /// The drag owns the shown position: while editing, the row reads and writes
 /// `draft` (ephemeral, purely visual — the gesture's in-flight value), so the
@@ -42,7 +42,7 @@ struct ScrubberRow: View {
     /// shoving the bar beside it. The cost is honest and bounded — a stream past
     /// an hour reads 60:00 and keeps counting minutes — and it buys a number that
     /// never moves under the eye.
-    static func showsHours(duration: Double?) -> Bool {
+    nonisolated static func showsHours(duration: Double?) -> Bool {
         guard let duration else { return false }
         return TimeLabel.reachesAnHour(duration)
     }
@@ -124,6 +124,20 @@ struct ScrubberRow: View {
         .accessibilityLabel(Text(String(
             localized: "scrubber.position", defaultValue: "Playback position"
         )))
+        .accessibilityValue(Text(Self.accessibilityValue(
+            shown: shown, duration: duration, showsDuration: showsDuration
+        )))
+    }
+
+    /// What VoiceOver reads as the bar's value: the times the row draws, where the
+    /// Slider standing in for it would announce a percentage of a span the
+    /// listener never sees. The track's length joins only where the row draws it.
+    nonisolated static func accessibilityValue(shown: Double, duration: Double?, showsDuration: Bool) -> String {
+        let hours = showsHours(duration: duration)
+        let elapsed = timeLabel(shown, showsHours: hours)
+        guard showsDuration, let duration else { return elapsed }
+        let length = timeLabel(duration, showsHours: hours)
+        return String(localized: "scrubber.position.value", defaultValue: "\(elapsed) of \(length)")
     }
 
     private var interactive: Bool { duration != nil && enabled }
@@ -183,6 +197,35 @@ struct ScrubberRow: View {
         return showsHours
             ? value.formatted(.time(pattern: .hourMinuteSecond))
             : value.formatted(.time(pattern: .minuteSecond))
+    }
+}
+
+/// The scrubber as a skin places it. The live position is read in THIS body, so
+/// the once-a-second tick re-evaluates the row and never the skin around it
+/// (docs/STATE-FLOW.md: an expensive consumer goes in its own View); position and
+/// duration come from `nowPlaying`, never from the state payload.
+struct LiveScrubberRow: View {
+    let coordinator: Coordinator
+    let enabled: Bool
+    var showsDuration = false
+    let onScrub: (Double) -> Void
+
+    var position: Double {
+        coordinator.nowPlaying?.position ?? 0
+    }
+
+    var duration: Double? {
+        coordinator.nowPlaying?.duration
+    }
+
+    var body: some View {
+        ScrubberRow(
+            position: position,
+            duration: duration,
+            enabled: enabled,
+            showsDuration: showsDuration,
+            onScrub: onScrub
+        )
     }
 }
 

@@ -75,21 +75,29 @@ extension PresentationStyle {
         )
     }
 
-    /// The panel's fixed frame: the union of every state's rule frame — no
-    /// single state is guaranteed largest on both axes — plus overshoot headroom,
-    /// sideways and down only; the top edge stays pinned so the top-anchored
-    /// surface sits exactly where the rule puts it. The window never resizes
-    /// after creation; states animate as content inside it, so there is no
-    /// window-vs-render race to coordinate.
+    /// The fixed frame of a top-anchored surface.
     func windowFrame(on geometry: ScreenGeometry) -> CGRect {
+        fixedWindowFrame(on: geometry, anchor: .top)
+    }
+
+    /// The panel's fixed frame: the union of every state's rule frame — no
+    /// single state is guaranteed largest on both axes — plus overshoot headroom
+    /// sideways and away from `anchor`, whose edge stays pinned so the surface
+    /// sits exactly where the rule puts it: down under a top-anchored surface, up
+    /// over a bottom-anchored one. The window never resizes after creation;
+    /// states animate as content inside it, so there is no window-vs-render race
+    /// to coordinate.
+    func fixedWindowFrame(on geometry: ScreenGeometry, anchor: SurfaceVerticalAnchor) -> CGRect {
         var rect = frame(for: .nowPlaying(referenceTrack, expanded: true), on: geometry)
             .union(frame(for: .nowPlaying(referenceTrack, expanded: false), on: geometry))
             .union(frame(for: .hud(referenceHUD), on: geometry))
         rect.origin.x -= SurfaceAnimation.overshootHeadroom
         rect.size.width += 2 * SurfaceAnimation.overshootHeadroom
-        rect.origin.y -= SurfaceAnimation.overshootHeadroom
+        if anchor == .top {
+            rect.origin.y -= SurfaceAnimation.overshootHeadroom
+        }
         rect.size.height += SurfaceAnimation.overshootHeadroom
-        return rect.placeableAsWindow(anchor: .top)
+        return rect.placeableAsWindow(anchor: anchor)
     }
 }
 

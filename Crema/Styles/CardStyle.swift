@@ -19,7 +19,7 @@ struct CardStyle: PresentationStyle {
         case .hud:
             // On the card's own spot, where the HUD morphs from the now-playing
             // card.
-            return Self.hudFrame(at: .topCenter, on: geometry)
+            return Self.hudFrame(at: HUDPlacement.cardsOwnSpot, on: geometry)
         }
         return Self.topCentered(size, on: geometry)
     }
@@ -133,8 +133,9 @@ enum CardMetrics {
     /// leaves the bar floating over the apps (docs/DECISIONS.md:
     /// card-hud-placement).
     static let hudEdgeMargin: CGFloat = 16
-    /// Now-playing surface radius: generous, near half the compact height so the
-    /// player reads as a soft block (never a capsule at its taller states).
+    /// Now-playing surface radius: generous, yet well short of the compact
+    /// strip's half height (20 against 32), so the player reads as a soft block
+    /// and never as a capsule, at the strip's height or any taller one.
     static let cornerRadius: CGFloat = 20
     /// HUD-state surface radius, a separate knob from cornerRadius: at the short
     /// 38 pt HUD height, reusing 20 (past half the height) rounds the ends into a
@@ -151,14 +152,36 @@ enum CardMetrics {
     /// Filled HUD indicator (HUDIndicatorStyle.filled): the whole card IS the
     /// bar. The fill sweeps edge to edge under the card's own corners with no
     /// inner track; the level is the boundary between a light fill and a dark
-    /// remainder (iOS Control Center contrast), fixed across light and dark so
-    /// the fill always reads and the empty stays recessed in both. No radius
-    /// here — the card's rounded-rect clip rounds the sweep.
-    static let hudFilledFill = Color.white.opacity(0.9)
-    static let hudFilledEmpty = Color.black.opacity(0.55)
-    /// Grayish glyph that stays legible over both the light fill and the dark
-    /// remainder — at low levels the icon sits on the empty area.
-    static let hudFilledIconColor = Color(white: 0.5)
+    /// remainder (iOS Control Center contrast). No radius here — the card's
+    /// rounded-rect clip rounds the sweep. Under Increase Contrast both ends
+    /// move apart: an opaque fill over a deeper remainder.
+    static func hudFilledFill(_ contrast: ColorSchemeContrast) -> Color {
+        Color.white.opacity(hudFilledFillOpacity(contrast))
+    }
+
+    static func hudFilledEmpty(_ contrast: ColorSchemeContrast) -> Color {
+        Color.black.opacity(hudFilledEmptyOpacity(contrast))
+    }
+
+    static func hudFilledFillOpacity(_ contrast: ColorSchemeContrast) -> Double {
+        contrast == .increased ? 1 : 0.9
+    }
+
+    static func hudFilledEmptyOpacity(_ contrast: ColorSchemeContrast) -> Double {
+        contrast == .increased ? 0.75 : 0.55
+    }
+
+    /// What the glyph riding in the bar draws over `backdrop`, one encoded
+    /// component: its inverse. The glyph sits over the light fill at a high level
+    /// and the dark remainder at a low one, and no single ink reads on both (a
+    /// 0.5 grey comes out near 3:1 on each), so it is white under a difference
+    /// blend — dark over the fill, light over the remainder, split where the
+    /// level crosses it. HUDFilledContrastTests holds this against the surface's
+    /// lightest and darkest (docs/DECISIONS.md: ink-meets-the-minimum).
+    static func hudFilledGlyph(over backdrop: Double) -> Double {
+        1 - backdrop
+    }
+
     /// Inset of the icon riding inside the fused bar, from the bar's start —
     /// the leading edge, or the bottom of an upright bar. Equal to the corner
     /// radius: the corner's curve runs that far along the bar, so the glyph

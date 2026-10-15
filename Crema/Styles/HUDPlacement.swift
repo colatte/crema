@@ -9,9 +9,12 @@ import SwiftUI
 /// the desk, and it does not move when the interface language runs right to
 /// left.
 enum HUDPlacement: String, CaseIterable, Equatable, Sendable {
-    /// The placement a Card starts on: the now-playing card's own spot, where
-    /// the HUD morphs from it.
-    static let shippedDefault: Self = .topCenter
+    /// The now-playing card's own spot: a HUD placed here morphs from the card
+    /// on the card's own panel rather than on a panel of its own.
+    static let cardsOwnSpot: Self = .topCenter
+
+    /// The placement a Card starts on: the card's own spot.
+    static let shippedDefault: Self = cardsOwnSpot
 
     case topLeft
     case topCenter

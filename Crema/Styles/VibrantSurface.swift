@@ -82,6 +82,16 @@ enum SurfaceChrome {
     static let scrimOpacity: Double = 0.44
     static var scrim: Color { Color.black.opacity(scrimOpacity) }
 
+    /// The surface at its lightest, as the contract `scrimOpacity` is set by:
+    /// white ink at the minimum over a white page. Ink held to the minimum on
+    /// any desktop is held against this.
+    static let whiteInkRatioOverWhitePage: Double = WCAGContrast.minimumRatio
+    /// The surface at its darkest: white ink measured 19:1 over a black desktop
+    /// with scripts/probes/hud-surface-contrast.swift (film 0.44, macOS 27.0.1,
+    /// 2026-10-15). Invalidated by a retune of the film or the material; re-run
+    /// the probe over black.
+    static let whiteInkRatioOverBlackDesktop: Double = 19
+
     /// How far inside the outline the material stops: one device pixel on a
     /// Retina panel, the antialiased ring where the material would otherwise
     /// darken the edge of a light fill above it (`vibrantSurface`). The ring

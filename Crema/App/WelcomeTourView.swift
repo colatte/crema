@@ -319,7 +319,7 @@ struct WelcomeTourView: View {
                 Text(String(localized: "settings.hud.suppress", defaultValue: "Replace the system indicators"))
             }
             .toggleStyle(.switch)
-            .disabled(!canSuppress)
+            .disabled(!core.suppressionAvailable)
             .onChange(of: suppressesNativeOSD) { _, new in core.setNativeOSDSuppression(new) }
 
             // The house rule, the same one the Indicators tab follows: the fix sits
@@ -370,16 +370,8 @@ struct WelcomeTourView: View {
         .multilineTextAlignment(.center)
     }
 
-    /// The same rule the Indicators tab reads: the opt-in can be persisted with
-    /// nothing to engage, so the switch is offered only where it would take
-    /// effect.
-    private var canSuppress: Bool {
-        core.permissionMonitor.isGranted && core.osdSuppressor != nil
-    }
-
-    /// Last, where a person has seen what they would be keeping. The toggle is a
-    /// view onto the real registration — a custom binding, copied from the General
-    /// tab, that reflects the status the attempt returns: a failed one snaps back
+    /// Last, where a person has seen what they would be keeping. The toggle is
+    /// the General tab's own (`LaunchAtLoginToggle`): a failed attempt snaps back
     /// and a pending approval stays on with the note beneath it.
     private var finishStep: some View {
         VStack(spacing: 14) {
@@ -389,15 +381,8 @@ struct WelcomeTourView: View {
             Text(String(localized: "tour.step.finish.title", defaultValue: "You’re set"))
                 .font(.title3.bold())
 
-            Toggle(isOn: Binding(
-                get: { launchesAtLogin },
-                set: { wanted in
-                    (launchesAtLogin, loginNeedsApproval) = core.setLaunchesAtLogin(wanted)
-                }
-            )) {
-                Text(String(localized: "settings.general.launchAtLogin", defaultValue: "Open Crema at login"))
-            }
-            .toggleStyle(.switch)
+            LaunchAtLoginToggle(core: core, isOn: $launchesAtLogin, needsApproval: $loginNeedsApproval)
+                .toggleStyle(.switch)
 
             if loginNeedsApproval {
                 // No written path, and a button instead — the tour's own rule

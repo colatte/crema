@@ -60,12 +60,13 @@ struct SMAppServiceLoginItemTests {
         #expect(item(calls, status: .requiresApproval).isEnabled == false)
     }
 
-    @Test func everyOtherServiceStateIsNoRegistration() {
-        // "No record" and "a record we cannot see" drive the same decisions, so
-        // they collapse — but `.enabled` must never collapse with them.
+    @Test func eachServiceStateKeepsItsOwnMeaning() {
+        // `.notFound` is the framework failing to find the service, not the user
+        // removing it: read as "no registration", it would let the launch-time
+        // reconciliation forget an intent nobody revoked.
         let calls = Calls()
         #expect(item(calls, status: .enabled).status == .enabled)
-        #expect(item(calls, status: .notFound).status == .notRegistered)
         #expect(item(calls, status: .notRegistered).status == .notRegistered)
+        #expect(item(calls, status: .notFound).status == .unknown)
     }
 }

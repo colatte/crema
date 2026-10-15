@@ -77,13 +77,13 @@ struct HuggingWidthClampTests {
         // The crossfade regression: a greedy outgoing ghost (the HUD's
         // slider, say) must not hold the hug at the ceiling while it fades —
         // nor snap the width, unanimated, when its removal completes.
-        let clamp = HuggingWidthClamp(minWidth: 150, maxWidth: 280, activeBranch: "compact") {
+        let clamp = HuggingWidthClamp(minWidth: 150, maxWidth: 280, activeBranch: .compact) {
             Color.red
                 .frame(width: 200, height: 40)
-                .layoutValue(key: SurfaceBranch.self, value: "compact")
+                .layoutValue(key: SurfaceBranch.self, value: .compact)
             Color.blue
                 .frame(maxWidth: .infinity, maxHeight: .infinity)   // the greedy ghost
-                .layoutValue(key: SurfaceBranch.self, value: "hud")
+                .layoutValue(key: SurfaceBranch.self, value: .hud)
         }
         #expect(width(clamp) == 200)
     }
@@ -91,10 +91,10 @@ struct HuggingWidthClampTests {
     @Test func missingActiveBranchFallsBackToTheFirstSubview() {
         // Mid-transition edge: if the active branch is briefly absent, the
         // clamp must still size to something rather than collapse to zero.
-        let clamp = HuggingWidthClamp(minWidth: 150, maxWidth: 280, activeBranch: "expanded") {
+        let clamp = HuggingWidthClamp(minWidth: 150, maxWidth: 280, activeBranch: .expanded) {
             Color.red
                 .frame(width: 200, height: 40)
-                .layoutValue(key: SurfaceBranch.self, value: "compact")
+                .layoutValue(key: SurfaceBranch.self, value: .compact)
         }
         #expect(width(clamp) == 200)
     }
