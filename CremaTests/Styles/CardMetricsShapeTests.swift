@@ -63,7 +63,7 @@ struct CardMetricsShapeTests {
             - 2 * CardMetrics.contentPaddingHorizontal
             - CardHUDIndicator.hudIconSlot
             - CardMetrics.contentGap
-        #expect(track == 146)
+        #expect(track == 156)
         #expect(track > CapsuleTrack.knobSize.width)
     }
 }

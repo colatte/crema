@@ -413,12 +413,16 @@ screen's edges (`HUDPlacement`). One rule places all eight
 (`CardStyle.hudFrame(at:on:)`), and the top centre IS the card's `.hud` frame — the
 frame rule asks the placement rule rather than keeping a second description of
 that spot. Along the top edge the HUD hangs from the card's own top anchor, below
-the safe area; along the bottom it sits where macOS drew its own HUD, the native
-OSD's 140 pt that Classic reproduces (`hudBottomMargin` reads
-`ClassicMetrics.bottomMargin`, so the two bottom HUDs stand at one height); on a
-side it keeps `hudSideMargin` (16 pt) from the edge. The margins are fixed, by
-agreement with the author: the Dock is not read (`ScreenGeometry` carries no
-visible frame), so a Dock taller than the bottom margin sits over a bottom HUD.
+the safe area; along the bottom and on a side it keeps `hudEdgeMargin` (16 pt)
+from where the Dock ends. The Dock's room on each edge is the gap between the
+screen's frame and its visible frame (`ScreenGeometry.dockBottom`, `dockLeft`,
+`dockRight`), read at the border on every topology pass, which
+`didChangeScreenParameters` starts when the Dock appears, hides or moves
+(measured, scripts/probes/dock-visible-frame.swift). With the Dock hidden the bar
+rests 16 pt from the bottom edge, and the Dock revealed on hover passes over it as
+over any window. The bottom margin is the sides' own, not the native OSD's 140 pt
+that Classic keeps: that height suits a 200 pt square, and leaves a thin bar
+floating over the apps.
 Placements are places on the glass — left and right do not swap under a
 right-to-left interface.
 
@@ -2412,7 +2416,7 @@ Decision: the Card HUD and every cover nested in a surface corner take their
 radius from one of these rules, derived in code rather than declared. The Card
 HUD is a fixed shape whose radius is a third of its height
 (`CardMetrics.hudSystemCornerRadius`), the corner of the author's reference
-indicator, a filled level bar near 5.8:1, which 210×36 reproduces. A cover nested in a surface corner is concentric: the parent's radius minus the
+indicator, a filled level bar near 5.8:1, which 220×38 reproduces. A cover nested in a surface corner is concentric: the parent's radius minus the
 tighter of its two insets (`CardMetrics.compactArtworkRadius`,
 `expandedArtworkRadius`, `NotchMetrics.compactArtworkRadius`). With unequal insets
 no radius is exactly concentric; subtracting the tighter one keeps the inner
