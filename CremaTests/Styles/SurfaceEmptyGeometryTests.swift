@@ -11,7 +11,7 @@ struct SurfaceEmptyGeometryTests {
     private let sizes = SurfaceStateSizes(
         compact: CGSize(width: 280, height: 64),
         expanded: CGSize(width: 280, height: 132),
-        hud: CGSize(width: 210, height: 42)
+        hud: CGSize(width: 210, height: 36)
     )
 
     // MARK: - Card

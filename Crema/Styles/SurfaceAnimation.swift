@@ -44,8 +44,8 @@ enum SurfaceAnimation {
     /// is a fade at the FINAL frame — no geometry travel. So when either side is
     /// the hidden/empty layout this returns nil: the frame and radius SNAP to the
     /// destination while the opacity (animated separately in each view) fades. Nil
-    /// on the geometry alone is why a HUD born from hidden lands at 210×42 instead
-    /// of gliding down from the last now-playing rect.
+    /// on the geometry alone is why a HUD born from hidden lands at its own rule
+    /// frame instead of gliding down from the last now-playing rect.
     ///
     /// Expressed over `fromEmpty`/`toEmpty` booleans rather than the shared
     /// SurfaceLayoutKind (SurfaceStyleCore): the motion gate depends on exactly
