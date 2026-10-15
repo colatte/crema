@@ -82,11 +82,12 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// purpose on SurfaceHoverMonitor.
     var hoverRetargetRequests: Int { hoverMonitor?.retargetRequests ?? 0 }
 
-    /// Read back from the real hosting view at construction, where its concrete
-    /// (modifier-chained) type is still known. False means the content view can
-    /// drive the window's size — the window-vs-render race the fixed window
-    /// exists to kill.
-    private(set) var contentIsBarredFromSizingTheWindow = false
+    /// Runs the window's own layout pass now, the pass in which a hosting view in
+    /// charge of the window resizes it, so a test reads the frame after it rather
+    /// than a run-loop turn before.
+    func layOutWindowNow() {
+        panel.layoutIfNeeded()
+    }
 
     /// `lowPower` carries no default on purpose: forgetting it at the factory then
     /// fails to compile instead of shipping panels whose waveform never stops
@@ -164,12 +165,22 @@ final class NSPanelPresentationPanel: PresentationPanel {
             self?.surfaceSizeChanged(size)
         }
 
+        // SwiftUI must never drive the window frame, and a hosting view has two
+        // ways to. The default sizingOptions (.standardBounds) install
+        // min/intrinsic/max constraints; and as the window's content view it
+        // updates the window's contentMinSize and contentMaxSize from its content
+        // (Apple docs, NSHostingView.sizingOptions). Measured: with the constraints
+        // off, the second still widens the upright HUD's 66 pt window to the card
+        // view's 180 pt floor on the window's first layout, and that HUD lands off
+        // the screen's right edge. So the hosting view sits inside a plain view
+        // that fills the window; given a frame smaller than its content, it
+        // centres the content (same doc), which is where every surface draws.
         let hostingView = NSHostingView(rootView: root)
-        // SwiftUI must never drive the window frame: the default
-        // sizingOptions (.standardBounds) install min/intrinsic/max constraints
-        // that can resize the panel from the view's layout.
-        contentIsBarredFromSizingTheWindow = Self.barContentFromSizingTheWindow(hostingView)
-        panel.contentView = hostingView
+        hostingView.sizingOptions = []
+        hostingView.autoresizingMask = [.width, .height]
+        let content = NSView()
+        content.addSubview(hostingView)
+        panel.contentView = content
 
         // The window exists once, front once, never resized or ordered out
         // again: an invisible (clear, click-through) window while the surface
@@ -335,17 +346,6 @@ final class NSPanelPresentationPanel: PresentationPanel {
         if displayPolicy.hudIndicatorStyle != hudIndicatorStyle {
             displayPolicy.hudIndicatorStyle = hudIndicatorStyle
         }
-    }
-
-    /// SwiftUI must never drive the window frame: the default sizingOptions
-    /// (.standardBounds) install min/intrinsic/max constraints that can resize
-    /// the panel from the view's layout — the window-vs-render race the fixed
-    /// window model exists to kill.
-    /// Returns whether the bar took, read back from the view itself — the only
-    /// place its concrete (modifier-chained) type is still known.
-    private static func barContentFromSizingTheWindow(_ hostingView: NSHostingView<some View>) -> Bool {
-        hostingView.sizingOptions = []
-        return hostingView.sizingOptions.isEmpty
     }
 
     func close() {
