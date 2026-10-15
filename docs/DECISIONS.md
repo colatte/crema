@@ -2375,7 +2375,11 @@ total — which is why it is pinned by tests instead of by a view body.
 The real screen answers, and the sample is no player's. The welcome and the
 style steps hold the player up (`Coordinator.showcase(sample:)`): the playing
 track when there is one, otherwise a sample named as such, held with no tuck
-until the step is left or the window closes, however it closes. The sample
+until the step is left or the window closes, however it closes. Where no
+display shows the player — a Mac without a built-in panel, where it is born off
+— those steps say so and offer the per-display switch for the primary display
+(`WelcomeTourFlow.displayToOfferThePlayer`) instead of describing a player
+nobody can see. The sample
 disables the transport in the skins AND the Coordinator refuses every command
 while it shows (`the-chrome-is-not-the-guarantee`): a command would reach
 whatever player macOS last knew, which is not what the sample shows. The key

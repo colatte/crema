@@ -64,4 +64,20 @@ struct WelcomeTourPresentationSeamTests {
 
         #expect(presented)
     }
+
+    /// Every way out of the tour lets go of the real screen: a sample left up
+    /// would stay there for good, no tuck ever being armed for it, and the arrow
+    /// would keep pointing at the menu bar with no tour to explain it.
+    @Test func leavingTheTourReleasesTheSampleAndTheArrow() {
+        let h = CoordinatorHarness()
+        h.coordinator.showcase(sample: NowPlaying(title: "Sample", isPlaying: true, position: 0))
+        #expect(h.coordinator.showsSample)
+        var pointerHidden = false
+
+        AppCore.releaseWhatTheTourHolds(coordinator: h.coordinator) { pointerHidden = true }
+
+        #expect(h.coordinator.state == .hidden)
+        #expect(!h.coordinator.showsSample)
+        #expect(pointerHidden)
+    }
 }

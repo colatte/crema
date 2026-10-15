@@ -707,6 +707,7 @@ final class Coordinator {
     }
 
     func scrub(to seconds: Double) {
+        guard !showsSample else { return }
         // The release of a drag (the view sends ONE scrub per gesture). The
         // player's echo is inherently late — the seek travels a one-shot
         // subprocess while the source keeps emitting from its pre-seek anchor
@@ -718,7 +719,6 @@ final class Coordinator {
         // nil duration on purpose); the source re-clamps its anchor
         // defensively against its own snapshot — the same number today, and
         // its ticker's authority if the two ever diverge.
-        guard !showsSample else { return }
         let floored = max(0, seconds)
         let target = nowPlaying?.duration.map { min(floored, $0) } ?? floored
         seekEpoch += 1

@@ -1,3 +1,4 @@
+import CoreGraphics
 import Testing
 @testable import Crema
 
@@ -105,5 +106,26 @@ struct WelcomeTourFlowTests {
         #expect(WelcomeTourStep(rawValue: "tryIt") == .tryIt)
         #expect(WelcomeTourStep(rawValue: "finish") == .finish)
         #expect(WelcomeTourStep(rawValue: "indicators") == nil)
+    }
+
+    /// A Mac with no built-in panel starts with the player off everywhere, so the
+    /// tour offers it on the primary display; once any display shows it, nothing
+    /// is offered — the tour does not second-guess a display the person chose.
+    @Test func thePlayerIsOfferedOnThePrimaryDisplayOnlyWhenNoDisplayShowsIt() {
+        let primary = Self.screen("EXT-1")
+        let second = Self.screen("EXT-2")
+
+        #expect(WelcomeTourFlow.displayToOfferThePlayer(among: [primary, second]) { _ in false } == primary)
+        #expect(WelcomeTourFlow.displayToOfferThePlayer(among: [primary, second]) { $0 == second } == nil)
+        #expect(WelcomeTourFlow.displayToOfferThePlayer(among: []) { _ in false } == nil)
+    }
+
+    private static func screen(_ uuid: String) -> ScreenDescription {
+        ScreenDescription(
+            id: DisplayUUID(rawValue: uuid),
+            name: "LG UltraFine",
+            geometry: ScreenGeometry(frame: CGRect(x: 0, y: 0, width: 1000, height: 600)),
+            isInternal: false
+        )
     }
 }

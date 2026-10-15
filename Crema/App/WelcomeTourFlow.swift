@@ -73,6 +73,20 @@ enum WelcomeTourFlow {
         step == .finish
     }
 
+    /// The display the tour offers the player on, or nil when one already shows
+    /// it. The player is born on only on the built-in panel
+    /// (`Preferences.defaultShowsNowPlaying`), so a Mac without one, or with its
+    /// lid closed, starts with it off everywhere — and a tour that shows the
+    /// player has to be able to switch it on before it has anything to show. The
+    /// one offered is the first in the roster, the primary display, which carries
+    /// the menu bar.
+    static func displayToOfferThePlayer(
+        among displays: [ScreenDescription],
+        showing shows: (ScreenDescription) -> Bool
+    ) -> ScreenDescription? {
+        displays.contains(where: shows) ? nil : displays.first
+    }
+
     /// Both ends answer nil rather than wrapping: a tour that looped would have no
     /// last step, and the last step is the one that finishes.
     private static func step(offsetting step: WelcomeTourStep, by offset: Int) -> WelcomeTourStep? {

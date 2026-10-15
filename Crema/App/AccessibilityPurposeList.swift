@@ -24,7 +24,7 @@ struct AccessibilityPurposeList: View {
             // never sees is no part of what the grant lets it do.
             Bullet(symbol: "lock", text: String(
                 localized: "accessibility.purpose.privacy",
-                defaultValue: "It only listens to keys like volume and brightness, never to what you type."
+                defaultValue: "It only notices keys like volume and brightness, never what you type."
             ))
             .padding(.top, 8)
         }
