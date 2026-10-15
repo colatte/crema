@@ -11,7 +11,6 @@
 ## Repository root
 
 - [README.md](https://github.com/colatte/crema/blob/main/README.md) — public overview: what Crema is, installation, usage, license.
-- [ROADMAP.md](https://github.com/colatte/crema/blob/main/ROADMAP.md) — directions and possibilities; not promises, not dated commitments.
 - [CONTRIBUTING.md](https://github.com/colatte/crema/blob/main/CONTRIBUTING.md) — how to contribute.
 - [AGENTS.md](https://github.com/colatte/crema/blob/main/AGENTS.md) — the contract for how code is written in this repository: architecture, conventions, concurrency, and the rules the layers live by. Read at the start of every working session; evolves with the code.
 - [SPEC.md](https://github.com/colatte/crema/blob/main/SPEC.md) — what the app is and why, with everything planned-but-not-built isolated in a final section. The acceptance criteria are not restated there; they live in `ACCEPTANCE.md` below.

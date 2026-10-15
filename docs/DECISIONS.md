@@ -1368,7 +1368,7 @@ value, which is read as an absolute (a probe sending `+0.0625` set the monitor t
 This entry rules over an earlier reading that claimed the opposite. Asked through
 `identifier` — the metadata door — five measured spellings of brightness are all
 refused, and reading that as "the neighbour can be written but never read" costs
-more than a wrong sentence in an anchor, a public ROADMAP item or a code comment:
+more than a wrong sentence in an anchor, a public roadmap item or a code comment:
 it retires a feature. "Brightness keys follow the screen you
 are working on" looks impossible on that reading, because stepping needs a
 `before`. There is one, so the apply-verify cycle can run against an external
@@ -3028,7 +3028,7 @@ stay invisible to every visitor until a release.
 Decision: **`main` accepts a documentation-only merge outside a release, and the
 test is the diff, not the intent.** If the merge touches nothing but the
 repository's prose — `docs/` and its assets, the root documents `README.md`,
-`CONTRIBUTING.md`, `AGENTS.md`, `CLAUDE.md`, `SPEC.md`, `PLAN.md`, `ROADMAP.md`, and the
+`CONTRIBUTING.md`, `AGENTS.md`, `CLAUDE.md`, `SPEC.md`, `PLAN.md`, and the
 issue forms and pull-request template under `.github/` (`ISSUE_TEMPLATE/`,
 `pull_request_template.md` — prose GitHub serves from the default branch, so a
 form parked on `dev` leaves the issue page bare exactly the way the site went

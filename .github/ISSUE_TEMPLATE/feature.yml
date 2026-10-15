@@ -14,6 +14,6 @@ body:
     id: why-it-belongs
     attributes:
       label: Why it belongs in Crema
-      description: Crema is deliberately narrow — see "What Crema is" in the README, and ROADMAP.md for what's already on the way. The ideas most likely to land sharpen what's here rather than broaden it.
+      description: Crema is deliberately narrow — see "What Crema is" in the README, and the "Planned / not implemented" section of SPEC.md for what's already on the way. The ideas most likely to land sharpen what's here rather than broaden it.
     validations:
       required: true

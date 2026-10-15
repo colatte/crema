@@ -78,7 +78,7 @@ An optional enhancement: without BetterDisplay nothing arrives, the source sits 
 **Behaviour**
 
 - Accessory app (LSUIElement), no Dock icon.
-- The app icon (a disc of crema seen from above, opened by a dark hollow, over espresso — the author's final art, one vector) in the classic asset catalog (16→512 @1x/@2x, macOS 14+), with optical correction at the 16/32 pt sizes; its stages are Finder, installation, Get Info, About, Spotlight and Sparkle. Vector source and reproducible pipeline in `design/icon/`.
+- The app icon (a disc of crema seen from above, opened by a dark hollow, over espresso — the author's final art, one vector) as an Icon Composer document (`Crema/AppIcon.icon`): the system draws it in Liquid Glass, and Xcode generates the images for macOS 14 and 15 from the same file; its stages are Finder, installation, Get Info, About, Spotlight and Sparkle. Vector source and reproducible pipeline in `design/icon/`.
 - The Coordinator decides what appears on screen — the now-playing appearance and the HUD as two layers, which a surface drawing both shows as `hidden` / `nowPlaying` / `hud` — with priority between them and show/hide timers.
 - Default timers: the HUD disappears ~1.5 s after the last key (the timer restarts on every press, like the native one); now playing is never resident — a reactive appearance collapses in ~3 s, a click-invoked one in ~5 s; hover holds the timer and leaving re-arms it. In **reactive mode** (the default), media events — track change and external play/pause — also trigger a temporary compact appearance (~3 s, held by hover), reusing the same state machine and timers the HUD already uses.
 
@@ -132,7 +132,7 @@ The criteria live in **[docs/ACCEPTANCE.md](docs/ACCEPTANCE.md)** and only there
 
 ### The surface and the picker: directions on record
 
-Deferred by an explicit decision of the author, and public in the ROADMAP ("The surface itself"):
+Deferred by an explicit decision of the author:
 
 - **Cohabitation in the compact state** — a volume key with music playing puts the level BESIDE the artwork in the compact state (the Dynamic Island's grammar), instead of swapping the whole surface for the HUD. Amber zone: it touches per-state content (`StyleContent`), without touching the Coordinator.
 - **Live hover-preview in the tiles** — a cursor resting on a style tile shows that style ON THE REAL SCREEN for a moment. A genuine amber zone: it needs a preview state crossing Coordinator and WindowManager (expiry, priority over HUD and now playing, multi-display) and deserves a round of its own.

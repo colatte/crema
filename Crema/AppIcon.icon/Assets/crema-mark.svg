@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-<!-- The mark's single source: makemaster.swift and makemenubaricon.swift read
+<!-- The mark's single source: makeicon.swift and makemenubaricon.swift read
      this path. Absolute M, C and Z only; their parser reads nothing else. -->
 <path fill="#000000" d="M 865.5313 244.1478
   C 863.8632 244.2322 863.1692 248.8721 861.9881 247.6911
