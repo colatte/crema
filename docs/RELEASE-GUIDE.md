@@ -242,6 +242,7 @@ The script then: builds Release (stamping the version) → signs inside out
 (nested Sparkle → the adapter's two vendored Mach-Os → the app) with **hardened
 runtime + `Crema.entitlements` + timestamp** and your Developer ID → packages
 `Crema.dmg` → **notarizes** the dmg (`notarytool submit --wait`) → **staples** it
+→ asks Gatekeeper (`spctl --assess`) and **aborts** unless it accepts the dmg
 → runs the **launch smoke** (installs from the dmg into a temp dir and launches,
 as in every mode) → regenerates the appcast **over the already-stapled dmg** (the
 EdDSA signature has to cover the final bytes). Out comes a notarized `Crema.dmg`
@@ -289,7 +290,10 @@ Context for the ritual in §5, and for diagnosing problems.
    reports that `CFBundleVersion` (an **advisory** — a code comment in the
    script calls it that; the output on a mismatch prints
    `Warning: built app reports build X, expected Y`, §5.1) **and** re-reads `sparkle:version`
-   from the generated feed — that one does **abort** on a mismatch.
+   from the generated feed — that one does **abort** on a mismatch. The marketing
+   version is held to the tag the same way, and on an identity build both of its
+   checks abort: the built app's `CFBundleShortVersionString` and the feed's
+   `sparkle:shortVersionString`.
    > **Corollary:** re-releasing the **same** marketing version reuses the
    > **same** build number → Sparkle sees **no** update. A re-release requires a
    > patch bump (1.1.1 → 1.1.2). There is no "fix it and republish 1.1.1".
@@ -345,7 +349,9 @@ The run opens with the **release gate**, before anything is built: the tree must
 be a git repo and **clean**, the tag `v1.1.1` must not already exist, and then
 `swiftlint --strict`, `swiftformat --lint`, the catalog self-test plus checker,
 and the **full test suite** run in that order — the suite's verdict is the
-`Test run with N tests … passed` line, and the gate takes several minutes. Any
+`Test run with N tests … passed` line, read from the log while `xcodebuild` runs
+in the background (a test host hung after the verdict is killed, and no verdict
+within 20 minutes fails), and the gate takes several minutes. Any
 gate tripping aborts with its own message before a single artifact exists.
 `CREMA_SKIP_TESTS=1` skips only the suite (the script's own escape hatch for
 scratch builds like §6's — never for a real release).
