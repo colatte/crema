@@ -13,9 +13,14 @@ import SwiftUI
 final class MenuBarPointerPanel {
     private let panel: NSPanel
     private let locate: @MainActor () -> CGRect?
+    private let clock: any SleepClock
 
-    init(locate: @escaping @MainActor () -> CGRect? = StatusItemLocation.frame) {
+    init(
+        locate: @escaping @MainActor () -> CGRect? = StatusItemLocation.frame,
+        clock: any SleepClock = ContinuousSleepClock()
+    ) {
         self.locate = locate
+        self.clock = clock
         panel = NSPanel(
             contentRect: CGRect(origin: .zero, size: Self.size),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -50,7 +55,7 @@ final class MenuBarPointerPanel {
     /// launch, and the tour can open on its last step sooner than that.
     func show() {
         showing?.cancel()
-        showing = Task { [weak self] in
+        showing = Task { [weak self, clock] in
             for _ in 0..<Self.attempts {
                 guard let self, !Task.isCancelled else { return }
                 if let item = locate() {
@@ -58,7 +63,8 @@ final class MenuBarPointerPanel {
                     panel.orderFrontRegardless()
                     return
                 }
-                try? await Task.sleep(for: .milliseconds(250))
+                // A cancel lands here as a throw; the guard above then ends it.
+                try? await clock.sleep(for: Self.retryInterval)
             }
         }
     }
@@ -69,7 +75,10 @@ final class MenuBarPointerPanel {
         panel.orderOut(nil)
     }
 
-    private static let attempts = 12
+    /// About three seconds of asking, against the moment macOS takes to build
+    /// the icon after launch.
+    static let attempts = 12
+    static let retryInterval = 0.25
 
     static let size = CGSize(width: 44, height: 56)
 

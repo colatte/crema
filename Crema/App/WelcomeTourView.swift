@@ -390,7 +390,9 @@ struct WelcomeTourView: View {
                     }
                 }
 
-                TourSuppressionNotes(core: core)
+                SuppressionNotes(core: core, alignment: .center)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
         )
     }
