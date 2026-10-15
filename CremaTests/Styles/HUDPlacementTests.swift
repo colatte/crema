@@ -19,7 +19,11 @@ struct HUDPlacementTests {
     /// A second display left of and above the main one: the rule reads the
     /// screen's own origin, never assumes zero.
     private let offset = ScreenGeometry(frame: CGRect(x: -1280, y: 400, width: 1280, height: 800))
-    private var geometries: [ScreenGeometry] { [plain, notched, offset] }
+    /// The Dock shown along the bottom, and on each side, on an offset screen.
+    private let dockedBelow = ScreenGeometry(frame: CGRect(x: 0, y: 0, width: 1512, height: 982), dockBottom: 90)
+    private let dockedLeft = ScreenGeometry(frame: CGRect(x: -1280, y: 400, width: 1280, height: 800), dockLeft: 70)
+    private let dockedRight = ScreenGeometry(frame: CGRect(x: 0, y: 0, width: 1000, height: 600), dockRight: 70)
+    private var geometries: [ScreenGeometry] { [plain, notched, offset, dockedBelow, dockedLeft, dockedRight] }
 
     private enum Row { case top, middle, bottom }
     private enum Column { case left, center, right }
@@ -62,16 +66,33 @@ struct HUDPlacementTests {
                 case .middle:
                     #expect(frame.midY == screen.midY, "\(placement)")
                 case .bottom:
-                    #expect(frame.minY == screen.minY + CardMetrics.hudBottomMargin, "\(placement)")
+                    #expect(frame.minY == screen.minY + geometry.dockBottom + CardMetrics.hudEdgeMargin, "\(placement)")
                 }
                 switch column(placement) {
                 case .left:
-                    #expect(frame.minX == screen.minX + CardMetrics.hudSideMargin, "\(placement)")
+                    #expect(frame.minX == screen.minX + geometry.dockLeft + CardMetrics.hudEdgeMargin, "\(placement)")
                 case .center:
                     #expect(frame.midX == screen.midX, "\(placement)")
                 case .right:
-                    #expect(frame.maxX == screen.maxX - CardMetrics.hudSideMargin, "\(placement)")
+                    #expect(frame.maxX == screen.maxX - geometry.dockRight - CardMetrics.hudEdgeMargin, "\(placement)")
                 }
+            }
+        }
+    }
+
+    @Test func noPlacedHUDSitsUnderAShownDock() {
+        // The Dock's own rect on each docked screen: a placed HUD keeps clear of
+        // it by the edge margin, whichever edge the Dock is on.
+        let docks: [(ScreenGeometry, CGRect)] = [
+            (dockedBelow, CGRect(x: 0, y: 0, width: 1512, height: 90)),
+            (dockedLeft, CGRect(x: -1280, y: 400, width: 70, height: 800)),
+            (dockedRight, CGRect(x: 930, y: 0, width: 70, height: 600)),
+        ]
+        for (geometry, dock) in docks {
+            for placement in HUDPlacement.allCases {
+                let frame = CardStyle.hudFrame(at: placement, on: geometry)
+                let clearance = dock.insetBy(dx: -CardMetrics.hudEdgeMargin + 0.5, dy: -CardMetrics.hudEdgeMargin + 0.5)
+                #expect(!frame.intersects(clearance), "\(placement) on \(dock)")
             }
         }
     }

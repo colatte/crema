@@ -143,7 +143,6 @@ design/           # icon and badge sources; catalogs generated, never by hand
 - G12 — No sender identity on BetterDisplay's channel: readings can be forged.
 - G13 — The vendored adapter's binaries carry no upstream commit or digest.
 - G14 — Whoever can write Crema.app swaps the adapter or a library in it.
-- G15 — Card HUD margins are fixed: the Dock is not read and can cover it.
 
 ## Open decisions
 
