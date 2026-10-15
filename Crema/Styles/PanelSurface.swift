@@ -15,10 +15,9 @@ enum PanelSurface: Hashable, Sendable {
     case cardHUD(HUDPlacement)
 
     /// The panels a display rendering `style` gets. Only the Card's HUD moves, and
-    /// at the top centre it is the card's own spot, where the card morphs into it
-    /// on one panel.
+    /// on the card's own spot the card morphs into it on one panel.
     static func surfaces(for style: Style, hudPlacement: HUDPlacement) -> [Self] {
-        guard style == .card, hudPlacement != .topCenter else { return [.skin(style)] }
+        guard style == .card, hudPlacement != HUDPlacement.cardsOwnSpot else { return [.skin(style)] }
         return [.cardNowPlaying, .cardHUD(hudPlacement)]
     }
 

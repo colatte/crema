@@ -2,8 +2,8 @@ import SwiftUI
 
 /// Card skin view. Shape/content derive from the Coordinator's layers (through
 /// the display policy, which names the ones this panel draws: `presentedState`),
-/// live scrubber position from `coordinator.nowPlaying`, intents go back as
-/// Coordinator method calls, no domain copies in @State.
+/// the live scrubber position is read by the row's own view (`LiveScrubberRow`),
+/// intents go back as Coordinator method calls, no domain copies in @State.
 /// The surface is sized per state and top-anchored inside the fixed window;
 /// growth is vertical under one rounded-rectangle outline, and
 /// compact/expanded hug their content's width between floor and ceiling
@@ -70,7 +70,7 @@ struct CardView: View, SurfaceStyleBody {
         // the width, unanimated, when its removal completes. Each branch
         // carries its own sizing: hug states stay intrinsic, the HUD fills
         // its fixed rule size.
-        HuggingWidthClamp(minWidth: adaptiveMinWidth, maxWidth: adaptiveMaxWidth, activeBranch: activeBranch) {
+        HuggingWidthClamp(minWidth: adaptiveMinWidth, maxWidth: adaptiveMaxWidth, activeBranch: layoutKind) {
             content
         }
         // The content crossfade. This scope is closest to the branches, so it
@@ -87,9 +87,10 @@ struct CardView: View, SurfaceStyleBody {
         .animation(contentAnimation, value: layoutKind)
         // Outside the clamp: wrapping the branch switch would collapse the
         // branches into one subview and break the active-branch measurement;
-        // riding above them also keeps the accent state across
-        // compact↔expanded.
-        .artworkAccent(from: accentArtwork)
+        // riding above them also keeps the decoded cover and the accent across
+        // every branch swap.
+        .artworkImage(from: coverArtwork)
+        .artworkAccent(from: coverArtwork)
         // One morphing outline for every state: the radius is state-dependent
         // (the short HUD would read as a capsule at the now-playing radius).
         .vibrantSurface(in: RoundedRectangle(cornerRadius: surfaceCornerRadius, style: .continuous))
@@ -100,12 +101,10 @@ struct CardView: View, SurfaceStyleBody {
         // overriding the content crossfade's own inner scope.
         .animation(geometryAnimation, value: surfaceCornerRadius)
         .opacity(layoutKind == .empty ? 0 : 1)
-        // The appearance/disappearance fade: opacity keeps its spring even when
-        // the geometry snaps, so a surface born from hidden fades in at its final
-        // frame instead of gliding in. Only fires on empty↔visible (opacity is 1
-        // across every visible transition), so its animation choice never touches
-        // a visible→visible morph.
-        .animation(isExpanded ? SurfaceAnimation.open : SurfaceAnimation.close, value: layoutKind)
+        // The appearance/disappearance fade (`fadeAnimation`, where its reach is
+        // stated): opacity keeps its spring while the geometry snaps, so a
+        // surface born from hidden fades in at its final frame.
+        .animation(fadeAnimation, value: layoutKind)
         // Pinned dark ENCLOSING vibrantSurface (the environment reaches the
         // AppKit-backed material): per-branch scoping would flip the palette
         // mid HUD↔now-playing morph (docs/DECISIONS.md: hud-fixed-dark-palette).
@@ -151,22 +150,14 @@ struct CardView: View, SurfaceStyleBody {
         }
     }
 
-    private var activeBranch: String {
-        switch layoutKind {
-        case .empty: "empty"
-        case .compact: "compact"
-        case .expanded: "expanded"
-        case .hud: "hud"
-        }
-    }
-
     var adaptiveWidthKey: String? {
         contentKind.adaptiveWidthKey
     }
 
-    /// The crossfading branches, each carrying a constant SurfaceBranch tag
-    /// (a removal-frozen ghost keeps the tag it was built with — that is what
-    /// lets the clamp tell the ghost from the active branch).
+    /// The crossfading branches, each tagged with its layout as a constant
+    /// SurfaceBranch value (a removal-frozen ghost keeps the tag it was built
+    /// with — that is what lets the clamp tell the ghost from the active
+    /// branch).
     @ViewBuilder private var content: some View {
         switch contentKind {
         case .empty:
@@ -180,22 +171,22 @@ struct CardView: View, SurfaceStyleBody {
             // branch.
             Color.clear
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .layoutValue(key: SurfaceBranch.self, value: "empty")
+                .layoutValue(key: SurfaceBranch.self, value: .empty)
         case .nowPlayingCompact(let track):
             compactContent(track)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .transition(.opacity)
-                .layoutValue(key: SurfaceBranch.self, value: "compact")
+                .layoutValue(key: SurfaceBranch.self, value: .compact)
         case .nowPlayingExpanded(let track):
             expandedContent(track)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .transition(.opacity)
-                .layoutValue(key: SurfaceBranch.self, value: "expanded")
+                .layoutValue(key: SurfaceBranch.self, value: .expanded)
         case .hud(let hud):
             hudContent(hud)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .transition(.opacity)
-                .layoutValue(key: SurfaceBranch.self, value: "hud")
+                .layoutValue(key: SurfaceBranch.self, value: .hud)
         }
     }
 
@@ -238,7 +229,6 @@ struct CardView: View, SurfaceStyleBody {
     private func compactContent(_ track: NowPlaying) -> some View {
         HStack(spacing: CardMetrics.contentGap) {
             ArtworkView(
-                data: track.artworkData,
                 side: CardMetrics.compactArtworkSide,
                 cornerRadius: CardMetrics.compactArtworkRadius
             )
@@ -273,7 +263,6 @@ struct CardView: View, SurfaceStyleBody {
         // hug; the width floor they need is CardMetrics.expandedMinWidth.
         HStack(spacing: CardMetrics.contentGap) {
             ArtworkView(
-                data: track.artworkData,
                 side: CardMetrics.expandedArtworkSide,
                 cornerRadius: CardMetrics.expandedArtworkRadius
             )
@@ -323,9 +312,8 @@ struct CardView: View, SurfaceStyleBody {
     }
 
     private var scrubber: some View {
-        ScrubberRow(
-            position: scrubberPosition,
-            duration: scrubberDuration,
+        LiveScrubberRow(
+            coordinator: coordinator,
             enabled: controlsEnabled,
             showsDuration: true,
             onScrub: { scrubbed(to: $0) }

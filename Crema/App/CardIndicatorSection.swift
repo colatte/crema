@@ -14,10 +14,14 @@ struct CardIndicatorSection: View {
     let core: AppCore
     let wallpaper: NSImage?
     /// The displays drawing Card, named the way the rows above name them.
-    let displayNames: String
+    let displayNames: [String]
     /// On the same persisted keys the panels read.
     @AppStorage(Preferences.hudIndicatorStyleKey) private var indicatorStyle = HUDIndicatorStyle.shippedDefault.rawValue
     @AppStorage(Preferences.hudPlacementKey) private var placement = HUDPlacement.shippedDefault.rawValue
+
+    private var listedNames: String {
+        displayNames.formatted(.list(type: .and))
+    }
 
     var body: some View {
         Section {
@@ -36,10 +40,12 @@ struct CardIndicatorSection: View {
         } footer: {
             // Names the displays, because this is the one control in the pane that
             // is not per display: without the names, a Card setting under a Notch
-            // declaration reads as belonging to Notch.
+            // declaration reads as belonging to Notch. Counted, so the noun agrees
+            // with the list in each language: a catalog plural has to show its
+            // number, or xcstringstool refuses to compile it.
             Text(String(
                 localized: "settings.hud.indicator.footer",
-                defaultValue: "Displays drawing Card: \(displayNames)."
+                defaultValue: "\(displayNames.count) displays drawing Card: \(listedNames)."
             ))
             .settingsFootnote()
         }

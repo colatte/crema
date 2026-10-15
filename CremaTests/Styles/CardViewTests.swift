@@ -85,18 +85,6 @@ struct CardViewTests {
         #expect(expandedCapped.width > CardMetrics.expandedMaxWidth - 16)
     }
 
-    @Test func scrubberReadsPositionFromNowPlayingNotFromState() async {
-        let h = CoordinatorHarness()
-        let view = CardView(coordinator: h.coordinator)
-        h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(position: 10))
-        #expect(await eventually { view.scrubberPosition == 10 })
-
-        let stateBefore = h.coordinator.state
-        h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(position: 11))
-        #expect(await eventually { view.scrubberPosition == 11 })
-        #expect(h.coordinator.state == stateBefore)
-    }
-
     @Test func intentsReachTheActuators() async {
         let h = CoordinatorHarness()
         let view = CardView(coordinator: h.coordinator)

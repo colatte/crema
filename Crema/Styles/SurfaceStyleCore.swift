@@ -127,25 +127,16 @@ extension SurfaceStyleBody {
         return false
     }
 
-    /// Artwork bytes driving the accent — from the state payload (ticks never
-    /// rewrite it); nil outside now-playing, so the tone fades out with the
-    /// surface.
-    var accentArtwork: [UInt8]? {
+    /// Artwork bytes behind the cover and the accent — from the state payload
+    /// (ticks never rewrite it); nil outside now-playing, so the tone fades out
+    /// with the surface.
+    var coverArtwork: [UInt8]? {
         switch contentKind {
         case .nowPlayingCompact(let track), .nowPlayingExpanded(let track):
             track.artworkData
         case .empty, .hud:
             nil
         }
-    }
-
-    /// Live scrubber position — read from `nowPlaying`, never from `state`.
-    var scrubberPosition: Double {
-        coordinator.nowPlaying?.position ?? 0
-    }
-
-    var scrubberDuration: Double? {
-        coordinator.nowPlaying?.duration
     }
 
     /// Controls are offered only while the write path works; otherwise the
@@ -194,6 +185,21 @@ extension SurfaceStyleBody {
             expanding: isExpanded,
             reduceMotion: reduceMotion
         )
+    }
+
+    /// The appearance/disappearance fade, on the surface's opacity: the spring
+    /// chosen by the destination, and never gated by Reduce Motion — a
+    /// cross-fade is what that preference asks for in place of motion.
+    ///
+    /// `.animation(_:value:)` applies "whenever `value` changes" (SwiftUI,
+    /// `View.animation(_:value:)`), so keyed on `layoutKind` this rides every
+    /// visible→visible change too, into whatever below it has no closer scope.
+    /// The opacity itself does not change there; what keeps the fade from
+    /// deciding a morph is that each skin puts its geometry and content under
+    /// their own scopes (`geometryAnimation`, `contentAnimation`), which are the
+    /// ones that go dry under Reduce Motion.
+    var fadeAnimation: Animation {
+        isExpanded ? SurfaceAnimation.open : SurfaceAnimation.close
     }
 
     // MARK: - Intents (methods out) — unit tests invoke these directly.

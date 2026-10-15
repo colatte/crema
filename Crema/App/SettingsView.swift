@@ -15,9 +15,10 @@ struct SettingsView: View {
         var initial = SettingsTab.general
         #if DEBUG
         // Screenshot/dev harness: `-CremaSettingsInitialTab about` decides the
-        // tab this window LANDS on when it opens (by ⌘, or the menu — nothing
-        // opens it programmatically; the modern Settings scene has no
-        // supported selector for that). An unknown name parses to nil and lands on
+        // tab this window LANDS on when it opens. The app's own opens go through
+        // `openSettings` (SwiftUI's OpenSettingsAction, macOS 14), from the menu,
+        // and the ones that name a tab steer it with `settingsNavigation`, which
+        // wins over this flag. An unknown name parses to nil and lands on
         // General silently, which is the harness's contract: it steers a screenshot
         // run, so a stale flag is worth a wrong tab and never a crash.
         // DEBUG-only read; the selection state itself is ordinary TabView plumbing.
@@ -131,11 +132,10 @@ private struct GeneralSettingsView: View {
 
     /// The displays drawing Card, in the list's own order and under the list's own
     /// names, so the sentence and the rows above it call each screen the same thing.
-    private var cardDisplayNames: String {
+    private var cardDisplayNames: [String] {
         core.displayRoster.displays
             .filter { cardDisplays.contains($0.id) }
             .map { DisplayStyleRow.title(for: $0) }
-            .formatted(.list(type: .and))
     }
 
     /// What the panels draw, re-read right after they are re-resolved — never
@@ -264,19 +264,7 @@ private struct GeneralSettingsView: View {
             }
 
             Section {
-                // A custom binding (not onChange): the setter routes the intent
-                // through AppCore and reflects the real status it returns, so a
-                // failed registration snaps it back and a "requires approval"
-                // result keeps it on with the note below — and mutating state
-                // in the setter can't re-fire itself.
-                Toggle(isOn: Binding(
-                    get: { launchesAtLogin },
-                    set: { wanted in
-                        (launchesAtLogin, loginNeedsApproval) = core.setLaunchesAtLogin(wanted)
-                    }
-                )) {
-                    Text(String(localized: "settings.general.launchAtLogin", defaultValue: "Open Crema at login"))
-                }
+                LaunchAtLoginToggle(core: core, isOn: $launchesAtLogin, needsApproval: $loginNeedsApproval)
             } footer: {
                 if loginNeedsApproval {
                     // The sentence names no PATH, and that is the fix rather

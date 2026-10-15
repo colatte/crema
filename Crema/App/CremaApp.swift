@@ -1,7 +1,8 @@
 import AppKit
 import SwiftUI
 
-@main
+/// The app. Launched by `CremaMain`, which keeps the unit-test host from
+/// running it.
 struct CremaApp: App {
     @State private var core = AppCore()
     #if !DEBUG
@@ -37,17 +38,17 @@ struct CremaApp: App {
             // a case in it the Debug-hosted suite can never reach. Its whole gate is
             // one mirrored Bool, which is the shape MenuStatus exists to keep out of
             // view bodies in the first place.
-            PendingUpdateMenuSection(updater: updater)
+            PendingUpdateMenuSection(updater: updater, core: core)
             #endif
             // Untitled, like every app's own commands at the foot of a menu: the
             // items name themselves, and a heading over them would only repeat the
             // app's name.
             Section {
-                SettingsMenuButton()
+                SettingsMenuButton(core: core)
                 #if !DEBUG
                 // Release-only: in Debug the item does not exist, matching a build
                 // that never constructs the updater nor contacts the feed.
-                UpdaterMenuButton(updater: updater)
+                UpdaterMenuButton(updater: updater, core: core)
                 #endif
             }
             #if DEBUG
@@ -69,24 +70,16 @@ struct CremaApp: App {
     }
 }
 
-/// Opens the Settings window with the standard ⌘, shortcut. As an accessory
-/// (LSUIElement) app Crema has no regular windows, so it must activate itself
-/// or the Preferences window would open behind whatever is frontmost — and with
-/// no Dock tile and no app menu, a window that opens behind is a window the user
-/// cannot reach.
-///
-/// `activate()`, never `activate(ignoringOtherApps:)`: the SDK marks that
-/// selector API_DEPRECATED and names this replacement, available at this app's
-/// own deployment target (macOS 14). Nothing warns about the old one — the
-/// deprecation is spelled API_TO_BE_DEPRECATED, so the compiler stays quiet
-/// while the call rots. Neither form is a guarantee under cooperative
-/// activation, which is why the windows still order themselves front.
+/// Opens the Settings window with the standard ⌘, shortcut, brought forward
+/// first (`AppCore.bringForward`): with no Dock tile and no app menu, a window
+/// that opens behind whatever is frontmost is a window the user cannot reach.
 private struct SettingsMenuButton: View {
+    let core: AppCore
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         Button(String(localized: "menu.settings", defaultValue: "Settings…")) {
-            NSApp.activate()
+            core.bringForward()
             openSettings()
         }
         .keyboardShortcut(",")
@@ -103,9 +96,10 @@ private struct SettingsMenuButton: View {
 /// showed its alert for this update — for an accessory app, behind every other
 /// running app — so the button does not start a new check; `checkForUpdates()` on an
 /// already-presented update is how Sparkle brings that alert back into focus, and
-/// the activation is the same one SettingsMenuButton needs for the same reason.
+/// the app comes forward for the same reason SettingsMenuButton does.
 private struct PendingUpdateMenuSection: View {
     @ObservedObject var updater: UpdaterModel
+    let core: AppCore
 
     var body: some View {
         if updater.hasPendingUpdate {
@@ -114,7 +108,7 @@ private struct PendingUpdateMenuSection: View {
                     String(localized: "menu.update.show", defaultValue: "Show Update…"),
                     note: String(localized: "menu.update.available", defaultValue: "An update to Crema is available")
                 ) {
-                    NSApp.activate()
+                    core.bringForward()
                     updater.checkForUpdates()
                 }
             }
@@ -122,16 +116,17 @@ private struct PendingUpdateMenuSection: View {
     }
 }
 
-/// Triggers Sparkle's update check. Like SettingsMenuButton it activates the app
-/// first — an accessory (LSUIElement) app has no key window, so Sparkle's panel
-/// would otherwise open behind whatever is frontmost. Disabled while a check is
-/// already in flight (Sparkle's canCheckForUpdates).
+/// Triggers Sparkle's update check. Like SettingsMenuButton it brings the app
+/// forward first — an accessory (LSUIElement) app has no key window, so Sparkle's
+/// panel would otherwise open behind whatever is frontmost. Disabled while a check
+/// is already in flight (Sparkle's canCheckForUpdates).
 private struct UpdaterMenuButton: View {
     @ObservedObject var updater: UpdaterModel
+    let core: AppCore
 
     var body: some View {
         Button(String(localized: "menu.checkForUpdates", defaultValue: "Check for Updates…")) {
-            NSApp.activate()
+            core.bringForward()
             updater.checkForUpdates()
         }
         .disabled(!updater.canCheckForUpdates)

@@ -76,4 +76,30 @@ struct LocalizationTests {
             #expect(line.contains("BAND"), "\(language) drops the artist")
         }
     }
+
+    /// The Card footer counts the displays it names, so its noun agrees with the
+    /// count in each language. A String Catalog plural compiles to the bundle's
+    /// stringsdict, never to the flat table, so its presence there is the check
+    /// that the variation shipped at all.
+    @Test func theCardFooterAgreesWithTheNumberOfDisplays() throws {
+        let key = "settings.hud.indicator.footer"
+        var forms: [String: (one: String, two: String)] = [:]
+        for language in ["en", "pt-BR"] {
+            let lproj = try #require(Bundle.main.path(forResource: language, ofType: "lproj"))
+            let plurals = NSDictionary(contentsOfFile: lproj + "/Localizable.stringsdict")
+            try #require(plurals?[key] != nil, "\(language) ships no plural for \(key)")
+
+            let bundle = try #require(Bundle(path: lproj))
+            let format = bundle.localizedString(forKey: key, value: nil, table: nil)
+            let locale = Locale(identifier: language)
+            forms[language] = (
+                String(format: format, locale: locale, 1, "A"),
+                String(format: format, locale: locale, 2, "A, B")
+            )
+        }
+        #expect(forms["en"]?.one == "1 display drawing Card: A.")
+        #expect(forms["en"]?.two == "2 displays drawing Card: A, B.")
+        #expect(forms["pt-BR"]?.one == "1 tela que mostra o Card: A.")
+        #expect(forms["pt-BR"]?.two == "2 telas que mostram o Card: A, B.")
+    }
 }

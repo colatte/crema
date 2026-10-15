@@ -1,17 +1,26 @@
 import ServiceManagement
 
-/// The three states a login-item registration can really be in, in the app's own
-/// vocabulary (SMAppService's `.notFound` collapses into `.notRegistered` — for
-/// every decision the app makes, "no record" and "record we can't see" are the
-/// same thing).
+/// The states a login-item registration can be in, in the app's own vocabulary.
+/// "No record" and "a record the framework could not find" stay apart: Apple
+/// documents `SMAppService.Status.notFound` as "An error occurred and the
+/// framework couldn't find this service", which says nothing about the user, and
+/// read as `.notRegistered` it would have the launch reconciliation file the
+/// failure as the user's own removal and erase their intent.
 enum LoginItemStatus: Equatable {
     case enabled
     /// Registered, but macOS is waiting for the user to approve it in System
     /// Settings › General (the pane macOS 15 renamed to "Login Items &
     /// Extensions") — a non-throwing `register()` can land
-    /// here, so the toggle must not read this as fully on.
+    /// here, so the toggle must not read this as fully on. Apple's
+    /// `SMAppService.Status.requiresApproval` adds that the framework "also
+    /// returns this status if the user revokes consent for the service to run in
+    /// System Settings", so a revocation reads as this case too; how that looks
+    /// on a real Mac is unmeasured, and it gets the approval note like any other.
     case requiresApproval
     case notRegistered
+    /// The framework could not say (`.notFound`, or a status newer than this
+    /// build): evidence of nothing, so nothing is decided on it.
+    case unknown
 }
 
 /// Launch-at-login control behind a protocol, so the Settings toggle's logic is
@@ -60,7 +69,9 @@ struct SMAppServiceLoginItem: LoginItemManaging {
         switch readStatus() {
         case .enabled: .enabled
         case .requiresApproval: .requiresApproval
-        default: .notRegistered
+        case .notRegistered: .notRegistered
+        case .notFound: .unknown
+        @unknown default: .unknown
         }
     }
 

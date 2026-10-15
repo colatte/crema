@@ -65,6 +65,7 @@ struct HUDLevelSlider: View {
     @State private var isEditing = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.layoutDirection) private var layoutDirection
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
 
     // The capsule's numbers and its drawing live in `CapsuleTrack`, shared with
     // the now-playing scrubber so the two bars in one card cannot drift again.
@@ -77,7 +78,7 @@ struct HUDLevelSlider: View {
     // original's segments were wider than tall; squares are the recreation's metric
     // and read better at this scale. The 150 pt run fits Classic's 152 pt
     // inner budget with 2 pt slack (pinned by test).
-    private static let segmentCount = 16
+    private nonisolated static let segmentCount = 16
     private static let segmentSide: CGFloat = 7.5
     private static let segmentSpacing: CGFloat = 2
     private static let segmentCorner: CGFloat = 1.5
@@ -198,9 +199,9 @@ struct HUDLevelSlider: View {
     /// length can drive past full and the card's far corners crop it.
     private func filledBar(length: CGFloat) -> some View {
         ZStack(alignment: CapsuleTrack.startAlignment(axis: runningAxis)) {
-            Rectangle().fill(CardMetrics.hudFilledEmpty)
+            Rectangle().fill(CardMetrics.hudFilledEmpty(colorSchemeContrast))
             Rectangle()
-                .fill(CardMetrics.hudFilledFill)
+                .fill(CardMetrics.hudFilledFill(colorSchemeContrast))
                 .frame(along: runningAxis, CapsuleTrack.fillLength(for: value, trackLength: length))
         }
     }
