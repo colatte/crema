@@ -37,16 +37,23 @@ extension View {
     /// material's own NSAppearance pin below is belt-and-braces and does not
     /// cover the ink (docs/DECISIONS.md: hud-fixed-dark-palette).
     ///
-    /// design note (macOS 26, verified 2026-07): the vivid Liquid Glass look in a
-    /// never-key panel is only reachable via the private `set_variant:` selector
-    /// (excluded by project policy); `NSGlassEffectView` exposes no active-state
-    /// override, unlike this material's `state = .active`. To switch back to real
-    /// (if flatter) glass, replace the background with
+    /// design note (macOS 26, verified 2026-07; macOS 27.0.1, re-measured
+    /// 2026-10-15 with scripts/probes/hud-surface-contrast.swift): the vivid Liquid
+    /// Glass look in a never-key panel is only reachable via the private
+    /// `set_variant:` selector (excluded by project policy); `NSGlassEffectView`
+    /// exposes no active-state override, unlike this material's `state = .active`.
+    /// Never-key glass draws no specular edge and is as light as this material
+    /// over a white page; with semantic ink it follows the system appearance, not
+    /// the backdrop, and the ink is faint over white and black alike. To switch to
+    /// real (if flatter) glass, replace the background with
     /// `glassEffect(.regular, in: shape)` under `#available(macOS 26, *)`.
     func vibrantSurface(in shape: some InsettableShape) -> some View {
         background {
-            VibrancyMaterial()
-                .clipShape(shape)
+            ZStack {
+                VibrancyMaterial()
+                SurfaceChrome.scrim
+            }
+            .clipShape(shape)
         }
         .clipShape(shape)
         .overlay(shape.strokeBorder(SurfaceChrome.specularGradient, lineWidth: SurfaceChrome.specularWidth))
@@ -66,6 +73,17 @@ extension View {
 /// SurfaceAnimation's — what must survive a retune is the shape of the border,
 /// not any single number (docs/DECISIONS.md: surface-border-2026).
 enum SurfaceChrome {
+
+    /// The film between the material and the ink, which keeps the surface dark
+    /// over any desktop (docs/DECISIONS.md: hud-fixed-dark-palette). The
+    /// material alone takes on what is behind it: over a white page it measures
+    /// `#b5b5b9`, and the white ink drawn on it falls to 2.0:1. The film is set
+    /// so that worst case keeps the ink at 4.5:1 or better (4.8:1 measured);
+    /// over a dark desktop, where the material is already near black, it changes
+    /// almost nothing. Measured on screen with
+    /// scripts/probes/hud-surface-contrast.swift; a retune re-runs it over white.
+    static let scrimOpacity: Double = 0.44
+    static var scrim: Color { Color.black.opacity(scrimOpacity) }
 
     /// The rim as a white component (0 is black) plus its opacity — one number
     /// for how dark, one for how present. It reads as a shadow of an edge
