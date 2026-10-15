@@ -21,6 +21,17 @@ struct DomainTypesTests {
         #expect(hud.target == .noDisplay)
         #expect(hud.commandDisplay == nil)
         #expect(!hud.isMuted)
+        #expect(hud.route == nil)
+    }
+
+    @Test func everyCopyOfAReadingKeepsItsRoute() {
+        // The echo of a drag is a copy of the reading; losing the route there
+        // would swap the device glyph back to the speaker under the finger.
+        let hud = SystemHUD(kind: .volume, value: 0.5, route: .airPodsMax)
+        #expect(hud.at(0.2).route == .airPodsMax)
+        #expect(hud.by(.betterDisplay).route == .airPodsMax)
+        #expect(hud.echoed().route == .airPodsMax)
+        #expect(hud != SystemHUD(kind: .volume, value: 0.5))
     }
 
     @Test func systemHUDCoversVolumeAndBothBrightnessKinds() {
@@ -75,6 +86,7 @@ struct DomainTypesTests {
         requireSendable(SystemHUD.self)
         requireSendable(PresentationState.self)
         requireSendable(DisplayUUID.self)
+        requireSendable(AudioOutputRoute.self)
         #expect(Bool(true))
     }
 }

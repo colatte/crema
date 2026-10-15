@@ -41,6 +41,32 @@ enum CoreAudioSystemOutput {
         )
     }
 
+    /// The selected output data source: on a built-in device, speakers or the
+    /// headphone jack (AudioHardware.h, kAudioDevicePropertyDataSource).
+    static var dataSourceAddress: AudioObjectPropertyAddress {
+        AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDataSource,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+    }
+
+    private static var transportTypeAddress: AudioObjectPropertyAddress {
+        AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyTransportType,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+    }
+
+    private static var nameAddress: AudioObjectPropertyAddress {
+        AudioObjectPropertyAddress(
+            mSelector: kAudioObjectPropertyName,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+    }
+
     // MARK: - Reads
 
     static func defaultOutputDeviceID() -> AudioDeviceID? {
@@ -79,6 +105,39 @@ enum CoreAudioSystemOutput {
         guard AudioObjectHasProperty(device, &address),
               AudioObjectGetPropertyData(device, &address, 0, nil, &size, &value) == noErr else { return nil }
         return value != 0
+    }
+
+    static func supportsDataSource(_ device: AudioDeviceID) -> Bool {
+        var address = dataSourceAddress
+        return AudioObjectHasProperty(device, &address)
+    }
+
+    /// The device's kind, translated here so no reading leaves this layer. An
+    /// unreadable transport reads as Core Audio's own "unknown" (0).
+    static func readRoute(_ device: AudioDeviceID) -> AudioOutputRoute {
+        var transportAddress = transportTypeAddress
+        var dataSourceAddress = dataSourceAddress
+        let transport = readUInt32(device, &transportAddress) ?? kAudioDeviceTransportTypeUnknown
+        let dataSource = supportsDataSource(device) ? readUInt32(device, &dataSourceAddress) : nil
+        return OutputRouteClassifier.route(transport: transport, dataSource: dataSource, name: readName(device))
+    }
+
+    private static func readUInt32(_ device: AudioDeviceID, _ address: inout AudioObjectPropertyAddress) -> UInt32? {
+        var value = UInt32(0)
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &value) == noErr else { return nil }
+        return value
+    }
+
+    /// kAudioObjectPropertyName hands back a CFString the caller releases
+    /// (AudioHardwareBase.h), hence the retained take.
+    private static func readName(_ device: AudioDeviceID) -> String? {
+        var name: Unmanaged<CFString>?
+        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+        var address = nameAddress
+        guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &name) == noErr,
+              let name else { return nil }
+        return name.takeRetainedValue() as String
     }
 
     // MARK: - Writes

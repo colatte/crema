@@ -121,6 +121,7 @@ final class DemoHUDEngine: SystemHUDSource, VolumeController, ScreenBrightnessCo
         .keyboardBrightness: 0.3,
     ]
     private var muted = false
+    private var route = AudioOutputRoute.builtInSpeakers
 
     init() {
         var continuation: AsyncStream<SystemHUD>.Continuation!
@@ -137,12 +138,12 @@ final class DemoHUDEngine: SystemHUDSource, VolumeController, ScreenBrightnessCo
     }
 
     func setMuted(_ muted: Bool, on display: DisplayUUID?) async throws {
-        let value = lock.withLock {
+        let (value, route) = lock.withLock {
             self.muted = muted
-            return levels[.volume] ?? 0.5
+            return (levels[.volume] ?? 0.5, self.route)
         }
         continuation.yield(
-            SystemHUD(kind: .volume, value: value, isMuted: muted, target: Self.target(.volume, display))
+            SystemHUD(kind: .volume, value: value, isMuted: muted, target: Self.target(.volume, display), route: route)
         )
     }
 
@@ -161,11 +162,19 @@ final class DemoHUDEngine: SystemHUDSource, VolumeController, ScreenBrightnessCo
         var value = (levels[kind] ?? 0.5) + 0.1
         if value > 1 { value = 0 }
         levels[kind] = value
-        let muted = self.muted
         lock.unlock()
-        continuation.yield(
-            SystemHUD(kind: kind, value: value, isMuted: kind == .volume ? muted : false, target: Self.target(kind, nil))
-        )
+        yield(kind, value: value, display: nil)
+    }
+
+    /// Moves the sound to the next kind of device, emitting nothing: like the
+    /// real source, a device switch never pops the HUD, and the next volume
+    /// press draws the new glyph.
+    func demoNextOutputDevice() {
+        lock.withLock {
+            let all = AudioOutputRoute.allCases
+            let index = all.firstIndex(of: route) ?? 0
+            route = all[(index + 1) % all.count]
+        }
     }
 
     /// A command carries the ACTUATION spelling, where nil means "my own panel", so
@@ -179,12 +188,21 @@ final class DemoHUDEngine: SystemHUDSource, VolumeController, ScreenBrightnessCo
     }
 
     private func emit(_ kind: SystemHUD.Kind, value: Double, display: DisplayUUID?) {
-        lock.lock()
-        levels[kind] = value
-        let muted = self.muted
-        lock.unlock()
+        lock.withLock { levels[kind] = value }
+        yield(kind, value: value, display: display)
+    }
+
+    private func yield(_ kind: SystemHUD.Kind, value: Double, display: DisplayUUID?) {
+        let (muted, route) = lock.withLock { (self.muted, self.route) }
+        let isVolume = kind == .volume
         continuation.yield(
-            SystemHUD(kind: kind, value: value, isMuted: kind == .volume ? muted : false, target: Self.target(kind, display))
+            SystemHUD(
+                kind: kind,
+                value: value,
+                isMuted: isVolume ? muted : false,
+                target: Self.target(kind, display),
+                route: isVolume ? route : nil
+            )
         )
     }
 }

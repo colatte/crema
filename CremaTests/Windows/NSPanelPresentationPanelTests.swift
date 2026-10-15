@@ -221,11 +221,11 @@ struct NSPanelPresentationPanelTests {
     @Test func theStaleReportClickRuleIsTheIntersectionNormalizedToZero() {
         // The pure half of the clamp above: intersection where the rects
         // agree, .zero (never CGRect.null) when they do not.
-        let rule = CGRect(x: 100, y: 100, width: 210, height: 42)
+        let rule = CGRect(x: 100, y: 100, width: 210, height: 36)
         let stale = CGRect(x: 65, y: 30, width: 280, height: 154)
         #expect(
             NSPanelPresentationPanel.staleReportClickRect(rendered: stale, ruleFrame: rule)
-                == CGRect(x: 100, y: 100, width: 210, height: 42)
+                == CGRect(x: 100, y: 100, width: 210, height: 36)
         )
         let disjoint = CGRect(x: 900, y: 900, width: 10, height: 10)
         #expect(NSPanelPresentationPanel.staleReportClickRect(rendered: disjoint, ruleFrame: rule) == .zero)

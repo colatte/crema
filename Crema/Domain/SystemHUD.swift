@@ -60,6 +60,10 @@ struct SystemHUD: Equatable, Sendable {
     /// (docs/DECISIONS.md: hud-target-is-a-role).
     var target: Target = .noDisplay
     var authority: Authority = .system
+    /// The device a volume reading's sound goes to; nil for brightness, and for a
+    /// volume reading whose producer cannot say. The copies below keep it: a copy
+    /// is the same reading at another level, authority or provenance.
+    var route: AudioOutputRoute?
 
     /// The actuation spelling of `target`: nil wherever an actuator already reads
     /// nil as "my own panel". Both brightness actuators do — the system one

@@ -22,10 +22,11 @@ struct CoordinatorNowPlayingModeTests {
         let track = CoordinatorHarness.playingTrack()
 
         h.nowPlayingSource.emit(track)
-        await settle()
+        // The track arriving is the barrier: the same pass decides whether to
+        // surface, so the negative below is read after that decision.
+        #expect(await eventually { h.coordinator.nowPlaying == track })
 
         #expect(h.coordinator.state == .hidden)
-        #expect(h.coordinator.nowPlaying == track)
         #expect(h.coordinator.mediaActive)
     }
 
@@ -33,7 +34,7 @@ struct CoordinatorNowPlayingModeTests {
         let h = CoordinatorHarness(reactiveNowPlaying: false)
         let track = CoordinatorHarness.playingTrack()
         h.nowPlayingSource.emit(track)
-        await settle()
+        #expect(await eventually { h.coordinator.nowPlaying == track })
         #expect(h.coordinator.state == .hidden)
 
         h.coordinator.invoke()
@@ -43,8 +44,9 @@ struct CoordinatorNowPlayingModeTests {
 
     @Test func switchingToReactiveAppliesToTheNextEvent() async {
         let h = CoordinatorHarness(reactiveNowPlaying: false)
-        h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(title: "A"))
-        await settle()
+        let first = CoordinatorHarness.playingTrack(title: "A")
+        h.nowPlayingSource.emit(first)
+        #expect(await eventually { h.coordinator.nowPlaying == first })
         #expect(h.coordinator.state == .hidden)
 
         h.coordinator.setReactiveNowPlaying(true)
@@ -66,8 +68,9 @@ struct CoordinatorNowPlayingModeTests {
         _ = await eventually { h.coordinator.state == .hidden }
 
         h.coordinator.setReactiveNowPlaying(false)
-        h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(title: "B"))
-        await settle()
+        let fresh = CoordinatorHarness.playingTrack(title: "B")
+        h.nowPlayingSource.emit(fresh)
+        #expect(await eventually { h.coordinator.nowPlaying == fresh })
         #expect(h.coordinator.state == .hidden)
     }
 
@@ -76,8 +79,9 @@ struct CoordinatorNowPlayingModeTests {
         // in quiet mode — the surface still gets invoked/hovered, so the
         // recovery can't depend on the self-surfacing that quiet suppresses.
         let h = CoordinatorHarness(reactiveNowPlaying: false)
-        h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(title: "A"))
-        await settle()
+        let first = CoordinatorHarness.playingTrack(title: "A")
+        h.nowPlayingSource.emit(first)
+        #expect(await eventually { h.coordinator.nowPlaying == first })
         #expect(h.coordinator.state == .hidden)
 
         h.media.shouldThrow = true

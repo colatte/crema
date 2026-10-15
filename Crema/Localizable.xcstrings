@@ -154,6 +154,23 @@
         }
       }
     },
+    "demo.hud.nextOutputDevice": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demo: Next Output Device"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demo: Próximo dispositivo de saída"
+          }
+        }
+      }
+    },
     "demo.hud.screenBrightness": {
       "extractionState": "manual",
       "localizations": {
