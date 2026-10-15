@@ -36,7 +36,7 @@ struct ClassicFrameRuleTests {
         #expect(expanded.contains(compact))
     }
 
-    /// Pinned-latent fence (docs/CONTRACTS.md: G2): the window unions the three
+    /// Pinned-latent fence (docs/CONTRACTS.md: W1): the window unions the three
     /// states, but the Classic's headroom and anchor arithmetic assume expanded
     /// is the tallest (true by metric coincidence: expanded 230×224 vs hud
     /// 200×200 vs compact 170×170), so the fence stays loud — grow
