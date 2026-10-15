@@ -15,9 +15,10 @@ recording helps whenever the problem is visual.
 ## Suggesting a feature
 
 Crema is deliberately narrow in scope (see _What Crema is_ in the
-[README](README.md), and [ROADMAP.md](ROADMAP.md) for what's already on the
-way). Feature ideas are welcome, but the ones most likely to land are those
-that sharpen what's already here rather than broaden it. Open an
+[README](README.md), and SPEC.md's
+[planned section](SPEC.md#planned--not-implemented-future-roadmap) for what's
+already on the way). Feature ideas are welcome, but the ones most likely to
+land are those that sharpen what's already here rather than broaden it. Open an
 [issue](../../issues/new?template=feature.yml) to talk it through before
 writing code — it saves everyone effort.
 

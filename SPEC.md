@@ -132,7 +132,7 @@ The criteria live in **[docs/ACCEPTANCE.md](docs/ACCEPTANCE.md)** and only there
 
 ### The surface and the picker: directions on record
 
-Deferred by an explicit decision of the author, and public in the ROADMAP ("The surface itself"):
+Deferred by an explicit decision of the author:
 
 - **Cohabitation in the compact state** — a volume key with music playing puts the level BESIDE the artwork in the compact state (the Dynamic Island's grammar), instead of swapping the whole surface for the HUD. Amber zone: it touches per-state content (`StyleContent`), without touching the Coordinator.
 - **Live hover-preview in the tiles** — a cursor resting on a style tile shows that style ON THE REAL SCREEN for a moment. A genuine amber zone: it needs a preview state crossing Coordinator and WindowManager (expiry, priority over HUD and now playing, multi-display) and deserves a round of its own.

@@ -102,7 +102,7 @@ And that's fine — a few good ones already are:
 
 All good work. Crema just aims at a smaller target.
 
-Curious what might come next? See the [roadmap](ROADMAP.md).
+Curious what might come next? See what's [planned](SPEC.md#planned--not-implemented-future-roadmap).
 
 ## Requirements
 
@@ -165,8 +165,8 @@ Each release's notes also list the SHA-256 of `Crema.dmg`, which
 
 > [!NOTE]
 > Crema isn't notarized by Apple yet (that needs a paid Apple Developer
-> account — it's on the [roadmap](ROADMAP.md)), so the first time you open it
-> macOS warns that it's from an "unidentified developer." That's expected —
+> account), so the first time you open it macOS warns that it's from an
+> "unidentified developer." That's expected —
 > nothing is wrong with the app, and you only need to do this once.
 
 There are two ways to get past it:
