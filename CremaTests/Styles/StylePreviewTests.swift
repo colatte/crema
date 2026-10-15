@@ -204,18 +204,4 @@ struct StylePreviewTests {
         #expect(StylePreview.hudBar(at: .bottomCenter).maxY > 0.8)
         #expect(StylePreview.hudBar(at: .topCenter).minY < 0.1)
     }
-
-    @Test func theRestingCardIsTheCardsCompactFrameInTheScreensOwnFractions() {
-        let reference = StylePreview.notchedReference
-        let screen = reference.frame
-        let rule = CardStyle().frame(
-            for: .nowPlaying(NowPlaying(title: "", isPlaying: true, position: 0), expanded: false),
-            on: reference
-        )
-        let card = StylePreview.restingCard()
-        #expect(abs(card.minX - rule.minX / screen.width) < 0.0001)
-        #expect(abs(card.minY - (screen.maxY - rule.maxY) / screen.height) < 0.0001)
-        #expect(abs(card.width - rule.width / screen.width) < 0.0001)
-        #expect(abs(card.height - rule.height / screen.height) < 0.0001)
-    }
 }

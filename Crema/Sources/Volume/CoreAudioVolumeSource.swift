@@ -9,7 +9,7 @@ import os
 /// must not pop the HUD; the next real change will). Each event carries the
 /// observed device's route, read when observation starts and again when the
 /// device selects another data source, both in silence (`OutputChange`).
-final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unchecked Sendable {
+final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, VolumeReading, @unchecked Sendable {
     let updates: AsyncStream<SystemHUD>
 
     private let continuation: AsyncStream<SystemHUD>.Continuation
@@ -177,6 +177,28 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unch
         let route = lock.withLock { observedDevice == device ? observedRoute : nil }
         guard let hud = VolumeConversion.boundaryRefreshHUD(rawVolume: raw, isMuted: muted, route: route) else { return }
         continuation.yield(hud)
+    }
+
+    /// On `queue`, for the reason `sample()` gives: the lookup and the reads are
+    /// blocking Core Audio IPC, and the caller is on the MainActor. Yields
+    /// nothing into the stream — the caller decides what the reading is for.
+    func currentVolume() async -> SystemHUD? {
+        await withCheckedContinuation { continuation in
+            queue.async {
+                guard let device = CoreAudioSystemOutput.defaultOutputDeviceID(),
+                      let raw = CoreAudioSystemOutput.readVolume(device)
+                else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let muted = CoreAudioSystemOutput.readMute(device) ?? false
+                // The observed device's cached route, as a key press would carry
+                // it; a device observation has not reached yet is read here.
+                let cached = self.lock.withLock { self.observedDevice == device ? self.observedRoute : nil }
+                let route = cached ?? CoreAudioSystemOutput.readRoute(device)
+                continuation.resume(returning: VolumeConversion.hud(rawVolume: raw, isMuted: muted, route: route))
+            }
+        }
     }
 
     // MARK: - Observation

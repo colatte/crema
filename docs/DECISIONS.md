@@ -420,17 +420,26 @@ side it keeps `hudSideMargin` (16 pt) from the edge. The margins are fixed, by
 agreement with the author: the Dock is not read (`ScreenGeometry` carries no
 visible frame), so a Dock taller than the bottom margin sits over a bottom HUD.
 Placements are places on the glass — left and right do not swap under a
-right-to-left interface. Settings picks one on a single picture of the screen
-(`HUDPlacementPicker`, geometry in `PlacementMap`): the card resting at the top,
-where it stays, and the seven other places drawn on the same screen, dimmed, the
-chosen one lit and ringed; the card is itself the top-centre choice, and choosing
-it draws the bar in the card's place, since there the HUD is the card. Every shape
-is the Card's own rule on the reference panel (`StylePreview.restingCard`,
-`StylePreview.hudBar`), magnified alike so the bar keeps its true size beside the
-card; each bar keeps its share of the room around it, so a corner stays a corner.
-A place is clicked through a target wider than its mark, the targets never
-overlap, and every mark keeps the room its ring takes from the frame and the menu
-bar. The surface is drawn by the same view as the style tiles (`PreviewSurface`).
+right-to-left interface.
+
+**The place is chosen in a native pop-up, and the real HUD previews it.** Settings
+offers the eight places as a labelled "Position" pop-up (`HUDPlacementPicker`), the
+control every verified OSD-position setting uses (BetterDisplay, Windows 11,
+PowerToys), in three groups split by dividers: the top edge, the middle of the
+sides, the bottom edge. Each item wears a template icon drawn in code
+(`HUDPlacementIcon`): a screen outline with the bar where the Card's own rule puts
+it on the reference panel (`StylePreview.hudBar`), magnified only in size and
+keeping its share of the room around it, so a corner stays a corner and a side's
+bar stands upright. The icon is a hint; the truth is the HUD itself. On a choice,
+the real volume HUD shows once at the new place (`AppCore.previewHUDPlacement` →
+`Coordinator.previewHUD(on:)`) and reverts on the HUD's own timer, so the margin
+and the bar's direction are seen rather than pictured. The level is the output's,
+read at that moment (`VolumeReading`) and never written. It goes to every display
+drawing Card and to no other (`PresentationLayers.hudDisplays`): those are the
+displays the placement governs, and the Settings window's own display is not a
+fact the core reads. Nothing is shown while the screen is locked or the session
+is off the console. A reported HUD arriving over the preview — a drag on its bar
+included — is drawn wherever its target puts it, like any other.
 
 **The bar runs along the edge it sits on.** Flat along the top and bottom edges,
 corners included; upright in the middle of a side (`HUDPlacement.axis`). Upright,

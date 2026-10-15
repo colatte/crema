@@ -28,8 +28,9 @@ final class AppCore {
         let screenBrightnessSampler: (any ManuallySampledSource)?
         let keyboardBrightnessSampler: (any ManuallySampledSource)?
         /// Poked at a volume scale boundary, where the Core Audio write is a
-        /// no-op and emits no echo; nil on demo sources.
-        let volumeSampler: (any ManuallySampledSource)?
+        /// no-op and emits no echo, and read on demand for the Card placement
+        /// preview; nil on demo sources, which then preview nothing.
+        let volumeSampler: (any ManuallySampledSource & VolumeReading)?
         /// Read-side borders for the OSD suppressor (a consumed key needs the
         /// current value to step from); nil on demo sources.
         let screenBrightnessBackend: (any BrightnessBackend)?
@@ -209,6 +210,7 @@ final class AppCore {
             screenBrightnessController: graph.screenBrightnessController,
             keyboardBrightnessController: graph.keyboardBrightnessController,
             externalScreenBrightnessController: graph.externalScreenBrightnessController,
+            volumeReading: graph.volumeSampler,
             ignoresBrowserMedia: !preferences.includesBrowserMedia,
             reactiveNowPlaying: preferences.reactiveNowPlaying
         )
@@ -1556,5 +1558,36 @@ extension AppCore {
     ) {
         preferences.setShowsNowPlaying(shows, on: display)
         windowManager.refreshPresentation()
+    }
+}
+
+// MARK: - Card HUD placement preview
+
+/// In this file for the reason the per-display extension gives: the preview reads
+/// `lockSource` and `windowManager`, both private.
+@MainActor
+extension AppCore {
+    /// Shows the real Card HUD once where it now goes, so the person sees the true
+    /// margin and the bar's true direction rather than a picture of them
+    /// (docs/DECISIONS.md: card-hud-placement). Called after `setHUDPlacement`,
+    /// whose style refresh has already built the panels at the new place.
+    func previewHUDPlacement() {
+        Self.previewHUDPlacement(lock: lockSource, displays: windowManager, coordinator: coordinator)
+    }
+
+    /// Static for the reason the other wiring statics are: through an instance
+    /// the gate is unreachable by any test. Nothing is drawn while the screen is
+    /// locked or the session is off the console — no HUD goes over the shield
+    /// (docs/DECISIONS.md: the-lock-screen-was-built-and-taken-out) — and the
+    /// preview goes to every display drawing Card, the displays the placement
+    /// governs, and to no other: a Notch or Classic display has no Card HUD to
+    /// show, and the Settings window's own display is not a fact this core reads.
+    static func previewHUDPlacement(
+        lock: any ScreenLockSource,
+        displays windowManager: WindowManager,
+        coordinator: Coordinator
+    ) {
+        guard lock.isSuppressionSafe else { return }
+        coordinator.previewHUD(on: windowManager.displays(rendering: .card))
     }
 }

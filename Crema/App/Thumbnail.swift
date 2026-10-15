@@ -4,9 +4,8 @@ import SwiftUI
 /// them.
 ///
 /// It lives in a file of its own because it belongs to no one picture: the style
-/// tiles, the indicator mini-tiles, the placement map and the thumbnail heading
-/// each display row sit in one Settings pane and have to look like one family, so
-/// a second copy of
+/// tiles, the indicator mini-tiles and the thumbnail heading each display row sit
+/// in one Settings pane and have to look like one family, so a second copy of
 /// these numbers is how they would come to wear two frames. Sharing the constants
 /// alone is not enough: with each picture tracing its own ring, the numbers cannot
 /// diverge but the lines drawing them can.

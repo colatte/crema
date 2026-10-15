@@ -29,14 +29,11 @@ struct CardIndicatorSection: View {
             .onChange(of: indicatorStyle) { _, new in
                 core.setHUDIndicatorStyle(HUDIndicatorStyle(rawValue: new) ?? .shippedDefault)
             }
-            LabeledContent {
-                HUDPlacementPicker(selection: $placement, wallpaper: wallpaper)
-            } label: {
-                Text(String(localized: "settings.hud.placement", defaultValue: "Position"))
-            }
-            .onChange(of: placement) { _, new in
-                core.setHUDPlacement(HUDPlacement(rawValue: new) ?? .shippedDefault)
-            }
+            HUDPlacementPicker(selection: $placement)
+                .onChange(of: placement) { _, new in
+                    core.setHUDPlacement(HUDPlacement(rawValue: new) ?? .shippedDefault)
+                    core.previewHUDPlacement()
+                }
         } footer: {
             // Names the displays, because this is the one control in the pane that
             // is not per display: without the names, a Card setting under a Notch

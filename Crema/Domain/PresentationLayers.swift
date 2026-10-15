@@ -24,6 +24,11 @@ struct PresentationLayers: Equatable, Sendable {
 
     var nowPlaying: Appearance?
     var hud: SystemHUD?
+    /// The only displays that draw `hud`, for a HUD the app puts up itself: the
+    /// preview of a new Card placement, which belongs on the displays drawing Card
+    /// and nowhere else. Nil for every reported HUD, which its target scopes
+    /// (`SystemHUD.Target`); a reading published over the preview clears it.
+    var hudDisplays: Set<DisplayUUID>?
 
     /// What `surface` shows of the two layers.
     func state(on surface: Surface) -> PresentationState {

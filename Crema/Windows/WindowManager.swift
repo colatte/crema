@@ -283,6 +283,9 @@ final class WindowManager {
     /// feedback, so too much of it beats none. Narrow on purpose: it is decided
     /// BEFORE there is an owner and never rescues a display that was named and is
     /// gone (docs/DECISIONS.md: hud-target-is-a-role).
+    ///
+    /// A HUD the app put up itself names its displays outright
+    /// (`PresentationLayers.hudDisplays`), and appears on no other.
     private func effectiveState(
         _ state: PresentationState,
         for screen: ScreenDescription,
@@ -292,6 +295,8 @@ final class WindowManager {
         case .nowPlaying where !preferences.showsNowPlaying(on: screen.id, isInternal: screen.isInternal):
             return .hidden
         case .hud(let hud) where !panelOwns(hud.target, panel: screen.id, builtInPanel: builtInPanel):
+            return .hidden
+        case .hud where coordinator.layers.hudDisplays.map({ !$0.contains(screen.id) }) ?? false:
             return .hidden
         default:
             return state

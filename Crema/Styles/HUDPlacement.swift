@@ -32,9 +32,8 @@ enum HUDPlacement: String, CaseIterable, Equatable, Sendable {
         }
     }
 
-    /// User-facing name (String Catalog; English as source language): what each
-    /// place on the placement map is called, aloud and in its tooltip, since the
-    /// map shows the place and says nothing.
+    /// User-facing name (String Catalog; English as source language): the
+    /// place's item in the Position pop-up.
     var displayName: String {
         switch self {
         case .topLeft: String(localized: "settings.hud.placement.topLeft", defaultValue: "Top left")

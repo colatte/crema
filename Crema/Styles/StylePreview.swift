@@ -154,21 +154,10 @@ enum StylePreview {
         )
     }
 
-    /// The Card's appearance at rest — the compact card — as a fraction of the
-    /// screen, from the Card's own frame rule: the card the placement map shows
-    /// staying at the top while the HUD goes elsewhere.
-    static func restingCard(on geometry: ScreenGeometry = Self.notchedReference) -> CGRect {
-        unit(
-            CardStyle().frame(for: .nowPlaying(NowPlaying(title: "", isPlaying: true, position: 0), expanded: false), on: geometry),
-            in: geometry.frame
-        )
-    }
-
     /// Where the Card puts its HUD at `placement`, as a fraction of the screen,
     /// asked of the Card's own placement rule (`CardStyle.hudFrame(at:on:)`): the
-    /// placement picker's picture of each choice, which therefore cannot come to
-    /// show a spot the HUD no longer goes to. The menu bar and the proportions the
-    /// picture also needs are the Card's `shapes(for:on:)`, on the same panel.
+    /// Position pop-up's icon of each choice (`HUDPlacementIcon`), which therefore
+    /// cannot come to show a spot the HUD no longer goes to.
     static func hudBar(at placement: HUDPlacement, on geometry: ScreenGeometry = Self.notchedReference) -> CGRect {
         unit(CardStyle.hudFrame(at: placement, on: geometry), in: geometry.frame)
     }
