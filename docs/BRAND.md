@@ -102,7 +102,7 @@ Declared once, in `docs/index.html`:
 | `--well`       | `#14100c`                  | (near `--esp-panel`) | Recessed surface                              |
 | `--raise`      | `#1b1610`                  | —               | Raised surface, code chips                          |
 | `--notch-ink`  | `#060402`                  | —               | The bezel black: darker than any page surface, the one thing pretending to be hardware |
-| `--cream`      | `#d6bd94`                  | `--esp-cream`   | **The one accent**: eyebrow, emphasis, primary button, meter fill, every hover |
+| `--cream`      | `#d6bd94`                  | `--esp-cream`   | **The one accent**: eyebrow, emphasis, primary button, links, the selected segment |
 | `--cream-hi`   | `#eedcbb`                  | `--esp-cream-hi`| Only as the accent's hover                          |
 | `--ink`        | `#efe8dd`                  | `--esp-ink`     | Text; never pure white                              |
 | `--ink-2/-3`   | ink at .72 / .55           | —               | Two lower steps; the faintest still clears 4.5:1 on the ground (measured — .38 reads as decoration shaped like text) |
@@ -112,10 +112,13 @@ Declared once, in `docs/index.html`:
 comment in the stylesheet says it and the page holds to it. There is no error
 colour, no success green, no state tint: a static landing page has nothing to
 report. And **one filled cream button per viewport**, the house's rule for the
-accent: the hero owns it on arrival, and the notch's own "Get Crema" stays
-folded until the hero's button has scrolled away. The notch itself carries
-little — the mark, three section links, that one button — because a notch is a
-small thing and the metaphor only reads while the shape stays narrow.
+accent: the hero owns it on arrival, and the navigation bar's own Download
+stays folded until the hero's button has scrolled away.
+
+The landing shows the app as drawings, not screenshots: the Mac, its menu bar
+and Crema's surfaces are drawn in the page, so they follow the app as it
+changes instead of aging with a capture. Their wallpaper and the album cover in
+them are stand-ins, like the gradients in Settings below, not brand colours.
 
 **The app has no palette of its own.** It draws with the system's materials
 and accent (the blue in Settings is macOS's, not ours), and the only colour
@@ -129,23 +132,21 @@ the drawn previews when the real desktop cannot be read, and
 
 | Surface | Display                                  | Text                        | Labels                                  |
 | ------- | ---------------------------------------- | --------------------------- | --------------------------------------- |
-| Landing | **Raleway 700**, tracking −.035em (h1) / −.022em (h3) | Raleway 400, 16px/1.7 | **JetBrains Mono** 11px, +.2 to +.28em, uppercase |
+| Landing | **SF Pro** (the system stack) 700, tracking −.035em (h1) / −.03em (h2) | SF Pro 400, 17px/1.47 | SF Pro 600 in cream, sentence case |
 | README  | GitHub's                                 | GitHub's                    | —                                       |
 | App     | **none** — SF Pro at the system's sizes  | SF Pro                      | SF Pro                                  |
 
-Raleway and JetBrains Mono are the house's text and mono families. The house's
-display face, **Sklow, is not here and cannot be**: it is a commercial licence
-held by Colatte, and this repository is public — shipping the file would
-redistribute it. Raleway at 700 with tight tracking stands in for display, and
-the result is that the landing reads as the house's site with a lighter voice,
-which is what a house product's page should do. The two fonts load from Google
-Fonts — the landing is one self-contained HTML, self-hosted except for them,
-as docs/README.md records.
+The landing speaks the platform's type, as the app does: a Mac utility's page
+reads as a Mac's when its type is the Mac's, and the house's families —
+Raleway, JetBrains Mono, the licensed display face Sklow — read as the house's
+site instead. The stack names the system font and falls back to Helvetica, so
+the page loads no font at all and is one self-contained HTML. What stays the
+house's is the palette above and the endorsement below.
 
-The eyebrow is the house's mono kicker — small caps, wide tracking, one accent
-colour — **without the house's parentheses**. `( assim )` is the signature of
-colatte.io itself; Crema's eyebrows are plain ("three styles", "install"), so
-the page quotes the dialect without wearing the house's own mark.
+The eyebrow is a short label over a heading, in cream at a semibold weight and
+in sentence case ("Three styles", "Install"), the way Apple's product pages
+mark a section — never the house's mono kicker, and never its parentheses:
+`( assim )` is the signature of colatte.io itself.
 
 Inside the app there is no display type at all, and no custom font: a HUD that
 appears for a second and a Settings window that mirrors System Settings both
@@ -153,12 +154,12 @@ belong to the platform's type, not to a brand.
 
 ## Writing
 
-- **Sentence case** everywhere — headings, buttons, menu items, the catalog.
-  All-caps exists only in the mono eyebrows, by CSS transform, never typed.
+- **Sentence case** everywhere — headings, eyebrows, buttons, menu items, the
+  catalog. Nothing is set in all-caps.
 - **h1 and h2 on the landing end with a full stop** (or a question mark: "Ready
   for a quieter Mac?"). This is the house's "period even in titles". **h3 are
-  labels and carry no period** ("Blends into the cutout", "Grant
-  Accessibility") — the line between a sentence and a label is the line
+  labels and carry no period** ("Blends into the notch", "Follow the welcome
+  tour") — the line between a sentence and a label is the line
   between a period and none, and it is kept on purpose.
 - **No exclamation marks. No emoji, anywhere in UI** — `check-catalog.py`
   refuses a value carrying one (rule 7), and the About signature is prose:

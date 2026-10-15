@@ -3,1100 +3,871 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<!-- Marks the document as scripted before first paint, so the reveal's
-     opacity:0 start state only ever applies where something can undo it. -->
-<script>document.documentElement.className="js"</script>
+<!-- Marks the document as scripted before first paint, so the reveal's hidden
+     start state only ever applies where a script is there to undo it. -->
+<script>document.documentElement.className = "js"</script>
 <title>Crema — a quiet companion for your Mac's notch</title>
-<meta name="description" content="Crema shows what's playing at the notch and gives volume and brightness their own HUDs. Native, quiet, free and open source. macOS 14+.">
+<meta name="description" content="Crema shows what's playing by the notch and gives volume and brightness indicators that match. Native, quiet, free and open source. macOS 14 or later.">
 <meta name="author" content="Colatte — colatte.io">
-<meta name="theme-color" content="#060402">
+<meta name="theme-color" content="#0d0b09">
+<meta name="color-scheme" content="dark">
 <link rel="canonical" href="https://colatte.github.io/crema/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Crema">
 <meta property="og:title" content="Crema — a quiet companion for your Mac's notch">
-<meta property="og:description" content="What's playing at the notch, and volume and brightness with indicators of their own. Native, and out of the way.">
+<meta property="og:description" content="What's playing by the notch, and volume and brightness with indicators that match. Native, and out of the way.">
 <meta property="og:url" content="https://colatte.github.io/crema/">
-<meta property="og:image" content="https://colatte.github.io/crema/assets/video/crema-teaser-poster.jpg">
-<meta name="twitter:card" content="summary_large_image">
+<meta property="og:image" content="https://colatte.github.io/crema/assets/icon.png">
+<meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Crema — a quiet companion for your Mac's notch">
-<meta name="twitter:description" content="What's playing at the notch, and volume and brightness with indicators of their own. Native, and out of the way.">
-<meta name="twitter:image" content="https://colatte.github.io/crema/assets/video/crema-teaser-poster.jpg">
+<meta name="twitter:description" content="What's playing by the notch, and volume and brightness with indicators that match. Native, and out of the way.">
+<meta name="twitter:image" content="https://colatte.github.io/crema/assets/icon.png">
 <link rel="icon" href="assets/web/favicon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="apple-touch-icon" href="assets/icon.png">
 <style>
-  /* ---- tokens ---------------------------------------------------------
-     Ground is three ink tones over an atmospheric base. The haze is not
-     decoration: a true-black notch hanging into a flat near-black page is
-     invisible, and the whole conceit of this layout is that the notch
-     reads as a cutout. The light has to come from somewhere for there to
-     be a shadow.
-
-     One cream. Eyebrow, emphasis, primary button, meter fill and every
-     hover resolve to --cream; --cream-hi exists only as its hover. A
-     second accent is what turns a palette into a mood board.            */
+  /* ---- tokens -----------------------------------------------------------
+     The palette is Colatte's espresso dialect, value for value (docs/BRAND.md):
+     one cream accent and an ink that is never pure white. The type is the
+     Mac's own: the system stack resolves to SF Pro on Apple devices, which
+     switches between its Display and Text cuts by size on its own. */
   :root{
-    --base:#0d0b09;
-    --well:#14100c;
-    --raise:#1b1610;
-
-    /* The bezel black. Darker than any page surface on purpose: it is the
-       one thing here pretending to be hardware. */
-    --notch-ink:#060402;
-
-    --cream:#d6bd94;
-    --cream-hi:#eedcbb;
-
-    /* Three steps, and the faintest one clears 4.5:1 on the page
-       ground. A tertiary at .38 measures 2.97:1 — under it the claims
-       row, both captions and the footer links are decoration shaped like
-       text. Secondary sits high enough above it that the hierarchy keeps
-       three distinguishable steps instead of two. */
-    --ink:#efe8dd;
-    --ink-2:rgba(239,232,221,.72);
-    --ink-3:rgba(239,232,221,.55);
-    --line:rgba(214,189,148,.12);
-    --line-hi:rgba(214,189,148,.28);
-
-    --sans:'Raleway',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
-    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
-
-    --wrap:1120px;
-    --pad:28px;
-
-    --ease:cubic-bezier(.16,1,.3,1);
-    --dur:600ms;
-
-    /* The notch's own geometry, and the single vertical datum every page
-       section measures down from. */
-    --bar:8px;
-    --notch-h:58px;
-    --fillet:22px;
-    --top-datum:calc(var(--bar) + var(--notch-h));
-
-    /* The pinned stage's height, derived from the teaser's 1600x1040 plus
-       the bezel's own box and the caption. Knowing it in CSS is what lets
-       the sticky top centre the film in the viewport with no measuring
-       pass — and no layout read on every scroll tick. The 26px is the
-       bezel's padding and border, which the video is inset by; the 63px
-       adds the caption back on top of it. */
-    --stage-w:min(980px, calc(100vw - var(--pad) * 2));
-    --stage-h:calc((var(--stage-w) - 26px) / 1.538 + 63px);
+    --base:#0d0b09; --well:#14100c; --raise:#1b1610; --notch-ink:#060402;
+    --cream:#d6bd94; --cream-hi:#eedcbb;
+    --ink:#efe8dd; --ink-2:rgba(239,232,221,.72); --ink-3:rgba(239,232,221,.55);
+    --line:rgba(214,189,148,.12); --line-hi:rgba(214,189,148,.28);
+    --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",Helvetica,Arial,sans-serif;
+    --ease:cubic-bezier(.32,.72,0,1);
+    --wrap:980px; --wide:1180px;
   }
-
-  *{box-sizing:border-box;margin:0}
-  /* The notch is fixed, so anything the browser scrolls to on its own —
-     an in-page link, or the next control under Tab — would otherwise be
-     free to stop underneath it. This reserves its height for both. */
-  html{scroll-behavior:smooth;scroll-padding-top:calc(var(--top-datum) + 20px)}
-  /* clip, never hidden: overflow-x:hidden turns body into a scroll
-     container, and a sticky descendant then has nothing to stick inside —
-     the pinned film silently scrolls away like any other block. clip
-     crops the same way without creating that container. */
-  body{background:var(--base);color:var(--ink);
-       font:16px/1.7 var(--sans);-webkit-font-smoothing:antialiased;
-       overflow-x:clip}
+  *,*::before,*::after{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%;scroll-padding-top:64px}
+  body{margin:0;background:var(--base);color:var(--ink);font:400 17px/1.47 var(--sans);
+       letter-spacing:-.022em;-webkit-font-smoothing:antialiased;overflow-x:hidden}
   a{color:inherit}
-  img,video{max-width:100%;display:block}
-  ::selection{background:var(--cream);color:var(--notch-ink)}
-  :focus-visible{outline:2px solid var(--cream);outline-offset:3px;border-radius:4px}
+  img,svg{display:block}
+  button{font:inherit;color:inherit}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .wrap{max-width:var(--wrap);margin:0 auto;padding:0 max(22px,env(safe-area-inset-left))}
+  .wide{max-width:var(--wide);margin:0 auto;padding:0 max(22px,env(safe-area-inset-left))}
+  :focus-visible{outline:2px solid var(--cream);outline-offset:3px;border-radius:6px}
 
-  /* ---- the ground -------------------------------------------------------
-     Fixed, so the haze stays put while the page travels over it — depth
-     for the price of one element, and the reason a flat dark page stops
-     reading as a document. Negative z-index puts it above the canvas
-     background and below every section, which can then paint its own
-     ground over it. */
-  .sky{position:fixed;inset:0;z-index:-1;pointer-events:none;
-    background:
-      radial-gradient(1300px 640px at 50% -10%, rgba(214,189,148,.15), transparent 60%),
-      radial-gradient(900px 560px at 8% 34%, rgba(214,189,148,.055), transparent 64%),
-      radial-gradient(1100px 720px at 94% 78%, rgba(196,142,72,.06), transparent 62%)}
-  .grain{pointer-events:none;position:fixed;inset:0;z-index:60;opacity:.05;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E")}
+  /* ---- type ------------------------------------------------------------ */
+  h1,h2,h3{margin:0;font-weight:700;color:var(--ink);text-wrap:balance}
+  figure{margin:0}
+  .lead{text-wrap:pretty}
+  h1{font-size:clamp(44px,7.2vw,84px);line-height:1.04;letter-spacing:-.035em}
+  h2{font-size:clamp(34px,5.2vw,60px);line-height:1.07;letter-spacing:-.03em}
+  h3{font-size:21px;line-height:1.24;letter-spacing:-.02em;font-weight:600}
+  .eyebrow{margin:0 0 14px;font-size:clamp(17px,1.6vw,21px);font-weight:600;color:var(--cream);letter-spacing:-.01em}
+  .lead{margin:22px auto 0;max-width:720px;font-size:clamp(19px,2vw,23px);line-height:1.38;color:var(--ink-2);font-weight:500;letter-spacing:-.018em}
+  .center{text-align:center}
+  em{font-style:normal;color:var(--cream)}
 
-  .wrap{max-width:var(--wrap);margin:0 auto;padding:0 var(--pad)}
-  /* The poster register: section intros are centred, and only the
-     alternating style rows below stay asymmetric. Centring everything
-     flattens the rhythm; centring nothing is what reads as a report. */
-  .mid{text-align:center}
-  .mid .lead{margin-inline:auto}
-  .mid .cta{justify-content:center}
-  .mid h2{margin-inline:auto;max-width:20ch}
+  /* ---- buttons ----------------------------------------------------------
+     One filled cream button per viewport, the house's rule for the accent:
+     the hero owns it on arrival, and the nav's own stays folded until the
+     hero's has scrolled away. Everything else is a cream text link. */
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:999px;
+       background:var(--cream);color:#1b1610;font-size:17px;font-weight:500;text-decoration:none;
+       transition:background .2s,transform .2s var(--ease)}
+  .btn:hover{background:var(--cream-hi)}
+  .btn:active{transform:scale(.97)}
+  .btn svg{width:16px;height:16px}
+  .link{display:inline-flex;align-items:center;gap:4px;color:var(--cream);font-size:17px;text-decoration:none}
+  .link:hover{text-decoration:underline;text-underline-offset:3px}
+  .link svg{width:12px;height:12px}
+  .actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px 28px;margin-top:34px}
 
-  /* ---- reveal ---------------------------------------------------------
-     One transition, one stagger variable. Elements above the fold carry
-     data-reveal-on-load and run immediately; the rest are swept in by the
-     scroll tick (see the script for why it is a position test and not an
-     IntersectionObserver). After the transition the transform box is
-     dropped, because a permanent transform on an ancestor breaks touch
-     hit-testing in iOS Safari long after the animation is over.
+  /* ---- nav ------------------------------------------------------------- */
+  .nav{position:fixed;inset:0 0 auto;z-index:50;height:52px;
+       background:rgba(13,11,9,.72);-webkit-backdrop-filter:saturate(180%) blur(20px);
+       backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid transparent;
+       transition:border-color .3s}
+  .nav.is-scrolled{border-bottom-color:var(--line)}
+  .nav .wide{height:100%;display:flex;align-items:center;gap:28px}
+  .brand{display:flex;align-items:center;gap:9px;font-size:17px;font-weight:600;text-decoration:none;margin-right:auto}
+  .brand img{width:26px;height:26px}
+  .nav-links{display:flex;gap:26px}
+  .nav-links a{font-size:13px;color:var(--ink-2);text-decoration:none;letter-spacing:-.01em}
+  .nav-links a:hover{color:var(--ink)}
+  .nav .get{padding:5px 14px;font-size:13px;gap:6px;opacity:0;pointer-events:none;transform:translateY(-4px);
+            transition:opacity .3s,transform .3s var(--ease),background .2s}
+  .nav .get.is-shown{opacity:1;pointer-events:auto;transform:none}
+  @media (max-width:640px){.nav-links{display:none}}
 
-     Gated on .js so a reader with scripting off — or a script that dies
-     before the sweep is wired — gets the page rather than a blank one. */
-  .js .reveal{opacity:0;transform:translateY(24px);
-    transition:opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
-    transition-delay:var(--reveal-delay,0ms)}
-  .js .reveal.is-in{opacity:1;transform:translateY(0)}
-  .js .reveal.is-settled{transform:none;transition:none}
-
-  /* ---- type -----------------------------------------------------------
-     Raleway is geometric and tracks wide by default; at display sizes the
-     tightening is most of the refinement. Weight comes DOWN as size goes
-     up — 800 at 96px is a wall, not a headline.                          */
-  h1{font-weight:700;letter-spacing:-.035em;
-     font-size:clamp(40px,6.4vw,76px);line-height:1.03;text-wrap:balance}
-  /* The sentence arrives a word at a time from behind its own baseline.
-     Each word is its own mask and only the inner span travels, so nothing
-     ever overlaps the line above it mid-flight. The split happens in the
-     script, from the sentence already in the markup — a reader with no JS,
-     and a crawler, still get one readable string. white-space:pre keeps the
-     trailing space, which an inline-block would otherwise drop and weld the
-     words together. */
-  .js .words span{display:inline-block;overflow:hidden;vertical-align:top;
-    padding-bottom:.09em;margin-bottom:-.09em}
-  .js .words i{display:inline-block;white-space:pre;font-style:inherit;
-    transform:translateY(108%);
-    transition:transform .82s cubic-bezier(.32,.72,0,1);
-    transition-delay:var(--wd,0ms)}
-  .js .words.is-in i{transform:none}
-  /* The split replaces the <em> with one mask per word, so the class is
-     what carries the colour across. */
-  h1 em,h1 .em{font-style:normal;color:var(--cream)}
-  h2{font-weight:700;font-size:clamp(30px,4.4vw,50px);
-     line-height:1.05;letter-spacing:-.032em;margin-top:16px;text-wrap:balance}
-  h2 em{font-style:normal;color:var(--cream)}
-  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.28em;
-           text-transform:uppercase;color:var(--cream)}
-  /* An inline-block in the text flow, not a flex sibling. As a flex item
-     the mark keeps the container's start edge while the wrapped text
-     centres itself away from it, so on a phone the square ends up
-     stranded at the far left pointing at nothing. In the flow it breaks
-     with the words and stays welded to the first one. */
-  .eyebrow::before{content:"";display:inline-block;width:6px;height:6px;
-                   background:var(--cream);margin-right:10px;vertical-align:middle}
-  /* The mark that says "a section starts" grows from nothing, a beat after
-     the line it belongs to has landed. */
-  .js .eyebrow::before{transform:scale(0);
-    transition:transform .46s cubic-bezier(.32,1.22,.36,1);
-    transition-delay:calc(var(--reveal-delay,0ms) + 180ms)}
-  .js .eyebrow.is-in::before{transform:scale(1)}
-  .lead{color:var(--ink-2);max-width:56ch;margin-top:18px;font-size:17px;line-height:1.6}
-
-  /* ---- the notch --------------------------------------------------------
-     A solid bar welded to the top edge with the nav hanging out of it, the
-     way the hardware does it. The two ::before/::after wedges are concave
-     fillets — a radial-gradient whose transparent core eats a quarter
-     circle out of a solid square — so the pill eases into the bar instead
-     of butting against it. Every piece overlaps its neighbour by a pixel
-     because at fractional display scaling a seam is a bright hairline
-     across the darkest thing on the page.
-
-     This is the one ornament here that is not borrowed: the app draws at
-     the notch, so the site wearing one is the subject, not decoration.
-
-     A notch is a SMALL thing, and it stays one by carrying little: the
-     mark, three section links and, once the hero has scrolled away, one
-     small button. Five links and a large capitals-set pill make it a bar
-     with rounded corners — the metaphor only reads when the shape stays
-     narrow. No Philosophy link, because nobody navigates to a philosophy;
-     no GitHub link, because the page already links it three times (hero,
-     close, footer). */
-  .nav{position:fixed;top:0;left:0;right:0;z-index:100;
-       display:flex;justify-content:center;pointer-events:none;
-       padding-top:env(safe-area-inset-top,0px)}
-  .nav::before{content:"";position:absolute;top:-1px;left:0;right:0;
-    height:calc(env(safe-area-inset-top,0px) + var(--bar) + 2px);
-    background:var(--notch-ink)}
-  .notch{position:relative;pointer-events:auto;--notch-gap:22px;
-    display:flex;align-items:center;gap:var(--notch-gap);
-    width:fit-content;max-width:calc(100% - 2 * var(--fillet) - 16px);
-    min-height:var(--notch-h);margin-top:var(--bar);
-    padding:6px 8px 6px 18px;
-    border-radius:0 0 22px 22px;background:var(--notch-ink);
-    box-shadow:0 calc(-1 * var(--bar)) 0 0 var(--notch-ink)}
-  .notch::before,.notch::after{content:"";position:absolute;
-    top:calc(-1 * var(--bar));width:var(--fillet);
-    height:calc(var(--fillet) + var(--bar));pointer-events:none}
-  .notch::before{left:calc(-1 * var(--fillet) + 1px);
-    background:radial-gradient(circle var(--fillet) at 0 100%,
-      transparent calc(var(--fillet) - 1px), var(--notch-ink) var(--fillet))}
-  .notch::after{right:calc(-1 * var(--fillet) + 1px);
-    background:radial-gradient(circle var(--fillet) at 100% 100%,
-      transparent calc(var(--fillet) - 1px), var(--notch-ink) var(--fillet))}
-
-  /* Vertical padding on both of the notch's own controls: a thumb has to
-     land on them, and without it they are the last two under 44px. It
-     costs the notch four pixels of height and nothing else. */
-  .brand{display:flex;align-items:center;gap:9px;font-weight:600;
-         font-size:15px;letter-spacing:-.01em;text-decoration:none;flex:none;
-         padding:9px 0}
-  /* No radius: the icon art is RGBA and already carries the squircle, so a
-     CSS corner only shaves the one that is drawn. */
-  .brand img{width:22px;height:22px}
-  .links{display:flex;gap:22px;font-size:13.5px}
-  .links a{text-decoration:none;color:var(--ink-2);transition:color .2s var(--ease);white-space:nowrap}
-  .links a:hover{color:var(--cream)}
-  /* ONE filled cream button per viewport (the house rule for the accent).
-     The hero owns it on arrival, so the notch's own button is folded away
-     until the hero's has scrolled off the top, and only then unfolds —
-     `armNotchDock` sets `.is-past-hero` from an observer on the hero's CTA
-     row. The slot is a one-column grid so the width animates (0fr → 1fr)
-     instead of the notch jumping wider by a button; without JS there is no
-     `.js` class and the slot is simply open. Sentence case, not capitals:
-     capitals on this page belong to the eyebrows, and a letter-spaced
-     "GET CREMA" is the loudest object on the first screen of a page
-     called quiet. */
-  .get-slot{display:grid;grid-template-columns:1fr;flex:none;
-            transition:grid-template-columns .44s var(--ease), margin .44s var(--ease)}
-  /* Folded, the slot also hands back the flex gap before it and pads the
-     right edge up to the left one (18px), so the notch closes symmetric
-     instead of keeping a button-shaped hole. */
-  .js .notch:not(.is-past-hero) .get-slot{grid-template-columns:0fr;
-    margin-left:calc(-1 * var(--notch-gap));margin-right:10px}
-  /* 13px of vertical padding is the 44px thumb target the comment above
-     the brand link already paid for; the button got smaller in type and
-     in width, not in height. */
-  .get{font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;
-       background:var(--cream);color:var(--notch-ink);white-space:nowrap;
-       border-radius:999px;padding:13px 15px;text-decoration:none;font-weight:600;
-       min-width:0;overflow:hidden;
-       transition:background .2s var(--ease), opacity .3s var(--ease), visibility 0s,
-                  padding .44s var(--ease)}
-  .get:hover{background:var(--cream-hi)}
-  /* Folded: faded, and removed from the tab order — but only AFTER the
-     fade, or a scroll back up makes the button vanish in one frame while
-     the slot spends .44s closing over the hole it left. */
-  .js .notch:not(.is-past-hero) .get{opacity:0;visibility:hidden;
-    /* A 0fr track collapses the content, not the padding: without this
-       the folded slot kept a 30px pill-shaped hole (measured). */
-    padding-left:0;padding-right:0;
-    transition:background .2s var(--ease), opacity .3s var(--ease), visibility 0s .44s,
-               padding .44s var(--ease)}
-
-  /* The phone dock: the notch itself expands downward into the page list,
-     rather than the links simply vanishing at a breakpoint. */
-  /* 44px is the target, not the drawing: the three bars stay 16px wide and
-     the button grows around them. The only control on this page a thumb has
-     to find, and drawn bare it is 38px. */
-  .burger{display:none;flex-direction:column;align-items:center;justify-content:center;
-    gap:4px;width:44px;height:44px;padding:0;border:0;border-radius:12px;
-    background:transparent;cursor:pointer;flex:none}
-  .burger span{display:block;width:16px;height:2px;border-radius:2px;background:var(--ink-2);
-    transition:transform .32s cubic-bezier(.32,1.22,.36,1), opacity .18s ease}
-  .notch.is-open .burger span:nth-child(1){transform:translateY(6px) rotate(45deg)}
-  .notch.is-open .burger span:nth-child(2){opacity:0}
-  .notch.is-open .burger span:nth-child(3){transform:translateY(-6px) rotate(-45deg)}
-  @media (max-width:820px){
-    .notch{width:calc(100vw - 2 * var(--fillet) - 10px);
-           max-width:calc(100vw - 2 * var(--fillet) - 10px);
-           --notch-gap:10px;flex-wrap:wrap;row-gap:0;padding:5px 10px 5px 14px}
-    .brand{margin-right:auto}
-    /* The folded slot's right-hand compensation is the desktop's asymmetric
-       padding; here the burger closes the row and the padding is its own. */
-    .js .notch:not(.is-past-hero) .get-slot{margin-right:0}
-    .burger{display:inline-flex}
-    .links{order:5;flex-basis:100%;flex-direction:column;align-items:stretch;
-      gap:2px;max-height:0;opacity:0;overflow:hidden;padding:0 2px;
-      transition:max-height .56s cubic-bezier(.32,1.22,.36,1), opacity .24s ease,
-                 padding .56s cubic-bezier(.32,1.22,.36,1)}
-    .notch.is-open .links{max-height:320px;opacity:1;padding:8px 2px 6px}
-    .links a{padding:12px;border-radius:11px;font-size:15px}
-  }
-
-  /* ---- buttons --------------------------------------------------------- */
-  .cta{display:flex;gap:14px;align-items:center;margin-top:34px;flex-wrap:wrap}
-  .btn{display:inline-flex;align-items:center;gap:9px;text-decoration:none;
-       font-weight:600;font-size:15px;letter-spacing:-.01em;border-radius:13px;
-       padding:15px 26px;border:1px solid transparent;
-       transition:background .2s var(--ease), color .2s var(--ease), border-color .2s var(--ease)}
-  .btn.cream{background:var(--cream);color:var(--notch-ink)}
-  .btn.cream:hover{background:var(--cream-hi)}
-  .btn.line{border-color:var(--line-hi);color:var(--ink)}
-  .btn.line:hover{border-color:var(--cream);color:var(--cream)}
-  /* Press feedback. A button that looks identical the instant it is
-     clicked is the one detail every native control on this OS gets right
-     and a web page usually forgets. */
-  .btn:active,.get:active{transform:translateY(1px)}
-  .btn.cream:active{background:#c9ae83}
-  .btn svg{flex:none}
+  /* ---- sections -------------------------------------------------------- */
+  section{padding:clamp(96px,13vw,160px) 0 0}
+  .section-head{text-align:center;margin-bottom:clamp(44px,6vw,72px)}
 
   /* ---- hero ------------------------------------------------------------ */
-  header{position:relative;padding:calc(var(--top-datum) + 96px) 0 0}
-  /* One line of facts, separated by a middot — not five bordered pills.
-     The pills drew five boxes to carry five short phrases, which is chrome
-     competing with the sentence above it for the same glance. */
-  .claims{list-style:none;padding:0;margin:28px 0 0;display:flex;flex-wrap:wrap;
-          justify-content:center;font-family:var(--mono);font-size:11px;
-          letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
-  .claims li{display:flex;align-items:center}
-  .claims li+li::before{content:"·";margin:0 11px;opacity:.5}
-  /* The rule comes from text-decoration, not a border: a border sits at the
-     edge of the padding box, so growing the hit area would push the
-     underline away from the word AND, the padding being asymmetric, drop
-     this one item below the baseline of the row it belongs to. */
-  .claims a{color:inherit;padding:8px 0;text-decoration:underline;
-            text-decoration-color:var(--line-hi);text-underline-offset:3px}
-  .claims a:hover{color:var(--cream);text-decoration-color:var(--cream)}
-  .tagline{margin:22px auto 0;color:var(--ink-2);font-size:19px;line-height:1.5;max-width:56ch}
-  .tagline b{color:var(--ink);font-weight:600}
+  .hero{padding-top:clamp(108px,14vw,150px);text-align:center}
+  .hero .app-icon{width:clamp(84px,9vw,108px);height:auto;margin:0 auto 26px;
+                  filter:drop-shadow(0 18px 34px rgba(0,0,0,.5))}
+  .hero .meta{margin:20px 0 0;font-size:14px;color:var(--ink-3)}
+  .device{position:relative;margin:clamp(56px,7vw,84px) auto 0;max-width:1100px}
+  .device .screen{aspect-ratio:1000/460}
+  .device::before{content:"";position:absolute;inset:-12% 8% 30%;z-index:-1;
+                  background:radial-gradient(closest-side,rgba(214,189,148,.16),transparent);filter:blur(30px)}
+  .bezel{padding:1.3% 1.3% 0;border-radius:2.6% 2.6% 0 0 / 4.4% 4.4% 0 0;background:var(--notch-ink);
+         box-shadow:0 0 0 1px rgba(255,255,255,.06) inset,0 40px 120px rgba(0,0,0,.6);
+         -webkit-mask-image:linear-gradient(#000 62%,transparent);mask-image:linear-gradient(#000 62%,transparent)}
 
-  /* ---- the pinned teaser ------------------------------------------------
-     The track is taller than the stage by the dwell distance and the stage
-     is sticky inside it, so the film rides to the vertical centre and
-     PARKS there for the whole focused range. Centre-on-arrival is then
-     true by construction rather than by timing luck.
-
-     The dwell is min-height, NOT padding-bottom. A sticky box may only
-     travel inside its containing block's CONTENT box, so room parked in
-     the padding is room it cannot use: with the track exactly as tall as
-     the film, the offset it is allowed is zero and the pin silently
-     degrades to an ordinary scrolling figure — computed style still reads
-     `sticky`, which is what makes it look like a browser bug.
-
-     svh, with vh as the fallback declaration: on iOS the toolbar collapsing
-     grows 100vh mid-scroll, which would slide the parked film down while
-     the reader is looking straight at it. The small viewport height is the
-     one that does not move. */
-  .stage-track{position:relative;margin-top:66px;
-               min-height:calc(var(--stage-h) + 18vh);
-               min-height:calc(var(--stage-h) + 18svh)}
-  .stage{position:sticky;z-index:50;
-         top:max(88px, calc((100vh - var(--stage-h)) / 2));
-         top:max(88px, calc((100svh - var(--stage-h)) / 2))}
-  .machine{max-width:980px;margin:0 auto}
-  /* A plain frame, with no moulded notch of its own: one would make
-     three on one page — the nav's, this one, and the real one inside the
-     recording, which the fake one would overlap. The frame's job is to hold
-     the film, not to re-tell the joke.
-
-     The scale is the antidote to the dead stop. Sticky parks the film by
-     dropping its screen velocity to zero in a single frame and restores it
-     just as abruptly on release; tying a hair of scale to the same value
-     that drives the spotlight means it settles in and lets go instead of
-     freezing and unfreezing. */
-  .bezel{background:var(--notch-ink);border-radius:22px;padding:12px;position:relative;
-         border:1px solid #1d1710;
-         transform:scale(var(--park,1));transform-origin:50% 45%}
-  /* height:auto is load-bearing, not tidiness. The width/height attributes
-     on the <video> exist to reserve the box before the file arrives, but
-     they map to real CSS width/height, and a used height that is not auto
-     makes the browser ignore aspect-ratio entirely — the film renders
-     954x1040, letterboxed, taller than the viewport it is meant to be
-     pinned inside. */
-  .bezel video{border-radius:11px;width:100%;height:auto;
-               aspect-ratio:1600/1040;background:var(--notch-ink)}
-  .machine figcaption{font-family:var(--mono);font-size:11px;letter-spacing:.2em;
-    text-transform:uppercase;color:var(--ink-3);text-align:center;margin-top:18px}
-
-  /* One fixed compositor layer carrying the spotlight's dim and blur. It
-     is deliberately not a filter on the hero subtree: a subtree filter
-     forces everything under it — including the playing video — to repaint
-     on every scroll tick, while here only this layer's opacity moves.
-     z-index 40 sits above the hero copy (1) and below the film (50), so
-     the page recedes and the film never does. */
-  .spot{position:fixed;inset:0;z-index:40;pointer-events:none;opacity:0;
-        background:rgba(6,4,3,.62);
-        backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
-
-  section{padding:124px 0 0}
-
-  /* ---- styles: one picture, three beats ----------------------------------
-     The picture is held against the copy that names it, so the three styles
-     are compared in place rather than one being remembered while the reader
-     scrolls to the next.
-
-     The stacked list is what the cascade starts from and the hold is one
-     enhancement on top of it, because the hold needs three things at once:
-     room for two columns, a script to say which beat is nearest, and
-     permission to move. In that order there is a single place to change it.
-
-     The hold is the sticky the teaser above uses and takes the same limit:
-     a sticky box only travels inside its containing block's content box, so
-     the beats are what give it room. */
-  .story{margin-top:44px;text-align:left}
-  .story .pane{display:none}
-  .shots{position:relative;aspect-ratio:16/10;border-radius:16px;overflow:hidden;
-         border:1px solid var(--line);background:var(--well)}
-  .shots img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
-             opacity:0;transform:scale(1.045);
-             transition:opacity .48s linear, transform .95s var(--ease)}
-  .story[data-on="0"] img[data-shot="0"],
-  .story[data-on="1"] img[data-shot="1"],
-  .story[data-on="2"] img[data-shot="2"]{opacity:1;transform:none}
-  /* The page spells "a level" one way — the capsule in the band below — so
-     progress through this section is spelled the same way. */
-  .story .rail{margin-top:16px;height:4px;border-radius:4px;background:#241c14;
-               overflow:hidden}
-  .story .rail i{display:block;height:100%;background:var(--cream);
-                 transform:scaleX(var(--p,0));transform-origin:left;
-                 transition:transform .18s linear}
-  .story figcaption{font-family:var(--mono);font-size:11px;letter-spacing:.2em;
-    text-transform:uppercase;color:var(--ink-3);margin-top:14px}
-  .beat{padding:24px 0}
-  .beat h3{font-weight:700;font-size:27px;letter-spacing:-.022em;line-height:1.15}
-  .beat .cap{font-family:var(--mono);font-size:11px;letter-spacing:.24em;
-             text-transform:uppercase;color:var(--cream);margin-bottom:14px}
-  .beat p{color:var(--ink-2);margin-top:12px;max-width:44ch}
-  .beat-shot{width:100%;max-width:760px;height:auto;border-radius:16px;
-             border:1px solid var(--line);background:var(--well);
-             margin-bottom:24px}
-  /* The query the script mirrors verbatim, so the layout and the code that
-     feeds it cannot disagree about when the picture is being held. */
-  @media (min-width:841px) and (prefers-reduced-motion:no-preference){
-    .js .story{display:grid;grid-template-columns:7fr 5fr;gap:56px;
-               align-items:start;margin-top:72px}
-    .js .story .pane{display:block;position:sticky;
-                     top:clamp(96px,17vh,190px);margin:0}
-    .js .story .beat-shot{display:none}
-    .js .beat{min-height:50vh;display:flex;flex-direction:column;
-              justify-content:center;padding:0;
-              opacity:.28;transition:opacity .42s var(--ease)}
-    .js .beat.is-on{opacity:1}
+  /* ---- the drawn Mac ----------------------------------------------------
+     Every drawing below is sized in --u, a thousandth of its own width, so a
+     screen scales as one picture from a phone to a wide display. Nothing in it
+     is a screenshot: it shows the app as it is now, and changes with it. */
+  .mock{container-type:inline-size;position:relative}
+  .screen{--u:.1cqw;position:relative;aspect-ratio:1000/560;text-align:left;overflow:hidden;border-radius:calc(var(--u)*14) calc(var(--u)*14) 0 0;
+          background:#1a1714;isolation:isolate}
+  .screen.tall{aspect-ratio:1000/625}
+  .wall{position:absolute;inset:0;z-index:-1;background:
+        radial-gradient(60% 70% at 18% 22%,rgba(122,96,168,.55),transparent 70%),
+        radial-gradient(55% 60% at 82% 18%,rgba(70,104,150,.5),transparent 70%),
+        radial-gradient(70% 70% at 70% 92%,rgba(196,120,72,.55),transparent 70%),
+        radial-gradient(60% 60% at 20% 90%,rgba(150,72,64,.45),transparent 70%),
+        linear-gradient(170deg,#262033,#3a2a2c 55%,#4a3022)}
+  .menubar{position:absolute;inset:0 0 auto;height:calc(var(--u)*26);display:flex;align-items:center;
+           justify-content:space-between;padding:0 calc(var(--u)*16);font-size:calc(var(--u)*12.5);
+           color:rgba(255,255,255,.92);letter-spacing:0;background:rgba(18,14,12,.28);
+           -webkit-backdrop-filter:blur(calc(var(--u)*20));backdrop-filter:blur(calc(var(--u)*20))}
+  .menubar .l{display:flex;gap:calc(var(--u)*18)}
+  .menubar .l b{font-weight:700}
+  .menubar .r{display:flex;align-items:center;gap:calc(var(--u)*14)}
+  .menubar .r svg{width:calc(var(--u)*14);height:calc(var(--u)*14)}
+  .menubar .batt{width:calc(var(--u)*22);height:calc(var(--u)*10.5);border:calc(var(--u)*1.2) solid rgba(255,255,255,.8);
+                 border-radius:calc(var(--u)*3);padding:calc(var(--u)*1.2)}
+  .menubar .batt i{display:block;height:100%;width:72%;background:rgba(255,255,255,.9);border-radius:calc(var(--u)*1.2)}
+  .menubar .mark{width:calc(var(--u)*15)!important;height:calc(var(--u)*15)!important}
+  /* A narrow drawing keeps only the app's name and the clock, clear of the
+     frame's rounded corners: WebKit holds text above a minimum size, so a full
+     menu bar would spill out of a small screen instead of shrinking with it. */
+  @container (max-width:640px){
+    .menubar .l span,.menubar .r>svg:not(.mark),.menubar .batt{display:none}
+    .menubar{padding:0 calc(var(--u)*56)}
   }
 
-  /* ---- indicators: a change of ground -----------------------------------
-     Raised, not sunken. A band darker than the page is a change of ground
-     nobody can see: between #0d0b09 and #080503 there are five levels per
-     channel. The well tone reads as a distinct surface on the first
-     glance, which is the whole point of putting a band here. */
-  .band{margin-top:128px;background:var(--well);
-        border-top:1px solid var(--line);border-bottom:1px solid var(--line);
-        padding:108px 0}
-  .capsule-demo{margin:40px auto 0;display:flex;align-items:center;gap:16px;max-width:460px}
-  .capsule-demo .spk{flex:none}
-  .capsule{position:relative;flex:1;height:6px;border-radius:4px;background:#241c14}
-  .capsule i{position:absolute;inset:0;width:62%;border-radius:4px;background:var(--cream)}
-  .capsule s{position:absolute;left:62%;top:50%;transform:translate(-50%,-50%);
-             width:20px;height:16px;border-radius:8px;background:var(--cream-hi)}
-  /* This capsule is drawn rather than photographed, so it can act: it fills
-     to the level on arrival, the way the app's own does under a keypress.
-     The empty start is gated on .js because only the script tells the demo
-     it has arrived — unscripted, the bar has to be full from the first
-     paint rather than stuck at zero. */
-  .js .capsule i{width:0;transition:width 1.05s var(--ease) .12s}
-  .js .capsule s{left:0;transition:left 1.05s var(--ease) .12s}
-  .js .capsule-demo.is-in i{width:62%}
-  .js .capsule-demo.is-in s{left:62%}
-  .keys{display:grid;grid-template-columns:1fr 1fr;gap:40px 56px;margin-top:60px;text-align:left}
-  /* No cream square here. That mark means "a section starts" on every
-     eyebrow of the page; reusing it as a list bullet gives one glyph two
-     jobs, and the heading weight already separates these four. */
-  .keys h3{font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
-  .keys p{color:var(--ink-2);font-size:14.5px;margin-top:8px}
-  .specimens{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:66px;align-items:start}
-  /* raise, not well: these sit ON the band, which is itself the well tone. */
-  .specimens figure{border:1px solid var(--line);border-radius:14px;overflow:hidden;
-    background:var(--raise);
-    transition:transform .42s var(--ease), border-color .42s var(--ease)}
-  @media (hover:hover) and (pointer:fine){
-    .specimens figure:hover{transform:translateY(-5px);border-color:var(--line-hi)}
-  }
-  .specimens img{width:100%;height:auto}
-  .specimens figcaption{font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;
-    text-transform:uppercase;color:var(--ink-3);padding:12px 14px;text-align:left}
-  @media (max-width:840px){.keys,.specimens{grid-template-columns:1fr}}
+  /* the shared pieces of a player */
+  .art{flex:none;border-radius:calc(var(--u)*8);aspect-ratio:1;background:
+       radial-gradient(circle at 30% 28%,#f6cf96,transparent 46%),
+       radial-gradient(circle at 74% 72%,#8a3b2a,transparent 60%),
+       linear-gradient(140deg,#3d2c5c,#c2683a 70%,#e6a25c);
+       box-shadow:0 calc(var(--u)*2) calc(var(--u)*6) rgba(0,0,0,.35)}
+  .title{font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .artist{color:rgba(255,255,255,.62);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wave{display:flex;align-items:center;gap:calc(var(--u)*2.2);height:calc(var(--u)*14)}
+  .wave i{width:calc(var(--u)*2.6);height:100%;border-radius:9px;background:#e6b07a;transform-origin:center;
+          animation:wave 1.1s ease-in-out infinite;transform:scaleY(.35)}
+  .wave i:nth-child(2){animation-delay:-.35s}.wave i:nth-child(3){animation-delay:-.7s}.wave i:nth-child(4){animation-delay:-.15s}
+  @keyframes wave{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+  .scrub{display:flex;align-items:center;gap:calc(var(--u)*7);font-size:calc(var(--u)*9.5);color:rgba(255,255,255,.55);font-variant-numeric:tabular-nums}
+  .scrub .track{flex:1;height:calc(var(--u)*3.4);border-radius:9px;background:rgba(255,255,255,.18);overflow:hidden}
+  .scrub .track i{display:block;height:100%;width:38%;background:rgba(255,255,255,.85);border-radius:9px}
+  .transport{display:flex;justify-content:center;align-items:center;gap:calc(var(--u)*22);color:#fff}
+  .transport svg{width:calc(var(--u)*15);height:calc(var(--u)*15)}
+  .transport .play{width:calc(var(--u)*19);height:calc(var(--u)*19)}
+  .glyph{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .solid{fill:currentColor}
 
-  /* ---- manifesto -------------------------------------------------------- */
-  .manifesto{display:grid;grid-template-columns:7fr 4fr;gap:64px;align-items:start;
-             margin-top:36px;text-align:left}
-  .manifesto .prose{font-weight:300;font-size:clamp(21px,2.7vw,30px);
-    line-height:1.45;letter-spacing:-.018em}
-  .manifesto .prose em{color:var(--cream);font-style:normal;font-weight:500}
-  .spec{font-family:var(--mono);font-size:12.5px;line-height:2.3;color:var(--ink-2);
-        border-left:1px solid var(--line);padding-left:28px}
-  .spec b{color:var(--ink);font-weight:600}
-  @media (max-width:840px){.manifesto{grid-template-columns:1fr;gap:38px}}
+  /* Notch: the surface IS the notch, black on black, growing out of the cutout */
+  .np{position:absolute;top:0;left:50%;z-index:3;transform:translateX(-50%);width:calc(var(--u)*120);height:calc(var(--u)*26);
+      background:#000;border-radius:0 0 calc(var(--u)*9) calc(var(--u)*9);overflow:hidden;
+      transition:width .62s var(--ease),height .62s var(--ease),border-radius .62s var(--ease)}
+  .np>div{position:absolute;inset:0;opacity:0;transition:opacity .25s}
+  .mock[data-state=compact] .np{width:calc(var(--u)*262)}
+  .mock[data-state=expanded] .np{width:calc(var(--u)*430);height:calc(var(--u)*170);border-radius:0 0 calc(var(--u)*30) calc(var(--u)*30)}
+  .mock[data-state=hud] .np{width:calc(var(--u)*290)}
+  .mock[data-state=compact] .np-compact,.mock[data-state=expanded] .np-full,.mock[data-state=hud] .np-hud{opacity:1;transition:opacity .35s .22s}
+  .np-compact{display:flex;align-items:center;justify-content:space-between;padding:0 calc(var(--u)*9)}
+  .np-compact .art{width:calc(var(--u)*17);border-radius:calc(var(--u)*4)}
+  .np-full{padding:calc(var(--u)*36) calc(var(--u)*24) calc(var(--u)*16);display:flex;flex-direction:column;gap:calc(var(--u)*12)}
+  .np-full .row{display:flex;align-items:center;gap:calc(var(--u)*14)}
+  .np-full .art{width:calc(var(--u)*58)}
+  .np-full .txt{flex:1;min-width:0;font-size:calc(var(--u)*13)}
+  .np-full .title{font-size:calc(var(--u)*14.5)}
+  .np-hud{display:flex;align-items:center;gap:calc(var(--u)*12);padding:0 calc(var(--u)*14);color:#fff}
+  .np-hud svg{width:calc(var(--u)*14);height:calc(var(--u)*14);flex:none}
+  .np-hud .spacer{flex:1}
+  .bar{position:relative;width:calc(var(--u)*92);height:calc(var(--u)*5);border-radius:9px;background:rgba(255,255,255,.2);overflow:hidden}
+  .bar i{position:absolute;inset:0 auto 0 0;width:calc(var(--level,.5)*100%);background:#fff;border-radius:9px;transition:width .18s ease-out}
 
-  /* ---- install ---------------------------------------------------------- */
-  .install{margin-top:128px;padding:108px 0 0}
-  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:36px;margin-top:60px;text-align:left}
-  .steps .n{font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--cream)}
-  .steps h3{font-size:16px;font-weight:600;letter-spacing:-.012em;margin-top:10px}
-  .steps p{color:var(--ink-2);font-size:14.5px;margin-top:6px}
-  .steps a{color:var(--cream)}
-  .warn{margin:52px auto 0;border:1px solid var(--line);border-radius:14px;background:var(--well);
-        padding:20px 24px;font-size:14.5px;color:var(--ink-2);max-width:70ch;text-align:left}
-  .warn b{color:var(--ink)}
-  .warn code{font-family:var(--mono);font-size:12px;background:var(--raise);
-             border-radius:6px;padding:3px 8px;color:var(--cream);
-             display:inline-block;word-break:break-all}
-  @media (max-width:840px){.steps{grid-template-columns:1fr;gap:28px}}
+  /* Card: a translucent panel below the menu bar */
+  .glass{background:rgba(26,21,17,.5);-webkit-backdrop-filter:blur(calc(var(--u)*26)) saturate(150%);backdrop-filter:blur(calc(var(--u)*26)) saturate(150%);
+         box-shadow:inset 0 calc(var(--u)*1) 0 rgba(255,255,255,.16),0 0 0 calc(var(--u)*1) rgba(255,255,255,.07),0 calc(var(--u)*18) calc(var(--u)*46) rgba(0,0,0,.42)}
+  .card-np{position:absolute;top:calc(var(--u)*42);left:50%;width:calc(var(--u)*372);transform:translateX(-50%);
+           border-radius:calc(var(--u)*22);padding:calc(var(--u)*16);display:flex;flex-direction:column;gap:calc(var(--u)*10)}
+  .card-np .row{display:flex;align-items:center;gap:calc(var(--u)*12)}
+  .card-np .art{width:calc(var(--u)*52)}
+  .card-np .txt{flex:1;min-width:0;font-size:calc(var(--u)*12.5)}
+  .card-np .title{font-size:calc(var(--u)*14)}
 
-  /* ---- outro -------------------------------------------------------------
-     The icon wearing a notch of its own, straight above the last ask. It
-     is the only image on the page that is the product rather than a
-     screenshot of it. */
-  .outro{margin-top:140px;padding:120px 0 130px;border-top:1px solid var(--line);
-         position:relative;overflow:hidden}
-  .outro::before{content:"";position:absolute;left:50%;top:0;transform:translateX(-50%);
-    width:min(1000px,120%);height:520px;pointer-events:none;
-    background:radial-gradient(closest-side,rgba(214,189,148,.11),transparent 72%)}
-  .outro .wrap{position:relative}
-  /* The icon, and nothing added to it. The page already wears one notch and
-     it is the subject; a second one pasted on the mark is the same idea
-     said twice, and pasted is the word — it floated above the art instead
-     of being cut into it. */
-  .mark{width:84px;margin:0 auto 30px}
-  .mark img{width:100%;height:auto;display:block}
+  /* Classic: a quiet block near the bottom, the old indicator's address */
+  .classic-np{position:absolute;bottom:calc(var(--u)*54);left:50%;width:calc(var(--u)*196);transform:translateX(-50%);
+              border-radius:calc(var(--u)*26);padding:calc(var(--u)*18);display:flex;flex-direction:column;align-items:center;
+              gap:calc(var(--u)*9);text-align:center;font-size:calc(var(--u)*11.5)}
+  .classic-np .art{width:calc(var(--u)*84);border-radius:calc(var(--u)*10)}
+  .classic-np .txt{width:100%}
+  .classic-np .title{font-size:calc(var(--u)*13)}
+  .classic-np .transport{gap:calc(var(--u)*18)}
 
-  /* ---- footer ----------------------------------------------------------- */
-  footer{border-top:1px solid var(--line);padding:44px 0 72px;color:var(--ink-3);font-size:14px}
-  footer .row{display:flex;gap:8px 26px;flex-wrap:wrap;align-items:center}
-  /* Padding, not line-height: it enlarges the hit area of a row of small
-     text links without opening a gap in the line it sits on. */
-  footer a{color:var(--ink-3);text-decoration:none;padding:9px 0;
-           transition:color .2s var(--ease)}
-  footer a:hover{color:var(--cream)}
-  /* The house endorsement ("Crema by colatte."), per the Colatte credits kit:
-     `colatte.` is the official lettering — an SVG tinted by currentColor,
-     never the word typed in a font — and the host text before it is the
-     product's name as the product writes it. The credit is a guest: it takes
-     this row's font, size and ink, hover goes to the row's own cream, and it
-     closes the page's last line at the right, no larger than its neighbours.
-     The kit's resting opacity (.6) is deliberately NOT applied: --ink-3 is
-     already an alpha (.55), and composing the two lands at .33 — under the
-     .38 this page measured at 2.97:1 and rejected above. The wordmark is
-     baseline-aligned and sized to the ascender (.82em), so its l and t meet
-     the top of the text beside it. */
+  /* the style switcher shows one player at a time */
+  .styles-mock .np,.styles-mock .card-np,.styles-mock .classic-np{transition:opacity .45s var(--ease),transform .55s var(--ease),
+     width .62s var(--ease),height .62s var(--ease),border-radius .62s var(--ease)}
+  .styles-mock[data-style=notch] .card-np,.styles-mock[data-style=notch] .classic-np,
+  .styles-mock[data-style=card] .classic-np,
+  .styles-mock[data-style=classic] .card-np{opacity:0;pointer-events:none}
+  /* Any other style leaves the notch as the hardware it is: the bare cutout. */
+  .styles-mock:not([data-style=notch]) .np{width:calc(var(--u)*120);height:calc(var(--u)*26);border-radius:0 0 calc(var(--u)*9) calc(var(--u)*9)}
+  .styles-mock:not([data-style=notch]) .np-full{opacity:0;transition:opacity .15s}
+  .styles-mock[data-style=notch] .card-np{transform:translateX(-50%) translateY(calc(var(--u)*-14)) scale(.96)}
+  .styles-mock[data-style=notch] .classic-np,.styles-mock[data-style=card] .classic-np{transform:translateX(-50%) translateY(calc(var(--u)*16)) scale(.96)}
+  .styles-mock[data-style=classic] .card-np{transform:translateX(-50%) translateY(calc(var(--u)*-14)) scale(.96)}
+
+  /* a pointer for the hero's story */
+  .cursor{position:absolute;z-index:6;left:0;top:0;width:calc(var(--u)*17);height:calc(var(--u)*24);
+          transform:translate(calc(var(--u)*760),calc(var(--u)*420));transition:transform 1.1s var(--ease);pointer-events:none}
+  .cursor svg{width:100%;height:100%;filter:drop-shadow(0 calc(var(--u)*2) calc(var(--u)*3) rgba(0,0,0,.4))}
+  .cursor.at-notch{transform:translate(calc(var(--u)*512),calc(var(--u)*14))}
+  .cursor.click svg{transform:scale(.86);transition:transform .12s}
+  .cursor.away{transform:translate(calc(var(--u)*690),calc(var(--u)*300))}
+
+  /* ---- segmented control ---------------------------------------------- */
+  .seg{position:relative;display:inline-flex;padding:3px;border-radius:999px;background:var(--raise);
+       box-shadow:inset 0 0 0 1px var(--line)}
+  .seg button{position:relative;z-index:1;border:0;background:none;padding:8px 22px;border-radius:999px;cursor:pointer;
+              font-size:15px;font-weight:500;color:var(--ink-2);transition:color .25s}
+  .seg button[aria-selected=true],.seg button[aria-pressed=true]{color:#1b1610}
+  .seg .thumb{position:absolute;top:3px;bottom:3px;left:0;border-radius:999px;background:var(--cream);
+              transition:transform .45s var(--ease),width .45s var(--ease)}
+  .switcher{display:flex;justify-content:center;margin-bottom:34px}
+  .style-copy{max-width:620px;margin:40px auto 0;text-align:center;min-height:96px}
+  .style-copy p{margin:8px 0 0;color:var(--ink-2)}
+  .panel-frame{border-radius:22px;overflow:hidden;box-shadow:0 0 0 1px var(--line),0 30px 90px rgba(0,0,0,.5)}
+
+  /* ---- indicators ------------------------------------------------------ */
+  .huds{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .hud-tile{border-radius:22px;overflow:hidden;box-shadow:0 0 0 1px var(--line)}
+  .hud-tile .screen{aspect-ratio:1000/760;border-radius:0}
+  .hud-tile figcaption{padding:14px 18px 16px;background:var(--well);font-size:15px;color:var(--ink-2)}
+  .hud-tile figcaption b{color:var(--ink);font-weight:600}
+  .notch-hud{position:absolute;top:0;left:50%;transform:translateX(-50%);width:calc(var(--u)*780);height:calc(var(--u)*92);
+             background:#000;border-radius:0 0 calc(var(--u)*32) calc(var(--u)*32);display:flex;align-items:center;
+             gap:calc(var(--u)*28);padding:0 calc(var(--u)*44);color:#fff}
+  .notch-hud svg{width:calc(var(--u)*48);height:calc(var(--u)*48);flex:none}
+  .notch-hud .bar{width:calc(var(--u)*330);height:calc(var(--u)*15)}
+  .card-hud{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:calc(var(--u)*820);height:calc(var(--u)*142);
+            border-radius:calc(var(--u)*47);display:flex;align-items:center;gap:calc(var(--u)*36);padding:0 calc(var(--u)*52);color:#fff}
+  .card-hud svg{width:calc(var(--u)*58);height:calc(var(--u)*58);flex:none}
+  .card-hud .bar{flex:1;width:auto;height:calc(var(--u)*17)}
+  .classic-hud{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:calc(var(--u)*560);height:calc(var(--u)*560);
+               border-radius:calc(var(--u)*72);display:flex;flex-direction:column;align-items:center;justify-content:center;
+               gap:calc(var(--u)*64);color:#fff}
+  .classic-hud svg{width:calc(var(--u)*190);height:calc(var(--u)*190)}
+  .segments{display:flex;gap:calc(var(--u)*6)}
+  .segments i{width:calc(var(--u)*23);height:calc(var(--u)*23);border-radius:calc(var(--u)*3.5);
+              background:linear-gradient(90deg,#fff calc(clamp(0,var(--level,.5)*16 - var(--i),1)*100%),rgba(255,255,255,.18) 0)}
+  .try{display:flex;align-items:center;justify-content:center;gap:16px;margin:30px auto 0;max-width:480px;color:var(--ink-2);font-size:15px}
+  .try svg{width:18px;height:18px;flex:none;color:var(--ink-3)}
+  .try input{flex:1}
+  input[type=range]{-webkit-appearance:none;appearance:none;height:28px;background:none;cursor:pointer}
+  input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:9px;background:
+      linear-gradient(90deg,var(--cream) calc(var(--fill,.5)*100%),rgba(239,232,221,.16) 0)}
+  input[type=range]::-moz-range-track{height:5px;border-radius:9px;background:rgba(239,232,221,.16)}
+  input[type=range]::-moz-range-progress{height:5px;border-radius:9px;background:var(--cream)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8.5px;border-radius:50%;
+      background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+  input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+  .points{display:grid;grid-template-columns:repeat(2,1fr);gap:46px 64px;margin-top:clamp(64px,8vw,96px)}
+  .points p{margin:8px 0 0;color:var(--ink-2)}
+  @media (max-width:760px){.huds{grid-template-columns:1fr}.points{grid-template-columns:1fr;gap:34px}}
+
+  /* ---- card placement -------------------------------------------------- */
+  .place{display:grid;grid-template-columns:1fr 260px;gap:40px;align-items:center}
+  .place .screen{aspect-ratio:1000/625;border-radius:0}
+  .dock{position:absolute;bottom:calc(var(--u)*12);left:50%;transform:translateX(-50%);display:flex;gap:calc(var(--u)*10);
+        padding:calc(var(--u)*9);border-radius:calc(var(--u)*20)}
+  .dock i{width:calc(var(--u)*44);height:calc(var(--u)*44);border-radius:calc(var(--u)*11);background:rgba(255,255,255,.16)}
+  .dock i:nth-child(1){background:linear-gradient(160deg,#5a8fd8,#2f5fa8)}
+  .dock i:nth-child(2){background:linear-gradient(160deg,#f2f2f2,#bdbdbd)}
+  .dock i:nth-child(3){background:linear-gradient(160deg,#ff6a6a,#d63a4a)}
+  .dock i:nth-child(4){background:linear-gradient(160deg,#ffd66b,#f0a83a)}
+  .dock i:nth-child(5){background:linear-gradient(160deg,#2b211a,#1b1610);box-shadow:inset 0 0 0 calc(var(--u)*1) rgba(214,189,148,.4)}
+  .placed{--m:calc(var(--u)*20);position:absolute;width:calc(var(--u)*300);height:calc(var(--u)*52);border-radius:calc(var(--u)*17);
+          display:flex;align-items:center;gap:calc(var(--u)*14);padding:0 calc(var(--u)*18);color:#fff;overflow:hidden;
+          transition:top .6s var(--ease),left .6s var(--ease),transform .6s var(--ease)}
+  .placed svg{position:relative;z-index:1;width:calc(var(--u)*21);height:calc(var(--u)*21);flex:none}
+  .placed .bar{position:relative;z-index:1;flex:1;width:auto}
+  .placed .fill{position:absolute;inset:0 auto 0 0;width:calc(var(--level,.62)*100%);background:rgba(255,255,255,.88);
+                opacity:0;transition:opacity .35s}
+  .placed[data-look=filled] .fill{opacity:1}
+  .placed[data-look=filled] .bar{opacity:0}
+  .placed[data-look=filled] svg{color:#1b1610;mix-blend-mode:normal}
+  .placed[data-pos^=t]{top:calc(var(--u)*26 + var(--m))}
+  .placed[data-pos^=m]{top:50%;transform:translateY(-50%)}
+  .placed[data-pos^=b]{top:calc(100% - var(--u)*62 - var(--m) - var(--u)*52)}
+  .placed[data-pos$=l]{left:var(--m)}
+  .placed[data-pos$=c]{left:50%;transform:translateX(-50%)}
+  .placed[data-pos$=r]{left:calc(100% - var(--m) - var(--u)*300)}
+  .placed[data-pos=ml],.placed[data-pos=mr]{width:calc(var(--u)*52);height:calc(var(--u)*300);flex-direction:column-reverse;
+          padding:calc(var(--u)*18) 0}
+  .placed[data-pos=ml] .bar,.placed[data-pos=mr] .bar{width:calc(var(--u)*5);height:auto}
+  .placed[data-pos=ml] .bar i,.placed[data-pos=mr] .bar i{inset:auto 0 0 0;width:100%;height:calc(var(--level,.62)*100%)}
+  .placed[data-pos=ml] .fill,.placed[data-pos=mr] .fill{inset:auto 0 0 0;width:100%;height:calc(var(--level,.62)*100%)}
+  .controls{display:flex;flex-direction:column;gap:30px}
+  .controls h3{font-size:15px;color:var(--ink-3);font-weight:600;margin-bottom:12px;letter-spacing:-.01em}
+  .map{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;aspect-ratio:16/10;padding:10px;border-radius:16px;
+       background:var(--well);box-shadow:inset 0 0 0 1px var(--line)}
+  .map button{border:0;border-radius:8px;background:rgba(239,232,221,.06);cursor:pointer;transition:background .2s}
+  .map button:hover{background:rgba(239,232,221,.12)}
+  .map button[aria-pressed=true]{background:var(--cream)}
+  .map span{border-radius:8px}
+  @media (max-width:820px){.place{grid-template-columns:1fr}.controls{flex-direction:row;flex-wrap:wrap;justify-content:center}
+    .controls>div{width:min(260px,100%)}}
+
+  /* ---- details --------------------------------------------------------- */
+  .bento{display:grid;grid-template-columns:repeat(6,1fr);gap:20px}
+  .tile{grid-column:span 2;position:relative;overflow:hidden;padding:34px 30px 32px;border-radius:26px;background:var(--well);
+        box-shadow:inset 0 0 0 1px var(--line)}
+  .tile.span3{grid-column:span 3}
+  .tile .ico{width:34px;height:34px;color:var(--cream);margin-bottom:22px}
+  .tile p{margin:8px 0 0;color:var(--ink-2);font-size:16px}
+  .tile .big{font-size:clamp(40px,4.4vw,56px);font-weight:700;letter-spacing:-.04em;line-height:1;color:var(--ink);margin-bottom:18px}
+  .swatch{display:flex;gap:10px;margin-bottom:24px}
+  .swatch i{width:40px;height:40px;border-radius:11px}
+  @media (max-width:900px){.tile,.tile.span3{grid-column:span 3}}
+  @media (max-width:620px){.bento{grid-template-columns:1fr}.tile,.tile.span3{grid-column:auto}}
+
+  /* ---- install --------------------------------------------------------- */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;counter-reset:step}
+  .step{padding:34px 30px;border-radius:26px;background:var(--well);box-shadow:inset 0 0 0 1px var(--line)}
+  .step::before{counter-increment:step;content:counter(step);display:block;font-size:44px;font-weight:700;
+                letter-spacing:-.04em;line-height:1;color:var(--cream);margin-bottom:22px}
+  .step p{margin:8px 0 0;color:var(--ink-2);font-size:16px}
+  .warn{margin-top:20px;padding:30px;border-radius:26px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line-hi)}
+  .warn p{margin:6px 0 0;color:var(--ink-2);font-size:16px}
+  .cmd{display:flex;align-items:center;gap:12px;margin-top:18px;padding:12px 12px 12px 18px;border-radius:14px;background:var(--base);
+       box-shadow:inset 0 0 0 1px var(--line)}
+  .cmd code{flex:1;font:14px/1.4 ui-monospace,"SF Mono",Menlo,monospace;color:var(--ink);overflow-x:auto;white-space:nowrap;letter-spacing:0}
+  .cmd button{flex:none;border:0;border-radius:999px;padding:6px 14px;background:rgba(239,232,221,.08);color:var(--ink);font-size:13px;cursor:pointer}
+  .cmd button:hover{background:rgba(239,232,221,.14)}
+  @media (max-width:760px){.steps{grid-template-columns:1fr}}
+
+  /* ---- outro & footer -------------------------------------------------- */
+  .outro{text-align:center;padding-bottom:clamp(96px,12vw,150px)}
+  .outro img{width:120px;height:auto;margin:0 auto 30px;filter:drop-shadow(0 20px 40px rgba(0,0,0,.55))}
+  footer{border-top:1px solid var(--line);padding:26px 0 calc(30px + env(safe-area-inset-bottom));font-size:13px;color:var(--ink-3)}
+  footer .wide{display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px}
+  footer a{text-decoration:none}
+  footer a:hover{color:var(--ink)}
+  /* The credits kit's resting opacity is not applied on top of --ink-3: the
+     two would compose to .33, under the measured floor (docs/BRAND.md). */
   footer .colatte-credit{margin-left:auto;display:inline-flex;align-items:baseline;gap:.34em;white-space:nowrap}
   footer .colatte-credit svg{display:block;height:.82em;width:auto;flex:none}
-  footer .colatte-credit:focus-visible{outline:1px solid currentColor;outline-offset:.35em;border-radius:2px}
   @media (max-width:640px){footer .colatte-credit{margin-left:0}}
 
-  /* ---- reading progress: the Classic's own 16 segments ------------------- */
-  .meter{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:55;
-         display:flex;gap:3px;padding:8px 10px;border-radius:99px;
-         background:rgba(6,4,3,.78);backdrop-filter:blur(8px);
-         -webkit-backdrop-filter:blur(8px);border:1px solid var(--line)}
-  .meter i{width:9px;height:9px;border-radius:2px;background:#2c241b;transition:background .2s}
-  .meter i.on{background:var(--cream)}
-  @media (max-width:640px){.meter{display:none}}
+  /* ---- reveal ----------------------------------------------------------- */
+  .js .reveal{opacity:0;transform:translateY(26px)}
+  .js .reveal.is-in{opacity:1;transform:none;transition:opacity .9s var(--ease),transform 1.1s var(--ease)}
 
-  /* ---- reduce motion -----------------------------------------------------
-     The app treats Reduce Motion as a veto rather than a discount, and the
-     site owes the same answer: reveals land dry, the spotlight never
-     paints, and the teaser stops autoplaying — it gains controls instead,
-     so the way in still exists. */
   @media (prefers-reduced-motion:reduce){
-    html{scroll-behavior:auto}
-    .js .reveal{opacity:1;transform:none;transition:none}
-    .js .words i{transform:none}
-    .js .eyebrow::before{transform:scale(1)}
-    .js .capsule i{width:62%;transition:none}
-    .js .capsule s{left:62%;transition:none}
-    .spot{display:none}
-    .stage{position:static}
-    .stage-track{min-height:0}
-    .btn,.meter i,footer a,.links a,.burger span,.get,.get-slot{transition:none}
-    /* The folded state redeclares its own transition at higher specificity
-       (it delays `visibility` past the fold), so the veto is repeated at
-       that specificity or it would not reach the one place it matters. */
-    .js .notch:not(.is-past-hero) .get{transition:none}
-  }
-
-  /* A stage taller than the viewport cannot be centred in it, and pinning
-     one only parks its cropped top where the reader cannot reach the rest.
-     Below this height the film simply scrolls past like any other figure. */
-  @media (max-height:780px){
-    .stage{position:static}
-    .stage-track{min-height:0}
+    *,*::before,*::after{animation:none!important;transition:none!important}
+    .js .reveal{opacity:1;transform:none}
+    .cursor{display:none}
   }
 </style>
 </head>
 <body>
 <!-- Crema by colatte. — colatte.io -->
-<div class="sky" aria-hidden="true"></div>
-<div class="grain" aria-hidden="true"></div>
-<div class="spot" id="spot" aria-hidden="true"></div>
 
-<nav class="nav">
-  <div class="notch" id="notch">
-    <a class="brand" href="#"><img src="assets/web/icon.webp" alt="" width="256" height="256">Crema</a>
-    <div class="links" id="navlinks">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="g-speaker" viewBox="0 0 24 24"><path class="solid" d="M3.5 9.2h3.6L12 5v14l-4.9-4.2H3.5z"/><path class="glyph" d="M15.4 9a4.2 4.2 0 0 1 0 6M17.9 6.4a7.9 7.9 0 0 1 0 11.2"/></symbol>
+  <symbol id="g-sun" viewBox="0 0 24 24"><circle class="solid" cx="12" cy="12" r="4.2"/><path class="glyph" d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M5.4 18.6 7 17M17 7l1.6-1.6"/></symbol>
+  <symbol id="g-kbd" viewBox="0 0 24 24"><path class="glyph" d="M12 4.2v2M6.4 6.6l1.4 1.4M17.6 6.6 16.2 8"/><path class="solid" d="M8.6 12.6a3.4 3.4 0 0 1 6.8 0z"/><rect class="solid" x="3.4" y="15.2" width="17.2" height="3.6" rx="1.4"/></symbol>
+  <symbol id="g-play" viewBox="0 0 24 24"><path class="solid" d="M7.5 4.8 19 12 7.5 19.2z"/></symbol>
+  <symbol id="g-pause" viewBox="0 0 24 24"><rect class="solid" x="6" y="4.6" width="4" height="14.8" rx="1"/><rect class="solid" x="14" y="4.6" width="4" height="14.8" rx="1"/></symbol>
+  <symbol id="g-prev" viewBox="0 0 24 24"><path class="solid" d="M12.4 12 21 6.2v11.6zM3.6 12l8.6-5.8v11.6z"/></symbol>
+  <symbol id="g-next" viewBox="0 0 24 24"><path class="solid" d="M11.6 12 3 17.8V6.2zM20.4 12l-8.6 5.8V6.2z"/></symbol>
+  <symbol id="g-headphones" viewBox="0 0 24 24"><path class="glyph" d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect class="solid" x="3" y="13.5" width="4.6" height="7" rx="1.8"/><rect class="solid" x="16.4" y="13.5" width="4.6" height="7" rx="1.8"/></symbol>
+  <symbol id="g-chevron" viewBox="0 0 12 12"><path class="glyph" d="M4.2 2.2 8 6l-3.8 3.8"/></symbol>
+  <symbol id="g-download" viewBox="0 0 16 16"><path class="glyph" d="M8 1.8v8.6m0 0L4.6 7M8 10.4 11.4 7M2.4 12.6v.6a1 1 0 0 0 1 1h9.2a1 1 0 0 0 1-1v-.6"/></symbol>
+  <symbol id="g-mark" viewBox="0 0 1024 1024"><path class="solid" d="M 865.5313 244.1478 C 863.8632 244.2322 863.1692 248.8721 861.9881 247.6911 C 846.1772 231.8802 819.6974 219.1679 798.2083 208.7175 C 759.5362 189.9107 713.3753 178.6289 670.6543 178.6289 C 547.7256 178.6289 448.7268 282.5932 426.4450 398.5507 C 422.0709 421.3141 424.3033 446.3860 426.0931 469.2213 C 427.7871 490.8346 432.3045 515.3598 441.5437 535.2647 C 449.0808 551.5027 457.3461 570.0971 470.0213 582.9664 C 556.7122 670.9850 618.5909 588.7092 679.9687 522.7470 C 704.6424 496.2304 734.3107 470.3399 766.3347 453.2112 C 857.2592 404.5783 949.9514 414.8868 959.3476 534.7709 C 967.9088 644.0015 890.8522 745.9620 810.2341 810.6855 C 656.4078 934.1834 428.8954 962.7706 258.9907 856.0033 C 213.7841 827.5956 169.1879 790.1258 139.8216 744.8632 C 93.4137 673.3341 58.0241 588.1105 64.8429 501.1103 C 79.0404 319.9677 231.2912 151.5630 410.5005 116.8648 C 515.7127 96.4937 657.7646 89.1161 753.2698 149.1311 C 779.4333 165.5721 805.2354 182.7947 827.8711 203.8573 C 841.3061 216.3585 855.5625 235.1871 865.5313 244.1478 Z"/></symbol>
+  <symbol id="g-displays" viewBox="0 0 24 24"><rect class="glyph" x="2.6" y="5" width="11.4" height="8.2" rx="1.6"/><path class="glyph" d="M5.6 16.4h5.4"/><rect class="glyph" x="11.6" y="8.4" width="9.8" height="7.2" rx="1.4"/><path class="glyph" d="M14.4 18.8h4.2"/></symbol>
+  <symbol id="g-wifi" viewBox="0 0 24 24"><path class="glyph" d="M3.2 9.4a12.6 12.6 0 0 1 17.6 0M6.2 12.6a8.4 8.4 0 0 1 11.6 0M9.2 15.8a4.2 4.2 0 0 1 5.6 0"/><circle class="solid" cx="12" cy="19" r="1.5"/></symbol>
+  <symbol id="g-cursor" viewBox="0 0 17 24"><path d="M1 1v19.5l5-4.8 3.3 7.2 3.3-1.5-3.2-7H16z" fill="#fff" stroke="#000" stroke-width="1.2" stroke-linejoin="round"/></symbol>
+</svg>
+
+<nav class="nav" id="nav" aria-label="Crema">
+  <div class="wide">
+    <a class="brand" href="#top"><img src="assets/web/icon.webp" alt="" width="256" height="256">Crema</a>
+    <div class="nav-links">
       <a href="#styles">Styles</a>
-      <a href="#huds">Indicators</a>
+      <a href="#indicators">Indicators</a>
       <a href="#install">Install</a>
     </div>
-    <span class="get-slot"><a class="get" href="https://github.com/colatte/crema/releases/latest/download/Crema.dmg">Get Crema</a></span>
-    <button class="burger" id="burger" type="button"
-            aria-label="Menu" aria-expanded="false" aria-controls="navlinks">
-      <span></span><span></span><span></span>
-    </button>
+    <a class="btn get" id="nav-get" href="https://github.com/colatte/crema/releases/latest/download/Crema.dmg" tabindex="-1">Download</a>
   </div>
 </nav>
 
-<header>
-  <div class="wrap mid">
-    <p class="eyebrow reveal" data-reveal-on-load style="--reveal-delay:0ms">for macOS 14+ · free &amp; open source</p>
-    <h1 class="words" id="headline">A quiet companion for your Mac's <em>notch</em>.</h1>
-    <p class="tagline reveal" data-reveal-on-load style="--reveal-delay:160ms">Crema shows <b>what's playing</b> — artwork,
-    a touch of its color, the controls you reach for — and gives <b>volume, brightness and the
-    keyboard backlight</b> indicators of their own, optionally replacing the system's. Native,
-    and out of the way.</p>
-    <div class="cta reveal" data-reveal-on-load style="--reveal-delay:240ms">
-      <a class="btn cream" href="https://github.com/colatte/crema/releases/latest/download/Crema.dmg">
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.6v9m0 0L4.4 7M8 10.6 11.6 7M2 12.6v.8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Download for macOS</a>
-      <a class="btn line" href="https://github.com/colatte/crema">View source</a>
+<main id="top">
+  <header class="hero">
+    <div class="wrap">
+      <img class="app-icon reveal" src="assets/web/icon.webp" alt="Crema app icon" width="256" height="256">
+      <h1 class="reveal">A quiet companion for your Mac's <em>notch</em>.</h1>
+      <p class="lead reveal">What's playing, by the notch. Volume and brightness, with indicators that match. Native, and out of the way.</p>
+      <div class="actions reveal">
+        <a class="btn" id="hero-get" href="https://github.com/colatte/crema/releases/latest/download/Crema.dmg"><svg aria-hidden="true"><use href="#g-download"/></svg>Download for Mac</a>
+        <a class="link" href="https://github.com/colatte/crema">View on GitHub<svg aria-hidden="true"><use href="#g-chevron"/></svg></a>
+      </div>
+      <p class="meta reveal">Free and open source · macOS 14 or later · Apple silicon and Intel</p>
     </div>
-    <ul class="claims reveal" data-reveal-on-load style="--reveal-delay:300ms" aria-label="At a glance">
-      <li>GPL-3.0</li>
-      <li>Apple Silicon &amp; Intel</li>
-      <li>English / Português</li>
-      <li>Updates itself</li>
-      <li><a href="https://github.com/colatte/crema#installation">Install guide</a></li>
-    </ul>
-
-    <div class="stage-track" id="stage-track">
-      <div class="stage">
-        <figure class="machine reveal" data-reveal-on-load style="--reveal-delay:360ms">
-          <div class="bezel">
-            <video id="teaser" src="assets/video/crema-teaser.mp4"
-                   poster="assets/video/crema-teaser-poster.jpg"
-                   width="1600" height="1040"
-                   autoplay muted loop playsinline
-                   aria-label="Crema in motion: volume keys fill the capsule at the notch, the bar is dragged by hand, the notch opens with the playing track — artwork, scrubber and transports — and the style is switched in Settings, Card to Classic, on tiles drawn over the same wallpaper"></video>
+    <figure class="device wide reveal">
+      <figcaption class="sr">A Mac screen drawn on the page: a new track shows as a sliver beside the notch, a click opens the player under it with the artwork, the scrubber and the controls, and a volume key turns the notch into a volume indicator.</figcaption>
+      <div class="bezel" aria-hidden="true">
+        <div class="mock" id="hero-mock" data-state="idle">
+          <div class="screen">
+            <div class="wall"></div>
+            <div class="menubar">
+              <div class="l"><b>Finder</b><span>File</span><span>Edit</span><span>View</span><span>Go</span><span>Window</span><span>Help</span></div>
+              <div class="r"><svg class="mark"><use href="#g-mark"/></svg><svg><use href="#g-wifi"/></svg><span class="batt"><i></i></span><span>Thu 9:41</span></div>
+            </div>
+            <div class="np">
+              <div class="np-compact"><span class="art"></span><span class="wave"><i></i><i></i><i></i><i></i></span></div>
+              <div class="np-full">
+                <div class="row">
+                  <span class="art"></span>
+                  <div class="txt"><div class="title">Slow Mornings</div><div class="artist">Harbour Lights</div></div>
+                  <span class="wave"><i></i><i></i><i></i><i></i></span>
+                </div>
+                <div class="scrub"><span>1:24</span><span class="track"><i></i></span><span>3:41</span></div>
+                <div class="transport"><svg><use href="#g-prev"/></svg><svg class="play"><use href="#g-pause"/></svg><svg><use href="#g-next"/></svg></div>
+              </div>
+              <div class="np-hud"><svg><use href="#g-speaker"/></svg><span class="spacer"></span><span class="bar"><i></i></span></div>
+            </div>
+            <div class="cursor" id="hero-cursor"><svg><use href="#g-cursor"/></svg></div>
           </div>
-          <figcaption>one take, uncut — volume, the player, a style switch</figcaption>
+        </div>
+      </div>
+    </figure>
+  </header>
+
+  <section id="styles">
+    <div class="wrap section-head">
+      <p class="eyebrow reveal">Three styles</p>
+      <h2 class="reveal">One idea, three ways to wear it.</h2>
+      <p class="lead reveal">Pick a style for every display, or give one display its own. On a Mac without a notch, Notch is drawn as Card.</p>
+    </div>
+    <div class="wide">
+      <div class="switcher reveal">
+        <div class="seg" role="tablist" aria-label="Style" id="style-tabs">
+          <span class="thumb" aria-hidden="true"></span>
+          <button type="button" role="tab" id="tab-notch" aria-controls="style-panel" aria-selected="true" data-style="notch">Notch</button>
+          <button type="button" role="tab" id="tab-card" aria-controls="style-panel" aria-selected="false" tabindex="-1" data-style="card">Card</button>
+          <button type="button" role="tab" id="tab-classic" aria-controls="style-panel" aria-selected="false" tabindex="-1" data-style="classic">Classic</button>
+        </div>
+      </div>
+      <div class="panel-frame reveal" id="style-panel" role="tabpanel" aria-labelledby="tab-notch">
+        <div class="mock styles-mock" id="styles-mock" data-style="notch" data-state="expanded" aria-hidden="true">
+          <div class="screen tall">
+            <div class="wall"></div>
+            <div class="menubar">
+              <div class="l"><b>Finder</b><span>File</span><span>Edit</span><span>View</span><span>Go</span><span>Window</span><span>Help</span></div>
+              <div class="r"><svg class="mark"><use href="#g-mark"/></svg><svg><use href="#g-wifi"/></svg><span class="batt"><i></i></span><span>Thu 9:41</span></div>
+            </div>
+            <div class="np">
+              <div class="np-full">
+                <div class="row">
+                  <span class="art"></span>
+                  <div class="txt"><div class="title">Slow Mornings</div><div class="artist">Harbour Lights</div></div>
+                  <span class="wave"><i></i><i></i><i></i><i></i></span>
+                </div>
+                <div class="scrub"><span>1:24</span><span class="track"><i></i></span><span>3:41</span></div>
+                <div class="transport"><svg><use href="#g-prev"/></svg><svg class="play"><use href="#g-pause"/></svg><svg><use href="#g-next"/></svg></div>
+              </div>
+            </div>
+            <div class="card-np glass">
+              <div class="row">
+                <span class="art"></span>
+                <div class="txt"><div class="title">Slow Mornings</div><div class="artist">Harbour Lights</div></div>
+                <span class="wave"><i></i><i></i><i></i><i></i></span>
+              </div>
+              <div class="scrub"><span>1:24</span><span class="track"><i></i></span><span>3:41</span></div>
+              <div class="transport"><svg><use href="#g-prev"/></svg><svg class="play"><use href="#g-pause"/></svg><svg><use href="#g-next"/></svg></div>
+            </div>
+            <div class="classic-np glass">
+              <span class="art"></span>
+              <div class="txt"><div class="title">Slow Mornings</div><div class="artist">Harbour Lights</div></div>
+              <div class="transport"><svg><use href="#g-prev"/></svg><svg class="play"><use href="#g-pause"/></svg><svg><use href="#g-next"/></svg></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="style-copy" aria-live="polite" id="style-copy">
+        <h3>Blends into the notch</h3>
+        <p>Black on black, flush with the bezel. A new track shows a sliver, its title and a waveform, then tucks away. Click the notch and the player opens.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="indicators">
+    <div class="wrap section-head">
+      <p class="eyebrow reveal">Indicators</p>
+      <h2 class="reveal">Indicators that match. Keys that behave.</h2>
+      <p class="lead reveal">Turn on one switch and Crema replaces the system's volume, brightness and keyboard backlight indicators with its own, in the style you picked. It stays off until you choose it, and quitting Crema brings the system's back.</p>
+    </div>
+    <div class="wide" id="levels" style="--level:.62">
+      <div class="huds" aria-hidden="true">
+        <figure class="hud-tile reveal">
+          <div class="mock"><div class="screen">
+            <div class="wall"></div>
+            <div class="notch-hud"><svg><use href="#g-speaker"/></svg><span class="spacer" style="flex:1"></span><span class="bar"><i></i></span></div>
+          </div></div>
+          <figcaption><b>Notch</b> · volume</figcaption>
+        </figure>
+        <figure class="hud-tile reveal">
+          <div class="mock"><div class="screen">
+            <div class="wall"></div>
+            <div class="card-hud glass"><svg><use href="#g-sun"/></svg><span class="bar"><i></i></span></div>
+          </div></div>
+          <figcaption><b>Card</b> · brightness</figcaption>
+        </figure>
+        <figure class="hud-tile reveal">
+          <div class="mock"><div class="screen">
+            <div class="wall"></div>
+            <div class="classic-hud glass"><svg><use href="#g-kbd"/></svg>
+              <span class="segments"><i style="--i:0"></i><i style="--i:1"></i><i style="--i:2"></i><i style="--i:3"></i><i style="--i:4"></i><i style="--i:5"></i><i style="--i:6"></i><i style="--i:7"></i><i style="--i:8"></i><i style="--i:9"></i><i style="--i:10"></i><i style="--i:11"></i><i style="--i:12"></i><i style="--i:13"></i><i style="--i:14"></i><i style="--i:15"></i></span>
+            </div>
+          </div></div>
+          <figcaption><b>Classic</b> · keyboard backlight, sixteen segments</figcaption>
         </figure>
       </div>
+      <label class="try reveal"><svg aria-hidden="true"><use href="#g-speaker"/></svg><span class="sr">Level, to try the indicators</span>
+        <input type="range" id="level" min="0" max="1" step="0.01" value="0.62" style="--fill:.62">
+      </label>
     </div>
-  </div>
-</header>
+    <div class="wrap">
+      <div class="points">
+        <div class="reveal"><h3>Honest with your keys</h3><p>A key Crema can't act on, a display it doesn't drive or a device with no volume, goes back to the system whole, indicator and all.</p></div>
+        <div class="reveal"><h3>Follows your pointer</h3><p>A brightness key acts on the display under your pointer. Crema drives the built-in one; any other gets the key back, so macOS shows its own.</p></div>
+        <div class="reveal"><h3>Recovers on its own</h3><p>If one channel fails mid-press, only that one steps aside, and it comes back when the device does. The menu bar tells you if it doesn't.</p></div>
+        <div class="reveal"><h3>Works with BetterDisplay</h3><p>With BetterDisplay 4.2.1 or newer, Crema shows the brightness indicator for an external display, on the screen it belongs to.</p></div>
+      </div>
+    </div>
+  </section>
 
-<section id="styles">
-  <div class="wrap mid">
-    <p class="eyebrow reveal">three styles</p>
-    <h2 class="reveal" style="--reveal-delay:80ms">One idea, <em>three</em> ways to wear it.</h2>
-    <p class="lead reveal" style="--reveal-delay:140ms">A style for every display. An override for any single one.
-    The tiles in Settings draw each style on your actual wallpaper — you choose
-    by looking, not by guessing.</p>
-  </div>
-  <div class="wrap">
-    <div class="story" id="story" data-on="0">
-      <figure class="pane">
-        <div class="shots">
-          <img data-shot="0" src="assets/web/notch-expanded.webp" width="1180" height="413" loading="lazy" alt="Notch style: the surface blends into the cutout, expanded with artwork, scrubber and transports">
-          <img data-shot="1" src="assets/web/card-expanded.webp" width="1180" height="730" loading="lazy" alt="Card style: a rounded translucent panel floating below the menu bar">
-          <img data-shot="2" src="assets/web/classic-expanded.webp" width="1180" height="1155" loading="lazy" alt="Classic style: a quiet square block near the bottom of the screen">
+  <section id="card">
+    <div class="wrap section-head">
+      <p class="eyebrow reveal">Card</p>
+      <h2 class="reveal">The indicator goes where you look.</h2>
+      <p class="lead reveal">On Card, the volume and brightness indicator can sit in one of eight places, as a thin line or filling the whole card. At the bottom it stays clear of the Dock.</p>
+    </div>
+    <div class="wide">
+      <div class="place">
+        <div class="panel-frame reveal" aria-hidden="true">
+          <div class="mock"><div class="screen">
+            <div class="wall"></div>
+            <div class="menubar">
+              <div class="l"><b>Finder</b><span>File</span><span>Edit</span><span>View</span></div>
+              <div class="r"><svg class="mark"><use href="#g-mark"/></svg><span>Thu 9:41</span></div>
+            </div>
+            <div class="placed glass" id="placed" data-pos="bc" data-look="line" style="--level:.62">
+              <span class="fill"></span><svg><use href="#g-speaker"/></svg><span class="bar"><i></i></span>
+            </div>
+            <div class="dock glass"><i></i><i></i><i></i><i></i><i></i></div>
+          </div></div>
         </div>
-        <div class="rail" aria-hidden="true"><i></i></div>
-        <figcaption>style · notch</figcaption>
-      </figure>
-      <div class="beats">
-        <article class="beat">
-          <img class="beat-shot" src="assets/web/notch-expanded.webp" width="1180" height="413" loading="lazy" alt="Notch style: the surface blends into the cutout, expanded with artwork, scrubber and transports">
-          <p class="cap">01 · notch</p>
-          <h3>Blends into the cutout</h3>
-          <p>The surface is the notch — black on black, flush with the bezel, as if
-          the hardware had always known. A new track shows a sliver — title and
-          waveform — then tucks away; click the cutout and the track opens. On a
-          Mac without one, it gracefully becomes the Card.</p>
-        </article>
-        <article class="beat">
-          <img class="beat-shot" src="assets/web/card-expanded.webp" width="1180" height="730" loading="lazy" alt="Card style: a rounded translucent panel floating below the menu bar">
-          <p class="cap">02 · card</p>
-          <h3>Floats below the menu bar</h3>
-          <p>A translucent panel below the menu bar, dark on any desk and lit
-          along the top — it holds its edge over a white page. Its
-          indicator is yours to pick: a thin line, or the whole card filling
-          to the level.</p>
-        </article>
-        <article class="beat">
-          <img class="beat-shot" src="assets/web/classic-expanded.webp" width="1180" height="1155" loading="lazy" alt="Classic style: a quiet square block near the bottom of the screen">
-          <p class="cap">03 · classic</p>
-          <h3>Where the bezel always lived</h3>
-          <p>A quiet square near the bottom — the native HUD's old address.
-          Sixteen segments, half-steps included. No surprises for muscle memory.</p>
-        </article>
+        <div class="controls reveal">
+          <div>
+            <h3 id="pos-label">Position</h3>
+            <div class="map" id="map" role="group" aria-labelledby="pos-label">
+              <button type="button" data-pos="tl" aria-pressed="false" aria-label="Top left"></button>
+              <button type="button" data-pos="tc" aria-pressed="false" aria-label="Top center"></button>
+              <button type="button" data-pos="tr" aria-pressed="false" aria-label="Top right"></button>
+              <button type="button" data-pos="ml" aria-pressed="false" aria-label="Middle left"></button>
+              <span aria-hidden="true"></span>
+              <button type="button" data-pos="mr" aria-pressed="false" aria-label="Middle right"></button>
+              <button type="button" data-pos="bl" aria-pressed="false" aria-label="Bottom left"></button>
+              <button type="button" data-pos="bc" aria-pressed="true" aria-label="Bottom center"></button>
+              <button type="button" data-pos="br" aria-pressed="false" aria-label="Bottom right"></button>
+            </div>
+          </div>
+          <div>
+            <h3 id="look-label">Indicator</h3>
+            <div class="seg" role="group" aria-labelledby="look-label" id="look">
+              <span class="thumb" aria-hidden="true"></span>
+              <button type="button" aria-pressed="true" data-look="line">Line</button>
+              <button type="button" aria-pressed="false" data-look="filled">Filled</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<section class="band" id="huds">
-  <div class="wrap mid">
-    <p class="eyebrow reveal">your keys, your indicators</p>
-    <h2 class="reveal" style="--reveal-delay:80ms">HUDs that match — keys that <em>behave</em>.</h2>
-    <div class="capsule-demo reveal" style="--reveal-delay:140ms" aria-hidden="true">
-      <svg class="spk" width="22" height="18" viewBox="0 0 22 18" fill="none" aria-hidden="true"><path d="M2 6h4l5-4v14l-5-4H2z" fill="var(--cream)"/><path d="M14 5.5a5 5 0 0 1 0 7M16.5 3a8.5 8.5 0 0 1 0 12" stroke="var(--cream)" stroke-width="1.6" stroke-linecap="round"/></svg>
-      <span class="capsule"><i></i><s></s></span>
+  <section id="details">
+    <div class="wrap section-head">
+      <p class="eyebrow reveal">Details</p>
+      <h2 class="reveal">Small things, done with care.</h2>
     </div>
-    <p class="lead reveal" style="--reveal-delay:180ms">Flip one switch and Crema replaces the system's volume,
-    brightness and keyboard-backlight indicators with its own. Same voice as the
-    player, on every screen. Off by default. Reversible any time. Quit, and the
-    native HUDs are back — you never get locked in.</p>
-    <div class="keys">
-      <div class="reveal"><h3>Honest with your keys</h3><p>A key Crema can't honour — a display it
-        doesn't drive, a device with no volume — goes back to the system whole,
-        indicator and all. A taken key always owes you feedback.</p></div>
-      <div class="reveal" style="--reveal-delay:80ms"><h3>Self-healing</h3><p>If a channel fails mid-press, only that channel
-        steps aside; it re-engages by itself when the device returns, and the menu
-        bar tells you if it doesn't.</p></div>
-      <div class="reveal" style="--reveal-delay:160ms"><h3>Follows your pointer</h3><p>A brightness key acts on the display
-        under your cursor — the built-in panel Crema drives itself; any other,
-        it hands the key whole to whoever does. Dimming a screen you aren't
-        looking at is not an improvement on the system HUD.</p></div>
-      <div class="reveal" style="--reveal-delay:240ms"><h3>Shares with BetterDisplay</h3><p>Its brightness curve, Crema's HUD —
-        external monitors included, each bar drawn on the screen it belongs to,
-        and a drag on it written back through BetterDisplay, on the very scale it
-        reported.</p></div>
+    <div class="wide bento">
+      <article class="tile span3 reveal">
+        <div class="swatch" aria-hidden="true"><i style="background:linear-gradient(140deg,#3d2c5c,#c2683a 70%,#e6a25c)"></i><i style="background:#e6b07a"></i></div>
+        <h3>A touch of its colour</h3>
+        <p>The player borrows a hint of the colour in the artwork that's playing. A touch, never a wash.</p>
+      </article>
+      <article class="tile span3 reveal">
+        <svg class="ico" aria-hidden="true"><use href="#g-headphones"/></svg>
+        <h3>Where the sound goes</h3>
+        <p>The volume indicator shows where the sound is going: AirPods, headphones, an AirPlay speaker.</p>
+      </article>
+      <article class="tile reveal">
+        <svg class="ico" aria-hidden="true"><use href="#g-displays"/></svg>
+        <h3>A style for each display</h3>
+        <p>Notch on the built-in display, Card on an external one. The player shows only on the displays you switch on.</p>
+      </article>
+      <article class="tile reveal">
+        <svg class="ico" aria-hidden="true"><use href="#g-play"/></svg>
+        <h3>Shows up, then steps aside</h3>
+        <p>A new track surfaces for a moment and tucks away. Prefer quiet? Keep the player hidden until you click.</p>
+      </article>
+      <article class="tile reveal">
+        <p class="big" aria-hidden="true">0</p>
+        <h3>Nothing to sign up for</h3>
+        <p>No accounts, no analytics. Updates arrive through a signed feed.</p>
+      </article>
+      <article class="tile reveal">
+        <svg class="ico" aria-hidden="true"><use href="#g-sun"/></svg>
+        <h3>Easy on your Mac</h3>
+        <p>Reduce Motion and Low Power Mode are respected.</p>
+      </article>
+      <article class="tile reveal">
+        <p class="big" aria-hidden="true">EN · PT</p>
+        <h3>English and Português</h3>
+        <p>The whole app, in both.</p>
+      </article>
+      <article class="tile reveal">
+        <svg class="ico" aria-hidden="true"><use href="#g-mark"/></svg>
+        <h3>Open source</h3>
+        <p>Free, under the GPL-3.0. Every line is on <a class="link" style="font-size:inherit" href="https://github.com/colatte/crema">GitHub</a>.</p>
+      </article>
     </div>
-    <div class="specimens">
-      <figure class="reveal"><img src="assets/web/hud-notch.webp" width="760" height="507" loading="lazy" alt="Volume capsule at the notch"><figcaption>volume · notch</figcaption></figure>
-      <figure class="reveal" style="--reveal-delay:90ms"><img src="assets/web/hud-card.webp" width="760" height="507" loading="lazy" alt="Volume capsule on the floating card"><figcaption>volume · card</figcaption></figure>
-      <figure class="reveal" style="--reveal-delay:180ms"><img src="assets/web/hud-classic.webp" width="760" height="507" loading="lazy" alt="Sixteen-segment volume on the classic block"><figcaption>volume · classic — 16 segments</figcaption></figure>
-    </div>
-  </div>
-</section>
+  </section>
 
-<section id="quiet">
-  <div class="wrap mid">
-    <p class="eyebrow reveal">what crema is</p>
-    <div class="manifesto">
-      <p class="prose reveal" style="--reveal-delay:80ms">Crema does a few things — music, volume, brightness —
-      and does them <em>well</em>. No widgets, no file shelf, no calendar, no
-      accounts. It sits by the notch and waits. A smaller target, hit
-      <em>cleanly</em>.</p>
-      <div class="spec reveal" style="--reveal-delay:160ms">
-        <b>requires</b> macOS 14+ · Apple Silicon / Intel<br>
-        <b>license</b> GPL-3.0, source on GitHub<br>
-        <b>languages</b> English · Português (BR)<br>
-        <b>privacy</b> no accounts, no analytics<br>
-        <b>updates</b> signed feed, via Sparkle<br>
-        <b>respects</b> Reduce Motion · Low Power Mode
+  <section id="install">
+    <div class="wrap section-head">
+      <p class="eyebrow reveal">Install</p>
+      <h2 class="reveal">Three steps, and one honest warning.</h2>
+    </div>
+    <div class="wide">
+      <div class="steps">
+        <div class="step reveal"><h3>Download the disk image</h3><p>One file, from <a class="link" style="font-size:inherit" href="https://github.com/colatte/crema/releases">GitHub Releases</a>.</p></div>
+        <div class="step reveal"><h3>Drag Crema into Applications</h3><p>It lives in the menu bar, not the Dock.</p></div>
+        <div class="step reveal"><h3>Follow the welcome tour</h3><p>It shows Crema working, asks for Accessibility so it can notice the volume and brightness keys, and lets you pick a style. Every step can be skipped.</p></div>
+      </div>
+      <div class="warn reveal">
+        <h3>The first time you open it</h3>
+        <p>Crema isn't notarized by Apple yet, so macOS warns about an unidentified developer. Open System Settings, go to Privacy &amp; Security and click Open Anyway, once. If there's no button, run this in Terminal:</p>
+        <div class="cmd"><code id="cmd">xattr -dr com.apple.quarantine /Applications/Crema.app</code><button type="button" id="copy">Copy</button></div>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<section class="install" id="install">
-  <div class="wrap mid">
-    <p class="eyebrow reveal">install</p>
-    <h2 class="reveal" style="--reveal-delay:80ms">Three steps — one honest warning.</h2>
-    <div class="steps">
-      <div class="reveal"><p class="n">STEP 01</p><h3>Download the DMG</h3><p>One file, straight from
-        <a href="https://github.com/colatte/crema/releases">Releases</a>.</p></div>
-      <div class="reveal" style="--reveal-delay:90ms"><p class="n">STEP 02</p><h3>Drag into Applications</h3><p>Crema lives in the
-        menu bar — look up top, not in the Dock.</p></div>
-      <div class="reveal" style="--reveal-delay:180ms"><p class="n">STEP 03</p><h3>Grant Accessibility</h3><p>Crema asks on first
-        launch, in a short welcome tour that also sets your style and indicators —
-        every step skippable. The permission is what lets it handle your volume and
-        brightness keys; it runs fine without, too.</p></div>
+  <section class="outro">
+    <div class="wrap">
+      <img class="reveal" src="assets/web/icon.webp" alt="" width="256" height="256">
+      <h2 class="reveal">Ready for a quieter Mac?</h2>
+      <p class="lead reveal">Music by the notch, indicators that match, and nothing else asking for your attention.</p>
+      <div class="actions reveal">
+        <a class="btn" href="https://github.com/colatte/crema/releases/latest/download/Crema.dmg"><svg aria-hidden="true"><use href="#g-download"/></svg>Download for Mac</a>
+        <a class="link" href="https://ko-fi.com/colatteio">Support on Ko-fi<svg aria-hidden="true"><use href="#g-chevron"/></svg></a>
+      </div>
     </div>
-    <div class="warn reveal"><b>First launch:</b> Crema isn't notarized by Apple yet, so
-    macOS warns about an “unidentified developer”. Open <b>System Settings →
-    Privacy &amp; Security</b> and click <b>Open Anyway</b> — once. No button?
-    <code>xattr -dr com.apple.quarantine /Applications/Crema.app</code></div>
-  </div>
-</section>
-
-<section class="outro">
-  <div class="wrap mid">
-    <div class="mark reveal" aria-hidden="true"><img src="assets/web/icon.webp" alt="" width="256" height="256"></div>
-    <h2 class="reveal" style="--reveal-delay:80ms">Ready for a <em>quieter</em> Mac?</h2>
-    <p class="lead reveal" style="--reveal-delay:140ms">Music at the notch, indicators that match, and nothing
-    else asking for your attention. Free, open source, and yours in one download.</p>
-    <div class="cta reveal" style="--reveal-delay:200ms">
-      <a class="btn cream" href="https://github.com/colatte/crema/releases/latest/download/Crema.dmg">
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.6v9m0 0L4.4 7M8 10.6 11.6 7M2 12.6v.8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Download for macOS</a>
-      <a class="btn line" href="https://github.com/colatte/crema">Star it on GitHub</a>
-    </div>
-  </div>
-</section>
+  </section>
+</main>
 
 <footer>
-  <div class="wrap row">
+  <div class="wide">
     <a href="https://github.com/colatte/crema">GitHub</a>
-    <a href="https://github.com/colatte/crema/blob/main/LICENSE">GPL-3.0</a>
+    <a href="https://github.com/colatte/crema/releases">Releases</a>
     <a href="https://github.com/colatte/crema/blob/main/docs/README.md">Docs</a>
+    <a href="https://github.com/colatte/crema/blob/main/LICENSE">GPL-3.0</a>
     <a href="https://ko-fi.com/colatteio">Support on Ko-fi</a>
     <a class="colatte-credit" href="https://colatte.io" target="_blank" rel="noopener">Crema by <svg viewBox="0 0 1000 202.24" fill="currentColor" role="img" aria-label="colatte."><path d="M354.33 202.15L354.33 0L334.6 0L334.6 202.15Z"/><path d="M180.83 101.45L284.57 101.45L284.57 159.99L261.29 182.71L201.33 182.71L178.06 159.99L178.06 101.45ZM227.89 202.15L269.13 202.15L304.01 168.09L304.01 82.01L158.62 82.01L158.62 168.09L193.52 202.15Z"/><path d="M112.36 165C108.91 169.88 104.52 173.85 99.48 176.7C93.65 179.97 87.01 181.77 80.02 181.77L59.96 181.77C49.05 181.77 39.17 177.34 32.01 170.18C24.85 163.03 20.4 153.16 20.4 142.27L20.4 129.19L46.82 102.76L80.02 102.76C82.03 102.76 84.04 102.92 86.02 103.21C87.97 103.5 89.9 103.95 91.77 104.52C96.24 105.9 100.03 107.99 103.21 110.35C106.39 112.7 108.95 115.31 110.94 117.75L127.43 105.71C124.35 101.81 120.25 97.53 115.02 93.69C110.28 90.23 104.58 87.13 97.86 85.02C94.99 84.14 92.03 83.48 89.04 83.03C86.09 82.6 83.07 82.37 80.02 82.37L38.41 82.37L0 120.72L0 142.27C0 158.78 6.73 173.75 17.57 184.6C28.42 195.45 43.39 202.15 59.9 202.15L80.02 202.15C90.64 202.15 100.75 199.47 109.55 194.48C117.56 189.97 124.54 183.53 129.85 175.54Z"/><path d="M411.98 141.93C412.98 141.27 414.03 140.7 415.09 140.2C416.2 139.71 417.37 139.3 418.56 138.97C419.73 138.67 420.94 138.44 422.15 138.34C423.6 138.19 425.08 138.19 426.56 138.32C428.01 138.46 429.47 138.75 430.86 139.16C432.22 139.57 433.59 140.12 434.9 140.82C436.17 141.49 437.38 142.29 438.53 143.24L481.21 178.24L475.46 183.84L417.47 183.84L410.17 177.85C409.02 176.91 408 175.86 407.1 174.76C406.13 173.59 405.31 172.38 404.65 171.13C403.98 169.83 403.4 168.48 402.99 167.07C402.56 165.69 402.28 164.24 402.13 162.74C401.95 160.83 401.97 159.05 402.19 157.39C402.4 155.69 402.83 154.11 403.42 152.63C404.02 151.13 404.82 149.72 405.78 148.32C406.69 146.99 407.77 145.66 409 144.3L409.17 144.12C410.03 143.32 410.97 142.6 411.98 141.93ZM518.38 185.91L508.27 177.3L516.95 168.83L516.95 82.35L384 82.35L384 114.14L402.3 114.14L402.3 100.65L498.66 100.65L498.66 161.2L494.33 165.43L450.1 129.17C448.01 127.45 445.79 125.95 443.49 124.74C441.16 123.49 438.7 122.49 436.15 121.71C433.59 120.93 430.96 120.41 428.36 120.17C425.72 119.9 423.03 119.92 420.36 120.17C417.78 120.43 415.22 120.93 412.71 121.67C410.27 122.4 407.85 123.37 405.54 124.58C403.28 125.75 401.13 127.14 399.12 128.74C397.13 130.32 395.26 132.1 393.56 134.09L393.44 134.22C392.95 134.73 392.37 135.45 391.84 136.12L390.85 137.33L390.85 137.6L390.4 138.3C389.17 140.16 388.13 142.13 387.24 144.12C386.32 146.19 385.6 148.3 385.05 150.37C384.48 152.67 384.09 155.01 383.9 157.41C383.74 159.81 383.76 162.19 383.98 164.52C384.23 167.11 384.74 169.67 385.48 172.17C386.2 174.63 387.18 177.03 388.37 179.35C389.56 181.61 390.94 183.76 392.52 185.75C394.05 187.7 395.82 189.54 397.81 191.24L397.95 191.39C400.41 193.85 403.92 196.62 407.18 199.24L410.89 202.21C431.33 202.24 451.8 202.24 472.26 202.24L482.7 202.21L495.11 190.16L506.53 199.86Z"/><path d="M667.9 174.82C666.63 175.68 665.29 176.48 663.92 177.2C661.7 178.35 659.43 179.29 657.13 180.01C655.12 180.62 653.09 181.09 651.06 181.4C648.99 181.71 646.9 181.87 644.83 181.87L618.29 181.87L592 155.56L592 102.94L649.15 102.94L649.15 82.72L592 82.72L592 36.36L571.78 36.36L571.78 82.72L544.45 82.72L544.45 102.94L571.78 102.94L571.78 163.97L609.88 202.07L644.83 202.07C647.94 202.07 651.02 201.85 654.03 201.39C657.11 200.92 660.17 200.23 663.16 199.32C666.67 198.24 670.03 196.82 673.23 195.16C675.65 193.89 678.01 192.45 680.28 190.85Z"/><path d="M951.09 104.79C947.89 100.87 943.67 96.61 938.25 92.85C933.72 89.7 928.39 86.91 922.18 84.98C919.29 84.08 916.35 83.4 913.4 82.97C910.45 82.54 907.43 82.31 904.38 82.31L862.67 82.31L824.28 120.7L824.28 142.27C824.28 158.8 831.01 173.79 841.85 184.64C852.72 195.51 867.71 202.24 884.24 202.24L904.38 202.24C913.77 202.24 922.77 200.1 930.79 196.17C938.6 192.35 945.53 186.79 951.09 179.82L951.09 173.71L936.72 165.02C933.27 169.92 928.84 173.87 923.8 176.73C917.99 180.03 911.33 181.81 904.38 181.81L884.24 181.81C878.25 181.81 872.55 180.48 867.45 178.08C862.18 175.6 857.54 171.99 853.87 167.54L851.25 164.36L951.09 133.09ZM844.7 141.23L844.7 129.19L871.16 102.74L904.38 102.74C906.37 102.74 908.38 102.88 910.39 103.19C912.27 103.48 914.18 103.91 916.05 104.5C919.29 105.46 922.18 106.82 924.72 108.42C927.26 109.98 929.46 111.76 931.36 113.54L934.81 116.78L844.7 145Z"/><path d="M970.49 172.73L1000 172.73L1000 202.24L970.49 202.24Z"/><path d="M803.2 174.82C801.93 175.68 800.59 176.48 799.22 177.2C797.01 178.35 794.73 179.29 792.43 180.01C790.42 180.62 788.39 181.09 786.36 181.4C784.29 181.71 782.2 181.87 780.13 181.87L753.59 181.87L727.3 155.56L727.3 102.94L784.46 102.94L784.46 82.72L727.3 82.72L727.3 36.36L707.08 36.36L707.08 82.72L679.75 82.72L679.75 102.94L707.08 102.94L707.08 163.97L745.21 202.07L780.13 202.07C783.25 202.07 786.32 201.85 789.34 201.39C792.41 200.92 795.47 200.23 798.46 199.32C801.97 198.24 805.33 196.82 808.53 195.16C810.95 193.89 813.31 192.45 815.58 190.85Z"/></svg></a>
   </div>
 </footer>
-
-<div class="meter" aria-hidden="true"></div>
 
 <script>
 (function () {
   /* The house signs once in the console too, as its credits kit does. */
   console.log('%cCrema by colatte.%c colatte.io', 'font-weight:600', '');
 
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  /* Elements revealed by scroll position, in DOM order, drained as they
-     come within reach. */
-  let pending = [];
-
-  /* The reveal's start state is opacity:0, so any failure that stops the
-     sweep from running leaves a blank page. Every error path ends here. */
-  function showEverything() {
-    document.querySelectorAll('.reveal').forEach((el) => {
-      el.classList.add('is-in', 'is-settled');
-    });
-    /* The headline's words and the story's beats start hidden or dimmed for
-       the same reason the reveals do, so they end up in the same net. */
-    document.querySelectorAll('.words').forEach((el) => el.classList.add('is-in'));
-    document.querySelectorAll('.beat').forEach((el) => el.classList.add('is-on'));
-  }
-
-  /* Splits the headline into per-word masks, from the sentence that is
-     already in the markup. Built whole and swapped in one move: a throw
-     halfway through would otherwise leave the reader half a headline, and
-     the sentence in the HTML is what a crawler and a scriptless visit read.
-     Each word out of the <em> carries the .em class, which is what keeps
-     that part of the sentence cream. */
-  function splitHeadline() {
-    const h = document.getElementById('headline');
-    if (!h) return;
-    const frag = document.createDocumentFragment();
-    let i = 0;
-    for (const node of h.childNodes) {
-      const em = node.nodeType === 1;
-      for (const word of (node.textContent.match(/\S+\s*/g) || [])) {
-        const mask = document.createElement('span');
-        const inner = document.createElement('i');
-        inner.textContent = word;
-        inner.style.setProperty('--wd', (70 + i * 52) + 'ms');
-        if (em) mask.className = 'em';
-        mask.appendChild(inner);
-        frag.appendChild(mask);
-        i++;
-      }
-    }
-    h.textContent = '';
-    h.appendChild(frag);
-  }
-
-  /* Drop the transform box once the transition ends: a permanent transform
-     on an ancestor breaks touch hit-testing in iOS Safari long after the
-     motion is over. */
-  function settle(el) {
-    el.addEventListener('transitionend', function handler(e) {
-      if (e.propertyName !== 'transform') return;
-      el.classList.add('is-settled');
-      el.removeEventListener('transitionend', handler);
-    });
-  }
-
-  /* Deliberately NOT an IntersectionObserver: it notifies on a change in
-     intersection RATIO, so a flick carrying an element from below the fold
-     to above it in one frame is two readings of zero and no callback at
-     all — the element stays invisible for the rest of the visit. Asking
-     where an element IS cannot miss the moment it crossed. */
+  /* ---- reveal ----------------------------------------------------------
+     Asked by position on every scroll, not by IntersectionObserver: an
+     observer notifies on a change in intersection ratio, so a flick that
+     carries an element past the viewport in one frame is two readings of
+     zero and the element would stay hidden for good. */
+  let pending = Array.from(document.querySelectorAll('.reveal'));
   function sweep() {
-    if (!pending.length) return;
-    const still = [];
-    for (const el of pending) {
-      if (el.getBoundingClientRect().top < innerHeight * 0.9) el.classList.add('is-in');
-      else still.push(el);
-    }
-    pending = still;
-  }
-
-  function armReveals() {
-    splitHeadline();
-    const headline = document.getElementById('headline');
-    const onLoad = [];
-    document.querySelectorAll('.reveal').forEach((el) => {
-      settle(el);
-      (el.hasAttribute('data-reveal-on-load') ? onLoad : pending).push(el);
+    pending = pending.filter((el) => {
+      if (el.getBoundingClientRect().top < innerHeight * 0.92) { el.classList.add('is-in'); return false; }
+      return true;
     });
-
-    /* Two frames before flipping the class: the first lets the browser
-       paint the opacity:0 state, the second guarantees the transition
-       actually runs instead of being collapsed into the initial paint. */
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      onLoad.forEach((el) => el.classList.add('is-in'));
-      if (headline) headline.classList.add('is-in');
-      sweep();
-    }));
   }
-
-  function armNotchDock() {
-    const notch = document.getElementById('notch');
-    const burger = document.getElementById('burger');
-    const setOpen = (open) => {
-      notch.classList.toggle('is-open', open);
-      burger.setAttribute('aria-expanded', open ? 'true' : 'false');
-    };
-    burger.addEventListener('click', () => setOpen(!notch.classList.contains('is-open')));
-    document.getElementById('navlinks').addEventListener('click', (e) => {
-      if (e.target.tagName === 'A') setOpen(false);
-    });
-
-    /* The notch's button unfolds once the hero's CTA row has left through
-       the TOP of the viewport — not merely left it, or the slot would open
-       on a tall phone before the reader has seen the first button. The
-       margin is the fixed bar's own height, so "gone" means gone behind
-       the notch and not just under it — and the exit test is measured
-       against that same edge, not against y = 0: the row's bottom crossing
-       the datum. Measured against 0 it only held for a fast scroll (the
-       callback fired with the row already far above); a slow one left the
-       row's top still positive behind the notch, and the slot never opened. */
-    const heroCta = document.querySelector('header .cta');
-    if (heroCta && 'IntersectionObserver' in window) {
-      const datum = Math.round(notch.getBoundingClientRect().bottom) || 96;
-      new IntersectionObserver(([entry]) => {
-        const past = !entry.isIntersecting && entry.boundingClientRect.bottom <= datum;
-        notch.classList.toggle('is-past-hero', past);
-      }, { rootMargin: `-${datum}px 0px 0px 0px` }).observe(heroCta);
-    } else {
-      notch.classList.add('is-past-hero');
-    }
-  }
-
-  /* One scroll listener and one rAF drive every scroll-linked value on the
-     page. They are read together because they share a frame, not because
-     they are related; each writes a single property, so a tick costs no
-     layout. */
-  function armScrollEffects() {
-    const meter = document.querySelector('.meter');
-    for (let i = 0; i < 16; i++) meter.appendChild(document.createElement('i'));
-    const segs = meter.querySelectorAll('i');
-    const stage = document.querySelector('.stage');
-    const track = document.getElementById('stage-track');
-    const story = document.getElementById('story');
-    const beats = story ? Array.from(story.querySelectorAll('.beat')) : [];
-    const rail = story && story.querySelector('.rail i');
-    const cap = story && story.querySelector('figcaption');
-    const caps = ['style · notch', 'style · card', 'style · classic'];
-    /* The same condition the stylesheet uses to switch the section into its
-       held layout, written the same way: below it every beat carries its own
-       picture and there is nothing for this to keep in sync. */
-    const holding = matchMedia('(min-width: 841px) and (prefers-reduced-motion: no-preference)');
-    let held = -1;
-    let spot = document.getElementById('spot');
-    if (reduced.matches) { spot.remove(); spot = null; }
-
-    let lit = -1;
-    let ticking = false;
-
-    const paintMeter = () => {
-      const max = document.documentElement.scrollHeight - innerHeight;
-      const on = Math.round((max > 0 ? scrollY / max : 0) * 16);
-      if (on === lit) return;
-      segs.forEach((seg, i) => seg.classList.toggle('on', i < on));
-      lit = on;
-    };
-
-    const paintStage = () => {
-      const r = stage.getBoundingClientRect();
-
-      /* Distance from the viewport centre drives the spotlight, which is
-         what guarantees the peak lands exactly where the film parks. */
-      const offset = Math.abs(r.top + r.height / 2 - innerHeight / 2);
-      const t = Math.max(0, 1 - offset / (innerHeight * 0.55));
-      const lift = t * t * (3 - 2 * t);
-      spot.style.opacity = lift;
-
-      /* The meter sits bottom-centre, which is exactly where a film keeps
-         its transport controls — while the teaser holds the stage the two
-         overlap and the reading progress reads as part of the video. It
-         steps aside for precisely as long as the spotlight is up. */
-      meter.style.opacity = 1 - lift;
-
-      /* Scale runs off dwell progress instead, and that difference is the
-         whole point. While the film is parked its distance from the centre
-         is zero and STAYS zero, so every value derived from it saturates:
-         measured, 220px of scrolling in which the position, the spotlight
-         and the scale were identical frame to frame. A page that answers a
-         scroll with nothing reads as stuck, not as composed. The stage's
-         offset inside its own track keeps climbing throughout the hold, so
-         a value built on it never flattens. */
-      const tr = track.getBoundingClientRect();
-      const travel = tr.height - r.height;
-      const q = travel > 0 ? Math.min(1, Math.max(0, (r.top - tr.top) / travel)) : 0;
-      stage.style.setProperty('--park', (0.988 + 0.016 * q).toFixed(4));
-    };
-
-    /* The beat NEAREST the middle of the screen owns the held picture, so a
-       flick that carries two beats past the middle inside one frame still
-       lands on where the reader ended up rather than on the last line they
-       happened to cross. */
-    const paintStory = () => {
-      const mid = innerHeight / 2;
-      let best = 0;
-      let bestD = Infinity;
-      for (let i = 0; i < beats.length; i++) {
-        const r = beats[i].getBoundingClientRect();
-        const d = Math.abs(r.top + r.height / 2 - mid);
-        if (d < bestD) { bestD = d; best = i; }
-      }
-      if (best !== held) {
-        held = best;
-        story.dataset.on = best;
-        for (let i = 0; i < beats.length; i++) beats[i].classList.toggle('is-on', i === best);
-        cap.textContent = caps[best];
-      }
-      const first = beats[0].getBoundingClientRect();
-      const last = beats[beats.length - 1].getBoundingClientRect();
-      const span = last.bottom - first.top;
-      const q = span > 0 ? (mid - first.top) / span : 0;
-      rail.style.setProperty('--p', Math.min(1, Math.max(0, q)).toFixed(3));
-    };
-
-    const paint = () => {
-      ticking = false;
-      sweep();
-      paintMeter();
-      if (spot) paintStage();
-      if (beats.length && rail && cap && holding.matches) paintStory();
-    };
-
-    const request = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(paint);
-    };
-    addEventListener('scroll', request, { passive: true });
-    addEventListener('resize', request, { passive: true });
-    paint();
-  }
-
-  /* The app treats Reduce Motion as a veto rather than a discount, and the
-     site owes the same answer. The CSS half stands down the reveals, the
-     spotlight and the pin; this is the half CSS cannot reach — and a
-     poster with no way in is a dead end, hence the controls. */
-  function honourReduceMotion() {
-    if (!reduced.matches) return;
-    const teaser = document.getElementById('teaser');
-    teaser.removeAttribute('autoplay');
-    teaser.pause();
-    teaser.currentTime = 0;
-    teaser.controls = true;
-  }
-
-  /* Flipping the preference mid-visit has to re-decide the pin, the
-     spotlight and the teaser at once. A reload is the honest way to get a
-     consistent answer for a change this rare; unpicking it live would be
-     three code paths kept in sync for a case nobody hits twice. */
-  function watchMotionPreference() {
-    if (reduced.addEventListener) {
-      reduced.addEventListener('change', () => location.reload());
-    }
-  }
-
-  /* A throw inside a rAF or a listener unwinds on its own stack and never
-     reaches the try below, so the page keeps a global net as well. */
-  addEventListener('error', showEverything);
+  function showEverything() { document.querySelectorAll('.reveal').forEach((el) => el.classList.add('is-in')); }
 
   try {
-    if (reduced.matches) showEverything();
-    else armReveals();
-    armNotchDock();
-    armScrollEffects();
-    honourReduceMotion();
-    watchMotionPreference();
-  } catch (e) {
-    showEverything();
-    /* Rethrown out of band: the reader still gets the page, and the bug
-       still reaches the console instead of dying in a silent catch. */
-    setTimeout(() => { throw e; });
+    sweep();
+    addEventListener('scroll', sweep, { passive: true });
+    addEventListener('resize', sweep);
+  } catch (e) { showEverything(); }
+
+  /* ---- nav ----------------------------------------------------------- */
+  const nav = document.getElementById('nav');
+  const navGet = document.getElementById('nav-get');
+  const heroGet = document.getElementById('hero-get');
+  function onScroll() {
+    nav.classList.toggle('is-scrolled', scrollY > 8);
+    /* The nav's filled button only once the hero's has left the screen:
+       one filled cream button per viewport (docs/BRAND.md). */
+    const gone = heroGet.getBoundingClientRect().bottom < 52;
+    navGet.classList.toggle('is-shown', gone);
+    navGet.tabIndex = gone ? 0 : -1;
   }
+  onScroll();
+  addEventListener('scroll', onScroll, { passive: true });
+
+  /* ---- loops that run only while seen ---------------------------------- */
+  function whileVisible(el, start, stop) {
+    let running = false;
+    function update(seen) {
+      const want = seen && !document.hidden;
+      if (want && !running) { running = true; start(); }
+      if (!want && running) { running = false; stop(); }
+    }
+    let seen = false;
+    new IntersectionObserver((entries) => { seen = entries[0].isIntersecting; update(seen); }, { threshold: 0.2 }).observe(el);
+    document.addEventListener('visibilitychange', () => update(seen));
+  }
+
+  /* ---- the hero's story ------------------------------------------------
+     A new track, a click on the notch, the player, then a volume key. The
+     same states the app moves through, in its order. */
+  const hero = document.getElementById('hero-mock');
+  const cursor = document.getElementById('hero-cursor');
+  if (reduced) {
+    hero.dataset.state = 'expanded';
+  } else {
+    let timers = [];
+    const at = (ms, fn) => timers.push(setTimeout(fn, ms));
+    function play() {
+      timers.forEach(clearTimeout); timers = [];
+      hero.dataset.state = 'idle'; cursor.className = 'cursor'; hero.style.setProperty('--level', .4);
+      at(900, () => { hero.dataset.state = 'compact'; });
+      at(2300, () => { cursor.className = 'cursor at-notch'; });
+      at(3400, () => { cursor.classList.add('click'); });
+      at(3560, () => { cursor.classList.remove('click'); hero.dataset.state = 'expanded'; });
+      at(4300, () => { cursor.className = 'cursor away'; });
+      at(7600, () => { hero.dataset.state = 'idle'; });
+      at(8500, () => { hero.dataset.state = 'hud'; });
+      [.47, .53, .6, .66].forEach((v, i) => at(8800 + i * 260, () => hero.style.setProperty('--level', v)));
+      at(11000, () => { hero.dataset.state = 'idle'; });
+      at(12400, play);
+    }
+    whileVisible(hero, play, () => { timers.forEach(clearTimeout); timers = []; });
+  }
+
+  /* ---- segmented controls ------------------------------------------------ */
+  function placeThumb(seg) {
+    const on = seg.querySelector('[aria-selected=true],[aria-pressed=true]');
+    const thumb = seg.querySelector('.thumb');
+    if (!on || !thumb) return;
+    thumb.style.width = on.offsetWidth + 'px';
+    thumb.style.transform = 'translateX(' + on.offsetLeft + 'px)';
+  }
+
+  /* ---- styles ------------------------------------------------------------ */
+  const copy = {
+    notch: ['Blends into the notch', 'Black on black, flush with the bezel. A new track shows a sliver, its title and a waveform, then tucks away. Click the notch and the player opens.'],
+    card: ['Floats below the menu bar', 'A translucent panel that holds its edge over any wallpaper, a white page included. On a display without a notch, this is where the player lives.'],
+    classic: ['A quiet block near the bottom', 'Where the system’s indicator always lived. Its volume and brightness come in sixteen segments, half-steps included.']
+  };
+  const tabs = document.getElementById('style-tabs');
+  const stylesMock = document.getElementById('styles-mock');
+  const panel = document.getElementById('style-panel');
+  const styleCopy = document.getElementById('style-copy');
+  const order = ['notch', 'card', 'classic'];
+  let auto = !reduced;
+  function choose(style, focus) {
+    tabs.querySelectorAll('[role=tab]').forEach((b) => {
+      const on = b.dataset.style === style;
+      b.setAttribute('aria-selected', on);
+      b.tabIndex = on ? 0 : -1;
+      if (on && focus) b.focus();
+    });
+    stylesMock.dataset.style = style;
+    panel.setAttribute('aria-labelledby', 'tab-' + style);
+    styleCopy.querySelector('h3').textContent = copy[style][0];
+    styleCopy.querySelector('p').textContent = copy[style][1];
+    placeThumb(tabs);
+  }
+  tabs.addEventListener('click', (e) => {
+    const b = e.target.closest('[role=tab]');
+    if (!b) return;
+    auto = false;
+    choose(b.dataset.style);
+  });
+  tabs.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    auto = false;
+    const i = order.indexOf(stylesMock.dataset.style);
+    choose(order[(i + (e.key === 'ArrowRight' ? 1 : order.length - 1)) % order.length], true);
+    e.preventDefault();
+  });
+  let rotate;
+  whileVisible(stylesMock,
+    () => { rotate = setInterval(() => { if (auto) choose(order[(order.indexOf(stylesMock.dataset.style) + 1) % order.length]); }, 5200); },
+    () => clearInterval(rotate));
+
+  /* ---- levels -------------------------------------------------------------- */
+  const levels = document.getElementById('levels');
+  const range = document.getElementById('level');
+  range.addEventListener('input', () => {
+    levels.style.setProperty('--level', range.value);
+    range.style.setProperty('--fill', range.value);
+  });
+
+  /* ---- card placement ------------------------------------------------------ */
+  const placed = document.getElementById('placed');
+  const map = document.getElementById('map');
+  map.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    map.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', x === b));
+    placed.dataset.pos = b.dataset.pos;
+  });
+  const look = document.getElementById('look');
+  look.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    look.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', x === b));
+    placed.dataset.look = b.dataset.look;
+    placeThumb(look);
+  });
+
+  /* ---- copy the command ---------------------------------------------------- */
+  const copyButton = document.getElementById('copy');
+  copyButton.addEventListener('click', () => {
+    navigator.clipboard.writeText(document.getElementById('cmd').textContent).then(() => {
+      copyButton.textContent = 'Copied';
+      setTimeout(() => { copyButton.textContent = 'Copy'; }, 1600);
+    }, () => {});
+  });
+
+  /* The thumbs measure their buttons, so they wait for the fonts' metrics. */
+  function placeThumbs() { placeThumb(tabs); placeThumb(look); }
+  placeThumbs();
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(placeThumbs);
+  addEventListener('resize', placeThumbs);
 })();
 </script>
 </body>
