@@ -4,7 +4,7 @@ import SwiftUI
 /// wearing a picture of it (`HUDPlacementIcon`). The pop-up is the system's own
 /// control, so keyboard, VoiceOver and the menu's tinting come with it. The
 /// picture is a hint; the caller previews the choice on the real HUD
-/// (`AppCore.previewHUDPlacement`).
+/// (`AppCore.chooseHUDPlacement`).
 ///
 /// Offered beside the indicator row, where some display draws Card: the caller
 /// owns that gate (docs/DECISIONS.md: rendered-style-gates-settings).

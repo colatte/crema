@@ -25,3 +25,23 @@ struct ScreenGeometry: Equatable, Sendable {
     var dockLeft: CGFloat = 0
     var dockRight: CGFloat = 0
 }
+
+extension ScreenGeometry {
+    /// The Dock's room on the bottom, left and right edges, from a screen's frame
+    /// and its visible frame, both in the same global space: each is the gap
+    /// between the two rects on that edge, so the screen's origin cancels out. The
+    /// top is left out, where the gap is the menu bar's.
+    static func dockRoom(frame: CGRect, visible: CGRect) -> (bottom: CGFloat, left: CGFloat, right: CGFloat) {
+        (bottom: visible.minY - frame.minY, left: visible.minX - frame.minX, right: frame.maxX - visible.maxX)
+    }
+
+    /// The same screen with the Dock's room cleared: what every panel but one
+    /// that reads the Dock captures (`PanelSurface.readsTheDock`).
+    var withoutDock: ScreenGeometry {
+        var geometry = self
+        geometry.dockBottom = 0
+        geometry.dockLeft = 0
+        geometry.dockRight = 0
+        return geometry
+    }
+}

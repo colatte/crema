@@ -39,6 +39,18 @@ enum PanelSurface: Hashable, Sendable {
         }
     }
 
+    /// Whether this panel's frame rule reads the Dock's room. Only the Card's HUD
+    /// on its own panel keeps its margin from where the Dock ends; every other
+    /// surface hangs from the top or keeps its own height, so a Dock that moves or
+    /// hides changes nothing it captured.
+    var readsTheDock: Bool {
+        if case .cardHUD = self {
+            true
+        } else {
+            false
+        }
+    }
+
     /// The direction this panel's HUD bar runs.
     var hudAxis: Axis {
         switch self {

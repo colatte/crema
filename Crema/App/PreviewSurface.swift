@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// A skin's surface in miniature: its shape filled dark, its depth, its border and
-/// what it holds. One drawing for every Settings picture that shows a surface, so a
-/// surface cannot come to look different from one picture to the next.
+/// A skin's surface in miniature: its shape filled dark, its depth, its edge and
+/// what it holds. One drawing for every style tile, so no skin's miniature can come
+/// to look different from another's in anything but the skin itself.
 struct PreviewSurface: View {
     let size: CGSize
     let isOpaque: Bool
@@ -94,10 +94,9 @@ struct PreviewSurface: View {
     }
 }
 
-extension View {
-    /// The depth a floating surface casts in the Settings pictures; none for one
-    /// welded to the screen's edge. One recipe for every surface those pictures
-    /// draw, so no two of them can drift apart.
+private extension View {
+    /// The depth a floating surface casts in a style tile; none for one welded to
+    /// the screen's edge.
     func previewDepth(floats: Bool) -> some View {
         shadow(color: .black.opacity(floats ? 0.75 : 0), radius: 2.5, y: 1.5)
     }

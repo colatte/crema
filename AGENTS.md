@@ -47,7 +47,7 @@ CremaTests/       # mirrors the app; Mocks/ implements the sources' protocols
 ThirdParty/       # vendored mediaremote-adapter; outside lint, not ours
 docs/             # public docs and the Pages root; DECISIONS.md cited by anchor
 scripts/probes/   # hardware instruments with their controls; never in app or CI
-design/           # icon and badge sources; catalogs generated, never by hand
+design/           # icon/badge sources; outputs (AppIcon.icon) never by hand
 ```
 
 ## Never do

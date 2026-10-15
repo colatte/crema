@@ -115,7 +115,7 @@ struct CardView: View, SurfaceStyleBody {
     /// The HUD gets its own smaller radius (rounded rectangle, not capsule); every
     /// now-playing state keeps the generous card radius. Animatable, so the change
     /// morphs under the surface spring. Keyed on the EFFECTIVE layout, so a hidden
-    /// surface keeps the radius it faded out with (empty-after-hud stays 12).
+    /// surface keeps the radius it faded out with (empty-after-hud keeps the HUD's).
     private var surfaceCornerRadius: CGFloat {
         Self.surfaceCornerRadius(for: effectiveLayoutKind)
     }

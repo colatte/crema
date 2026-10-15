@@ -113,7 +113,7 @@ enum CardMetrics {
     /// below, and upright the same 16 pt runs across the 38 pt width; along the
     /// bar, padding, icon column (CardHUDIndicator.hudIconSlot) and gap take
     /// 16 + 22 + 10 + 16 = 64 of the 220, leaving the capsule 156
-    /// (CardMetricsShapeTests pins both sums). The full-bleed .filled bar adapts
+    /// (CardMetricsShapeTests pins the fit across and the 156 along). The full-bleed .filled bar adapts
     /// by construction. Width and height are separate calibration knobs.
     static let hudSystemWidth: CGFloat = 220
     static let hudSystemHeight: CGFloat = 38
@@ -163,8 +163,8 @@ enum CardMetrics {
     /// the leading edge, or the bottom of an upright bar. Equal to the corner
     /// radius: the corner's curve runs that far along the bar, so the glyph
     /// starts where the straight edges do, and centred across the bar it sits
-    /// clear of both, in either orientation. 12 also sits in the 11–16 pt band Apple gives
-    /// widget content margins (HIG, Widgets: "16 points for most widgets",
+    /// clear of both, in either orientation. A third of 38, it also sits in the
+    /// 11–16 pt band Apple gives widget content margins (HIG, Widgets: "16 points for most widgets",
     /// "margins of 11 points can work well").
     static let hudFilledIconInset: CGFloat = hudSystemCornerRadius
 

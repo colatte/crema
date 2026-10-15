@@ -13,9 +13,14 @@
 // control) and at each notification.
 //
 // Measured with this probe 2026-10-15, macOS 27.0.1, MacBook Pro 14" (1512×982
-// pt), Dock at the bottom, hiding toggled off and back on: start visible
-// (0, 0, 1512, 948); off → NOTIFIED with (0, 90, 1512, 858); on → NOTIFIED
-// with (0, 0, 1512, 948). One notification per change, frame already moved.
+// pt), one display, tile size 64. Start, Dock hidden: visible (0, 0, 1512, 948).
+// Each change printed one NOTIFIED line with the frame already moved:
+//   hiding off, Dock at the bottom → (0, 90, 1512, 858)
+//   moved to the left              → (76, 0, 1436, 948)
+//   resized to tile size 40        → (60, 0, 1452, 948)
+//   back to the bottom, tile 64    → (0, 90, 1512, 858)
+//   hiding on                      → (0, 0, 1512, 948)
+// Unmeasured: the Dock moving to another display, which needs two.
 // Invalidated by a Dock change that prints no NOTIFIED line, or one whose
 // frame still reads the old value.
 //

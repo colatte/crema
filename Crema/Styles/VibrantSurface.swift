@@ -29,8 +29,8 @@ extension View {
     /// before the clip, and the material, an AppKit view masked apart from the
     /// SwiftUI layer above it, sits `materialInset` inside the outline: clipped
     /// layer by layer, the dark beneath shows through the edge pixels of a light
-    /// fill, a grey fringe round the filled HUD over a bright desktop (measured on
-    /// screen; either half alone leaves part of it).
+    /// fill, a grey fringe round the filled HUD over a bright desktop (measured
+    /// with scripts/probes/hud-surface-contrast.swift, mode `edge`).
     ///
     /// Content is clipped along with the material: mid-morph, the crossfading
     /// outgoing layout can exceed the shrinking surface, and the fixed window
@@ -58,8 +58,7 @@ extension View {
             .clipShape(shape)
             .background {
                 VibrancyMaterial()
-                    .clipShape(shape)
-                    .padding(SurfaceChrome.materialInset)
+                    .clipShape(shape.inset(by: SurfaceChrome.materialInset))
             }
             .overlay(shape.strokeBorder(SurfaceChrome.specularGradient, lineWidth: SurfaceChrome.specularWidth))
     }
@@ -76,12 +75,9 @@ extension View {
 enum SurfaceChrome {
 
     /// The film between the material and the ink, which keeps the surface dark
-    /// over any desktop (docs/DECISIONS.md: hud-fixed-dark-palette). The
-    /// material alone takes on what is behind it: over a white page it measures
-    /// `#b5b5b9`, and the white ink drawn on it falls to 2.0:1. The film is set
-    /// so that worst case keeps the ink at 4.5:1 or better (4.8:1 measured);
-    /// over a dark desktop, where the material is already near black, it changes
-    /// almost nothing. Measured on screen with
+    /// over any desktop (docs/DECISIONS.md: hud-fixed-dark-palette): set so a
+    /// white page behind keeps the white ink at 4.5:1 or better, the material's
+    /// worst case. The measurements live in
     /// scripts/probes/hud-surface-contrast.swift; a retune re-runs it over white.
     static let scrimOpacity: Double = 0.44
     static var scrim: Color { Color.black.opacity(scrimOpacity) }

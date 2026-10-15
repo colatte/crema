@@ -129,3 +129,16 @@
     card it expands the card and leaves the HUD to its own timer; the card tucks
     after the HUD has gone, never under it. Notch and Classic draw their HUD where
     they always do, whatever the position.
+23. A Card HUD placed along the bottom or on a side never sits under a shown
+    Dock: with the Dock visible at the bottom it rests just above it, with the
+    Dock on a side the places on that side clear it, and with the Dock hidden a
+    bottom HUD rests near the bottom edge. Changing the Dock (hide, move, resize)
+    moves the HUD on its next appearance without the card blinking.
+24. With headphones, AirPods, AirPods Pro, AirPods Max, Beats headphones, an
+    AirPlay speaker or a display's speakers as the output, the volume HUD shows
+    that device's glyph in place of the speaker; the Mac's own speakers and any
+    device it cannot name keep the speaker, and mute shows the slashed speaker on
+    any device. Switching outputs shows nothing by itself.
+25. Over a white page, Card and Classic stay dark and their glyph and level read
+    clearly, and the filled Card HUD's light end has a clean edge: no grey line
+    round it (docs/DECISIONS.md: surface-border-2026).

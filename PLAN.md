@@ -53,12 +53,12 @@ Depends on: an Apple Developer account existing. The script path is already writ
 
 ## Phase 4 — A Tahoe-native icon
 
-Objective: the icon is an Icon Composer document, `Crema/AppIcon.icon`, written by `design/icon/makeicon.swift` from the mark's vector. The document replaces the appiconset rather than sitting beside it: Apple's page says an Icon Composer file replaces any icon asset catalog, and that Xcode generates the images for earlier releases from the same file ("Creating your app icon using Icon Composer"). One build serves both, and no classic icon ships.
+Objective: the icon is an Icon Composer document, `Crema/AppIcon.icon`, written by `design/icon/makeicon.swift` from the mark's vector. The document replaces the appiconset rather than sitting beside it, and one build serves every supported macOS (docs/BRAND.md carries Apple's page for both); no classic icon ships.
 Depends on: nothing left; the document ships, and what stays open is its check on the older system.
 
 - [ ] T12.2 — Tahoe icon (Icon Composer, Liquid Glass) · módulo: design
   - Verification: visual, on Tahoe and on Sonoma, from one build. Tahoe is seen; Sonoma waits on a machine running it.
-  - Acceptance: the icon reads correctly in Finder, Get Info, Spotlight and Sparkle on both, with no regression at 16/32 pt. The 16 pt @1x image keeps the hollow only as a notch: Icon Composer takes one artwork for every size, so the optical zoom a per-size render gave that slot has no counterpart in the document.
+  - Acceptance: the icon reads correctly in Finder, Get Info, Spotlight and Sparkle on both, the mark recognisable at 32 pt and at 16 pt @2x; at 16 pt @1x the hollow reads as a notch, the one size docs/BRAND.md exempts.
 
 ## Risks and dependencies
 

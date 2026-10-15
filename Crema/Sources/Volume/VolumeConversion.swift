@@ -29,8 +29,8 @@ enum VolumeConversion {
     /// default output device's, so no screen owns it and its bar belongs on every
     /// panel — and the actuator refuses a named display outright, which makes this
     /// a contract of actuation and not only of presentation
-    /// (docs/DECISIONS.md: hud-target-is-a-role). The route is the source's
-    /// cached one, read at the last device or data-source change.
+    /// (docs/DECISIONS.md: hud-target-is-a-role). The route is whatever the
+    /// source read for the device the level belongs to.
     static func hud(rawVolume: Float, isMuted: Bool, route: AudioOutputRoute?) -> SystemHUD {
         SystemHUD(kind: .volume, value: normalize(rawVolume), isMuted: isMuted, route: route)
     }

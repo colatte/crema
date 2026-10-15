@@ -56,22 +56,47 @@ struct AppCoreHUDPreviewSeamTests {
         #expect(notch.appliedFrames.last == Style.notch.frame(for: .hidden, on: Self.notchedScreen.geometry))
     }
 
-    @Test func nothingIsReadOrShownWhileTheScreenIsLocked() {
+    @Test func choosingAPlacePersistsItBuildsItsPanelAndPreviewsThere() async throws {
+        // From the card's own spot to a corner: the choice is saved, the Card
+        // display gains the HUD panel for that corner, and the preview is drawn
+        // by that panel at that corner.
+        let h = harness(placement: .topCenter)
+        let level = try #require(h.base.volumeReading.reading)
+        #expect(h.recorder.hudPanel(for: Self.cardID) == nil)
+
+        AppCore.chooseHUDPlacement(
+            .bottomRight,
+            preferences: h.preferences,
+            lock: MockScreenLockSource(safe: true),
+            windowManager: h.manager,
+            coordinator: h.base.coordinator
+        )
+
+        #expect(h.preferences.hudPlacement == .bottomRight)
+        #expect(await eventually { h.base.coordinator.state == .hud(level) })
+        let cardHUD = try #require(h.recorder.hudPanel(for: Self.cardID))
+        #expect(cardHUD.appliedFrames.last == CardStyle.hudFrame(at: .bottomRight, on: Self.cardScreen.geometry))
+        #expect(cardHUD.showsHUDStates.last == true)
+    }
+
+    // The read a preview makes runs on a task of its own, so a refusal is only
+    // proven once that task has had the window to run: a check right after the
+    // call would pass even with the gate gone.
+
+    @Test func nothingIsReadOrShownWhileTheScreenIsLocked() async {
         let h = harness(placement: .bottomLeft)
 
         AppCore.previewHUDPlacement(lock: MockScreenLockSource(safe: false), displays: h.manager, coordinator: h.base.coordinator)
 
-        #expect(h.base.volumeReading.reads == 0)
-        #expect(h.base.coordinator.state == .hidden)
+        #expect(await !footprintAppears { h.base.volumeReading.reads > 0 || h.base.coordinator.state != .hidden })
     }
 
-    @Test func nothingIsReadOrShownWhereNoDisplayDrawsCard() {
+    @Test func nothingIsReadOrShownWhereNoDisplayDrawsCard() async {
         let h = WindowManagerTests.Harness()
         h.manager.updateScreens([Self.notchedScreen])
 
         AppCore.previewHUDPlacement(lock: MockScreenLockSource(safe: true), displays: h.manager, coordinator: h.base.coordinator)
 
-        #expect(h.base.volumeReading.reads == 0)
-        #expect(h.base.coordinator.state == .hidden)
+        #expect(await !footprintAppears { h.base.volumeReading.reads > 0 || h.base.coordinator.state != .hidden })
     }
 }

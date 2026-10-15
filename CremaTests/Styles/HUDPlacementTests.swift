@@ -19,7 +19,8 @@ struct HUDPlacementTests {
     /// A second display left of and above the main one: the rule reads the
     /// screen's own origin, never assumes zero.
     private let offset = ScreenGeometry(frame: CGRect(x: -1280, y: 400, width: 1280, height: 800))
-    /// The Dock shown along the bottom, and on each side, on an offset screen.
+    /// The Dock shown along the bottom and on each side; the left one on an offset
+    /// screen, so the Dock's room is read against a non-zero origin.
     private let dockedBelow = ScreenGeometry(frame: CGRect(x: 0, y: 0, width: 1512, height: 982), dockBottom: 90)
     private let dockedLeft = ScreenGeometry(frame: CGRect(x: -1280, y: 400, width: 1280, height: 800), dockLeft: 70)
     private let dockedRight = ScreenGeometry(frame: CGRect(x: 0, y: 0, width: 1000, height: 600), dockRight: 70)
