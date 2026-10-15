@@ -162,7 +162,7 @@ private enum IndicatorThumbnail {
     static let scale = width * surfaceWidthFraction / CardMetrics.hudSystemWidth
     /// The hairline as authored inside the scaled subtree, so that it LANDS at the
     /// width `SurfaceChrome` asked for.
-    static let surfaceStrokeWidth = SurfaceChrome.outerHairlineWidth / scale
+    static let surfaceStrokeWidth = SurfaceChrome.specularWidth / scale
     /// The stand-in surface's darkness: the one every picture gives a floating
     /// surface.
     static let surfaceOpacity = Thumbnail.floatingSurfaceOpacity

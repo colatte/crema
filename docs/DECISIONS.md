@@ -2369,38 +2369,44 @@ the greying out is only what keeps X out of reach. Which of the two a given
 framework is giving you is a question a probe answers and a doc does not.
 
 ### surface-border-2026
-ONE uniform white hairline on the floating surfaces (Card and Classic) —
-`.white.opacity(0.12)`, half a point, all the way round — is a single stroke asked
-to do two jobs and doing neither. Over a bright desktop it disappears, which is
-exactly where a translucent surface most needs an edge: the material takes its
-tone from what is behind it, so on a pale wallpaper the surface has no boundary of
-its own at all. And a uniform bright line lies about the light. It claims a
-highlight arriving equally from every direction, including from underneath, which
-nothing on a screen lit from above ever has.
-Decision: the border is a PAIR, and neither half does the other's job. A darkened
-outer rim (black at 0.20, half a point) straddles the outline and DEFINES the
-surface against any backdrop, light or dark. An inner specular, brightest at the
-top edge and spent within the upper third, supplies the lit-from-above highlight
-the material does not draw itself. The anchor carries a year because the shape is
-the one the 2026 platform redesign settled on, and field research is where that
-came from — provenance, recorded so nobody re-derives it, never the authority: the reason the pair holds is the paragraph
-above, and one stroke cannot be both a boundary and a highlight in any year.
+ONE uniform white hairline on the floating surfaces (Card and Classic) is a single
+stroke asked to do two jobs and doing neither. Over a bright desktop it
+disappears, which is exactly where a translucent surface most needs an edge. And
+a uniform bright line lies about the light: it claims a highlight arriving
+equally from every direction, including from underneath, which nothing on a
+screen lit from above ever has.
+Decision: the boundary is the surface's own darkness, and the one stroke is the
+light. The film over the material (`SurfaceChrome.scrim`,
+`hud-fixed-dark-palette`) keeps the surface dark over any desktop, so it stands
+out from a bright one with no line drawn round it. An inner specular, brightest
+at the top edge and spent within the upper third, supplies the lit-from-above
+highlight the material does not draw itself. There is no dark rim: with the film
+in place it adds nothing to a dark surface, and around the filled HUD's light
+sweep it reads as a drawn outline over a white page. The anchor carries a year
+because the specular's shape is the one the 2026 platform redesign settled on —
+provenance, recorded so nobody re-derives it, never the authority.
 
 Three mechanics are load bearing.
 
 The specular is a `strokeBorder`, not a `stroke`, which is why `vibrantSurface`
 takes `some InsettableShape`: `strokeBorder` insets by half the line width, so
-the highlight stays INSIDE the surface instead of bleeding a bright edge outward,
-past the rim that is supposed to be the outermost thing there. The rim is applied
-last, so the boundary is never dimmed by the highlight it is adjacent to.
+the highlight stays INSIDE the surface instead of bleeding a bright edge outward.
+
+The outline is antialiased once. The content and the film are composited before
+the clip (`compositingGroup`), and the material, an AppKit view masked apart from
+the SwiftUI layer above it, stops `SurfaceChrome.materialInset` (half a point)
+inside the outline. Clipped layer by layer, the dark beneath shows through the
+edge pixels of a light fill: a grey fringe round the filled HUD over a bright
+desktop, measured on screen, where the composite alone left a trace and the inset
+alone left the fringe; together they leave a clean edge.
 
 The numbers live in one place (`SurfaceChrome`) because the Settings tiles draw
-this same border in miniature, and two literals drift: a surface stroking 0.12
-beside a tile depicting it at 0.14 is a disagreement nobody can see. A tile draws ONE flat hairline where the surface ramps — at 108 pt an
-edge that fades reads as no edge — and it takes that value from the ramp's
-brightest point (`tileStrokeTopOpacity`, derived, never a literal). A forked
-number would paint a border the app does not have, in the one place a person
-compares the skins: the second description is the one that rots.
+this same edge in miniature, and two literals drift. A tile draws ONE flat
+hairline where the surface ramps — at 108 pt an edge that fades reads as no edge —
+and it takes that value from the ramp's brightest point (`tileStrokeTopOpacity`,
+derived, never a literal), at the specular's own width. A forked number would
+paint an edge the app does not have, in the one place a person compares the
+skins: the second description is the one that rots.
 
 The Notch does not participate, and that is not an omission. That skin is opaque
 black because it camouflages with the hardware cutout it covers — the same
@@ -2409,15 +2415,13 @@ outline the skin exists to hide. Its Settings tile strokes nothing either, off t
 same fact (`surfaceIsOpaque`), so the picture and the surface agree about the
 absence too.
 
-The values are calibration starting points, like `SurfaceAnimation`'s: what must
-survive a retune is the SHAPE of the border — dark outside, light at the top,
-inside — not any single number. Reopening gate: the pair exists because this
+What must survive a retune is the SHAPE — a dark surface, lit at the top, inside
+— not any single number. Reopening gate: the edge rests on the film because this
 material draws no edge of its own. The day a never-key, nonactivating panel can
-take one that does, the pair is re-examined rather than kept beside it — Liquid
-Glass is the standing candidate and the standing blocker, since `glassEffect`
-renders vivid only while the window is key (the note on `vibrantSurface` carries
-the measurement). The other gate is the Notch: if that skin ever floats instead of
-camouflaging, it takes the border with it.
+take one that does, it is re-examined rather than kept beside it — Liquid Glass is
+the standing candidate and the standing blocker (`hud-fixed-dark-palette` carries
+the macOS 27 measurement). The other gate is the Notch: if that skin ever floats
+instead of camouflaging, it takes the specular with it.
 
 ### inner-corners-are-concentric
 Apple publishes no OSD dimensions; it publishes shape rules. WWDC25 session 356

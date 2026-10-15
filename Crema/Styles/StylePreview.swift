@@ -30,9 +30,8 @@ struct StylePreviewShapes: Equatable {
     /// about a skin's look that no frame rule produces (`contentArrangement` below
     /// is the other), and the difference a user names first: only the notch style is
     /// black, because it camouflages with the hardware cutout it covers; the card
-    /// and classic are a translucent material edged by `vibrantSurface`'s chrome
-    /// pair — dark outer rim plus top specular (docs/DECISIONS.md:
-    /// surface-border-2026).
+    /// and classic are a translucent material under a dark film, lit at the top
+    /// by `vibrantSurface`'s specular (docs/DECISIONS.md: surface-border-2026).
     let surfaceIsOpaque: Bool
 
     /// How the surface arranges what it holds: a cover with the track's two lines
