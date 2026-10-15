@@ -67,20 +67,6 @@ private struct FeatureRow: View {
     }
 }
 
-/// The window's ground: near-black with a lift at the top, the tone the surfaces
-/// themselves are drawn in, so the tour reads as the app and not as a system
-/// dialog about it.
-struct TourBackdrop: View {
-    var body: some View {
-        LinearGradient(
-            colors: [Color(white: 0.16), Color(white: 0.09)],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .ignoresSafeArea()
-    }
-}
-
 /// What the app can do beyond the defaults, one line each under its name.
 struct TourFeatureList: View {
     var body: some View {

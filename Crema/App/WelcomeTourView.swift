@@ -79,7 +79,6 @@ struct WelcomeTourView: View {
             footer
         }
         .frame(width: Layout.width, height: Layout.height)
-        .background(TourBackdrop())
         .onChange(of: step, initial: true) { _, entered in
             core.welcomeTourEntered(entered)
             if entered == .tryIt { heardAKey = false }
@@ -222,7 +221,7 @@ struct WelcomeTourView: View {
     private var accessibilityStep: some View {
         let granted = core.permissionMonitor.isGranted
         return TourStepLayout(
-            title: String(localized: "tour.step.accessibility.title", defaultValue: "Let Crema see the media keys"),
+            title: String(localized: "tour.step.accessibility.title", defaultValue: "Let Crema notice the volume and brightness keys"),
             hero: {
                 Image(systemName: granted ? "checkmark.circle.fill" : "accessibility")
                     .font(.system(size: 72, weight: .light))
@@ -237,7 +236,7 @@ struct WelcomeTourView: View {
                 // the step answers the person who just flipped the switch in System
                 // Settings instead of waiting for a relaunch nobody would perform.
                 if granted {
-                    Text(String(localized: "tour.step.accessibility.granted", defaultValue: "Accessibility access is on."))
+                    Text(String(localized: "tour.step.accessibility.granted", defaultValue: "Accessibility is on for Crema."))
                         .foregroundStyle(.green)
                 } else {
                     // In the step and not the footer: the footer's row has no room

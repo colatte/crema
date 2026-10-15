@@ -143,13 +143,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "It only listens to keys like volume and brightness, never to what you type."
+            "value": "It only notices keys like volume and brightness, never what you type."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ele só escuta teclas como volume e brilho, nunca o que você digita."
+            "value": "Ele só percebe teclas como volume e brilho, nunca o que você digita."
           }
         }
       }
@@ -2615,13 +2615,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Accessibility access is on."
+            "value": "Accessibility is on for Crema."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O acesso de Acessibilidade está ativado."
+            "value": "A Acessibilidade está ativada para o Crema."
           }
         }
       }
@@ -2632,13 +2632,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Let Crema see the media keys"
+            "value": "Let Crema notice the volume and brightness keys"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deixe o Crema ver as teclas de mídia"
+            "value": "Deixe o Crema perceber as teclas de volume e brilho"
           }
         }
       }

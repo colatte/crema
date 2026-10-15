@@ -1102,10 +1102,11 @@ extension AppCore {
     ///
     /// Built by the same recipe as the Accessibility onboarding above: a window
     /// outside the Settings scene, because an accessory app has no scene to open
-    /// one into and `openSettings` is a no-op from here. Dark whatever the system
-    /// appearance, like the surfaces it shows. Every way out — the buttons, Esc,
-    /// the close box — ends in `welcomeTourDidClose`, which lets go of what the
-    /// tour holds on the real screen.
+    /// one into and `openSettings` is a no-op from here. It follows the system
+    /// appearance, as the Settings window does: the tour hands over to that
+    /// window, and the two read as one app only in the same light. Every way
+    /// out — the buttons, Esc, the close box — ends in `welcomeTourDidClose`,
+    /// which lets go of what the tour holds on the real screen.
     func showWelcomeTour(at step: WelcomeTourStep = .welcome) {
         if let welcomeTourWindow {
             welcomeTourWindow.makeKeyAndOrderFront(nil)
@@ -1122,7 +1123,6 @@ extension AppCore {
         // A titled window draws all three buttons; this one can only close.
         window.standardWindowButton(.miniaturizeButton)?.isHidden = true
         window.standardWindowButton(.zoomButton)?.isHidden = true
-        window.appearance = NSAppearance(named: .darkAqua)
         // Hidden from the title bar but kept: it is the name VoiceOver and the
         // window list read.
         window.title = String(localized: "tour.window.title", defaultValue: "Welcome to Crema")
