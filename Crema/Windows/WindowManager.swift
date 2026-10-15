@@ -3,8 +3,10 @@ import os
 
 /// Owns every screen's panels — one per surface its style draws there
 /// (`PanelSurface`) — resolves the style per display via Preferences, and pushes
-/// each panel's rule frame by hand: the panel uses it as the click-interactive
-/// region of its fixed window. Window frames never come from SwiftUI layout.
+/// each panel the rule frame of the state it shows there. The window stays fixed;
+/// the panel bounds its click and hover regions by that frame while the regions
+/// themselves follow the rendered surface (docs/DECISIONS.md:
+/// hover-follows-the-eye). Window frames never come from SwiftUI layout.
 @MainActor
 final class WindowManager {
     private struct Entry {
@@ -228,35 +230,33 @@ final class WindowManager {
         showsNowPlaying shows: Bool,
         builtInPanel: DisplayUUID?
     ) {
-        let drawn = coordinator.layers.state(on: panel.surface.layers)
-        let effective = effectiveState(drawn, for: screen, builtInPanel: builtInPanel)
+        // Content-level scoping: the window is fixed and never orders out, so a
+        // panel the HUD's target does not speak for has to be told not to DRAW it
+        // — an empty frame only stops it from being touched, and a bar still
+        // rendered there is a live control for a screen the user is not looking
+        // at. It draws the appearance under the HUD instead, the frame and the
+        // view alike (docs/DECISIONS.md: hud-target-is-a-role,
+        // hud-belongs-to-its-display).
+        let showsHUD = hudIsShown(on: screen, builtInPanel: builtInPanel)
+        let drawn = coordinator.layers.state(on: panel.surface.layers, showsHUD: showsHUD)
+        let effective = effectiveState(drawn, for: screen)
         // Hover is armed only while a surface is visible on this panel — it
         // expands/holds what is on screen (a paused appearance stays holdable
         // during its linger). An empty region never reacts to the pointer:
-        // invocation is the click zone below.
-        let hoverArmed = effective != .hidden
-        // Content-level scoping, the other half of `effectiveState`: the window is
-        // fixed and never orders out, so a panel the HUD's target does not speak
-        // for has to be told not to DRAW it — an empty frame only stops it from
-        // being touched, and a bar still rendered there is a live control for a
-        // screen the user is not looking at (docs/DECISIONS.md:
-        // hud-target-is-a-role, hud-belongs-to-its-display).
-        let showsHUD: Bool
-        if case .hud = drawn {
-            showsHUD = effective != .hidden
-        } else {
-            showsHUD = true
-        }
-        // Click-invoke zone: media playing, nothing visible here — the style's
-        // own zone rule (the notch's physical slit; nil for the floating styles,
-        // whose region sits over live app content) captures clicks to surface the
-        // appearance. Everything outside it keeps falling through to the menu bar
-        // and windows below. Keyed on the GLOBAL state, not this panel's: a panel
-        // hidden only because the HUD belongs elsewhere must not arm the slit, or
-        // the click it captures would die against `invoke()`'s hidden-only guard
-        // instead of falling through to the menu bar.
+        // invocation is the click zone below. Nor does an appearance shown under
+        // another display's HUD: the Coordinator's pointer record names surfaces,
+        // not displays, so a pointer there on a surface that draws the HUD would
+        // hold the HUD the other display shows.
+        let hoverArmed = effective != .hidden && (showsHUD || !panel.surface.layers.drawsHUD)
+        // Click-invoke zone: armed exactly when `invoke()` would act
+        // (`Coordinator.canInvoke`) and this display shows now playing — the
+        // style's own zone rule (the notch's physical slit; nil for the floating
+        // styles, whose region sits over live app content) captures clicks to
+        // surface the appearance. Everything outside it keeps falling through to
+        // the menu bar and windows below. One predicate for both, so a click the
+        // zone captures is never one `invoke()` then refuses.
         let invokeZone: CGRect?
-        if coordinator.state == .hidden, coordinator.mediaActive, shows {
+        if coordinator.canInvoke, shows {
             invokeZone = panel.surface.invokeZone(on: screen.geometry)
         } else {
             invokeZone = nil
@@ -272,18 +272,16 @@ final class WindowManager {
         )
     }
 
-    /// Per-display policy: what this display shows of what one panel draws.
+    /// Whether this display draws the current HUD; true with none up.
     ///
-    /// Two rules, from two different reasons. "Show now playing here"
-    /// (Preferences) is the user's choice and suppresses the now-playing surface
-    /// where it is off. A HUD's TARGET is a fact rather than a choice: a bar for
-    /// one screen drawn on another is a live control for a display the user is not
-    /// looking at, and its drag would dim the neighbour in silence. So the three
-    /// targets answer three different questions here — no screen owns it (volume,
-    /// the keyboard backlight) and it appears everywhere; a NAMED display and it
-    /// appears only there, and nowhere at all if that display is gone, which is
-    /// what an unplug between the report and this pass should look like; the
-    /// built-in panel and it appears only on the internal one.
+    /// A HUD's TARGET is a fact rather than a choice: a bar for one screen drawn
+    /// on another is a live control for a display the user is not looking at, and
+    /// its drag would dim the neighbour in silence. So the three targets answer
+    /// three different questions here — no screen owns it (volume, the keyboard
+    /// backlight) and it appears everywhere; a NAMED display and it appears only
+    /// there, and nowhere at all if that display is gone, which is what an unplug
+    /// between the report and this pass should look like; the built-in panel and
+    /// it appears only on the internal one.
     ///
     /// That last one falls OPEN when the roster carries no internal panel: it then
     /// shows on every display, as a target no screen owns does. The case is
@@ -296,21 +294,19 @@ final class WindowManager {
     ///
     /// A HUD the app put up itself names its displays outright
     /// (`PresentationLayers.hudDisplays`), and appears on no other.
-    private func effectiveState(
-        _ state: PresentationState,
-        for screen: ScreenDescription,
-        builtInPanel: DisplayUUID?
-    ) -> PresentationState {
-        switch state {
-        case .nowPlaying where !preferences.showsNowPlaying(on: screen.id, isInternal: screen.isInternal):
+    private func hudIsShown(on screen: ScreenDescription, builtInPanel: DisplayUUID?) -> Bool {
+        guard let hud = coordinator.layers.hud else { return true }
+        guard panelOwns(hud.target, panel: screen.id, builtInPanel: builtInPanel) else { return false }
+        return coordinator.layers.hudDisplays.map { $0.contains(screen.id) } ?? true
+    }
+
+    /// The user's "show now playing here" (Preferences): where it is off, the
+    /// now-playing surface is suppressed.
+    private func effectiveState(_ state: PresentationState, for screen: ScreenDescription) -> PresentationState {
+        if case .nowPlaying = state, !preferences.showsNowPlaying(on: screen.id, isInternal: screen.isInternal) {
             return .hidden
-        case .hud(let hud) where !panelOwns(hud.target, panel: screen.id, builtInPanel: builtInPanel):
-            return .hidden
-        case .hud where coordinator.layers.hudDisplays.map({ !$0.contains(screen.id) }) ?? false:
-            return .hidden
-        default:
-            return state
         }
+        return state
     }
 
     /// Whether this panel is one the HUD's target speaks for. No UUID is resolved

@@ -32,10 +32,11 @@ final class DisplayServicesBridge: BrightnessBackend, Sendable {
     /// `CGDisplayIsBuiltin` named as the discriminator (PowerMateReborn's brightness
     /// research notes); the framework only ever governs Apple-controlled panels,
     /// which is also why external brightness belongs to the neighbour integration
-    /// and not here. The stability: CGDisplayID
-    /// values are reassigned across sleep/wake and reconfiguration, so a captured
-    /// ID goes stale and rots the path until relaunch (which is why a restart
-    /// "cures" it and a toggle does not).
+    /// and not here. The stability: Apple says a display ID "can persist across
+    /// processes and typically remains constant until the machine is restarted"
+    /// (CGDirectDisplayID) — typically, not always, and it is assigned when a
+    /// monitor is attached, so a topology change can leave a captured ID naming a
+    /// display that is gone (docs/DECISIONS.md: J2-display-id-stale).
     ///
     /// Naming the built-in panel is also what makes per-operation resolution
     /// unambiguous rather than a straddle: the identity cannot change

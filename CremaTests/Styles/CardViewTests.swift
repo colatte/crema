@@ -137,6 +137,24 @@ struct CardViewTests {
         #expect(cardOnly.contentKind == .nowPlayingCompact(track))
     }
 
+    @Test func aPanelNotShowingTheHUDDrawsTheAppearanceUnderIt() async {
+        // Another display's HUD: this panel draws both layers, shows none of the
+        // HUD, and so shows what lies under it, as the card's own panel does
+        // (docs/DECISIONS.md: hud-belongs-to-its-display).
+        let h = CoordinatorHarness()
+        let policy = SurfaceDisplayPolicy()
+        let view = CardView(coordinator: h.coordinator, displayPolicy: policy)
+        let track = CoordinatorHarness.playingTrack()
+        h.nowPlayingSource.emit(track)
+        #expect(await eventually { view.contentKind == .nowPlayingCompact(track) })
+
+        policy.showsHUD = false
+        h.hudSource.emit(SystemHUD(kind: .volume, value: 0.5))
+        #expect(await eventually { h.coordinator.layers.hud != nil })
+
+        #expect(view.contentKind == .nowPlayingCompact(track))
+    }
+
     @Test func displayPolicySuppressesNowPlaying() async {
         let h = CoordinatorHarness()
         let policy = SurfaceDisplayPolicy()

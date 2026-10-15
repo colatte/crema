@@ -2,7 +2,8 @@
 protocol NowPlayingSource: Sendable {
     /// Single-consumer stream of domain updates. A finished stream means the
     /// source became unavailable — availability is state, not a fatal error;
-    /// the consumer re-evaluates the fallback chain.
+    /// the fallback chain (`ChainedNowPlayingSource`) re-evaluates availability
+    /// and re-selects, and a consumer that sees a stream end drops its snapshot.
     var updates: AsyncStream<NowPlaying> { get }
     func isAvailable() async -> Bool
     /// The user deliberately sought to this position (the scrubber's release).

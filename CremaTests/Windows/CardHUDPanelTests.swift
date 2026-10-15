@@ -137,14 +137,30 @@ struct CardHUDPanelTests {
         #expect(await eventually { base.coordinator.layers.hud == hud })
         await base.clock.waitForSleep(delay: Coordinator.defaultHUDRevertDelay)
 
-        NSPanelPresentationPanel.forwardHover(true, from: .cardNowPlaying, to: base.coordinator)
+        NSPanelPresentationPanel.forwardHover(true, byMovement: true, from: .cardNowPlaying, to: base.coordinator)
         #expect(base.coordinator.layers.nowPlaying?.expanded == true)
         #expect(base.clock.pendingSleeps == 1)   // the revert still runs
-        NSPanelPresentationPanel.forwardHover(false, from: .cardNowPlaying, to: base.coordinator)
+        NSPanelPresentationPanel.forwardHover(false, byMovement: true, from: .cardNowPlaying, to: base.coordinator)
 
-        NSPanelPresentationPanel.forwardHover(true, from: .cardHUD(.bottomRight), to: base.coordinator)
+        NSPanelPresentationPanel.forwardHover(true, byMovement: true, from: .cardHUD(.bottomRight), to: base.coordinator)
         #expect(base.clock.pendingSleeps == 0)   // the HUD is held
         #expect(base.coordinator.layers.nowPlaying?.expanded == false)
+    }
+
+    @Test func theMonitorsCauseReachesTheCoordinator() async {
+        // The dispatch carries whether a mouse event caused the report: the
+        // arming sample under a resting cursor reaches the Coordinator as no
+        // movement, so the Card's HUD panel armed under it keeps its revert.
+        let base = CoordinatorHarness()
+        base.hudSource.emit(SystemHUD(kind: .volume, value: 0.5))
+        #expect(await eventually { base.coordinator.layers.hud != nil })
+        await base.clock.waitForSleep(delay: Coordinator.defaultHUDRevertDelay)
+
+        NSPanelPresentationPanel.forwardHover(true, byMovement: false, from: .cardHUD(.bottomRight), to: base.coordinator)
+        #expect(base.clock.pendingSleeps == 1)   // the revert still runs
+
+        NSPanelPresentationPanel.forwardHover(true, byMovement: true, from: .cardHUD(.bottomRight), to: base.coordinator)
+        #expect(base.clock.pendingSleeps == 0)   // a mouse event holds it
     }
 
     @Test(arguments: [true, false])

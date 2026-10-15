@@ -4,8 +4,8 @@ import Foundation
 /// adapter's `send` calls MRMediaRemoteSendCommand and exits non-zero when it
 /// returns false, so the exit code is the signal this channel reports on.
 ///
-/// A non-zero exit is not evidence that the platform blocks writes: measured on
-/// macOS 26.5.2, `send` exits 0 and the player moves. Read it as "this command
+/// A non-zero exit is not evidence that the platform blocks writes (the
+/// measurement lives on `NowPlayingCommandChannel`). Read it as "this command
 /// did not land", nothing more.
 ///
 /// The exit code only covers delivery: a skip sent to media that prohibits it

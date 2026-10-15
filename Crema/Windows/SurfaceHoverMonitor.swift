@@ -1,10 +1,10 @@
 import AppKit
 
-/// System edge: watches the real cursor and drives the surface's hover
-/// against stable screen-space regions (`SurfaceHoverModel`), never the window
-/// frame the panel animates: a tracking area riding a resizing panel fires
-/// spurious enter/exit events as the edge sweeps under a still cursor, and
-/// loops.
+/// System edge: watches the real cursor and decides the surface's hover against
+/// screen-space regions (`SurfaceHoverModel`) that the panel retargets onto the
+/// surface as drawn. The window is fixed and only the content inside it animates,
+/// so the regions, never the window frame, say where the surface is
+/// (docs/DECISIONS.md: hover-follows-the-eye).
 ///
 /// Thin by design: the decision is the pure, unit-tested model; this only samples
 /// the cursor (`NSEvent.mouseLocation` in production) and forwards transitions.
@@ -31,10 +31,15 @@ final class SurfaceHoverMonitor {
     ]
     private var model: SurfaceHoverModel
     private let cursorLocation: @MainActor () -> CGPoint
-    private let report: (Bool) -> Void
+    private let report: (_ inside: Bool, _ byMovement: Bool) -> Void
     private var localMonitor: Any?
     private var globalMonitor: Any?
     private var isInside = false
+    /// Whether a mouse event has seen the pointer inside since it was last
+    /// reported entering. Only movement holds a HUD, so a pointer the arming
+    /// or a retarget sample found is reported once more, as movement, by the
+    /// first mouse event that finds it still there.
+    private var movedInside = false
     private var isActive = false
 
     /// `cursorLocation` is a parameter, not a hard-wired read, for exactly one
@@ -47,7 +52,7 @@ final class SurfaceHoverMonitor {
     init(
         regions: SurfaceHoverRegions,
         cursorLocation: @escaping @MainActor () -> CGPoint = { NSEvent.mouseLocation },
-        report: @escaping (Bool) -> Void
+        report: @escaping (_ inside: Bool, _ byMovement: Bool) -> Void
     ) {
         model = SurfaceHoverModel(regions: regions)
         self.cursorLocation = cursorLocation
@@ -57,7 +62,10 @@ final class SurfaceHoverMonitor {
     /// Armed/disarmed by per-display policy (see PresentationPanel). Arming
     /// samples immediately: a stationary cursor already inside the region must
     /// register without waiting for movement, or the linger tucks the surface
-    /// out from under it. Disarming reports a pending exit: the Coordinator
+    /// out from under it. That sample is reported as no movement: it holds the
+    /// appearance but not a HUD, or a HUD rising under a resting cursor would
+    /// stay until the mouse moved (docs/DECISIONS.md: hud-capsule-track).
+    /// Disarming reports a pending exit: the Coordinator
     /// mirrors the pointer from these reports, and a silent reset would leave
     /// that mirror stale (its guards then act on a pointer that isn't there).
     /// Both halves are pinned by `SurfaceHoverMonitorTests` — the exit is
@@ -67,12 +75,13 @@ final class SurfaceHoverMonitor {
         isActive = active
         if active {
             install()
-            sample()
+            sample(byMovement: false)
         } else {
             teardown()
             if isInside {
                 isInside = false
-                report(false)
+                movedInside = false
+                report(false, false)
             }
         }
     }
@@ -114,14 +123,16 @@ final class SurfaceHoverMonitor {
     ///
     /// Re-samples so a region that tightened under a stationary cursor (reactive
     /// appearance) corrects without waiting for a move; `sample` reports only on a
-    /// real transition, so an unchanged answer stays quiet.
+    /// real transition, so an unchanged answer stays quiet, and a region that grows
+    /// under a still cursor reports it as no movement: the surface came to the
+    /// pointer.
     /// (docs/DECISIONS.md: hover-follows-the-eye)
     func updateRegions(_ regions: SurfaceHoverRegions) {
         retargetRequests += 1
         guard regions != model.regions else { return }
         model = SurfaceHoverModel(regions: regions)
         if isActive {
-            sample()
+            sample(byMovement: false)
         }
     }
 
@@ -158,11 +169,11 @@ final class SurfaceHoverMonitor {
         // hop it would perform is the reordering these assumptions exist to avoid.
         // (docs/DECISIONS.md: assumed-isolation-is-measured)
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: Self.sampleEventMask) { [weak self] event in
-            MainActor.assumeIsolated { self?.sample() }
+            MainActor.assumeIsolated { self?.pointerMoved() }
             return event
         }
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: Self.sampleEventMask) { [weak self] _ in
-            MainActor.assumeIsolated { self?.sample() }
+            MainActor.assumeIsolated { self?.pointerMoved() }
         }
     }
 
@@ -173,14 +184,26 @@ final class SurfaceHoverMonitor {
         globalMonitor = nil
     }
 
+    /// A mouse event reached either monitor. Internal so the tests can stand in
+    /// for the event, which only real input produces.
+    func pointerMoved() {
+        sample(byMovement: true)
+    }
+
     /// The cursor point arrives in global screen coordinates (bottom-left
     /// origin) — the same space as the regions, so no conversion; production
-    /// reads `NSEvent.mouseLocation`, the authoritative one. Only transitions are
-    /// forwarded, to keep the Coordinator quiet.
-    private func sample() {
+    /// reads `NSEvent.mouseLocation`, the authoritative one. Transitions are
+    /// forwarded, plus the one report that turns a pointer found still into one
+    /// that moved; the Coordinator hears nothing else.
+    private func sample(byMovement: Bool) {
         let inside = model.isInside(cursorLocation(), wasInside: isInside)
-        guard inside != isInside else { return }
-        isInside = inside
-        report(inside)
+        if inside != isInside {
+            isInside = inside
+            movedInside = inside && byMovement
+            report(inside, byMovement)
+        } else if inside, byMovement, !movedInside {
+            movedInside = true
+            report(true, true)
+        }
     }
 }

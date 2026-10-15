@@ -70,4 +70,45 @@ struct CoordinatorPointerSignalTests {
         h.clock.advance()
         #expect(await eventually { h.coordinator.state == .hidden })
     }
+
+    @Test func aHUDRisingUnderAStillPointerRevertsOnItsTimer() async {
+        // The production order: the HUD's state write runs the frame pass, which
+        // arms the notch's monitor, whose arming sample finds the resting cursor
+        // inside and reports it — all inside the write, before `publishHUD`
+        // decides whether to start the revert. Nobody moved the mouse, so nothing
+        // holds the HUD (docs/DECISIONS.md: hud-capsule-track).
+        let h = CoordinatorHarness()
+        var sampled = false
+        h.coordinator.onPresentationChange = { [coordinator = h.coordinator] in
+            guard !sampled, case .hud = coordinator.state else { return }
+            sampled = true
+            coordinator.hoverIntent(true, byMovement: false)
+        }
+
+        h.hudSource.emit(SystemHUD(kind: .volume, value: 0.5))
+
+        await h.clock.waitForSleep(delay: Coordinator.defaultHUDRevertDelay)
+        h.clock.advance(delay: Coordinator.defaultHUDRevertDelay)
+        #expect(await eventually { h.coordinator.layers.hud == nil })
+        #expect(sampled)
+    }
+
+    @Test func aMouseEventOnAStillPointerTakesTheHold() async {
+        // The pointer the arming sample found is the user's the moment it moves:
+        // from then on it holds the HUD like any arrival, and its exit restarts
+        // the full delay.
+        let h = CoordinatorHarness()
+        h.hudSource.emit(SystemHUD(kind: .volume, value: 0.5))
+        #expect(await eventually { h.coordinator.layers.hud != nil })
+        h.coordinator.hover(true, on: .both, byMovement: false)
+        await h.clock.waitForSleep(delay: Coordinator.defaultHUDRevertDelay)
+
+        h.coordinator.hover(true, on: .both, byMovement: true)
+        #expect(h.clock.pendingSleeps == 0)
+
+        h.coordinator.hover(false, on: .both)
+        await h.clock.waitForSleep(delay: Coordinator.defaultHUDRevertDelay)
+        h.clock.advance(delay: Coordinator.defaultHUDRevertDelay)
+        #expect(await eventually { h.coordinator.layers.hud == nil })
+    }
 }
