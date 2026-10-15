@@ -4,8 +4,9 @@ import SwiftUI
 /// them.
 ///
 /// It lives in a file of its own because it belongs to no one picture: the style
-/// tiles, the indicator mini-tiles and the thumbnail heading each display row sit
-/// in one Settings pane and have to look like one family, so a second copy of
+/// tiles, the indicator mini-tiles, the placement map and the thumbnail heading
+/// each display row sit in one Settings pane and have to look like one family, so
+/// a second copy of
 /// these numbers is how they would come to wear two frames. Sharing the constants
 /// alone is not enough: with each picture tracing its own ring, the numbers cannot
 /// diverge but the lines drawing them can.
@@ -20,11 +21,10 @@ enum Thumbnail {
     /// what a tile is shaped like.
     static let referenceAspectRatio = StylePreview.notchedReference.frame.width / StylePreview.notchedReference.frame.height
     static let cornerRadius: CGFloat = 6
-    /// The gap between the small tiles of the Card's rows — the indicator
-    /// close-ups and the placement screens — tighter than the style tiles' row.
+    /// The gap between the indicator close-ups, tighter than the style tiles' row.
     static let smallTileSpacing: CGFloat = 4
     /// Room between the picture and the selection ring.
-    fileprivate static let ringInset: CGFloat = 3
+    static let ringInset: CGFloat = 3
     /// Floor for the menu-bar strip and the slit that cuts it. Scenery, like the
     /// strip itself: the tile scales its screen by `width / that screen's width`,
     /// so the reference panel's 32 pt safe area derives to roughly 2.3 pt at the

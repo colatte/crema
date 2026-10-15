@@ -420,11 +420,17 @@ side it keeps `hudSideMargin` (16 pt) from the edge. The margins are fixed, by
 agreement with the author: the Dock is not read (`ScreenGeometry` carries no
 visible frame), so a Dock taller than the bottom margin sits over a bottom HUD.
 Placements are places on the glass — left and right do not swap under a
-right-to-left interface. Settings picks one from a grid of eight small screens
-whose bars are the rule's own frames on the reference panel (`StylePreview.hudBar`,
-`PlacementThumbnail`); magnified to read at that size, each bar keeps its
-proportions and its share of the room around it, so a corner stays a corner, and
-the grid's hand-written arrangement is checked against where those bars land.
+right-to-left interface. Settings picks one on a single picture of the screen
+(`HUDPlacementPicker`, geometry in `PlacementMap`): the card resting at the top,
+where it stays, and the seven other places drawn on the same screen, dimmed, the
+chosen one lit and ringed; the card is itself the top-centre choice, and choosing
+it draws the bar in the card's place, since there the HUD is the card. Every shape
+is the Card's own rule on the reference panel (`StylePreview.restingCard`,
+`StylePreview.hudBar`), magnified alike so the bar keeps its true size beside the
+card; each bar keeps its share of the room around it, so a corner stays a corner.
+A place is clicked through a target wider than its mark, the targets never
+overlap, and every mark keeps the room its ring takes from the frame and the menu
+bar. The surface is drawn by the same view as the style tiles (`PreviewSurface`).
 
 **The bar runs along the edge it sits on.** Flat along the top and bottom edges,
 corners included; upright in the middle of a side (`HUDPlacement.axis`). Upright,

@@ -118,7 +118,8 @@
 21. ~~The cover lookup.~~ **Retired.** Crema makes no artwork request of any
     kind.
 22. On a display drawing Card, the indicator's position is picked in General
-    from a grid of eight small screens, and applies at once to every display
+    on a picture of the screen — the card resting at the top, the other places
+    drawn around it, the chosen one lit — and applies at once to every display
     drawing Card. At the top centre (the default) nothing changes: the HUD is the
     card itself, morphed. Anywhere else the HUD appears there, upright in the
     middle of a side and filling from the bottom, while the card stays at the top
