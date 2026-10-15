@@ -62,7 +62,7 @@ struct PermissionsSettingsView: View {
                 Text(String(
                     localized: "settings.permissions.footer",
                     // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
-                    defaultValue: "Crema needs Accessibility access to capture the media keys — for its volume and brightness indicators and to replace the system’s. Without it the app still runs; it just can’t react to those keys. Granting is picked up automatically, no relaunch needed."
+                    defaultValue: "Crema needs Accessibility to notice the volume and brightness keys and show its own indicators. Without it the app still works; it just doesn’t react to those keys. No need to relaunch after you allow it."
                 ))
                 .settingsFootnote()
             }
@@ -112,7 +112,7 @@ struct PermissionsSettingsView: View {
                     Text(String(
                         localized: "settings.permissions.automation.footer",
                         // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
-                        defaultValue: "Only Crema’s backup reader needs this — it asks \(musicApps) what is playing. The usual reader needs no permission, so Now Playing works either way."
+                        defaultValue: "Optional. Crema only uses this when its usual way of seeing what’s playing fails: then it asks \(musicApps) directly. Without it, the player keeps working."
                     ))
                     automationDetail
                 }
@@ -173,12 +173,12 @@ struct PermissionsSettingsView: View {
         case .denied:
             Text(String(
                 localized: "settings.permissions.automation.denied",
-                defaultValue: "Turned off in System Settings. Now Playing still works through the usual reader."
+                defaultValue: "Turned off in System Settings. The player keeps working normally."
             ))
         case .undecided:
             Text(String(
                 localized: "settings.permissions.automation.undecided",
-                defaultValue: "macOS hasn’t asked you about this yet. Request it and macOS shows its own dialog."
+                defaultValue: "macOS hasn’t asked for this permission yet. Request access and macOS will ask you."
             ))
         case .targetNotRunning:
             Text(String(

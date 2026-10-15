@@ -28,7 +28,7 @@ struct StyleMenu: View {
     @AppStorage(Preferences.declaredStyleKey) private var declaredStyle = Preferences.defaultDeclaredStyle.rawValue
 
     private var title: String {
-        String(localized: "menu.style", defaultValue: "Style")
+        String(localized: "menu.style", defaultValue: "Style for All Displays")
     }
 
     /// Reads the declaration and writes it back through the app's one all-displays
@@ -75,6 +75,6 @@ struct StyleMenu: View {
         // display and sweeps the per-display overrides. Same sentence the
         // Settings footer opens with, word for word — one name per concept, in
         // each language.
-        Text(String(localized: "menu.style.appliesEverywhere", defaultValue: "Applies to every display."))
+        Text(String(localized: "menu.style.appliesEverywhere", defaultValue: "Changes every display at once."))
     }
 }

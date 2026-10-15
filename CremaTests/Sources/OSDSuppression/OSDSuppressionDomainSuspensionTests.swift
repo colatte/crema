@@ -218,7 +218,7 @@ struct OSDSuppressionDomainSuspensionTests {
         #expect(await eventually { h.suppressor.longSuspendedDomains.contains(.screenBrightness) })
         #expect(h.suspensionChanges >= 1)   // the menu callback fired
 
-        // The menu's "try to reactivate now" with the channel healed → recovers.
+        // The menu's "Try Again" with the channel healed → recovers.
         h.screen.value = 0.5
         h.suppressor.retrySuspendedNow()
         #expect(await eventually { !h.suppressor.suspendedDomains.contains(.screenBrightness) })

@@ -39,7 +39,7 @@ On the General tab this decides the section labels: the global declaration opens
 
 ## Menu strings have a width ceiling, and the ceiling lives in the catalog
 
-NSMenu sizes itself by the **widest** item, so a 116-character line opened the menu at ~1500 px (measured in the field). Every menu line (`menu.*`) — an item's title, its subtitle, a fallback line — stays within **72 characters**, and `MenuLineWidthTests` holds that against the compiled tables. A line is cut to fit by rewording it, never broken and never truncated: a fact under its control is a fragment ("Drawing Card — no connected display has a notch"), no final period, the control above it being the subject (docs/DECISIONS.md: menu-status-before-warnings). If a `\n` ever enters a menu string, it falls at a clause of the language itself and the `en`/`pt-BR` pair keeps the same number of breaks — the same test checks that.
+NSMenu sizes itself by the **widest** item, so a 116-character line opened the menu at ~1500 px (measured in the field). Every menu line (`menu.*`) — an item's title, its subtitle, a fallback line — stays within **72 characters**, and `MenuLineWidthTests` holds that against the compiled tables. A line is cut to fit by rewording it, never broken and never truncated: a fact under its control is a fragment ("Using Card, since no display has a notch"), no final period, the control above it being the subject (docs/DECISIONS.md: menu-status-before-warnings). If a `\n` ever enters a menu string, it falls at a clause of the language itself and the `en`/`pt-BR` pair keeps the same number of breaks — the same test checks that.
 
 ## No emoji in UI strings
 

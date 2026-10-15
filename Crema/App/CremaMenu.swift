@@ -135,12 +135,12 @@ struct CremaMenu: View {
             // what is drawn, then why.
             String(
                 localized: "menu.status.styleFallsBack",
-                defaultValue: "Drawing Card — no connected display has a notch"
+                defaultValue: "Using Card, since no display has a notch"
             )
         case .brightnessFromBetterDisplay:
             String(
                 localized: "menu.betterDisplay.drawing",
-                defaultValue: "Screen brightness indicator from BetterDisplay"
+                defaultValue: "External display brightness comes from BetterDisplay"
             )
         case .brightnessNoBuiltIn:
             // Under the switch, Crema is the subject, never "the brightness keys": a
@@ -148,7 +148,7 @@ struct CremaMenu: View {
             // (docs/DECISIONS.md: brightness-key-target-in-the-menu).
             String(
                 localized: "menu.status.brightnessNoBuiltIn",
-                defaultValue: "Without screen brightness — no built-in display in use"
+                defaultValue: "Brightness stays with macOS while the built-in display isn’t in use"
             )
         }
     }
@@ -163,11 +163,11 @@ struct CremaMenu: View {
             // malfunction — because from inside the app the symptom is
             // indistinguishable from a broken tap, and no user can diagnose it
             // unaided (docs/DECISIONS.md: media-key-chain-contention).
-            String(localized: "menu.mediaKeysPrecededBy", defaultValue: "\(app) receives the media keys before Crema")
+            String(localized: "menu.mediaKeysPrecededBy", defaultValue: "\(app) gets the media keys before Crema")
         case .mediaControlsBlocked:
             String(
                 localized: "menu.mediaControlsBlocked",
-                defaultValue: "The last playback command didn’t get through"
+                defaultValue: "The music app didn’t respond to the last command"
             )
         }
     }
@@ -189,7 +189,7 @@ struct CremaMenu: View {
             // The neighbour's setting in its own words, so the reader finds it there.
             String(
                 localized: "menu.betterDisplay.silent.detail",
-                defaultValue: "Turn on its OSD notification integration for Crema’s indicator"
+                defaultValue: "Turn on “OSD notification” in BetterDisplay to see Crema’s indicator"
             )
         case .anotherAppAhead:
             String(
@@ -203,12 +203,12 @@ struct CremaMenu: View {
             // walk to the tab where it is granted.
             String(
                 localized: "menu.nowPlayingUnavailable",
-                defaultValue: "Now Playing unavailable — the backup reader needs Automation"
+                defaultValue: "Crema can’t see what’s playing — allow Automation to ask the music app"
             )
         case .mediaControlsBlocked:
             String(
                 localized: "menu.mediaControlsBlocked.detail",
-                defaultValue: "The player isn’t accepting controls right now"
+                defaultValue: "It isn’t accepting controls right now"
             )
         // Both name the control in its own words, quoted: the switch is labelled
         // "Open Crema at login" in General, and a warning that renames the thing it
@@ -216,7 +216,7 @@ struct CremaMenu: View {
         case .loginItemRevoked:
             String(
                 localized: "menu.loginItem.revoked",
-                defaultValue: "“Open Crema at login” was turned off because the app changed"
+                defaultValue: "“Open Crema at login” was turned off by the update"
             )
         case .loginItemNeedsApproval:
             String(
@@ -237,7 +237,7 @@ struct CremaMenu: View {
     /// (docs/DECISIONS.md: menu-status-before-warnings).
     private func suspendedText(_ domains: [OSDSuppressionDomain]) -> String {
         let names = domains.map(localizedDomainName).formatted(.list(type: .and))
-        return String(localized: "menu.osdSuspended.warning", defaultValue: "Back to the system: \(names)")
+        return String(localized: "menu.osdSuspended.warning", defaultValue: "Shown by macOS again: \(names)")
     }
 
     private func localizedDomainName(_ domain: OSDSuppressionDomain) -> String {
@@ -256,7 +256,7 @@ struct CremaMenu: View {
         case .grantAccessibility:
             String(localized: "menu.grantAccessibility", defaultValue: "Grant Accessibility Access…")
         case .retrySuppression:
-            String(localized: "menu.osdSuspended.retry", defaultValue: "Try to reactivate now")
+            String(localized: "menu.osdSuspended.retry", defaultValue: "Try Again")
         case .openPermissionsTab:
             String(localized: "menu.openPermissions", defaultValue: "Open Permissions…")
         case .reactivateLoginItem:

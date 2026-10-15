@@ -97,9 +97,9 @@ struct LocalizationTests {
                 String(format: format, locale: locale, 2, "A, B")
             )
         }
-        #expect(forms["en"]?.one == "1 display drawing Card: A.")
-        #expect(forms["en"]?.two == "2 displays drawing Card: A, B.")
-        #expect(forms["pt-BR"]?.one == "1 tela que mostra o Card: A.")
-        #expect(forms["pt-BR"]?.two == "2 telas que mostram o Card: A, B.")
+        #expect(forms["en"]?.one == "Applies to 1 display: A.")
+        #expect(forms["en"]?.two == "Applies to 2 displays: A, B.")
+        #expect(forms["pt-BR"]?.one == "Vale para 1 tela: A.")
+        #expect(forms["pt-BR"]?.two == "Vale para 2 telas: A, B.")
     }
 }

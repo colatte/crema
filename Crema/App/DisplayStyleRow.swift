@@ -171,7 +171,7 @@ struct DisplayStyleRow: View {
     /// "Notch" on a screen drawing Card.
     private func label(for choice: Style?) -> String {
         guard let choice else {
-            return String(localized: "settings.general.style.inherit", defaultValue: "Follow all displays")
+            return String(localized: "settings.general.style.inherit", defaultValue: "Same as the others")
         }
         return choice.displayName
     }
@@ -183,11 +183,11 @@ struct DisplayStyleRow: View {
     private var caption: String {
         switch options.caption {
         case .drawing(let style):
-            String(localized: "settings.displays.drawing", defaultValue: "Drawing \(style.displayName)")
+            String(localized: "settings.displays.drawing", defaultValue: "Using \(style.displayName)")
         case .drawingWithoutNotch(let style):
             String(
                 localized: "settings.displays.drawing.noNotch",
-                defaultValue: "Drawing \(style.displayName) — no notch here"
+                defaultValue: "Using \(style.displayName), since this display has no notch"
             )
         }
     }

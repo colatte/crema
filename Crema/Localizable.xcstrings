@@ -347,13 +347,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Screen brightness indicator from BetterDisplay"
+            "value": "External display brightness comes from BetterDisplay"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Indicador de brilho da tela vindo do BetterDisplay"
+            "value": "O brilho da tela externa vem do BetterDisplay"
           }
         }
       }
@@ -381,13 +381,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Turn on its OSD notification integration for Crema’s indicator"
+            "value": "Turn on “OSD notification” in BetterDisplay to see Crema’s indicator"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ative nele a integração de notificação de OSD para o indicador do Crema"
+            "value": "Ative “OSD notification” no BetterDisplay para ver o indicador do Crema"
           }
         }
       }
@@ -483,13 +483,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "“Open Crema at login” was turned off because the app changed"
+            "value": "“Open Crema at login” was turned off by the update"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "“Abrir o Crema ao iniciar a sessão” foi desativado porque o app mudou"
+            "value": "“Abrir o Crema ao iniciar a sessão” foi desligado depois da atualização"
           }
         }
       }
@@ -500,13 +500,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The last playback command didn’t get through"
+            "value": "The music app didn’t respond to the last command"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O último comando de reprodução não passou"
+            "value": "O app de música não obedeceu ao último comando"
           }
         }
       }
@@ -517,13 +517,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The player isn’t accepting controls right now"
+            "value": "It isn’t accepting controls right now"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O player não está aceitando controles no momento"
+            "value": "Ele não está aceitando controles agora"
           }
         }
       }
@@ -534,13 +534,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ receives the media keys before Crema"
+            "value": "%@ gets the media keys before Crema"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ recebe as teclas de mídia antes do Crema"
+            "value": "O %@ pega as teclas de mídia antes do Crema"
           }
         }
       }
@@ -585,13 +585,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Now Playing unavailable — the backup reader needs Automation"
+            "value": "Crema can’t see what’s playing — allow Automation to ask the music app"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tocando Agora indisponível — o leitor reserva precisa de Automação"
+            "value": "O Crema não vê o que toca — permita a Automação para ele perguntar"
           }
         }
       }
@@ -619,13 +619,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Try to reactivate now"
+            "value": "Try Again"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tentar reativar agora"
+            "value": "Tentar de novo"
           }
         }
       }
@@ -636,13 +636,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Back to the system: %@"
+            "value": "Shown by macOS again: %@"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "De volta ao sistema: %@"
+            "value": "Mostrados pelo macOS de novo: %@"
           }
         }
       }
@@ -721,13 +721,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Without screen brightness — no built-in display in use"
+            "value": "Brightness stays with macOS while the built-in display isn’t in use"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sem o brilho da tela — nenhuma tela integrada em uso"
+            "value": "O brilho fica com o macOS enquanto a tela integrada não estiver em uso"
           }
         }
       }
@@ -738,13 +738,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drawing Card — no connected display has a notch"
+            "value": "Using Card, since no display has a notch"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mostra o Card — nenhuma tela conectada tem notch"
+            "value": "Usando o Card, porque nenhuma tela tem notch"
           }
         }
       }
@@ -755,13 +755,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Style"
+            "value": "Style for All Displays"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Estilo"
+            "value": "Estilo de todas as telas"
           }
         }
       }
@@ -772,13 +772,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Applies to every display."
+            "value": "Changes every display at once."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aplica-se a todas as telas."
+            "value": "Muda todas as telas de uma vez."
           }
         }
       }
@@ -1044,13 +1044,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drawing %@"
+            "value": "Using %@"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mostra o %@"
+            "value": "Usando o %@"
           }
         }
       }
@@ -1061,13 +1061,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drawing %@ — no notch here"
+            "value": "Using %@, since this display has no notch"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mostra o %@ — sem notch aqui"
+            "value": "Usando o %@, porque esta tela não tem notch"
           }
         }
       }
@@ -1095,13 +1095,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The player appears on each display switched on here. On by default for the built-in display."
+            "value": "The player appears only on the displays switched on here. The built-in display starts switched on."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O player aparece em cada tela marcada aqui. Ativado por padrão na tela integrada."
+            "value": "O player aparece só nas telas marcadas aqui. Na tela integrada, ele já vem marcado."
           }
         }
       }
@@ -1129,13 +1129,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Displays"
+            "value": "Each display"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Telas"
+            "value": "Cada tela"
           }
         }
       }
@@ -1197,6 +1197,91 @@
         "en": {
           "stringUnit": {
             "state": "translated",
+            "value": "Style for all displays"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estilo de todas as telas"
+          }
+        }
+      }
+    },
+    "settings.general.style.footer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changes every display at once. On a display without a notch, Notch shows as Card."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Muda todas as telas de uma vez. Numa tela sem notch, o Notch aparece como Card."
+          }
+        }
+      }
+    },
+    "settings.general.style.footer.fallingBack": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changes every display at once. None of your displays has a notch, so they all use Card."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Muda todas as telas de uma vez. Nenhuma das suas telas tem notch, então todas usam o Card."
+          }
+        }
+      }
+    },
+    "settings.general.style.footer.perDisplay": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To give one display a different style, choose it under Each display, below."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Para deixar uma tela diferente, escolha em Cada tela, logo abaixo."
+          }
+        }
+      }
+    },
+    "settings.general.style.footer.replacesPerDisplay": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choosing here also clears the styles set for single displays below."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escolher aqui também desfaz o estilo próprio das telas abaixo."
+          }
+        }
+      }
+    },
+    "settings.general.style.header": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
             "value": "Style"
           }
         },
@@ -1208,70 +1293,19 @@
         }
       }
     },
-    "settings.general.style.footer": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Applies to every display. On a display without a notch, the Notch style falls back to Card."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aplica-se a todas as telas. Em uma tela sem notch, o estilo Notch aparece como Card."
-          }
-        }
-      }
-    },
-    "settings.general.style.footer.fallingBack": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Applies to every display. No connected display has a notch, so every one is drawing Card."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aplica-se a todas as telas. Nenhuma tela conectada tem notch, então todas mostram o Card."
-          }
-        }
-      }
-    },
-    "settings.general.style.footer.replacesPerDisplay": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This also replaces the per-display styles below."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Isso também substitui os estilos por tela abaixo."
-          }
-        }
-      }
-    },
     "settings.general.style.inherit": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Follow all displays"
+            "value": "Same as the others"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Seguir todas as telas"
+            "value": "Como as outras"
           }
         }
       }
@@ -1367,13 +1401,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Card indicator"
+            "value": "Volume and brightness indicator on Card"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Indicador do estilo Card"
+            "value": "Indicador de volume e brilho no Card"
           }
         }
       }
@@ -1404,13 +1438,13 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld display drawing Card: %@."
+                  "value": "Applies to %lld display: %@."
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld displays drawing Card: %@."
+                  "value": "Applies to %lld displays: %@."
                 }
               }
             }
@@ -1422,13 +1456,13 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld tela que mostra o Card: %@."
+                  "value": "Vale para %lld tela: %@."
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld telas que mostram o Card: %@."
+                  "value": "Vale para %lld telas: %@."
                 }
               }
             }
@@ -1646,13 +1680,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Screen brightness is replaced only on the built-in display, while the pointer is on it — a key aimed at any other display is left to the system."
+            "value": "Brightness is only replaced on the built-in display, while the pointer is on it. With the pointer on another display, macOS shows its own."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O brilho da tela é substituído só na tela integrada, enquanto o ponteiro está nela — uma tecla apontada para qualquer outra tela fica com o sistema."
+            "value": "O brilho só é substituído na tela integrada, com o ponteiro sobre ela. Com o ponteiro em outra tela, quem mostra é o macOS."
           }
         }
       }
@@ -1799,13 +1833,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Media source"
+            "value": "Reading what’s playing"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fonte de mídia"
+            "value": "Leitura do que está tocando"
           }
         }
       }
@@ -1816,13 +1850,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Crema reads what’s playing from the system. With nothing reporting, the player stays hidden and the options below have nothing to act on."
+            "value": "Crema asks macOS what’s playing. With no answer, the player stays hidden and the options below have no effect."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Crema lê o que está tocando pelo sistema. Sem nada respondendo, o player fica oculto e as opções abaixo não têm sobre o que agir."
+            "value": "O Crema pergunta ao macOS o que está tocando. Sem resposta, o player fica escondido e as opções abaixo não fazem efeito."
           }
         }
       }
@@ -1833,7 +1867,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Not reporting"
+            "value": "No answer"
           }
         },
         "pt-BR": {
@@ -1850,13 +1884,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reporting"
+            "value": "Working"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Respondendo"
+            "value": "Funcionando"
           }
         }
       }
@@ -1918,13 +1952,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Turned off in System Settings. Now Playing still works through the usual reader."
+            "value": "Turned off in System Settings. The player keeps working normally."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Desativada nos Ajustes do Sistema. O Tocando Agora continua funcionando pelo leitor principal."
+            "value": "Desativada nos Ajustes do Sistema. O player continua funcionando normalmente."
           }
         }
       }
@@ -1935,13 +1969,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Only Crema’s backup reader needs this — it asks %@ what is playing. The usual reader needs no permission, so Now Playing works either way."
+            "value": "Optional. Crema only uses this when its usual way of seeing what’s playing fails: then it asks %@ directly. Without it, the player keeps working."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Só o leitor reserva do Crema precisa disso — ele pergunta a %@ o que está tocando. O leitor principal não precisa de permissão nenhuma, então o Tocando Agora funciona de qualquer forma."
+            "value": "Opcional. O Crema só usa isto quando o jeito normal de ver o que toca falha: aí ele pergunta direto a %@. Sem a permissão, o player continua funcionando."
           }
         }
       }
@@ -2037,13 +2071,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS hasn’t asked you about this yet. Request it and macOS shows its own dialog."
+            "value": "macOS hasn’t asked for this permission yet. Request access and macOS will ask you."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O macOS ainda não perguntou nada sobre isso. Solicite e o próprio macOS mostra o diálogo."
+            "value": "O macOS ainda não pediu esta permissão. Solicite o acesso e o macOS mostra a pergunta."
           }
         }
       }
@@ -2088,13 +2122,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Crema needs Accessibility access to capture the media keys — for its volume and brightness indicators and to replace the system’s. Without it the app still runs; it just can’t react to those keys. Granting is picked up automatically, no relaunch needed."
+            "value": "Crema needs Accessibility to notice the volume and brightness keys and show its own indicators. Without it the app still works; it just doesn’t react to those keys. No need to relaunch after you allow it."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Crema precisa do acesso de Acessibilidade para capturar as teclas de mídia — para os indicadores de volume e brilho e para substituir os do sistema. Sem ele o app continua funcionando; só não reage a essas teclas. A concessão é detectada automaticamente, sem precisar reiniciar."
+            "value": "O Crema precisa da Acessibilidade para perceber as teclas de volume e brilho e mostrar os indicadores dele. Sem ela o app funciona, só não reage a essas teclas. Não é preciso reiniciar depois de permitir."
           }
         }
       }
@@ -2530,13 +2564,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "You can give a single display its own style later, in Settings → General."
+            "value": "Later, in Settings → General, you can give one display a style of its own."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Depois você pode dar um estilo só para uma tela, em Ajustes → Geral."
+            "value": "Depois, em Ajustes → Geral, você pode deixar uma tela com outro estilo."
           }
         }
       }
@@ -2547,13 +2581,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This also replaces the per-display styles in Settings."
+            "value": "This also clears the styles set for single displays in Settings."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Isso também substitui os estilos por tela nos Ajustes."
+            "value": "Isso também desfaz o estilo próprio de cada tela nos Ajustes."
           }
         }
       }
