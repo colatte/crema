@@ -53,25 +53,29 @@ shouting.
 The icon is the whole visual identity: a soft, uneven disc of crema seen from
 above, opened by one gesture — a dark hollow that enters from the upper right,
 rounds out at the centre and leaves along a wave, with the crema above it drawn
-out into a single fine point — on an espresso ground. One shape, flat and matte,
-two colours: the house's language, with no exception for the icon. It is
+out into a single fine point — on an espresso ground. One shape in two flat
+colours: the house's language, with no exception for the artwork. The glass the
+icon sits in is the system's material, not part of the drawing. It is
 generated, never hand-edited:
 
 - `design/icon/crema-mark.svg` is the mark's single source, one filled path.
-  `makemaster.swift` renders `crema-master-4096.png` from it (the ground
-  full-bleed, the mark at 56% of the width); `makeicon.swift` applies the macOS
-  template squircle and shadow and writes the appiconset, the only form of the
-  icon the build ships, and the one the About tab shows (the running app's
-  `NSApp.applicationIconImage`). The web export is `docs/assets/icon.png` (the
-  appiconset's 512 px slot), what the README shows;
-  `scripts/make-web-assets.sh` derives the landing's `icon.webp` and
-  `favicon.png` from it.
+  `makeicon.swift` writes the Icon Composer document `Crema/AppIcon.icon` from
+  it (the ground, the mark at 56% of the width, and the Liquid Glass material),
+  the only form of the icon the build ships. Xcode renders it with the system's
+  glass and generates from it the images for releases older than the material;
+  the About tab shows the running app's `NSApp.applicationIconImage`. The
+  document is never edited in Icon Composer, which only previews it: the next
+  run overwrites an edit made there. The same run renders the web export,
+  `docs/assets/icon.png`, through Icon Composer's own `ictool`, on the icon
+  grid's margin; it is what the README shows, and `scripts/make-web-assets.sh`
+  derives the landing's `icon.webp` and `favicon.png` from it.
 - `makemenubaricon.swift` fills the same path black on transparent as the
   **menu bar template**, rendered by the system as a template so it follows the
   menu bar's own ink in light and dark.
 - The colours are the landing's tokens: ground `--raise` `#1b1610`, mark
-  `--cream` `#d6bd94`. No gradient, gloss or baked shadow; the squircle's shadow
-  from `makeicon.swift` and the system's own treatment are the only depth.
+  `--cream` `#d6bd94`. The artwork carries no gradient, gloss or baked shadow.
+  The depth is the material's (the glass, its specular, the ground's automatic
+  gradient, the shadow), set in `makeicon.swift` and drawn by the system.
 
 What the drawing must keep:
 
@@ -213,7 +217,7 @@ Everything above is applied. Two things to keep true:
   is stale.
 - The icon and the menu bar template are regenerated from `design/icon/`, and
   the download badge from `design/badge/`; none is edited in place. A change
-  to the mark is a change to `crema-mark.svg` and a rerun, in order:
-  `makemaster`, `makeicon` (into the appiconset), `makemenubaricon`; then the
-  appiconset's `AppIcon-512.png` copied to `docs/assets/icon.png`, and
+  to the mark or the material is a change to `crema-mark.svg` or
+  `makeicon.swift` and a rerun, in order: `makeicon` (the document and
+  `docs/assets/icon.png`), `makemenubaricon`, then
   `scripts/make-web-assets.sh`.
