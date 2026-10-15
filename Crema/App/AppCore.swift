@@ -1176,14 +1176,30 @@ extension AppCore {
         bringForward()
     }
 
+    /// The display the tour offers the player on, read from the roster and the
+    /// per-display flags as they stand (`WelcomeTourFlow.displayToOfferThePlayer`).
+    func welcomeTourPlayerOffer() -> ScreenDescription? {
+        WelcomeTourFlow.displayToOfferThePlayer(among: displayRoster.displays) { [preferences] screen in
+            preferences.showsNowPlaying(on: screen.id, isInternal: screen.isInternal)
+        }
+    }
+
     private func welcomeTourDidClose() {
-        coordinator.endShowcase()
-        menuBarPointer.hide()
+        Self.releaseWhatTheTourHolds(coordinator: coordinator, hidePointer: menuBarPointer.hide)
         if let welcomeTourClosing {
             NotificationCenter.default.removeObserver(welcomeTourClosing)
         }
         welcomeTourClosing = nil
         welcomeTourWindow = nil
+    }
+
+    /// What every way out of the tour owes the real screen: the player let go —
+    /// a sample left up would stay there, no tuck ever being armed for it — and
+    /// the arrow gone. Standalone and static so a test pins it without booting
+    /// the graph, the reason the other AppCore seams are statics.
+    static func releaseWhatTheTourHolds(coordinator: Coordinator, hidePointer: () -> Void) {
+        coordinator.endShowcase()
+        hidePointer()
     }
 
     /// The track the tour shows when nothing is playing: named as the player's

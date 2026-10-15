@@ -2507,6 +2507,40 @@
         }
       }
     },
+    "tour.player.off": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The player is off on your displays. Turn it on to see it."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O player está desligado nas suas telas. Ligue para vê-lo."
+          }
+        }
+      }
+    },
+    "tour.player.show": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show the player"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar o player"
+          }
+        }
+      }
+    },
     "tour.progress": {
       "extractionState": "manual",
       "localizations": {

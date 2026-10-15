@@ -121,3 +121,79 @@ struct TourFeatureList: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
+
+/// The notes under the tour's suppression switch, the Indicators tab's own:
+/// what the switch does, where brightness stops, and why it cannot engage yet.
+struct TourSuppressionNotes: View {
+    let core: AppCore
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(String(
+                localized: "settings.hud.suppress.footer",
+                defaultValue: "Hides the system volume and brightness indicators and shows Crema’s instead."
+            ))
+            Text(String(
+                localized: "settings.hud.suppress.footer.brightnessScope",
+                // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
+                defaultValue: "Brightness is only replaced on the built-in display, while the pointer is on it. With the pointer on another display, macOS shows its own."
+            ))
+            // Split for the reason the Indicators tab states it: someone who
+            // HAS granted Accessibility must not be told the grant is
+            // missing. The second branch is the honest sentence for a Mac
+            // with nothing to engage.
+            if !core.permissionMonitor.isGranted {
+                Text(String(
+                    localized: "settings.hud.suppress.needsPermission",
+                    defaultValue: "Needs Accessibility access — until then the system’s own indicators stay."
+                ))
+                .foregroundStyle(.orange)
+            } else if core.osdSuppressor == nil {
+                Text(String(
+                    localized: "settings.hud.suppress.unavailable",
+                    defaultValue: "System indicator replacement isn’t available on this Mac."
+                ))
+                .foregroundStyle(.orange)
+            }
+        }
+        .font(.footnote)
+        .foregroundStyle(.secondary)
+    }
+}
+
+/// Said where the tour would point at the player and no display shows it.
+struct TourPlayerOffNote: View {
+    var body: some View {
+        Text(String(
+            localized: "tour.player.off",
+            defaultValue: "The player is off on your displays. Turn it on to see it."
+        ))
+        .foregroundStyle(.secondary)
+    }
+}
+
+/// The per-display switch of Settings › General, for the one display the tour
+/// offers: the same key, written through the same AppCore call, so the tour
+/// turns on what Settings shows as on (docs/DECISIONS.md:
+/// the-tour-configures-instead-of-pointing).
+struct TourPlayerSwitch: View {
+    let core: AppCore
+    let display: ScreenDescription
+    @Binding var isOn: Bool
+
+    var body: some View {
+        // The display's name under the label and never inside it: a name is a
+        // title (macOS's own, or "Built-in display"), and set mid-sentence it
+        // reads as a typo in both languages.
+        Toggle(isOn: $isOn) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(String(localized: "tour.player.show", defaultValue: "Show the player"))
+                Text(verbatim: DisplayStyleRow.title(for: display))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .toggleStyle(.switch)
+        .onChange(of: isOn) { _, new in core.setShowsNowPlaying(new, on: display.id) }
+    }
+}

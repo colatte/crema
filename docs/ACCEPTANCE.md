@@ -104,7 +104,8 @@
 18. With version N installed and N+1 published in the appcast, the app offers the
     update and applies it.
 19. The first launch of a clean install opens the welcome tour (six steps;
-    the player shows on the real screen, a sample when nothing plays; the
+    the player shows on the real screen, a sample when nothing plays, and a
+    Mac with no built-in display is offered the switch that turns it on; the
     Accessibility step flips to Continue live when the grant lands, comes back
     to the front, and never advances on its own; a volume key on the key test
     raises Crema's HUD; the last step points an arrow at the menu bar icon).

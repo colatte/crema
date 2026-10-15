@@ -44,6 +44,11 @@ struct WelcomeTourView: View {
     /// the same reason — the store behind it (`AppCore.tileWallpaper`) is what
     /// remembers the decode, so nothing here re-opens the file per body.
     @State private var wallpaper: NSImage?
+    /// The display the player is offered on when no display shows it, seeded once
+    /// like the mirrors above and kept for the whole window: the switch has to
+    /// stay under the hand after it is flipped, not vanish because it worked.
+    @State private var playerOffer: ScreenDescription?
+    @State private var playerOfferOn = false
 
     init(core: AppCore, firstStep: WelcomeTourStep = .welcome, dismiss: @escaping () -> Void) {
         self.core = core
@@ -58,6 +63,7 @@ struct WelcomeTourView: View {
         _wallpaper = State(initialValue: seed.wallpaper)
         _launchesAtLogin = State(initialValue: seed.launchesAtLogin)
         _loginNeedsApproval = State(initialValue: seed.loginNeedsApproval)
+        _playerOffer = State(initialValue: core.welcomeTourPlayerOffer())
     }
 
     var body: some View {
@@ -81,8 +87,10 @@ struct WelcomeTourView: View {
         .onChange(of: core.permissionMonitor.isGranted) { _, granted in
             if granted, step == .accessibility { core.bringWelcomeTourForward() }
         }
-        .onChange(of: core.coordinator.layers.hud != nil) { _, risen in
-            if risen, step == .tryIt { heardAKey = true }
+        // The HUD's value, not whether one is up: a key pressed while a bar from
+        // an earlier press is still on screen updates that bar, and must count.
+        .onChange(of: core.coordinator.layers.hud) { _, hud in
+            if hud != nil, step == .tryIt { heardAKey = true }
         }
     }
 
@@ -173,7 +181,7 @@ struct WelcomeTourView: View {
             hero: {
                 // The icon carries no meaning the title does not; hidden from
                 // VoiceOver, which would otherwise read the image's name aloud.
-                Image(nsImage: NSApp.applicationIconImage)
+                Image(nsImage: NSApp.applicationIconImage ?? NSImage())
                     .resizable()
                     .frame(width: 128, height: 128)
                     .accessibilityHidden(true)
@@ -185,18 +193,26 @@ struct WelcomeTourView: View {
                 ))
                 .foregroundStyle(.secondary)
                 // Said for what is actually up there: the sample is named as one,
-                // so nobody goes looking for a song that is not playing.
-                Text(core.coordinator.showsSample
-                    ? String(
-                        localized: "tour.welcome.sample",
-                        defaultValue: "Nothing is playing, so the player on your screen shows a sample. Play a song to see yours."
-                    )
-                    : String(
-                        localized: "tour.welcome.playing",
-                        defaultValue: "The player on your screen is Crema, showing what’s playing now."
-                    ))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                // so nobody goes looking for a song that is not playing, and a
+                // player switched off everywhere is said to be off.
+                if !playerIsShownSomewhere {
+                    TourPlayerOffNote()
+                } else {
+                    Text(core.coordinator.showsSample
+                        ? String(
+                            localized: "tour.welcome.sample",
+                            defaultValue: "Nothing is playing, so the player on your screen shows a sample. Play a song to see yours."
+                        )
+                        : String(
+                            localized: "tour.welcome.playing",
+                            defaultValue: "The player on your screen is Crema, showing what’s playing now."
+                        ))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                if let playerOffer {
+                    TourPlayerSwitch(core: core, display: playerOffer, isOn: $playerOfferOn)
+                }
             }
         )
     }
@@ -270,11 +286,18 @@ struct WelcomeTourView: View {
                     }
             },
             content: {
-                Text(String(
-                    localized: "tour.step.style.live",
-                    defaultValue: "The player on your screen changes as you pick."
-                ))
-                .foregroundStyle(.secondary)
+                if playerIsShownSomewhere {
+                    Text(String(
+                        localized: "tour.step.style.live",
+                        defaultValue: "The player on your screen changes as you pick."
+                    ))
+                    .foregroundStyle(.secondary)
+                } else {
+                    TourPlayerOffNote()
+                }
+                if let playerOffer {
+                    TourPlayerSwitch(core: core, display: playerOffer, isOn: $playerOfferOn)
+                }
                 VStack(spacing: 4) {
                     Text(fallbackIsInEffect
                         ? String(
@@ -304,6 +327,10 @@ struct WelcomeTourView: View {
                 .foregroundStyle(.secondary)
             }
         )
+    }
+
+    private var playerIsShownSomewhere: Bool {
+        playerOffer == nil || playerOfferOn
     }
 
     private var fallbackIsInEffect: Bool {
@@ -364,36 +391,7 @@ struct WelcomeTourView: View {
                     }
                 }
 
-                VStack(spacing: 4) {
-                    Text(String(
-                        localized: "settings.hud.suppress.footer",
-                        defaultValue: "Hides the system volume and brightness indicators and shows Crema’s instead."
-                    ))
-                    Text(String(
-                        localized: "settings.hud.suppress.footer.brightnessScope",
-                        // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
-                        defaultValue: "Brightness is only replaced on the built-in display, while the pointer is on it. With the pointer on another display, macOS shows its own."
-                    ))
-                    // Split for the reason the Indicators tab states it: someone who
-                    // HAS granted Accessibility must not be told the grant is
-                    // missing. The second branch is the honest sentence for a Mac
-                    // with nothing to engage.
-                    if !core.permissionMonitor.isGranted {
-                        Text(String(
-                            localized: "settings.hud.suppress.needsPermission",
-                            defaultValue: "Needs Accessibility access — until then the system’s own indicators stay."
-                        ))
-                        .foregroundStyle(.orange)
-                    } else if core.osdSuppressor == nil {
-                        Text(String(
-                            localized: "settings.hud.suppress.unavailable",
-                            defaultValue: "System indicator replacement isn’t available on this Mac."
-                        ))
-                        .foregroundStyle(.orange)
-                    }
-                }
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                TourSuppressionNotes(core: core)
             }
         )
     }
@@ -482,7 +480,8 @@ struct WelcomeTourView: View {
         static let width: CGFloat = 560
         static let height: CGFloat = 520
         static let margin: CGFloat = 36
-        /// Clear of the transparent title bar the close box sits in.
-        static let top: CGFloat = 44
+        /// Air under the title bar: SwiftUI already keeps the content clear of
+        /// it (the window's safe area), so this is spacing and nothing more.
+        static let top: CGFloat = 12
     }
 }
