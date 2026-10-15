@@ -12,7 +12,7 @@ struct CoordinatorScrubGraceTests {
     @Test func scrubTakesAuthorityInTheSameTurn() async {
         let h = CoordinatorHarness()
         h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(position: 10))
-        _ = await eventually { h.coordinator.nowPlaying != nil }
+        #expect(await eventually { h.coordinator.nowPlaying != nil })
 
         h.coordinator.scrub(to: 120)
         #expect(h.coordinator.nowPlaying?.position == 120)   // optimistic, no await
@@ -23,7 +23,7 @@ struct CoordinatorScrubGraceTests {
     @Test func aStaleEchoDuringTheGraceDoesNotMoveTheBar() async {
         let h = CoordinatorHarness()
         h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(position: 10))
-        _ = await eventually { h.coordinator.nowPlaying != nil }
+        #expect(await eventually { h.coordinator.nowPlaying != nil })
         h.coordinator.scrub(to: 120)
 
         // The pre-seek anchor still echoing (position 12), carrying a real
@@ -36,7 +36,7 @@ struct CoordinatorScrubGraceTests {
     @Test func theStreamFlowingAtTheTargetHandsAuthorityBack() async {
         let h = CoordinatorHarness()
         h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(position: 10))
-        _ = await eventually { h.coordinator.nowPlaying != nil }
+        #expect(await eventually { h.coordinator.nowPlaying != nil })
         h.coordinator.scrub(to: 120)
 
         h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(position: 121))
@@ -50,7 +50,7 @@ struct CoordinatorScrubGraceTests {
     @Test func theGraceTimeoutReleasesHonestly() async {
         let h = CoordinatorHarness()
         h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(position: 10))
-        _ = await eventually { h.coordinator.nowPlaying != nil }
+        #expect(await eventually { h.coordinator.nowPlaying != nil })
         h.coordinator.scrub(to: 120)
 
         // Advance inside the poll (the OSD suites' load-robust handshake): the
@@ -68,7 +68,7 @@ struct CoordinatorScrubGraceTests {
     @Test func aTrackChangeEndsTheGraceImmediately() async {
         let h = CoordinatorHarness()
         h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(position: 10))
-        _ = await eventually { h.coordinator.nowPlaying != nil }
+        #expect(await eventually { h.coordinator.nowPlaying != nil })
         h.coordinator.scrub(to: 120)
 
         h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(title: "Time", position: 0))
@@ -79,7 +79,7 @@ struct CoordinatorScrubGraceTests {
     @Test func aDiscardKillsTheGraceWithTheSnapshot() async {
         let h = CoordinatorHarness()
         h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(position: 10))
-        _ = await eventually { h.coordinator.nowPlaying != nil }
+        #expect(await eventually { h.coordinator.nowPlaying != nil })
         h.coordinator.scrub(to: 120)
 
         // The browser filter discards the snapshot (default: browsers ignored);
@@ -97,7 +97,7 @@ struct CoordinatorScrubGraceTests {
     @Test func aFailedSeekRollsTheOptimismBack() async {
         let h = CoordinatorHarness()
         h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(position: 10))
-        _ = await eventually { h.coordinator.nowPlaying != nil }
+        #expect(await eventually { h.coordinator.nowPlaying != nil })
 
         h.media.shouldThrow = true
         h.coordinator.scrub(to: 120)
@@ -112,7 +112,7 @@ struct CoordinatorScrubGraceTests {
     @Test func aStaleSeekFailureDoesNotTearDownANewerScrub() async {
         let h = CoordinatorHarness()
         h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(position: 10))
-        _ = await eventually { h.coordinator.nowPlaying != nil }
+        #expect(await eventually { h.coordinator.nowPlaying != nil })
 
         // Two releases inside the command latency: the first seek fails after
         // the second scrub armed its own grace and anchor. Only the epoch that
@@ -141,7 +141,7 @@ struct CoordinatorScrubGraceTests {
     @Test func scrubClampsTheTargetToTheTrack() async {
         let h = CoordinatorHarness()
         h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(position: 10))   // duration 169
-        _ = await eventually { h.coordinator.nowPlaying != nil }
+        #expect(await eventually { h.coordinator.nowPlaying != nil })
 
         h.coordinator.scrub(to: 500)
         #expect(h.coordinator.nowPlaying?.position == 169)

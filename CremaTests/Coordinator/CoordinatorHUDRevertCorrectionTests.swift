@@ -24,7 +24,9 @@ struct CoordinatorHUDRevertCorrectionTests {
         h.hudSource.emit(onExternalDisplay(0.5))
         #expect(await eventually { h.coordinator.state == .hud(onExternalDisplay(0.5)) })
         h.coordinator.hudSliderChanged(to: 0.9)
-        #expect(await eventually { h.screen.commands.count == 1 })   // nothing wrote: a correction is owed
+        // The write task's end is when the decline marks the bar: a command
+        // landing is still ahead of it.
+        #expect(await eventually { h.finishedScreenWrites.count == 1 })   // nothing wrote: a correction is owed
 
         await h.clock.waitForSleep(delay: Coordinator.defaultHUDRevertDelay)
         h.clock.advance(delay: Coordinator.defaultHUDRevertDelay)
@@ -39,7 +41,7 @@ struct CoordinatorHUDRevertCorrectionTests {
         #expect(await eventually { h.coordinator.state == .hud(neighbourHUD(0.3)) })
         h.coordinator.hudSliderChanged(to: 0.8)
         h.coordinator.hudSliderReleased()
-        await settle()
+        #expect(await eventually { h.finishedScreenWrites.count == 2 })
 
         #expect(h.coordinator.state == .hud(neighbourHUD(0.8)))   // never yanked to 0.5
     }

@@ -17,13 +17,14 @@ struct WindowManagerTests {
 
     @MainActor
     final class Harness {
-        let base = CoordinatorHarness()
+        let base: CoordinatorHarness
         private let store = EphemeralDefaults()
         let preferences: Preferences
         let recorder = PanelRecorder()
         let manager: WindowManager
 
-        init() {
+        init(withExternalBrightness: Bool = false) {
+            base = CoordinatorHarness(withExternalBrightness: withExternalBrightness)
             preferences = Preferences(defaults: store.defaults)
             manager = WindowManager(
                 coordinator: base.coordinator,
@@ -508,7 +509,7 @@ struct WindowManagerTests {
 
         let track = CoordinatorHarness.playingTrack()
         base.nowPlayingSource.emit(track)
-        _ = await eventually { base.coordinator.state == .nowPlaying(track, expanded: false) }
+        #expect(await eventually { base.coordinator.state == .nowPlaying(track, expanded: false) })
 
         let a = Self.screen("A")
         let b = Self.screen("B", frame: CGRect(x: 2000, y: 0, width: 1200, height: 800))
@@ -551,7 +552,7 @@ struct WindowManagerTests {
 
         let track = CoordinatorHarness.playingTrack()
         base.nowPlayingSource.emit(track)
-        _ = await eventually { base.coordinator.state == .nowPlaying(track, expanded: false) }
+        #expect(await eventually { base.coordinator.state == .nowPlaying(track, expanded: false) })
 
         panel.onFirstArmedApply = { [coordinator = base.coordinator] in
             coordinator.hover(true, on: .both)
@@ -570,7 +571,7 @@ struct WindowManagerTests {
         h.manager.updateScreens([a])
         let track = CoordinatorHarness.playingTrack()
         h.base.nowPlayingSource.emit(track)
-        _ = await eventually { h.base.coordinator.state == .nowPlaying(track, expanded: false) }
+        #expect(await eventually { h.base.coordinator.state == .nowPlaying(track, expanded: false) })
         let panel = try #require(h.recorder.panel(for: a.id))
         let before = panel.appliedFrames.count
 
@@ -598,7 +599,7 @@ struct WindowManagerTests {
         #expect(h.recorder.panel(for: internalScreen.id)?.invokeZones.last == CGRect?.none)
 
         h.base.nowPlayingSource.emit(CoordinatorHarness.playingTrack())
-        _ = await eventually { h.base.coordinator.state != .hidden }
+        #expect(await eventually { h.base.coordinator.state != .hidden })
 
         // Visible appearance: hover arms on the internal display (now-playing
         // on); no invoke zone while something is on screen. The external
@@ -612,7 +613,7 @@ struct WindowManagerTests {
         // click-invoke zone takes over: the notch's slit rect.
         await h.base.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
         h.base.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
-        _ = await eventually { h.base.coordinator.state == .hidden }
+        #expect(await eventually { h.base.coordinator.state == .hidden })
         #expect(await eventually { h.recorder.panel(for: internalScreen.id)?.hoverArmedStates.last == false })
         #expect(
             h.recorder.panel(for: internalScreen.id)?.invokeZones.last
@@ -631,10 +632,10 @@ struct WindowManagerTests {
         h.manager.updateScreens([a])
 
         h.base.nowPlayingSource.emit(CoordinatorHarness.playingTrack())
-        _ = await eventually { h.base.coordinator.state != .hidden }
+        #expect(await eventually { h.base.coordinator.state != .hidden })
         await h.base.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
         h.base.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
-        _ = await eventually { h.base.coordinator.state == .hidden }
+        #expect(await eventually { h.base.coordinator.state == .hidden })
 
         #expect(h.base.coordinator.mediaActive)
         #expect(h.recorder.panel(for: a.id)?.invokeZones.last == CGRect?.none)
@@ -654,10 +655,10 @@ struct WindowManagerTests {
         h.manager.updateScreens([n])
 
         h.base.nowPlayingSource.emit(CoordinatorHarness.playingTrack())
-        _ = await eventually { h.base.coordinator.state != .hidden }
+        #expect(await eventually { h.base.coordinator.state != .hidden })
         await h.base.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
         h.base.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
-        _ = await eventually { h.base.coordinator.state == .hidden }
+        #expect(await eventually { h.base.coordinator.state == .hidden })
 
         // Media playing and nothing on screen: the two conditions the honored
         // case shares with this one, so only the preference is under test.
@@ -677,7 +678,7 @@ struct WindowManagerTests {
         let a = Self.screen("A", isInternal: true)
         h.manager.updateScreens([a])
         h.base.nowPlayingSource.emit(CoordinatorHarness.playingTrack())
-        _ = await eventually { h.base.coordinator.state != .hidden }
+        #expect(await eventually { h.base.coordinator.state != .hidden })
 
         // Paused: media inactive, but the appearance is on screen for its
         // linger — hover must still be able to hold it.
@@ -705,7 +706,7 @@ struct WindowManagerTests {
         h.manager.updateScreens([internalScreen, externalScreen])
 
         h.base.nowPlayingSource.emit(CoordinatorHarness.playingTrack())
-        _ = await eventually { h.base.coordinator.state != .hidden }
+        #expect(await eventually { h.base.coordinator.state != .hidden })
 
         #expect(await eventually { h.recorder.panel(for: internalScreen.id)?.showsNowPlayingStates.last == true })
         #expect(h.recorder.panel(for: externalScreen.id)?.showsNowPlayingStates.last == false)
@@ -748,7 +749,7 @@ struct WindowManagerTests {
 
         let track = CoordinatorHarness.playingTrack()
         h.base.nowPlayingSource.emit(track)
-        _ = await eventually { h.base.coordinator.state != .hidden }
+        #expect(await eventually { h.base.coordinator.state != .hidden })
 
         let state = PresentationState.nowPlaying(track, expanded: false)
         #expect(await eventually {

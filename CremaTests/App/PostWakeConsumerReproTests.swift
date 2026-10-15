@@ -306,10 +306,11 @@ struct PostWakeConsumerReproTests {
 
         // The symptom: the next volume key passes through (native OSD) while the
         // tap still observes (Crema HUD) — both HUDs together, as reported.
-        let before = h.observedCount
+        // The two presses above land first, so the count after the next one is
+        // that press's own observation, not a late one of an earlier key.
+        #expect(await eventually { h.observedCount == 2 })
         #expect(h.press(.volumeDown) == false)          // volume no longer swallowed
-        await settle()
-        #expect(h.observedCount > before)               // observation alive
+        #expect(await eventually { h.observedCount == 3 })  // observation alive
 
         // DISCRIMINATOR vs the stale-unlock-read latch: this is domain-scoped and still engaged.
         #expect(h.suppressor.isEngaged)

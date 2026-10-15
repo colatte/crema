@@ -258,7 +258,13 @@ struct OSDSuppressionReadDeadlineTests {
         })
 
         h.screen.releaseRead()   // the stalled read finally returns, late
-        await settle()
+        // The landing is the orphan's, on a GCD thread: the positive fact takes the
+        // off-actor wait, and what it could still set off gets a wall-clock window.
+        #expect(await eventuallyOffActor { h.screen.readsReturned == 1 })
+        #expect(await !footprintAppears {
+            !h.screen.applied.isEmpty || applied.count >= 1
+                || !h.suppressor.suspendedDomains.contains(.screenBrightness)
+        })
 
         #expect(h.screen.applied.isEmpty)   // never reached the write
         // Box.count is a running counter, not a collection.

@@ -44,10 +44,11 @@ struct CoordinatorStateTests {
         let paused = CoordinatorHarness.playingTrack(isPlaying: false)
 
         h.nowPlayingSource.emit(paused)
-        await settle()
+        // The snapshot arriving is the barrier: the same pass decides whether to
+        // surface, so the negatives below are read after that decision.
+        #expect(await eventually { h.coordinator.nowPlaying == paused })
 
         #expect(h.coordinator.state == .hidden)
-        #expect(h.coordinator.nowPlaying == paused)
         #expect(!h.coordinator.mediaActive)
     }
 
@@ -78,15 +79,14 @@ struct CoordinatorStateTests {
         #expect(await eventually { h.coordinator.state == .nowPlaying(pausedA, expanded: false) })
         await h.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
         h.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
-        _ = await eventually { h.coordinator.state == .hidden }
+        #expect(await eventually { h.coordinator.state == .hidden })
 
         // Skip to a different paused track from the same source.
         let pausedB = CoordinatorHarness.playingTrack(title: "Time", isPlaying: false)
         h.nowPlayingSource.emit(pausedB)
-        await settle()
+        #expect(await eventually { h.coordinator.nowPlaying == pausedB })
 
         #expect(h.coordinator.state == .hidden)
-        #expect(h.coordinator.nowPlaying == pausedB)
     }
 
     @Test func aDifferentAppArrivingPausedDoesNotSelfSurface() async {
@@ -101,15 +101,14 @@ struct CoordinatorStateTests {
         #expect(await eventually { h.coordinator.state == .nowPlaying(playingA, expanded: false) })
         await h.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
         h.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
-        _ = await eventually { h.coordinator.state == .hidden }
+        #expect(await eventually { h.coordinator.state == .hidden })
 
         // A different app arrives already paused.
         let pausedB = CoordinatorHarness.playingTrack(title: "Time", isPlaying: false)
         h.nowPlayingSource.emit(pausedB)
-        await settle()
+        #expect(await eventually { h.coordinator.nowPlaying == pausedB })
 
         #expect(h.coordinator.state == .hidden)
-        #expect(h.coordinator.nowPlaying == pausedB)
     }
 
     @Test func hudInterruptsNowPlaying() async {
@@ -159,7 +158,7 @@ struct CoordinatorStateTests {
         let h = CoordinatorHarness()
         let track = CoordinatorHarness.playingTrack()
         h.nowPlayingSource.emit(track)
-        _ = await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) })
 
         // The WindowManager resizes windows from this hook; it must run inside
         // the write's callout (no awaits below) or the render beats the resize.

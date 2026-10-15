@@ -81,8 +81,10 @@ struct CoordinatorBrightnessLoopTests {
         h.coordinator.hudSliderChanged(to: 0.7)
 
         #expect(await eventually { h.volume.commands == [.setVolume(0.7, display: nil)] })
-        await settle()
-        #expect(recorder.kinds.isEmpty)
+        // A report would land on the main actor after the await on the double,
+        // and nothing signals the volume write's end: the denial gets a
+        // wall-clock window, which a drain of the main actor is not.
+        #expect(await !footprintAppears { !recorder.kinds.isEmpty })
     }
 
     @Test func draggingScreenBrightnessUpdatesTheIndicatorValue() async {

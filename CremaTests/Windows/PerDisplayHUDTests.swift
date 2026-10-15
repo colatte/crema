@@ -266,13 +266,26 @@ struct PerDisplayHUDTests {
         #expect(h.recorder.panel(for: Self.externalID)?.showsHUDStates.last == false)
     }
 
-    @Test func aDragOnANamedDisplaysBarKeepsTheBarOnThatDisplay() async {
+    @Test func aDragOnANamedDisplaysBarKeepsTheBarOnThatDisplay() async throws {
         // The same claim on the other path, and not a copy of it: the neighbour's
         // confirming echo re-publishes the applied HUD VERBATIM
         // (`BetterDisplayOSDSource.noteApplied`) instead of re-sampling a source, so a
         // target lost in the copy reaches presentation here by a different route —
-        // the monitor's bar spreading onto the laptop mid-drag.
-        let h = makeHarness()
+        // the monitor's bar spreading onto the laptop mid-drag. The echo travels
+        // AppCore's own wiring back into the HUD stream, and the neighbour reports
+        // a level other than the finger's, so the bar on screen after it is the
+        // echo's and not the drag's optimistic publish.
+        let h = WindowManagerTests.Harness(withExternalBrightness: true)
+        h.manager.updateScreens([Self.internalScreen(), Self.externalScreen()])
+        let external = try #require(h.base.external)
+        external.reportsWritten(0.85)
+        let neighbour = BetterDisplayOSDSource(target: { _ in nil })
+        AppCore.wireBrightnessEcho(
+            to: h.base.coordinator, screen: SpySampledSource(), keyboard: SpySampledSource(), neighbour: neighbour
+        )
+        let merge = Task { @MainActor in
+            for await echo in neighbour.updates { h.base.hudSource.emit(echo) }
+        }
         let hud = SystemHUD(
             kind: .screenBrightness, value: 0.4, target: .display(Self.externalID), authority: .betterDisplay
         )
@@ -282,10 +295,12 @@ struct PerDisplayHUDTests {
 
         h.base.coordinator.hudSliderChanged(to: 0.9)
 
+        #expect(await eventually { h.base.coordinator.layers.hud?.value == 0.85 })
         #expect(h.base.coordinator.state == .hud(SystemHUD(
-            kind: .screenBrightness, value: 0.9, target: .display(Self.externalID), authority: .betterDisplay
+            kind: .screenBrightness, value: 0.85, target: .display(Self.externalID), authority: .betterDisplay
         )))
         #expect(h.recorder.panel(for: Self.externalID)?.showsHUDStates.last == true)
         #expect(h.recorder.panel(for: Self.internalID)?.showsHUDStates.last == false)
+        merge.cancel()
     }
 }

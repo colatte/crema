@@ -17,6 +17,11 @@ final class TestSleepClock: SleepClock, @unchecked Sendable {
     var cancelledCount: Int { lock.withLock { _cancelledCount } }
     var pendingSleeps: Int { lock.withLock { sleepers.count } }
 
+    /// Whether a sleep requested with `delay` is parked right now. The negative
+    /// `waitForSleep(delay:)` cannot state, and sound only where the park or the
+    /// cancel being denied would already have happened synchronously.
+    func isParked(delay: Double) -> Bool { lock.withLock { sleepers.contains { $0.delay == delay } } }
+
     func sleep(for seconds: Double) async throws {
         try Task.checkCancellation()
         let id = UUID()

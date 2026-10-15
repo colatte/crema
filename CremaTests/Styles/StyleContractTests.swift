@@ -25,22 +25,28 @@ struct StyleContractTests {
     }
 
     @Test func frameRuleIsAPureFunctionOfStateAndGeometry() {
-        struct ProbeStyle: PresentationStyle {
-            func frame(for state: PresentationState, on geometry: ScreenGeometry) -> CGRect {
-                CGRect(x: geometry.frame.midX, y: CGFloat(geometry.safeTop), width: 10, height: 10)
+        // Every shipped skin, every state: the same inputs, asked again, give the
+        // same rect. A rule that kept anything between calls (a cache keyed wrong,
+        // a counter, a clock) would answer the second asking differently.
+        let plain = ScreenGeometry(frame: CGRect(x: 0, y: 0, width: 1000, height: 600))
+        let notched = ScreenGeometry(
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982), safeTop: 32, auxLeft: 663.5, auxRight: 663.5
+        )
+        let track = CoordinatorHarness.playingTrack()
+        let states: [PresentationState] = [
+            .hidden,
+            .nowPlaying(track, expanded: false),
+            .nowPlaying(track, expanded: true),
+            .hud(SystemHUD(kind: .volume, value: 0.5)),
+        ]
+        for style in Style.allCases {
+            let geometry = style == .notch ? notched : plain
+            for state in states {
+                let first = style.frame(for: state, on: geometry)
+                let second = style.frame(for: state, on: geometry)
+                #expect(first == second, "\(style) \(state)")
             }
-
-            func makeView(coordinator: Coordinator, displayPolicy: SurfaceDisplayPolicy) -> some View { EmptyView() }
         }
-
-        let style = ProbeStyle()
-        let geometry = ScreenGeometry(frame: CGRect(x: 0, y: 0, width: 1000, height: 600), safeTop: 30)
-
-        let first = style.frame(for: .hidden, on: geometry)
-        let second = style.frame(for: .hidden, on: geometry)
-
-        #expect(first == second)
-        #expect(first.origin == CGPoint(x: 500, y: 30))
     }
 
     @Test func styleContentIsAPureMappingOfState() {
@@ -74,7 +80,7 @@ struct StyleContractTests {
 
         let track = CoordinatorHarness.playingTrack()
         h.nowPlayingSource.emit(track)
-        _ = await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) })
 
         #expect(card.contentKind == .empty)
         #expect(notch.contentKind == .empty)

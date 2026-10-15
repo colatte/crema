@@ -229,6 +229,10 @@ final class Coordinator {
     /// delay the pointer is already in but `isHovering` stays false, so a track
     /// update mid-delay does not expand ahead of the intent.
     @ObservationIgnored private var isHovering = false
+    /// `isHovering`, read-only, for the tests that need to know a dwell committed
+    /// where the commit leaves nothing else observable (a hover under a HUD over a
+    /// tucked surface).
+    var hoverIsCommitted: Bool { isHovering }
     /// The surfaces the raw pointer is on — the signal the timers key on. Written
     /// by BOTH hover paths via `publishPointer`; on the debounced path it changes
     /// before the intent delay, so holding starts the moment the cursor arrives.

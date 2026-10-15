@@ -71,7 +71,9 @@ struct CoordinatorSliderReleaseTests {
         h.coordinator.hudSliderChanged(to: 0.9)
 
         #expect(await eventually { h.screen.commands.count == 1 })   // both declined
-        await settle()
+        // The write task's end, fallback and correction included, is the barrier
+        // for "not corrected under the finger"; a command landing is not.
+        #expect(await eventually { h.finishedScreenWrites.count == 1 })
         #expect(h.coordinator.state == .hud(onExternalDisplay(0.9)))
     }
 }

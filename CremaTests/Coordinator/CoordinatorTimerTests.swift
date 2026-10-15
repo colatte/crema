@@ -101,8 +101,10 @@ struct CoordinatorTimerTests {
 
         h.hudSource.emit(SystemHUD(kind: .volume, value: 0.5))
         #expect(await eventually { h.coordinator.state == .hud(SystemHUD(kind: .volume, value: 0.5)) })
-        // Held: the pointer is inside, so no revert timer is parked.
-        #expect(h.clock.pendingSleeps == 0)
+        // Held: the pointer is inside, so no revert timer is parked. A timer
+        // parks from a task of its own, ordered after nothing a test can await,
+        // so the denial gets the short wall-clock window.
+        #expect(await !footprintAppears { h.clock.pendingSleeps > 0 })
 
         h.coordinator.hoverIntent(false)
         await h.clock.waitForSleep(delay: Coordinator.defaultHUDRevertDelay)
