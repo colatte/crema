@@ -37,7 +37,7 @@ struct SuppressionNotes: View {
             if !core.permissionMonitor.isGranted {
                 Text(String(
                     localized: "settings.hud.suppress.needsPermission",
-                    defaultValue: "Needs Accessibility access — until then the system’s own indicators stay."
+                    defaultValue: "Needs Accessibility access. Until then, macOS keeps showing its own indicators."
                 ))
                 .foregroundStyle(.orange)
             } else if core.osdSuppressor == nil {

@@ -148,7 +148,7 @@ struct CremaMenu: View {
             // (docs/DECISIONS.md: brightness-key-target-in-the-menu).
             String(
                 localized: "menu.status.brightnessNoBuiltIn",
-                defaultValue: "Brightness stays with macOS while the built-in display isn’t in use"
+                defaultValue: "Without the built-in display, macOS shows its own brightness indicator"
             )
         }
     }
@@ -163,7 +163,7 @@ struct CremaMenu: View {
             // malfunction — because from inside the app the symptom is
             // indistinguishable from a broken tap, and no user can diagnose it
             // unaided (docs/DECISIONS.md: media-key-chain-contention).
-            String(localized: "menu.mediaKeysPrecededBy", defaultValue: "\(app) gets the media keys before Crema")
+            String(localized: "menu.mediaKeysPrecededBy", defaultValue: "\(app) gets the volume and brightness keys before Crema")
         case .mediaControlsBlocked:
             String(
                 localized: "menu.mediaControlsBlocked",
@@ -194,7 +194,7 @@ struct CremaMenu: View {
         case .anotherAppAhead:
             String(
                 localized: "menu.mediaKeysPrecededBy.detail",
-                defaultValue: "Some of Crema’s indicators may not appear"
+                defaultValue: "So some of Crema’s indicators may not appear"
             )
         case .nowPlayingUnavailable:
             // States the requirement, never a verdict: nothing here knows whether
@@ -232,7 +232,7 @@ struct CremaMenu: View {
     /// different ways.
     ///
     /// The list is a closed set of three, so the widest line is measurable — all
-    /// three joined, 70 characters in English and 63 in Portuguese, under the
+    /// three joined, 70 characters in English and 68 in Portuguese, under the
     /// ceiling `MenuLineWidthTests` holds every menu line to
     /// (docs/DECISIONS.md: menu-status-before-warnings).
     private func suspendedText(_ domains: [OSDSuppressionDomain]) -> String {

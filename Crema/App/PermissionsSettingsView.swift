@@ -57,7 +57,7 @@ struct PermissionsSettingsView: View {
                     }
                 }
             } header: {
-                Text(String(localized: "settings.permissions.accessibility.header", defaultValue: "Required"))
+                Text(String(localized: "settings.permissions.accessibility.header", defaultValue: "Recommended"))
             } footer: {
                 Text(String(
                     localized: "settings.permissions.footer",

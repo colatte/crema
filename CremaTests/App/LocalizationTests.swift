@@ -24,7 +24,7 @@ struct LocalizationTests {
         // "Card" == "Card" stays green against a bundle that ignores the language
         // argument entirely.
         #expect(try localizedInBuiltBundle("style.notch.description", in: "en") == "Blends into the notch")
-        #expect(try localizedInBuiltBundle("style.notch.description", in: "pt-BR") == "Funde-se com o notch")
+        #expect(try localizedInBuiltBundle("style.notch.description", in: "pt-BR") == "Se funde com o notch")
 
         // And the styles themselves, pinned as deliberately UNtranslated: the
         // rule is easy to undo by helpfully translating one of them back.

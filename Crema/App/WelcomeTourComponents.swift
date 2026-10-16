@@ -73,34 +73,35 @@ struct TourFeatureList: View {
         VStack(alignment: .leading, spacing: 14) {
             FeatureRow(
                 symbol: "square.grid.3x3",
-                title: String(localized: "tour.step.more.position.title", defaultValue: "Where the indicator appears"),
+                title: String(localized: "tour.step.more.position.title", defaultValue: "Move the indicator"),
                 detail: String(
                     localized: "tour.step.more.position.detail",
-                    defaultValue: "On Card, the volume and brightness indicator can sit in one of eight places."
+                    defaultValue: "The bar you saw when you pressed the volume key can sit in a corner, on either side or at the bottom. With the Card style."
                 )
             )
             FeatureRow(
                 symbol: "rectangle.lefthalf.filled",
-                title: String(localized: "tour.step.more.filled.title", defaultValue: "A filled indicator"),
+                title: String(localized: "tour.step.more.filled.title", defaultValue: "A bar that’s easier to see"),
                 detail: String(
                     localized: "tour.step.more.filled.detail",
-                    defaultValue: "On Card, the whole indicator fills up as the level rises."
+                    defaultValue: "Instead of a thin line, the whole indicator fills up as the volume goes up. With the Card style."
                 )
             )
             FeatureRow(
                 symbol: "display.2",
-                title: String(localized: "tour.step.more.perDisplay.title", defaultValue: "A style for each display"),
+                title: String(localized: "tour.step.more.perDisplay.title", defaultValue: "A different style on each display"),
                 detail: String(
                     localized: "tour.step.more.perDisplay.detail",
-                    defaultValue: "Notch on the built-in display, Card on an external one."
+                    defaultValue: "With an external display connected, keep Notch on the built-in display and use Card on the other."
                 )
             )
             FeatureRow(
                 symbol: "headphones",
-                title: String(localized: "tour.step.more.output.title", defaultValue: "Where the sound goes"),
+                title: String(localized: "tour.step.more.output.title", defaultValue: "See where the sound is going"),
                 detail: String(
                     localized: "tour.step.more.output.detail",
-                    defaultValue: "The volume indicator shows where the sound is going: AirPods, headphones, an AirPlay speaker."
+                    // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
+                    defaultValue: "When you change the volume, the indicator shows whether it’s playing through AirPods, headphones or an AirPlay speaker. This one’s automatic."
                 )
             )
         }

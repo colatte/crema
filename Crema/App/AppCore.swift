@@ -1059,7 +1059,7 @@ extension AppCore {
         )
         let window = NSWindow(contentViewController: NSHostingController(rootView: view))
         window.styleMask = [.titled, .closable]
-        window.title = String(localized: "onboarding.title", defaultValue: "Crema needs Accessibility access")
+        window.title = String(localized: "onboarding.title", defaultValue: "Accessibility access for Crema")
         window.isReleasedWhenClosed = false
         window.center()
         onboardingWindow = window
