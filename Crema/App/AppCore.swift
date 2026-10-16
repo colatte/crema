@@ -419,6 +419,7 @@ final class AppCore {
         #if DEBUG
         startAdapterObservationIfRequested()
         showWelcomeTourIfRequested()
+        DemoRemote.start(core: self)
         #endif
     }
 
@@ -1114,7 +1115,7 @@ extension AppCore {
             return
         }
 
-        let view = WelcomeTourView(core: self, firstStep: step) { [weak self] in self?.welcomeTourWindow?.close() }
+        let view = WelcomeTourView(core: self, firstStep: step) { [weak self] in self?.closeWelcomeTour() }
         let window = NSWindow(contentViewController: NSHostingController(rootView: view))
         window.styleMask = [.titled, .closable, .fullSizeContentView]
         window.titlebarAppearsTransparent = true
@@ -1166,6 +1167,12 @@ extension AppCore {
         } else {
             menuBarPointer.hide()
         }
+    }
+
+    /// Leaving the tour from inside it (its buttons, Esc), the way the close box
+    /// leaves it: the window's close runs `welcomeTourDidClose` either way.
+    func closeWelcomeTour() {
+        welcomeTourWindow?.close()
     }
 
     /// The grant lands in System Settings, so the tour is behind it when the

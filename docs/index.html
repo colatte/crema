@@ -17,19 +17,19 @@
 <meta property="og:title" content="Crema — a quiet companion for your Mac's notch">
 <meta property="og:description" content="What's playing by the notch, and volume and brightness with indicators that match. Native, and out of the way.">
 <meta property="og:url" content="https://colatte.github.io/crema/">
-<meta property="og:image" content="https://colatte.github.io/crema/assets/icon.png">
-<meta name="twitter:card" content="summary">
+<meta property="og:image" content="https://colatte.github.io/crema/assets/site/notch-expanded.webp">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Crema — a quiet companion for your Mac's notch">
 <meta name="twitter:description" content="What's playing by the notch, and volume and brightness with indicators that match. Native, and out of the way.">
-<meta name="twitter:image" content="https://colatte.github.io/crema/assets/icon.png">
+<meta name="twitter:image" content="https://colatte.github.io/crema/assets/site/notch-expanded.webp">
 <link rel="icon" href="assets/web/favicon.png">
 <link rel="apple-touch-icon" href="assets/icon.png">
 <style>
   /* ---- tokens -----------------------------------------------------------
      The palette is Colatte's espresso dialect, value for value (docs/BRAND.md):
      one cream accent and an ink that is never pure white. The type is the
-     Mac's own: the system stack resolves to SF Pro on Apple devices, which
-     switches between its Display and Text cuts by size on its own. */
+     Mac's own: the system stack resolves to SF Pro on Apple devices. Every
+     picture of the app is a capture of the app (scripts/site-capture/). */
   :root{
     --base:#0d0b09; --well:#14100c; --raise:#1b1610; --notch-ink:#060402;
     --cream:#d6bd94; --cream-hi:#eedcbb;
@@ -37,324 +37,172 @@
     --line:rgba(214,189,148,.12); --line-hi:rgba(214,189,148,.28);
     --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",Helvetica,Arial,sans-serif;
     --ease:cubic-bezier(.32,.72,0,1);
-    --wrap:980px; --wide:1180px;
+    --wrap:980px; --wide:1180px; --radius:28px;
   }
   *,*::before,*::after{box-sizing:border-box}
   html{-webkit-text-size-adjust:100%;scroll-padding-top:64px}
   body{margin:0;background:var(--base);color:var(--ink);font:400 17px/1.47 var(--sans);
        letter-spacing:-.022em;-webkit-font-smoothing:antialiased;overflow-x:hidden}
   a{color:inherit}
-  img,svg{display:block}
+  img,svg,video{display:block;max-width:100%}
   button{font:inherit;color:inherit}
-  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  figure{margin:0}
   .wrap{max-width:var(--wrap);margin:0 auto;padding:0 max(22px,env(safe-area-inset-left))}
   .wide{max-width:var(--wide);margin:0 auto;padding:0 max(22px,env(safe-area-inset-left))}
   :focus-visible{outline:2px solid var(--cream);outline-offset:3px;border-radius:6px}
 
   /* ---- type ------------------------------------------------------------ */
   h1,h2,h3{margin:0;font-weight:700;color:var(--ink);text-wrap:balance}
-  figure{margin:0}
-  .lead{text-wrap:pretty}
-  h1{font-size:clamp(44px,7.2vw,84px);line-height:1.04;letter-spacing:-.035em}
-  h2{font-size:clamp(34px,5.2vw,60px);line-height:1.07;letter-spacing:-.03em}
+  h1{font-size:clamp(56px,9vw,104px);line-height:1;letter-spacing:-.04em}
+  h2{font-size:clamp(36px,5.6vw,64px);line-height:1.06;letter-spacing:-.032em}
   h3{font-size:21px;line-height:1.24;letter-spacing:-.02em;font-weight:600}
-  .eyebrow{margin:0 0 14px;font-size:clamp(17px,1.6vw,21px);font-weight:600;color:var(--cream);letter-spacing:-.01em}
-  .lead{margin:22px auto 0;max-width:720px;font-size:clamp(19px,2vw,23px);line-height:1.38;color:var(--ink-2);font-weight:500;letter-spacing:-.018em}
+  .label{margin:0 0 12px;font-size:clamp(17px,1.6vw,21px);font-weight:600;color:var(--cream);letter-spacing:-.01em}
+  .lead{margin:20px 0 0;max-width:680px;font-size:clamp(19px,2vw,22px);line-height:1.4;color:var(--ink-2);font-weight:500;letter-spacing:-.016em;text-wrap:pretty}
   .center{text-align:center}
-  em{font-style:normal;color:var(--cream)}
 
   /* ---- buttons ----------------------------------------------------------
      One filled cream button per viewport, the house's rule for the accent:
-     the hero owns it on arrival, and the nav's own stays folded until the
-     hero's has scrolled away. Everything else is a cream text link. */
+     the hero owns it on arrival, and the nav's stays folded until the hero's
+     has scrolled away. Everything else is a cream text link. */
   .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:999px;
        background:var(--cream);color:#1b1610;font-size:17px;font-weight:500;text-decoration:none;
        transition:background .2s,transform .2s var(--ease)}
   .btn:hover{background:var(--cream-hi)}
   .btn:active{transform:scale(.97)}
   .btn svg{width:16px;height:16px}
-  .link{display:inline-flex;align-items:center;gap:4px;color:var(--cream);font-size:17px;text-decoration:none}
+  .link{display:inline-flex;align-items:center;gap:4px;color:var(--cream);text-decoration:none}
   .link:hover{text-decoration:underline;text-underline-offset:3px}
-  .link svg{width:12px;height:12px}
-  .actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px 28px;margin-top:34px}
+  .link svg{width:11px;height:11px}
+  .actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px 28px;margin-top:30px;font-size:17px}
+  .glyph{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 
-  /* ---- nav ------------------------------------------------------------- */
+  /* ---- nav: the product's own bar, as Apple's product pages carry one ---- */
   .nav{position:fixed;inset:0 0 auto;z-index:50;height:52px;
        background:rgba(13,11,9,.72);-webkit-backdrop-filter:saturate(180%) blur(20px);
-       backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid transparent;
-       transition:border-color .3s}
+       backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid transparent;transition:border-color .3s}
   .nav.is-scrolled{border-bottom-color:var(--line)}
-  .nav .wide{height:100%;display:flex;align-items:center;gap:28px}
-  .brand{display:flex;align-items:center;gap:9px;font-size:17px;font-weight:600;text-decoration:none;margin-right:auto}
+  .nav .wide{height:100%;display:flex;align-items:center;gap:26px}
+  .brand{display:flex;align-items:center;gap:9px;font-size:19px;font-weight:600;text-decoration:none;margin-right:auto;letter-spacing:-.02em}
   .brand img{width:26px;height:26px}
-  .nav-links{display:flex;gap:26px}
+  .nav-links{display:flex;gap:24px}
   .nav-links a{font-size:13px;color:var(--ink-2);text-decoration:none;letter-spacing:-.01em}
   .nav-links a:hover{color:var(--ink)}
-  .nav .get{padding:5px 14px;font-size:13px;gap:6px;opacity:0;pointer-events:none;transform:translateY(-4px);
+  .nav .get{padding:5px 14px;font-size:13px;opacity:0;pointer-events:none;transform:translateY(-4px);
             transition:opacity .3s,transform .3s var(--ease),background .2s}
   .nav .get.is-shown{opacity:1;pointer-events:auto;transform:none}
-  @media (max-width:640px){.nav-links{display:none}}
+  @media (max-width:700px){.nav-links{display:none}}
 
-  /* ---- sections -------------------------------------------------------- */
-  section{padding:clamp(96px,13vw,160px) 0 0}
-  .section-head{text-align:center;margin-bottom:clamp(44px,6vw,72px)}
+  section{padding:clamp(100px,13vw,170px) 0 0}
+
+  /* ---- media frames ------------------------------------------------------
+     A capture of the top of the screen sits in the bezel it was taken under;
+     every other capture sits in a plain rounded frame. */
+  .frame{position:relative;overflow:hidden;border-radius:var(--radius);background:var(--well);
+         box-shadow:0 0 0 1px var(--line),0 30px 90px rgba(0,0,0,.45)}
+  .frame img,.frame video{width:100%;height:100%;object-fit:cover}
+  /* A capture that fails to load leaves its frame empty rather than printing
+     its description over it; screen readers still read the alt text. */
+  .frame img,.card img,.tile img{color:transparent}
+  .ratio-top{aspect-ratio:560/200}
+  .ratio-style{aspect-ratio:560/420}
+  /* The top of a MacBook, not a box: the bezel's lower edge dissolves into
+     the page, so the capture reads as the top of a screen. */
+  .bezel{padding:10px 10px 0;border-radius:34px 34px 0 0;background:var(--notch-ink);
+         box-shadow:0 0 0 1px rgba(255,255,255,.07) inset;
+         -webkit-mask-image:linear-gradient(#000 55%,transparent);mask-image:linear-gradient(#000 55%,transparent)}
+  .bezel .frame{border-radius:24px 24px 0 0;box-shadow:none}
 
   /* ---- hero ------------------------------------------------------------ */
-  .hero{padding-top:clamp(108px,14vw,150px);text-align:center}
-  .hero .app-icon{width:clamp(84px,9vw,108px);height:auto;margin:0 auto 26px;
-                  filter:drop-shadow(0 18px 34px rgba(0,0,0,.5))}
-  .hero .meta{margin:20px 0 0;font-size:14px;color:var(--ink-3)}
-  .device{position:relative;margin:clamp(56px,7vw,84px) auto 0;max-width:1100px}
-  .device .screen{aspect-ratio:1000/460}
-  .device::before{content:"";position:absolute;inset:-12% 8% 30%;z-index:-1;
-                  background:radial-gradient(closest-side,rgba(214,189,148,.16),transparent);filter:blur(30px)}
-  .bezel{padding:1.3% 1.3% 0;border-radius:2.6% 2.6% 0 0 / 4.4% 4.4% 0 0;background:var(--notch-ink);
-         box-shadow:0 0 0 1px rgba(255,255,255,.06) inset,0 40px 120px rgba(0,0,0,.6);
-         -webkit-mask-image:linear-gradient(#000 62%,transparent);mask-image:linear-gradient(#000 62%,transparent)}
+  .hero{padding-top:clamp(116px,14vw,160px);text-align:center}
+  .hero .icon{width:clamp(76px,8vw,96px);height:auto;margin:0 auto 22px;filter:drop-shadow(0 16px 30px rgba(0,0,0,.5))}
+  .hero .subhead{margin:14px auto 0;font-size:clamp(26px,3.6vw,40px);line-height:1.12;font-weight:600;letter-spacing:-.028em;color:var(--ink);text-wrap:balance}
+  .hero .lead{margin:22px auto 0}
+  .hero .meta{margin:18px 0 0;font-size:14px;color:var(--ink-3);text-wrap:balance}
+  .hero .stage{max-width:1000px;margin:clamp(56px,7vw,80px) auto 0}
 
-  /* ---- the drawn Mac ----------------------------------------------------
-     Every drawing below is sized in --u, a thousandth of its own width, so a
-     screen scales as one picture from a phone to a wide display. Nothing in it
-     is a screenshot: it shows the app as it is now, and changes with it. */
-  .mock{container-type:inline-size;position:relative}
-  .screen{--u:.1cqw;position:relative;aspect-ratio:1000/560;text-align:left;overflow:hidden;border-radius:calc(var(--u)*14) calc(var(--u)*14) 0 0;
-          background:#1a1714;isolation:isolate}
-  .screen.tall{aspect-ratio:1000/625}
-  .wall{position:absolute;inset:0;z-index:-1;background:
-        radial-gradient(60% 70% at 18% 22%,rgba(122,96,168,.55),transparent 70%),
-        radial-gradient(55% 60% at 82% 18%,rgba(70,104,150,.5),transparent 70%),
-        radial-gradient(70% 70% at 70% 92%,rgba(196,120,72,.55),transparent 70%),
-        radial-gradient(60% 60% at 20% 90%,rgba(150,72,64,.45),transparent 70%),
-        linear-gradient(170deg,#262033,#3a2a2c 55%,#4a3022)}
-  .menubar{position:absolute;inset:0 0 auto;height:calc(var(--u)*26);display:flex;align-items:center;
-           justify-content:space-between;padding:0 calc(var(--u)*16);font-size:calc(var(--u)*12.5);
-           color:rgba(255,255,255,.92);letter-spacing:0;background:rgba(18,14,12,.28);
-           -webkit-backdrop-filter:blur(calc(var(--u)*20));backdrop-filter:blur(calc(var(--u)*20))}
-  .menubar .l{display:flex;gap:calc(var(--u)*18)}
-  .menubar .l b{font-weight:700}
-  .menubar .r{display:flex;align-items:center;gap:calc(var(--u)*14)}
-  .menubar .r svg{width:calc(var(--u)*14);height:calc(var(--u)*14)}
-  .menubar .batt{width:calc(var(--u)*22);height:calc(var(--u)*10.5);border:calc(var(--u)*1.2) solid rgba(255,255,255,.8);
-                 border-radius:calc(var(--u)*3);padding:calc(var(--u)*1.2)}
-  .menubar .batt i{display:block;height:100%;width:72%;background:rgba(255,255,255,.9);border-radius:calc(var(--u)*1.2)}
-  .menubar .mark{width:calc(var(--u)*15)!important;height:calc(var(--u)*15)!important}
-  /* A narrow drawing keeps only the app's name and the clock, clear of the
-     frame's rounded corners: WebKit holds text above a minimum size, so a full
-     menu bar would spill out of a small screen instead of shrinking with it. */
-  @container (max-width:640px){
-    .menubar .l span,.menubar .r>svg:not(.mark),.menubar .batt{display:none}
-    .menubar{padding:0 calc(var(--u)*56)}
-  }
+  /* ---- highlights gallery ---------------------------------------------------
+     Apple's "Get to know" pattern: a horizontal run of cards, one idea each,
+     snapped by the browser's own scrolling; the buttons only nudge it. */
+  #highlights h2{margin-bottom:clamp(30px,4vw,46px)}
+  .gallery{display:flex;gap:20px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;
+           padding:6px max(22px,calc((100vw - var(--wide)) / 2 + 22px)) 26px;
+           scroll-padding:0 max(22px,calc((100vw - var(--wide)) / 2 + 22px))}
+  .gallery::-webkit-scrollbar{display:none}
+  /* The run's end padding, as an element: a scroll container's own end
+     padding is not honoured by every engine. */
+  .gallery::after{content:"";flex:0 0 max(2px,calc((100vw - var(--wide)) / 2 + 2px))}
+  .card{flex:0 0 min(80vw,640px);scroll-snap-align:start;border-radius:var(--radius);overflow:hidden;background:var(--well);
+        box-shadow:0 0 0 1px var(--line)}
+  .card figcaption{padding:22px 26px 26px;font-size:19px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.35}
+  .card figcaption span{color:var(--ink-2);font-weight:500}
+  .card .media{aspect-ratio:900/560;background:#1a1612;overflow:hidden}
+  .card .media img{width:100%;height:100%;object-fit:cover}
+  .card .media.contain img{object-fit:contain;padding:22px}
+  .gallery-nav{display:flex;justify-content:flex-end;gap:12px}
+  .gallery-nav button{width:40px;height:40px;border-radius:50%;border:0;background:var(--raise);color:var(--ink);cursor:pointer;
+                      display:grid;place-items:center;box-shadow:inset 0 0 0 1px var(--line);transition:background .2s,opacity .2s}
+  .gallery-nav button:hover{background:#261f17}
+  .gallery-nav button:disabled{opacity:.35;cursor:default}
+  .gallery-nav svg{width:14px;height:14px}
 
-  /* the shared pieces of a player */
-  .art{flex:none;border-radius:calc(var(--u)*8);aspect-ratio:1;background:
-       radial-gradient(circle at 30% 28%,#f6cf96,transparent 46%),
-       radial-gradient(circle at 74% 72%,#8a3b2a,transparent 60%),
-       linear-gradient(140deg,#3d2c5c,#c2683a 70%,#e6a25c);
-       box-shadow:0 calc(var(--u)*2) calc(var(--u)*6) rgba(0,0,0,.35)}
-  .title{font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .artist{color:rgba(255,255,255,.62);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .wave{display:flex;align-items:center;gap:calc(var(--u)*2.2);height:calc(var(--u)*14)}
-  .wave i{width:calc(var(--u)*2.6);height:100%;border-radius:9px;background:#e6b07a;transform-origin:center;
-          animation:wave 1.1s ease-in-out infinite;transform:scaleY(.35)}
-  .wave i:nth-child(2){animation-delay:-.35s}.wave i:nth-child(3){animation-delay:-.7s}.wave i:nth-child(4){animation-delay:-.15s}
-  @keyframes wave{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
-  .scrub{display:flex;align-items:center;gap:calc(var(--u)*7);font-size:calc(var(--u)*9.5);color:rgba(255,255,255,.55);font-variant-numeric:tabular-nums}
-  .scrub .track{flex:1;height:calc(var(--u)*3.4);border-radius:9px;background:rgba(255,255,255,.18);overflow:hidden}
-  .scrub .track i{display:block;height:100%;width:38%;background:rgba(255,255,255,.85);border-radius:9px}
-  .transport{display:flex;justify-content:center;align-items:center;gap:calc(var(--u)*22);color:#fff}
-  .transport svg{width:calc(var(--u)*15);height:calc(var(--u)*15)}
-  .transport .play{width:calc(var(--u)*19);height:calc(var(--u)*19)}
-  .glyph{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-  .solid{fill:currentColor}
+  /* ---- chapters ------------------------------------------------------------ */
+  .chapter-head{max-width:760px;margin-bottom:clamp(40px,5vw,60px)}
+  .tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+  .tile{border-radius:var(--radius);overflow:hidden;background:var(--well);box-shadow:0 0 0 1px var(--line);display:flex;flex-direction:column}
+  .tile .text{padding:28px 30px 30px}
+  .tile .text p{margin:8px 0 0;color:var(--ink-2);font-size:16px}
+  .tile.span2{grid-column:span 2}
+  .tile .media{background:#1a1612;overflow:hidden;aspect-ratio:560/200}
+  .tile .media.tour{aspect-ratio:560/552;display:grid;place-items:center;padding:24px}
+  .tile .media img{width:100%;height:100%;object-fit:cover}
+  .tile .media.tour img{object-fit:contain}
+  .tile.text-only{justify-content:flex-end;min-height:220px}
+  .tile .ico{width:32px;height:32px;color:var(--cream);margin-bottom:16px}
+  @media (max-width:760px){.tiles{grid-template-columns:1fr}.tile.span2{grid-column:auto}}
 
-  /* Notch: the surface IS the notch, black on black, growing out of the cutout */
-  .np{position:absolute;top:0;left:50%;z-index:3;transform:translateX(-50%);width:calc(var(--u)*120);height:calc(var(--u)*26);
-      background:#000;border-radius:0 0 calc(var(--u)*9) calc(var(--u)*9);overflow:hidden;
-      transition:width .62s var(--ease),height .62s var(--ease),border-radius .62s var(--ease)}
-  .np>div{position:absolute;inset:0;opacity:0;transition:opacity .25s}
-  .mock[data-state=compact] .np{width:calc(var(--u)*262)}
-  .mock[data-state=expanded] .np{width:calc(var(--u)*430);height:calc(var(--u)*170);border-radius:0 0 calc(var(--u)*30) calc(var(--u)*30)}
-  .mock[data-state=hud] .np{width:calc(var(--u)*290)}
-  .mock[data-state=compact] .np-compact,.mock[data-state=expanded] .np-full,.mock[data-state=hud] .np-hud{opacity:1;transition:opacity .35s .22s}
-  .np-compact{display:flex;align-items:center;justify-content:space-between;padding:0 calc(var(--u)*9)}
-  .np-compact .art{width:calc(var(--u)*17);border-radius:calc(var(--u)*4)}
-  .np-full{padding:calc(var(--u)*36) calc(var(--u)*24) calc(var(--u)*16);display:flex;flex-direction:column;gap:calc(var(--u)*12)}
-  .np-full .row{display:flex;align-items:center;gap:calc(var(--u)*14)}
-  .np-full .art{width:calc(var(--u)*58)}
-  .np-full .txt{flex:1;min-width:0;font-size:calc(var(--u)*13)}
-  .np-full .title{font-size:calc(var(--u)*14.5)}
-  .np-hud{display:flex;align-items:center;gap:calc(var(--u)*12);padding:0 calc(var(--u)*14);color:#fff}
-  .np-hud svg{width:calc(var(--u)*14);height:calc(var(--u)*14);flex:none}
-  .np-hud .spacer{flex:1}
-  .bar{position:relative;width:calc(var(--u)*92);height:calc(var(--u)*5);border-radius:9px;background:rgba(255,255,255,.2);overflow:hidden}
-  .bar i{position:absolute;inset:0 auto 0 0;width:calc(var(--level,.5)*100%);background:#fff;border-radius:9px;transition:width .18s ease-out}
-
-  /* Card: a translucent panel below the menu bar */
-  .glass{background:rgba(26,21,17,.5);-webkit-backdrop-filter:blur(calc(var(--u)*26)) saturate(150%);backdrop-filter:blur(calc(var(--u)*26)) saturate(150%);
-         box-shadow:inset 0 calc(var(--u)*1) 0 rgba(255,255,255,.16),0 0 0 calc(var(--u)*1) rgba(255,255,255,.07),0 calc(var(--u)*18) calc(var(--u)*46) rgba(0,0,0,.42)}
-  .card-np{position:absolute;top:calc(var(--u)*42);left:50%;width:calc(var(--u)*372);transform:translateX(-50%);
-           border-radius:calc(var(--u)*22);padding:calc(var(--u)*16);display:flex;flex-direction:column;gap:calc(var(--u)*10)}
-  .card-np .row{display:flex;align-items:center;gap:calc(var(--u)*12)}
-  .card-np .art{width:calc(var(--u)*52)}
-  .card-np .txt{flex:1;min-width:0;font-size:calc(var(--u)*12.5)}
-  .card-np .title{font-size:calc(var(--u)*14)}
-
-  /* Classic: a quiet block near the bottom, the old indicator's address */
-  .classic-np{position:absolute;bottom:calc(var(--u)*54);left:50%;width:calc(var(--u)*196);transform:translateX(-50%);
-              border-radius:calc(var(--u)*26);padding:calc(var(--u)*18);display:flex;flex-direction:column;align-items:center;
-              gap:calc(var(--u)*9);text-align:center;font-size:calc(var(--u)*11.5)}
-  .classic-np .art{width:calc(var(--u)*84);border-radius:calc(var(--u)*10)}
-  .classic-np .txt{width:100%}
-  .classic-np .title{font-size:calc(var(--u)*13)}
-  .classic-np .transport{gap:calc(var(--u)*18)}
-
-  /* the style switcher shows one player at a time */
-  .styles-mock .np,.styles-mock .card-np,.styles-mock .classic-np{transition:opacity .45s var(--ease),transform .55s var(--ease),
-     width .62s var(--ease),height .62s var(--ease),border-radius .62s var(--ease)}
-  .styles-mock[data-style=notch] .card-np,.styles-mock[data-style=notch] .classic-np,
-  .styles-mock[data-style=card] .classic-np,
-  .styles-mock[data-style=classic] .card-np{opacity:0;pointer-events:none}
-  /* Any other style leaves the notch as the hardware it is: the bare cutout. */
-  .styles-mock:not([data-style=notch]) .np{width:calc(var(--u)*120);height:calc(var(--u)*26);border-radius:0 0 calc(var(--u)*9) calc(var(--u)*9)}
-  .styles-mock:not([data-style=notch]) .np-full{opacity:0;transition:opacity .15s}
-  .styles-mock[data-style=notch] .card-np{transform:translateX(-50%) translateY(calc(var(--u)*-14)) scale(.96)}
-  .styles-mock[data-style=notch] .classic-np,.styles-mock[data-style=card] .classic-np{transform:translateX(-50%) translateY(calc(var(--u)*16)) scale(.96)}
-  .styles-mock[data-style=classic] .card-np{transform:translateX(-50%) translateY(calc(var(--u)*-14)) scale(.96)}
-
-  /* a pointer for the hero's story */
-  .cursor{position:absolute;z-index:6;left:0;top:0;width:calc(var(--u)*17);height:calc(var(--u)*24);
-          transform:translate(calc(var(--u)*760),calc(var(--u)*420));transition:transform 1.1s var(--ease);pointer-events:none}
-  .cursor svg{width:100%;height:100%;filter:drop-shadow(0 calc(var(--u)*2) calc(var(--u)*3) rgba(0,0,0,.4))}
-  .cursor.at-notch{transform:translate(calc(var(--u)*512),calc(var(--u)*14))}
-  .cursor.click svg{transform:scale(.86);transition:transform .12s}
-  .cursor.away{transform:translate(calc(var(--u)*690),calc(var(--u)*300))}
-
-  /* ---- segmented control ---------------------------------------------- */
-  .seg{position:relative;display:inline-flex;padding:3px;border-radius:999px;background:var(--raise);
-       box-shadow:inset 0 0 0 1px var(--line)}
+  .tabs{display:flex;margin-bottom:28px}
+  .seg{position:relative;display:inline-flex;padding:3px;border-radius:999px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
   .seg button{position:relative;z-index:1;border:0;background:none;padding:8px 22px;border-radius:999px;cursor:pointer;
               font-size:15px;font-weight:500;color:var(--ink-2);transition:color .25s}
-  .seg button[aria-selected=true],.seg button[aria-pressed=true]{color:#1b1610}
+  .seg button[aria-selected=true]{color:#1b1610}
   .seg .thumb{position:absolute;top:3px;bottom:3px;left:0;border-radius:999px;background:var(--cream);
               transition:transform .45s var(--ease),width .45s var(--ease)}
-  .switcher{display:flex;justify-content:center;margin-bottom:34px}
-  .style-copy{max-width:620px;margin:40px auto 0;text-align:center;min-height:96px}
+  .styles-stage{display:grid}
+  .styles-stage>.frame{grid-area:1/1;transition:opacity .45s var(--ease)}
+  .styles-stage>.frame[hidden]{display:block;opacity:0;pointer-events:none}
+  .style-copy{max-width:640px;margin:30px 0 0;min-height:88px}
   .style-copy p{margin:8px 0 0;color:var(--ink-2)}
-  .panel-frame{border-radius:22px;overflow:hidden;box-shadow:0 0 0 1px var(--line),0 30px 90px rgba(0,0,0,.5)}
 
-  /* ---- indicators ------------------------------------------------------ */
-  .huds{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-  .hud-tile{border-radius:22px;overflow:hidden;box-shadow:0 0 0 1px var(--line)}
-  .hud-tile .screen{aspect-ratio:1000/760;border-radius:0}
-  .hud-tile figcaption{padding:14px 18px 16px;background:var(--well);font-size:15px;color:var(--ink-2)}
-  .hud-tile figcaption b{color:var(--ink);font-weight:600}
-  .notch-hud{position:absolute;top:0;left:50%;transform:translateX(-50%);width:calc(var(--u)*780);height:calc(var(--u)*92);
-             background:#000;border-radius:0 0 calc(var(--u)*32) calc(var(--u)*32);display:flex;align-items:center;
-             gap:calc(var(--u)*28);padding:0 calc(var(--u)*44);color:#fff}
-  .notch-hud svg{width:calc(var(--u)*48);height:calc(var(--u)*48);flex:none}
-  .notch-hud .bar{width:calc(var(--u)*330);height:calc(var(--u)*15)}
-  .card-hud{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:calc(var(--u)*820);height:calc(var(--u)*142);
-            border-radius:calc(var(--u)*47);display:flex;align-items:center;gap:calc(var(--u)*36);padding:0 calc(var(--u)*52);color:#fff}
-  .card-hud svg{width:calc(var(--u)*58);height:calc(var(--u)*58);flex:none}
-  .card-hud .bar{flex:1;width:auto;height:calc(var(--u)*17)}
-  .classic-hud{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:calc(var(--u)*560);height:calc(var(--u)*560);
-               border-radius:calc(var(--u)*72);display:flex;flex-direction:column;align-items:center;justify-content:center;
-               gap:calc(var(--u)*64);color:#fff}
-  .classic-hud svg{width:calc(var(--u)*190);height:calc(var(--u)*190)}
-  .segments{display:flex;gap:calc(var(--u)*6)}
-  .segments i{width:calc(var(--u)*23);height:calc(var(--u)*23);border-radius:calc(var(--u)*3.5);
-              background:linear-gradient(90deg,#fff calc(clamp(0,var(--level,.5)*16 - var(--i),1)*100%),rgba(255,255,255,.18) 0)}
-  .try{display:flex;align-items:center;justify-content:center;gap:16px;margin:30px auto 0;max-width:480px;color:var(--ink-2);font-size:15px}
-  .try svg{width:18px;height:18px;flex:none;color:var(--ink-3)}
-  .try input{flex:1}
-  input[type=range]{-webkit-appearance:none;appearance:none;height:28px;background:none;cursor:pointer}
-  input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:9px;background:
-      linear-gradient(90deg,var(--cream) calc(var(--fill,.5)*100%),rgba(239,232,221,.16) 0)}
-  input[type=range]::-moz-range-track{height:5px;border-radius:9px;background:rgba(239,232,221,.16)}
-  input[type=range]::-moz-range-progress{height:5px;border-radius:9px;background:var(--cream)}
-  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8.5px;border-radius:50%;
-      background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.5)}
-  input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.5)}
-  .points{display:grid;grid-template-columns:repeat(2,1fr);gap:46px 64px;margin-top:clamp(64px,8vw,96px)}
-  .points p{margin:8px 0 0;color:var(--ink-2)}
-  @media (max-width:760px){.huds{grid-template-columns:1fr}.points{grid-template-columns:1fr;gap:34px}}
+  .points{display:grid;grid-template-columns:repeat(2,1fr);gap:40px 60px;margin-top:clamp(56px,7vw,80px)}
+  .points p{margin:8px 0 0;color:var(--ink-2);font-size:16px}
+  @media (max-width:760px){.points{grid-template-columns:1fr;gap:30px}}
 
-  /* ---- card placement -------------------------------------------------- */
-  .place{display:grid;grid-template-columns:1fr 260px;gap:40px;align-items:center}
-  .place .screen{aspect-ratio:1000/625;border-radius:0}
-  .dock{position:absolute;bottom:calc(var(--u)*12);left:50%;transform:translateX(-50%);display:flex;gap:calc(var(--u)*10);
-        padding:calc(var(--u)*9);border-radius:calc(var(--u)*20)}
-  .dock i{width:calc(var(--u)*44);height:calc(var(--u)*44);border-radius:calc(var(--u)*11);background:rgba(255,255,255,.16)}
-  .dock i:nth-child(1){background:linear-gradient(160deg,#5a8fd8,#2f5fa8)}
-  .dock i:nth-child(2){background:linear-gradient(160deg,#f2f2f2,#bdbdbd)}
-  .dock i:nth-child(3){background:linear-gradient(160deg,#ff6a6a,#d63a4a)}
-  .dock i:nth-child(4){background:linear-gradient(160deg,#ffd66b,#f0a83a)}
-  .dock i:nth-child(5){background:linear-gradient(160deg,#2b211a,#1b1610);box-shadow:inset 0 0 0 calc(var(--u)*1) rgba(214,189,148,.4)}
-  .placed{--m:calc(var(--u)*20);position:absolute;width:calc(var(--u)*300);height:calc(var(--u)*52);border-radius:calc(var(--u)*17);
-          display:flex;align-items:center;gap:calc(var(--u)*14);padding:0 calc(var(--u)*18);color:#fff;overflow:hidden;
-          transition:top .6s var(--ease),left .6s var(--ease),transform .6s var(--ease)}
-  .placed svg{position:relative;z-index:1;width:calc(var(--u)*21);height:calc(var(--u)*21);flex:none}
-  .placed .bar{position:relative;z-index:1;flex:1;width:auto}
-  .placed .fill{position:absolute;inset:0 auto 0 0;width:calc(var(--level,.62)*100%);background:rgba(255,255,255,.88);
-                opacity:0;transition:opacity .35s}
-  .placed[data-look=filled] .fill{opacity:1}
-  .placed[data-look=filled] .bar{opacity:0}
-  .placed[data-look=filled] svg{color:#1b1610;mix-blend-mode:normal}
-  .placed[data-pos^=t]{top:calc(var(--u)*26 + var(--m))}
-  .placed[data-pos^=m]{top:50%;transform:translateY(-50%)}
-  .placed[data-pos^=b]{top:calc(100% - var(--u)*62 - var(--m) - var(--u)*52)}
-  .placed[data-pos$=l]{left:var(--m)}
-  .placed[data-pos$=c]{left:50%;transform:translateX(-50%)}
-  .placed[data-pos$=r]{left:calc(100% - var(--m) - var(--u)*300)}
-  .placed[data-pos=ml],.placed[data-pos=mr]{width:calc(var(--u)*52);height:calc(var(--u)*300);flex-direction:column-reverse;
-          padding:calc(var(--u)*18) 0}
-  .placed[data-pos=ml] .bar,.placed[data-pos=mr] .bar{width:calc(var(--u)*5);height:auto}
-  .placed[data-pos=ml] .bar i,.placed[data-pos=mr] .bar i{inset:auto 0 0 0;width:100%;height:calc(var(--level,.62)*100%)}
-  .placed[data-pos=ml] .fill,.placed[data-pos=mr] .fill{inset:auto 0 0 0;width:100%;height:calc(var(--level,.62)*100%)}
-  .controls{display:flex;flex-direction:column;gap:30px}
-  .controls h3{font-size:15px;color:var(--ink-3);font-weight:600;margin-bottom:12px;letter-spacing:-.01em}
-  .map{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;aspect-ratio:16/10;padding:10px;border-radius:16px;
-       background:var(--well);box-shadow:inset 0 0 0 1px var(--line)}
-  .map button{border:0;border-radius:8px;background:rgba(239,232,221,.06);cursor:pointer;transition:background .2s}
-  .map button:hover{background:rgba(239,232,221,.12)}
-  .map button[aria-pressed=true]{background:var(--cream)}
-  .map span{border-radius:8px}
-  @media (max-width:820px){.place{grid-template-columns:1fr}.controls{flex-direction:row;flex-wrap:wrap;justify-content:center}
-    .controls>div{width:min(260px,100%)}}
+  .facts{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .fact{padding:30px;border-radius:var(--radius);background:var(--well);box-shadow:0 0 0 1px var(--line)}
+  .fact b{display:block;font-size:clamp(30px,3.4vw,40px);font-weight:700;letter-spacing:-.035em;line-height:1.05;color:var(--ink);margin-bottom:10px}
+  .fact p{margin:0;color:var(--ink-2);font-size:16px}
+  @media (max-width:760px){.facts{grid-template-columns:1fr}}
 
-  /* ---- details --------------------------------------------------------- */
-  .bento{display:grid;grid-template-columns:repeat(6,1fr);gap:20px}
-  .tile{grid-column:span 2;position:relative;overflow:hidden;padding:34px 30px 32px;border-radius:26px;background:var(--well);
-        box-shadow:inset 0 0 0 1px var(--line)}
-  .tile.span3{grid-column:span 3}
-  .tile .ico{width:34px;height:34px;color:var(--cream);margin-bottom:22px}
-  .tile p{margin:8px 0 0;color:var(--ink-2);font-size:16px}
-  .tile .big{font-size:clamp(40px,4.4vw,56px);font-weight:700;letter-spacing:-.04em;line-height:1;color:var(--ink);margin-bottom:18px}
-  .swatch{display:flex;gap:10px;margin-bottom:24px}
-  .swatch i{width:40px;height:40px;border-radius:11px}
-  @media (max-width:900px){.tile,.tile.span3{grid-column:span 3}}
-  @media (max-width:620px){.bento{grid-template-columns:1fr}.tile,.tile.span3{grid-column:auto}}
-
-  /* ---- install --------------------------------------------------------- */
-  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;counter-reset:step}
-  .step{padding:34px 30px;border-radius:26px;background:var(--well);box-shadow:inset 0 0 0 1px var(--line)}
-  .step::before{counter-increment:step;content:counter(step);display:block;font-size:44px;font-weight:700;
-                letter-spacing:-.04em;line-height:1;color:var(--cream);margin-bottom:22px}
-  .step p{margin:8px 0 0;color:var(--ink-2);font-size:16px}
-  .warn{margin-top:20px;padding:30px;border-radius:26px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line-hi)}
-  .warn p{margin:6px 0 0;color:var(--ink-2);font-size:16px}
-  .cmd{display:flex;align-items:center;gap:12px;margin-top:18px;padding:12px 12px 12px 18px;border-radius:14px;background:var(--base);
-       box-shadow:inset 0 0 0 1px var(--line)}
+  /* ---- questions --------------------------------------------------------- */
+  .faq{max-width:820px;margin:0 auto}
+  .faq details{border-bottom:1px solid var(--line)}
+  .faq summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:20px;
+               padding:24px 0;font-size:clamp(19px,2vw,22px);font-weight:600;letter-spacing:-.02em}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary svg{flex:none;width:18px;height:18px;color:var(--cream);transition:transform .3s var(--ease)}
+  .faq details[open] summary svg{transform:rotate(45deg)}
+  .faq .answer{padding:0 0 26px;color:var(--ink-2);max-width:700px}
+  .faq .answer p{margin:0 0 12px}
+  .cmd{display:flex;align-items:center;gap:12px;margin-top:6px;padding:10px 10px 10px 16px;border-radius:14px;background:var(--well);box-shadow:inset 0 0 0 1px var(--line)}
   .cmd code{flex:1;font:14px/1.4 ui-monospace,"SF Mono",Menlo,monospace;color:var(--ink);overflow-x:auto;white-space:nowrap;letter-spacing:0}
   .cmd button{flex:none;border:0;border-radius:999px;padding:6px 14px;background:rgba(239,232,221,.08);color:var(--ink);font-size:13px;cursor:pointer}
   .cmd button:hover{background:rgba(239,232,221,.14)}
-  @media (max-width:760px){.steps{grid-template-columns:1fr}}
 
-  /* ---- outro & footer -------------------------------------------------- */
-  .outro{text-align:center;padding-bottom:clamp(96px,12vw,150px)}
-  .outro img{width:120px;height:auto;margin:0 auto 30px;filter:drop-shadow(0 20px 40px rgba(0,0,0,.55))}
-  footer{border-top:1px solid var(--line);padding:26px 0 calc(30px + env(safe-area-inset-bottom));font-size:13px;color:var(--ink-3)}
+  /* ---- outro & footer ---------------------------------------------------- */
+  .outro{text-align:center;padding-bottom:clamp(100px,12vw,150px)}
+  .outro img{width:110px;height:auto;margin:0 auto 28px;filter:drop-shadow(0 20px 40px rgba(0,0,0,.55))}
+  .outro .lead{margin-left:auto;margin-right:auto}
+  footer{border-top:1px solid var(--line);padding:24px 0 calc(28px + env(safe-area-inset-bottom));font-size:13px;color:var(--ink-3)}
   footer .wide{display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px}
   footer a{text-decoration:none}
   footer a:hover{color:var(--ink)}
@@ -367,11 +215,9 @@
   /* ---- reveal ----------------------------------------------------------- */
   .js .reveal{opacity:0;transform:translateY(26px)}
   .js .reveal.is-in{opacity:1;transform:none;transition:opacity .9s var(--ease),transform 1.1s var(--ease)}
-
   @media (prefers-reduced-motion:reduce){
-    *,*::before,*::after{animation:none!important;transition:none!important}
+    *,*::before,*::after{transition:none!important;animation:none!important}
     .js .reveal{opacity:1;transform:none}
-    .cursor{display:none}
   }
 </style>
 </head>
@@ -379,29 +225,21 @@
 <!-- Crema by colatte. — colatte.io -->
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <symbol id="g-speaker" viewBox="0 0 24 24"><path class="solid" d="M3.5 9.2h3.6L12 5v14l-4.9-4.2H3.5z"/><path class="glyph" d="M15.4 9a4.2 4.2 0 0 1 0 6M17.9 6.4a7.9 7.9 0 0 1 0 11.2"/></symbol>
-  <symbol id="g-sun" viewBox="0 0 24 24"><circle class="solid" cx="12" cy="12" r="4.2"/><path class="glyph" d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M5.4 18.6 7 17M17 7l1.6-1.6"/></symbol>
-  <symbol id="g-kbd" viewBox="0 0 24 24"><path class="glyph" d="M12 4.2v2M6.4 6.6l1.4 1.4M17.6 6.6 16.2 8"/><path class="solid" d="M8.6 12.6a3.4 3.4 0 0 1 6.8 0z"/><rect class="solid" x="3.4" y="15.2" width="17.2" height="3.6" rx="1.4"/></symbol>
-  <symbol id="g-play" viewBox="0 0 24 24"><path class="solid" d="M7.5 4.8 19 12 7.5 19.2z"/></symbol>
-  <symbol id="g-pause" viewBox="0 0 24 24"><rect class="solid" x="6" y="4.6" width="4" height="14.8" rx="1"/><rect class="solid" x="14" y="4.6" width="4" height="14.8" rx="1"/></symbol>
-  <symbol id="g-prev" viewBox="0 0 24 24"><path class="solid" d="M12.4 12 21 6.2v11.6zM3.6 12l8.6-5.8v11.6z"/></symbol>
-  <symbol id="g-next" viewBox="0 0 24 24"><path class="solid" d="M11.6 12 3 17.8V6.2zM20.4 12l-8.6 5.8V6.2z"/></symbol>
-  <symbol id="g-headphones" viewBox="0 0 24 24"><path class="glyph" d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect class="solid" x="3" y="13.5" width="4.6" height="7" rx="1.8"/><rect class="solid" x="16.4" y="13.5" width="4.6" height="7" rx="1.8"/></symbol>
-  <symbol id="g-chevron" viewBox="0 0 12 12"><path class="glyph" d="M4.2 2.2 8 6l-3.8 3.8"/></symbol>
   <symbol id="g-download" viewBox="0 0 16 16"><path class="glyph" d="M8 1.8v8.6m0 0L4.6 7M8 10.4 11.4 7M2.4 12.6v.6a1 1 0 0 0 1 1h9.2a1 1 0 0 0 1-1v-.6"/></symbol>
-  <symbol id="g-mark" viewBox="0 0 1024 1024"><path class="solid" d="M 865.5313 244.1478 C 863.8632 244.2322 863.1692 248.8721 861.9881 247.6911 C 846.1772 231.8802 819.6974 219.1679 798.2083 208.7175 C 759.5362 189.9107 713.3753 178.6289 670.6543 178.6289 C 547.7256 178.6289 448.7268 282.5932 426.4450 398.5507 C 422.0709 421.3141 424.3033 446.3860 426.0931 469.2213 C 427.7871 490.8346 432.3045 515.3598 441.5437 535.2647 C 449.0808 551.5027 457.3461 570.0971 470.0213 582.9664 C 556.7122 670.9850 618.5909 588.7092 679.9687 522.7470 C 704.6424 496.2304 734.3107 470.3399 766.3347 453.2112 C 857.2592 404.5783 949.9514 414.8868 959.3476 534.7709 C 967.9088 644.0015 890.8522 745.9620 810.2341 810.6855 C 656.4078 934.1834 428.8954 962.7706 258.9907 856.0033 C 213.7841 827.5956 169.1879 790.1258 139.8216 744.8632 C 93.4137 673.3341 58.0241 588.1105 64.8429 501.1103 C 79.0404 319.9677 231.2912 151.5630 410.5005 116.8648 C 515.7127 96.4937 657.7646 89.1161 753.2698 149.1311 C 779.4333 165.5721 805.2354 182.7947 827.8711 203.8573 C 841.3061 216.3585 855.5625 235.1871 865.5313 244.1478 Z"/></symbol>
-  <symbol id="g-displays" viewBox="0 0 24 24"><rect class="glyph" x="2.6" y="5" width="11.4" height="8.2" rx="1.6"/><path class="glyph" d="M5.6 16.4h5.4"/><rect class="glyph" x="11.6" y="8.4" width="9.8" height="7.2" rx="1.4"/><path class="glyph" d="M14.4 18.8h4.2"/></symbol>
-  <symbol id="g-wifi" viewBox="0 0 24 24"><path class="glyph" d="M3.2 9.4a12.6 12.6 0 0 1 17.6 0M6.2 12.6a8.4 8.4 0 0 1 11.6 0M9.2 15.8a4.2 4.2 0 0 1 5.6 0"/><circle class="solid" cx="12" cy="19" r="1.5"/></symbol>
-  <symbol id="g-cursor" viewBox="0 0 17 24"><path d="M1 1v19.5l5-4.8 3.3 7.2 3.3-1.5-3.2-7H16z" fill="#fff" stroke="#000" stroke-width="1.2" stroke-linejoin="round"/></symbol>
+  <symbol id="g-chevron" viewBox="0 0 12 12"><path class="glyph" d="M4.2 2.2 8 6l-3.8 3.8"/></symbol>
+  <symbol id="g-back" viewBox="0 0 12 12"><path class="glyph" d="M7.8 2.2 4 6l3.8 3.8"/></symbol>
+  <symbol id="g-plus" viewBox="0 0 16 16"><path class="glyph" d="M8 2.5v11M2.5 8h11"/></symbol>
+  <symbol id="g-globe" viewBox="0 0 24 24"><circle class="glyph" cx="12" cy="12" r="9"/><path class="glyph" d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
 </svg>
 
 <nav class="nav" id="nav" aria-label="Crema">
   <div class="wide">
     <a class="brand" href="#top"><img src="assets/web/icon.webp" alt="" width="256" height="256">Crema</a>
     <div class="nav-links">
+      <a href="#now-playing">Now Playing</a>
       <a href="#styles">Styles</a>
       <a href="#indicators">Indicators</a>
-      <a href="#install">Install</a>
+      <a href="#questions">Questions</a>
     </div>
     <a class="btn get" id="nav-get" href="https://github.com/colatte/crema/releases/latest/download/Crema.dmg" tabindex="-1">Download</a>
   </div>
@@ -410,262 +248,176 @@
 <main id="top">
   <header class="hero">
     <div class="wrap">
-      <img class="app-icon reveal" src="assets/web/icon.webp" alt="Crema app icon" width="256" height="256">
-      <h1 class="reveal">A quiet companion for your Mac's <em>notch</em>.</h1>
-      <p class="lead reveal">What's playing, by the notch. Volume and brightness, with indicators that match. Native, and out of the way.</p>
+      <img class="icon reveal" src="assets/web/icon.webp" alt="" width="256" height="256">
+      <h1 class="reveal">Crema.</h1>
+      <p class="subhead reveal">A quiet companion for your Mac's notch.</p>
+      <p class="lead reveal">What's playing, right by the notch. Volume and brightness with indicators that match. Native, free, and out of the way.</p>
       <div class="actions reveal">
         <a class="btn" id="hero-get" href="https://github.com/colatte/crema/releases/latest/download/Crema.dmg"><svg aria-hidden="true"><use href="#g-download"/></svg>Download for Mac</a>
         <a class="link" href="https://github.com/colatte/crema">View on GitHub<svg aria-hidden="true"><use href="#g-chevron"/></svg></a>
       </div>
       <p class="meta reveal">Free and open source · macOS 14 or later · Apple silicon and Intel</p>
     </div>
-    <figure class="device wide reveal">
-      <figcaption class="sr">A Mac screen drawn on the page: a new track shows as a sliver beside the notch, a click opens the player under it with the artwork, the scrubber and the controls, and a volume key turns the notch into a volume indicator.</figcaption>
-      <div class="bezel" aria-hidden="true">
-        <div class="mock" id="hero-mock" data-state="idle">
-          <div class="screen">
-            <div class="wall"></div>
-            <div class="menubar">
-              <div class="l"><b>Finder</b><span>File</span><span>Edit</span><span>View</span><span>Go</span><span>Window</span><span>Help</span></div>
-              <div class="r"><svg class="mark"><use href="#g-mark"/></svg><svg><use href="#g-wifi"/></svg><span class="batt"><i></i></span><span>Thu 9:41</span></div>
-            </div>
-            <div class="np">
-              <div class="np-compact"><span class="art"></span><span class="wave"><i></i><i></i><i></i><i></i></span></div>
-              <div class="np-full">
-                <div class="row">
-                  <span class="art"></span>
-                  <div class="txt"><div class="title">Slow Mornings</div><div class="artist">Harbour Lights</div></div>
-                  <span class="wave"><i></i><i></i><i></i><i></i></span>
-                </div>
-                <div class="scrub"><span>1:24</span><span class="track"><i></i></span><span>3:41</span></div>
-                <div class="transport"><svg><use href="#g-prev"/></svg><svg class="play"><use href="#g-pause"/></svg><svg><use href="#g-next"/></svg></div>
-              </div>
-              <div class="np-hud"><svg><use href="#g-speaker"/></svg><span class="spacer"></span><span class="bar"><i></i></span></div>
-            </div>
-            <div class="cursor" id="hero-cursor"><svg><use href="#g-cursor"/></svg></div>
-          </div>
+    <div class="stage wide reveal">
+      <div class="bezel">
+        <div class="frame ratio-top">
+          <video id="hero-video" src="assets/site/hero.mp4" poster="assets/site/notch-expanded.webp" autoplay muted loop playsinline width="1120" height="400"
+                 aria-label="The top of a Mac's screen: a new track shows beside the notch, the player opens under it with the artwork, the progress bar and the controls, and a volume key turns the notch into the volume indicator."></video>
         </div>
       </div>
-    </figure>
+    </div>
   </header>
 
-  <section id="styles">
-    <div class="wrap section-head">
-      <p class="eyebrow reveal">Three styles</p>
-      <h2 class="reveal">One idea, three ways to wear it.</h2>
-      <p class="lead reveal">Pick a style for every display, or give one display its own. On a Mac without a notch, Notch is drawn as Card.</p>
-    </div>
+  <section id="highlights" aria-labelledby="highlights-title">
     <div class="wide">
-      <div class="switcher reveal">
+      <h2 class="reveal" id="highlights-title">Get to know Crema.</h2>
+    </div>
+    <div class="gallery reveal" id="gallery" tabindex="0" aria-label="Highlights">
+      <figure class="card"><div class="media"><img src="assets/site/notch-expanded.webp" alt="The Crema player opened under the notch" loading="lazy"></div>
+        <figcaption>What's playing. <span>Artwork, a progress bar and the controls, right where you look.</span></figcaption></figure>
+      <figure class="card"><div class="media"><img src="assets/site/card-expanded.webp" alt="The Card style floating below the menu bar" loading="lazy"></div>
+        <figcaption>Three styles. <span>Notch, Card or Classic, for every display or just one.</span></figcaption></figure>
+      <figure class="card"><div class="media"><img src="assets/site/notch-hud.webp" alt="The volume indicator in the notch, showing AirPods" loading="lazy"></div>
+        <figcaption>Indicators that match. <span>Volume and brightness in Crema's own style, when you want them.</span></figcaption></figure>
+      <figure class="card"><div class="media"><img src="assets/site/card-filled.webp" alt="The Card's volume indicator filling the whole card" loading="lazy"></div>
+        <figcaption>Yours to place. <span>On Card, eight places and two looks.</span></figcaption></figure>
+      <figure class="card"><div class="media contain"><img src="assets/site/tour-accessibility.webp" alt="The welcome tour's Accessibility step, saying what the permission is for" loading="lazy"></div>
+        <figcaption>Set up in a minute. <span>A short tour that shows Crema working, and asks only for what it needs.</span></figcaption></figure>
+    </div>
+    <div class="wide gallery-nav">
+      <button type="button" id="gallery-prev" aria-label="Previous highlight"><svg aria-hidden="true"><use href="#g-back"/></svg></button>
+      <button type="button" id="gallery-next" aria-label="Next highlight"><svg aria-hidden="true"><use href="#g-chevron"/></svg></button>
+    </div>
+  </section>
+
+  <section id="now-playing">
+    <div class="wide">
+      <div class="chapter-head">
+        <p class="label reveal">Now Playing</p>
+        <h2 class="reveal">Music, at a glance.</h2>
+        <p class="lead reveal">When a song starts or changes, Crema shows it by the notch for a moment, then tucks it away. Click the notch and the whole player opens: the artwork, where you are in the song, and the controls you reach for.</p>
+      </div>
+      <div class="tiles">
+        <article class="tile span2 reveal">
+          <div class="media"><img src="assets/site/notch-expanded.webp" alt="The player under the notch: artwork, title, progress bar and controls" loading="lazy"></div>
+          <div class="text"><h3>Everything in reach</h3><p>Play, pause, skip, and drag to any point in the song, without leaving what you're doing.</p></div>
+        </article>
+        <article class="tile reveal">
+          <div class="media"><img src="assets/site/notch-compact.webp" alt="A new track shown as a sliver beside the notch" loading="lazy"></div>
+          <div class="text"><h3>Shows up, then steps aside</h3><p>A new track appears beside the notch for a moment. Prefer quiet? Keep the player hidden until you click.</p></div>
+        </article>
+        <article class="tile text-only reveal">
+          <div class="text"><svg class="ico" aria-hidden="true"><use href="#g-globe"/></svg><h3>Your browser, if you like</h3><p>Music playing in Safari, Chrome and other browsers can show too. It's off until you turn it on.</p></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="styles">
+    <div class="wide">
+      <div class="chapter-head">
+        <p class="label reveal">Styles</p>
+        <h2 class="reveal">Your notch. Your way.</h2>
+        <p class="lead reveal">Choose a style for every display at once, or give one display its own. On a Mac without a notch, Notch shows as Card.</p>
+      </div>
+      <div class="tabs reveal">
         <div class="seg" role="tablist" aria-label="Style" id="style-tabs">
           <span class="thumb" aria-hidden="true"></span>
-          <button type="button" role="tab" id="tab-notch" aria-controls="style-panel" aria-selected="true" data-style="notch">Notch</button>
-          <button type="button" role="tab" id="tab-card" aria-controls="style-panel" aria-selected="false" tabindex="-1" data-style="card">Card</button>
-          <button type="button" role="tab" id="tab-classic" aria-controls="style-panel" aria-selected="false" tabindex="-1" data-style="classic">Classic</button>
+          <button type="button" role="tab" id="tab-notch" aria-controls="panel-notch" aria-selected="true" data-style="notch">Notch</button>
+          <button type="button" role="tab" id="tab-card" aria-controls="panel-card" aria-selected="false" tabindex="-1" data-style="card">Card</button>
+          <button type="button" role="tab" id="tab-classic" aria-controls="panel-classic" aria-selected="false" tabindex="-1" data-style="classic">Classic</button>
         </div>
       </div>
-      <div class="panel-frame reveal" id="style-panel" role="tabpanel" aria-labelledby="tab-notch">
-        <div class="mock styles-mock" id="styles-mock" data-style="notch" data-state="expanded" aria-hidden="true">
-          <div class="screen tall">
-            <div class="wall"></div>
-            <div class="menubar">
-              <div class="l"><b>Finder</b><span>File</span><span>Edit</span><span>View</span><span>Go</span><span>Window</span><span>Help</span></div>
-              <div class="r"><svg class="mark"><use href="#g-mark"/></svg><svg><use href="#g-wifi"/></svg><span class="batt"><i></i></span><span>Thu 9:41</span></div>
-            </div>
-            <div class="np">
-              <div class="np-full">
-                <div class="row">
-                  <span class="art"></span>
-                  <div class="txt"><div class="title">Slow Mornings</div><div class="artist">Harbour Lights</div></div>
-                  <span class="wave"><i></i><i></i><i></i><i></i></span>
-                </div>
-                <div class="scrub"><span>1:24</span><span class="track"><i></i></span><span>3:41</span></div>
-                <div class="transport"><svg><use href="#g-prev"/></svg><svg class="play"><use href="#g-pause"/></svg><svg><use href="#g-next"/></svg></div>
-              </div>
-            </div>
-            <div class="card-np glass">
-              <div class="row">
-                <span class="art"></span>
-                <div class="txt"><div class="title">Slow Mornings</div><div class="artist">Harbour Lights</div></div>
-                <span class="wave"><i></i><i></i><i></i><i></i></span>
-              </div>
-              <div class="scrub"><span>1:24</span><span class="track"><i></i></span><span>3:41</span></div>
-              <div class="transport"><svg><use href="#g-prev"/></svg><svg class="play"><use href="#g-pause"/></svg><svg><use href="#g-next"/></svg></div>
-            </div>
-            <div class="classic-np glass">
-              <span class="art"></span>
-              <div class="txt"><div class="title">Slow Mornings</div><div class="artist">Harbour Lights</div></div>
-              <div class="transport"><svg><use href="#g-prev"/></svg><svg class="play"><use href="#g-pause"/></svg><svg><use href="#g-next"/></svg></div>
-            </div>
-          </div>
-        </div>
+      <div class="styles-stage reveal">
+        <div class="frame ratio-style" role="tabpanel" id="panel-notch" aria-labelledby="tab-notch"><img src="assets/site/style-notch.webp" alt="Notch style: the player grows out of the notch" loading="lazy"></div>
+        <div class="frame ratio-style" role="tabpanel" id="panel-card" aria-labelledby="tab-card" hidden><img src="assets/site/style-card.webp" alt="Card style: a translucent panel below the menu bar" loading="lazy"></div>
+        <div class="frame ratio-style" role="tabpanel" id="panel-classic" aria-labelledby="tab-classic" hidden><img src="assets/site/style-classic.webp" alt="Classic style: a quiet block near the bottom of the screen" loading="lazy"></div>
       </div>
-      <div class="style-copy" aria-live="polite" id="style-copy">
+      <div class="style-copy" id="style-copy" aria-live="polite">
         <h3>Blends into the notch</h3>
-        <p>Black on black, flush with the bezel. A new track shows a sliver, its title and a waveform, then tucks away. Click the notch and the player opens.</p>
+        <p>Black on black, flush with the bezel, as if the hardware had always done it.</p>
       </div>
     </div>
   </section>
 
   <section id="indicators">
-    <div class="wrap section-head">
-      <p class="eyebrow reveal">Indicators</p>
-      <h2 class="reveal">Indicators that match. Keys that behave.</h2>
-      <p class="lead reveal">Turn on one switch and Crema replaces the system's volume, brightness and keyboard backlight indicators with its own, in the style you picked. It stays off until you choose it, and quitting Crema brings the system's back.</p>
-    </div>
-    <div class="wide" id="levels" style="--level:.62">
-      <div class="huds" aria-hidden="true">
-        <figure class="hud-tile reveal">
-          <div class="mock"><div class="screen">
-            <div class="wall"></div>
-            <div class="notch-hud"><svg><use href="#g-speaker"/></svg><span class="spacer" style="flex:1"></span><span class="bar"><i></i></span></div>
-          </div></div>
-          <figcaption><b>Notch</b> · volume</figcaption>
-        </figure>
-        <figure class="hud-tile reveal">
-          <div class="mock"><div class="screen">
-            <div class="wall"></div>
-            <div class="card-hud glass"><svg><use href="#g-sun"/></svg><span class="bar"><i></i></span></div>
-          </div></div>
-          <figcaption><b>Card</b> · brightness</figcaption>
-        </figure>
-        <figure class="hud-tile reveal">
-          <div class="mock"><div class="screen">
-            <div class="wall"></div>
-            <div class="classic-hud glass"><svg><use href="#g-kbd"/></svg>
-              <span class="segments"><i style="--i:0"></i><i style="--i:1"></i><i style="--i:2"></i><i style="--i:3"></i><i style="--i:4"></i><i style="--i:5"></i><i style="--i:6"></i><i style="--i:7"></i><i style="--i:8"></i><i style="--i:9"></i><i style="--i:10"></i><i style="--i:11"></i><i style="--i:12"></i><i style="--i:13"></i><i style="--i:14"></i><i style="--i:15"></i></span>
-            </div>
-          </div></div>
-          <figcaption><b>Classic</b> · keyboard backlight, sixteen segments</figcaption>
-        </figure>
+    <div class="wide">
+      <div class="chapter-head">
+        <p class="label reveal">Indicators</p>
+        <h2 class="reveal">Turn it up. Quietly.</h2>
+        <p class="lead reveal">Turn on one switch and Crema replaces the system's volume, brightness and keyboard backlight indicators with its own, in the style you picked. Quit Crema and the system's come back.</p>
       </div>
-      <label class="try reveal"><svg aria-hidden="true"><use href="#g-speaker"/></svg><span class="sr">Level, to try the indicators</span>
-        <input type="range" id="level" min="0" max="1" step="0.01" value="0.62" style="--fill:.62">
-      </label>
-    </div>
-    <div class="wrap">
+      <div class="tiles">
+        <article class="tile reveal">
+          <div class="media"><img src="assets/site/notch-hud.webp" alt="The volume indicator in the notch with the AirPods glyph" loading="lazy"></div>
+          <div class="text"><h3>Where the sound goes</h3><p>The volume indicator shows whether you're on AirPods, headphones or an AirPlay speaker.</p></div>
+        </article>
+        <article class="tile reveal">
+          <div class="media"><img src="assets/site/card-hud.webp" alt="The brightness indicator on Card" loading="lazy"></div>
+          <div class="text"><h3>Brightness, where you look</h3><p>A brightness key acts on the display under your pointer, so you never dim the wrong screen.</p></div>
+        </article>
+        <article class="tile span2 reveal">
+          <div class="media"><img src="assets/site/card-place.webp" alt="A whole screen with the Card's indicator in the top right corner" loading="lazy"></div>
+          <div class="text"><h3>Put it anywhere</h3><p>On Card, the indicator can sit in one of eight places, as a thin line or filling the whole card. At the bottom, it stays clear of the Dock.</p></div>
+        </article>
+      </div>
       <div class="points">
-        <div class="reveal"><h3>Honest with your keys</h3><p>A key Crema can't act on, a display it doesn't drive or a device with no volume, goes back to the system whole, indicator and all.</p></div>
-        <div class="reveal"><h3>Follows your pointer</h3><p>A brightness key acts on the display under your pointer. Crema drives the built-in one; any other gets the key back, so macOS shows its own.</p></div>
-        <div class="reveal"><h3>Recovers on its own</h3><p>If one channel fails mid-press, only that one steps aside, and it comes back when the device does. The menu bar tells you if it doesn't.</p></div>
-        <div class="reveal"><h3>Works with BetterDisplay</h3><p>With BetterDisplay 4.2.1 or newer, Crema shows the brightness indicator for an external display, on the screen it belongs to.</p></div>
+        <div class="reveal"><h3>Off until you want it</h3><p>Crema only takes over the indicators once you turn the switch on, and hands a key back to macOS whenever it can't act on it.</p></div>
+        <div class="reveal"><h3>Works with BetterDisplay</h3><p>With BetterDisplay 4.2.1 or newer, Crema shows the brightness indicator for an external display too.</p></div>
       </div>
     </div>
   </section>
 
-  <section id="card">
-    <div class="wrap section-head">
-      <p class="eyebrow reveal">Card</p>
-      <h2 class="reveal">The indicator goes where you look.</h2>
-      <p class="lead reveal">On Card, the volume and brightness indicator can sit in one of eight places, as a thin line or filling the whole card. At the bottom it stays clear of the Dock.</p>
-    </div>
+  <section id="setup">
     <div class="wide">
-      <div class="place">
-        <div class="panel-frame reveal" aria-hidden="true">
-          <div class="mock"><div class="screen">
-            <div class="wall"></div>
-            <div class="menubar">
-              <div class="l"><b>Finder</b><span>File</span><span>Edit</span><span>View</span></div>
-              <div class="r"><svg class="mark"><use href="#g-mark"/></svg><span>Thu 9:41</span></div>
-            </div>
-            <div class="placed glass" id="placed" data-pos="bc" data-look="line" style="--level:.62">
-              <span class="fill"></span><svg><use href="#g-speaker"/></svg><span class="bar"><i></i></span>
-            </div>
-            <div class="dock glass"><i></i><i></i><i></i><i></i><i></i></div>
-          </div></div>
-        </div>
-        <div class="controls reveal">
-          <div>
-            <h3 id="pos-label">Position</h3>
-            <div class="map" id="map" role="group" aria-labelledby="pos-label">
-              <button type="button" data-pos="tl" aria-pressed="false" aria-label="Top left"></button>
-              <button type="button" data-pos="tc" aria-pressed="false" aria-label="Top center"></button>
-              <button type="button" data-pos="tr" aria-pressed="false" aria-label="Top right"></button>
-              <button type="button" data-pos="ml" aria-pressed="false" aria-label="Middle left"></button>
-              <span aria-hidden="true"></span>
-              <button type="button" data-pos="mr" aria-pressed="false" aria-label="Middle right"></button>
-              <button type="button" data-pos="bl" aria-pressed="false" aria-label="Bottom left"></button>
-              <button type="button" data-pos="bc" aria-pressed="true" aria-label="Bottom center"></button>
-              <button type="button" data-pos="br" aria-pressed="false" aria-label="Bottom right"></button>
-            </div>
-          </div>
-          <div>
-            <h3 id="look-label">Indicator</h3>
-            <div class="seg" role="group" aria-labelledby="look-label" id="look">
-              <span class="thumb" aria-hidden="true"></span>
-              <button type="button" aria-pressed="true" data-look="line">Line</button>
-              <button type="button" aria-pressed="false" data-look="filled">Filled</button>
-            </div>
-          </div>
-        </div>
+      <div class="chapter-head">
+        <p class="label reveal">Setup</p>
+        <h2 class="reveal">Ready in a minute.</h2>
+        <p class="lead reveal">The first time you open Crema, a short tour shows it working on your own screen, asks for the one permission it uses, and lets you pick a style. Every step can be skipped.</p>
+      </div>
+      <div class="tiles">
+        <article class="tile reveal"><div class="media tour"><img src="assets/site/tour-welcome.webp" alt="The welcome tour's first step" loading="lazy"></div></article>
+        <article class="tile reveal"><div class="media tour"><img src="assets/site/tour-accessibility.webp" alt="The welcome tour's Accessibility step, saying what the permission is for" loading="lazy"></div></article>
       </div>
     </div>
   </section>
 
-  <section id="details">
-    <div class="wrap section-head">
-      <p class="eyebrow reveal">Details</p>
-      <h2 class="reveal">Small things, done with care.</h2>
-    </div>
-    <div class="wide bento">
-      <article class="tile span3 reveal">
-        <div class="swatch" aria-hidden="true"><i style="background:linear-gradient(140deg,#3d2c5c,#c2683a 70%,#e6a25c)"></i><i style="background:#e6b07a"></i></div>
-        <h3>A touch of its colour</h3>
-        <p>The player borrows a hint of the colour in the artwork that's playing. A touch, never a wash.</p>
-      </article>
-      <article class="tile span3 reveal">
-        <svg class="ico" aria-hidden="true"><use href="#g-headphones"/></svg>
-        <h3>Where the sound goes</h3>
-        <p>The volume indicator shows where the sound is going: AirPods, headphones, an AirPlay speaker.</p>
-      </article>
-      <article class="tile reveal">
-        <svg class="ico" aria-hidden="true"><use href="#g-displays"/></svg>
-        <h3>A style for each display</h3>
-        <p>Notch on the built-in display, Card on an external one. The player shows only on the displays you switch on.</p>
-      </article>
-      <article class="tile reveal">
-        <svg class="ico" aria-hidden="true"><use href="#g-play"/></svg>
-        <h3>Shows up, then steps aside</h3>
-        <p>A new track surfaces for a moment and tucks away. Prefer quiet? Keep the player hidden until you click.</p>
-      </article>
-      <article class="tile reveal">
-        <p class="big" aria-hidden="true">0</p>
-        <h3>Nothing to sign up for</h3>
-        <p>No accounts, no analytics. Updates arrive through a signed feed.</p>
-      </article>
-      <article class="tile reveal">
-        <svg class="ico" aria-hidden="true"><use href="#g-sun"/></svg>
-        <h3>Easy on your Mac</h3>
-        <p>Reduce Motion and Low Power Mode are respected.</p>
-      </article>
-      <article class="tile reveal">
-        <p class="big" aria-hidden="true">EN · PT</p>
-        <h3>English and Português</h3>
-        <p>The whole app, in both.</p>
-      </article>
-      <article class="tile reveal">
-        <svg class="ico" aria-hidden="true"><use href="#g-mark"/></svg>
-        <h3>Open source</h3>
-        <p>Free, under the GPL-3.0. Every line is on <a class="link" style="font-size:inherit" href="https://github.com/colatte/crema">GitHub</a>.</p>
-      </article>
-    </div>
-  </section>
-
-  <section id="install">
-    <div class="wrap section-head">
-      <p class="eyebrow reveal">Install</p>
-      <h2 class="reveal">Three steps, and one honest warning.</h2>
-    </div>
+  <section id="privacy">
     <div class="wide">
-      <div class="steps">
-        <div class="step reveal"><h3>Download the disk image</h3><p>One file, from <a class="link" style="font-size:inherit" href="https://github.com/colatte/crema/releases">GitHub Releases</a>.</p></div>
-        <div class="step reveal"><h3>Drag Crema into Applications</h3><p>It lives in the menu bar, not the Dock.</p></div>
-        <div class="step reveal"><h3>Follow the welcome tour</h3><p>It shows Crema working, asks for Accessibility so it can notice the volume and brightness keys, and lets you pick a style. Every step can be skipped.</p></div>
+      <div class="chapter-head">
+        <p class="label reveal">Privacy</p>
+        <h2 class="reveal">Nothing to sign up for.</h2>
+        <p class="lead reveal">No account, no analytics. Crema only notices keys like volume and brightness, never what you type.</p>
       </div>
-      <div class="warn reveal">
-        <h3>The first time you open it</h3>
-        <p>Crema isn't notarized by Apple yet, so macOS warns about an unidentified developer. Open System Settings, go to Privacy &amp; Security and click Open Anyway, once. If there's no button, run this in Terminal:</p>
-        <div class="cmd"><code id="cmd">xattr -dr com.apple.quarantine /Applications/Crema.app</code><button type="button" id="copy">Copy</button></div>
+      <div class="facts">
+        <div class="fact reveal"><b>Free</b><p>Open source under the GPL-3.0. Every line is on GitHub.</p></div>
+        <div class="fact reveal"><b>Signed</b><p>Updates arrive through a signed feed.</p></div>
+        <div class="fact reveal"><b>EN · PT</b><p>The whole app, in English and Português.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="questions">
+    <div class="wrap">
+      <h2 class="reveal center" style="margin-bottom:clamp(36px,5vw,56px)">Questions? Answers.</h2>
+      <div class="faq">
+        <details class="reveal"><summary>Is Crema free?<svg aria-hidden="true"><use href="#g-plus"/></svg></summary>
+          <div class="answer"><p>Yes. Crema is free and open source under the GPL-3.0, and its code is on <a class="link" href="https://github.com/colatte/crema">GitHub</a>.</p></div></details>
+        <details class="reveal"><summary>Which Macs does it run on?<svg aria-hidden="true"><use href="#g-plus"/></svg></summary>
+          <div class="answer"><p>Any Mac with macOS 14 or later, Apple silicon or Intel.</p></div></details>
+        <details class="reveal"><summary>Does my Mac need a notch?<svg aria-hidden="true"><use href="#g-plus"/></svg></summary>
+          <div class="answer"><p>No. On a display without a notch, Notch shows as Card, a panel just below the menu bar. Classic works everywhere.</p></div></details>
+        <details class="reveal"><summary>Why does it ask for Accessibility?<svg aria-hidden="true"><use href="#g-plus"/></svg></summary>
+          <div class="answer"><p>So it can notice the volume and brightness keys, show its own brightness indicator and, if you choose, replace the system's. It only notices those keys, never what you type. Without it, Crema still shows what's playing and its volume indicator.</p></div></details>
+        <details class="reveal"><summary>What about external displays?<svg aria-hidden="true"><use href="#g-plus"/></svg></summary>
+          <div class="answer"><p>Each display can have its own style, and the player shows on the displays you switch on. For an external display's brightness, Crema works with BetterDisplay 4.2.1 or newer.</p></div></details>
+        <details class="reveal" id="install"><summary>Why does macOS warn me when I first open it?<svg aria-hidden="true"><use href="#g-plus"/></svg></summary>
+          <div class="answer">
+            <p>Crema isn't notarized by Apple yet, so macOS warns about an unidentified developer. Open System Settings, go to Privacy &amp; Security and click Open Anyway, once. If there's no button, run this in Terminal:</p>
+            <div class="cmd"><code id="cmd">xattr -dr com.apple.quarantine /Applications/Crema.app</code><button type="button" id="copy">Copy</button></div>
+          </div></details>
+        <details class="reveal"><summary>How do I install and update it?<svg aria-hidden="true"><use href="#g-plus"/></svg></summary>
+          <div class="answer"><p>Download the disk image, drag Crema into Applications and open it. It lives in the menu bar, not the Dock, and checks for updates itself.</p></div></details>
       </div>
     </div>
   </section>
@@ -698,7 +450,6 @@
 (function () {
   /* The house signs once in the console too, as its credits kit does. */
   console.log('%cCrema by colatte.%c colatte.io', 'font-weight:600', '');
-
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* ---- reveal ----------------------------------------------------------
@@ -713,15 +464,13 @@
       return true;
     });
   }
-  function showEverything() { document.querySelectorAll('.reveal').forEach((el) => el.classList.add('is-in')); }
-
   try {
     sweep();
     addEventListener('scroll', sweep, { passive: true });
     addEventListener('resize', sweep);
-  } catch (e) { showEverything(); }
+  } catch (e) { document.querySelectorAll('.reveal').forEach((el) => el.classList.add('is-in')); }
 
-  /* ---- nav ----------------------------------------------------------- */
+  /* ---- nav ------------------------------------------------------------- */
   const nav = document.getElementById('nav');
   const navGet = document.getElementById('nav-get');
   const heroGet = document.getElementById('hero-get');
@@ -736,123 +485,66 @@
   onScroll();
   addEventListener('scroll', onScroll, { passive: true });
 
-  /* ---- loops that run only while seen ---------------------------------- */
-  function whileVisible(el, start, stop) {
-    let running = false;
-    function update(seen) {
-      const want = seen && !document.hidden;
-      if (want && !running) { running = true; start(); }
-      if (!want && running) { running = false; stop(); }
-    }
-    let seen = false;
-    new IntersectionObserver((entries) => { seen = entries[0].isIntersecting; update(seen); }, { threshold: 0.2 }).observe(el);
-    document.addEventListener('visibilitychange', () => update(seen));
-  }
+  /* ---- hero video: the poster stands in under Reduce Motion ---------- */
+  const video = document.getElementById('hero-video');
+  if (reduced) { video.removeAttribute('autoplay'); video.pause(); }
 
-  /* ---- the hero's story ------------------------------------------------
-     A new track, a click on the notch, the player, then a volume key. The
-     same states the app moves through, in its order. */
-  const hero = document.getElementById('hero-mock');
-  const cursor = document.getElementById('hero-cursor');
-  if (reduced) {
-    hero.dataset.state = 'expanded';
-  } else {
-    let timers = [];
-    const at = (ms, fn) => timers.push(setTimeout(fn, ms));
-    function play() {
-      timers.forEach(clearTimeout); timers = [];
-      hero.dataset.state = 'idle'; cursor.className = 'cursor'; hero.style.setProperty('--level', .4);
-      at(900, () => { hero.dataset.state = 'compact'; });
-      at(2300, () => { cursor.className = 'cursor at-notch'; });
-      at(3400, () => { cursor.classList.add('click'); });
-      at(3560, () => { cursor.classList.remove('click'); hero.dataset.state = 'expanded'; });
-      at(4300, () => { cursor.className = 'cursor away'; });
-      at(7600, () => { hero.dataset.state = 'idle'; });
-      at(8500, () => { hero.dataset.state = 'hud'; });
-      [.47, .53, .6, .66].forEach((v, i) => at(8800 + i * 260, () => hero.style.setProperty('--level', v)));
-      at(11000, () => { hero.dataset.state = 'idle'; });
-      at(12400, play);
-    }
-    whileVisible(hero, play, () => { timers.forEach(clearTimeout); timers = []; });
+  /* ---- highlights --------------------------------------------------------- */
+  const gallery = document.getElementById('gallery');
+  const prev = document.getElementById('gallery-prev');
+  const next = document.getElementById('gallery-next');
+  function step(direction) {
+    const card = gallery.querySelector('.card');
+    gallery.scrollBy({ left: direction * (card.offsetWidth + 20), behavior: reduced ? 'auto' : 'smooth' });
   }
+  function ends() {
+    prev.disabled = gallery.scrollLeft < 8;
+    next.disabled = gallery.scrollLeft + gallery.clientWidth > gallery.scrollWidth - 8;
+  }
+  prev.addEventListener('click', () => step(-1));
+  next.addEventListener('click', () => step(1));
+  gallery.addEventListener('scroll', ends, { passive: true });
+  addEventListener('resize', ends);
+  ends();
 
-  /* ---- segmented controls ------------------------------------------------ */
-  function placeThumb(seg) {
-    const on = seg.querySelector('[aria-selected=true],[aria-pressed=true]');
-    const thumb = seg.querySelector('.thumb');
-    if (!on || !thumb) return;
+  /* ---- styles ---------------------------------------------------------------- */
+  const copy = {
+    notch: ['Blends into the notch', 'Black on black, flush with the bezel, as if the hardware had always done it.'],
+    card: ['Floats below the menu bar', 'A translucent panel that holds its edge over any wallpaper, a white page included.'],
+    classic: ['A quiet block near the bottom', 'Where the system’s indicator always lived, with sixteen segments for volume and brightness.']
+  };
+  const tabs = document.getElementById('style-tabs');
+  const order = ['notch', 'card', 'classic'];
+  const styleCopy = document.getElementById('style-copy');
+  function placeThumb() {
+    const on = tabs.querySelector('[aria-selected=true]');
+    const thumb = tabs.querySelector('.thumb');
     thumb.style.width = on.offsetWidth + 'px';
     thumb.style.transform = 'translateX(' + on.offsetLeft + 'px)';
   }
-
-  /* ---- styles ------------------------------------------------------------ */
-  const copy = {
-    notch: ['Blends into the notch', 'Black on black, flush with the bezel. A new track shows a sliver, its title and a waveform, then tucks away. Click the notch and the player opens.'],
-    card: ['Floats below the menu bar', 'A translucent panel that holds its edge over any wallpaper, a white page included. On a display without a notch, this is where the player lives.'],
-    classic: ['A quiet block near the bottom', 'Where the system’s indicator always lived. Its volume and brightness come in sixteen segments, half-steps included.']
-  };
-  const tabs = document.getElementById('style-tabs');
-  const stylesMock = document.getElementById('styles-mock');
-  const panel = document.getElementById('style-panel');
-  const styleCopy = document.getElementById('style-copy');
-  const order = ['notch', 'card', 'classic'];
-  let auto = !reduced;
   function choose(style, focus) {
     tabs.querySelectorAll('[role=tab]').forEach((b) => {
       const on = b.dataset.style === style;
       b.setAttribute('aria-selected', on);
       b.tabIndex = on ? 0 : -1;
+      document.getElementById('panel-' + b.dataset.style).hidden = !on;
       if (on && focus) b.focus();
     });
-    stylesMock.dataset.style = style;
-    panel.setAttribute('aria-labelledby', 'tab-' + style);
     styleCopy.querySelector('h3').textContent = copy[style][0];
     styleCopy.querySelector('p').textContent = copy[style][1];
-    placeThumb(tabs);
+    placeThumb();
   }
-  tabs.addEventListener('click', (e) => {
-    const b = e.target.closest('[role=tab]');
-    if (!b) return;
-    auto = false;
-    choose(b.dataset.style);
-  });
+  tabs.addEventListener('click', (e) => { const b = e.target.closest('[role=tab]'); if (b) choose(b.dataset.style); });
   tabs.addEventListener('keydown', (e) => {
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
-    auto = false;
-    const i = order.indexOf(stylesMock.dataset.style);
+    const current = tabs.querySelector('[aria-selected=true]').dataset.style;
+    const i = order.indexOf(current);
     choose(order[(i + (e.key === 'ArrowRight' ? 1 : order.length - 1)) % order.length], true);
     e.preventDefault();
   });
-  let rotate;
-  whileVisible(stylesMock,
-    () => { rotate = setInterval(() => { if (auto) choose(order[(order.indexOf(stylesMock.dataset.style) + 1) % order.length]); }, 5200); },
-    () => clearInterval(rotate));
-
-  /* ---- levels -------------------------------------------------------------- */
-  const levels = document.getElementById('levels');
-  const range = document.getElementById('level');
-  range.addEventListener('input', () => {
-    levels.style.setProperty('--level', range.value);
-    range.style.setProperty('--fill', range.value);
-  });
-
-  /* ---- card placement ------------------------------------------------------ */
-  const placed = document.getElementById('placed');
-  const map = document.getElementById('map');
-  map.addEventListener('click', (e) => {
-    const b = e.target.closest('button');
-    if (!b) return;
-    map.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', x === b));
-    placed.dataset.pos = b.dataset.pos;
-  });
-  const look = document.getElementById('look');
-  look.addEventListener('click', (e) => {
-    const b = e.target.closest('button');
-    if (!b) return;
-    look.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', x === b));
-    placed.dataset.look = b.dataset.look;
-    placeThumb(look);
-  });
+  placeThumb();
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(placeThumb);
+  addEventListener('resize', placeThumb);
 
   /* ---- copy the command ---------------------------------------------------- */
   const copyButton = document.getElementById('copy');
@@ -862,12 +554,6 @@
       setTimeout(() => { copyButton.textContent = 'Copy'; }, 1600);
     }, () => {});
   });
-
-  /* The thumbs measure their buttons, so they wait for the fonts' metrics. */
-  function placeThumbs() { placeThumb(tabs); placeThumb(look); }
-  placeThumbs();
-  (document.fonts ? document.fonts.ready : Promise.resolve()).then(placeThumbs);
-  addEventListener('resize', placeThumbs);
 })();
 </script>
 </body>

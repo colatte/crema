@@ -115,10 +115,11 @@ report. And **one filled cream button per viewport**, the house's rule for the
 accent: the hero owns it on arrival, and the navigation bar's own Download
 stays folded until the hero's button has scrolled away.
 
-The landing shows the app as drawings, not screenshots: the Mac, its menu bar
-and Crema's surfaces are drawn in the page, so they follow the app as it
-changes instead of aging with a capture. Their wallpaper and the album cover in
-them are stand-ins, like the gradients in Settings below, not brand colours.
+Every picture of the app on the landing is a capture of the app, taken by
+`scripts/site-capture/capture.sh` on the demo sources and rerun when the app's
+look changes, never edited by hand. The stage it draws (wallpaper, menu bar,
+notch) and the made-up tracks and covers are stand-ins, like the gradients in
+Settings below, not brand colours.
 
 **The app has no palette of its own.** It draws with the system's materials
 and accent (the blue in Settings is macOS's, not ours), and the only colour
