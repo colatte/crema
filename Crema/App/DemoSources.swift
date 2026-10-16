@@ -1,4 +1,5 @@
 #if DEBUG
+import AppKit
 import Foundation
 
 /// Debug-only demo pipeline: fake sources/actuators driving the real
@@ -22,10 +23,15 @@ final class DemoMediaSource: NowPlayingSource, NowPlayingController, @unchecked 
     private var trackIndex = 0
     private var ticker: Task<Void, Never>?
 
-    private static let library: [(title: String, artist: String, duration: Double)] = [
-        ("Breathe", "Pink Floyd", 169),
-        ("Paranoid Android", "Radiohead", 386),
-        ("Ela Partiu", "Tim Maia", 199),
+    /// Made-up tracks with covers drawn here: the demo is what the site's
+    /// captures are taken from, and nothing in them may be somebody else's work.
+    private static let library: [DemoTrack] = [
+        DemoTrack(title: "Slow Mornings", artist: "Harbour Lights", duration: 221,
+                  colors: [(0.24, 0.17, 0.36), (0.76, 0.41, 0.23), (0.96, 0.78, 0.52)]),
+        DemoTrack(title: "Night Swim", artist: "Paper Planes", duration: 198,
+                  colors: [(0.06, 0.16, 0.30), (0.12, 0.45, 0.55), (0.62, 0.86, 0.84)]),
+        DemoTrack(title: "Golden Hour", artist: "Maré Alta", duration: 247,
+                  colors: [(0.42, 0.13, 0.20), (0.86, 0.45, 0.33), (0.99, 0.84, 0.55)]),
     ]
 
     init() {
@@ -33,8 +39,7 @@ final class DemoMediaSource: NowPlayingSource, NowPlayingController, @unchecked 
         updates = AsyncStream { continuation = $0 }
         self.continuation = continuation
 
-        let first = Self.library[0]
-        track = NowPlaying(title: first.title, artist: first.artist, isPlaying: false, position: 0, duration: first.duration)
+        track = Self.library[0].snapshot(isPlaying: false)
 
         ticker = Task { [weak self] in
             while !Task.isCancelled {
@@ -72,12 +77,19 @@ final class DemoMediaSource: NowPlayingSource, NowPlayingController, @unchecked 
         step(by: 1)
     }
 
+    func demoSetPlaying(_ playing: Bool) {
+        mutate { $0.isPlaying = playing }
+    }
+
+    func demoSeek(to seconds: Double) {
+        mutate { $0.position = seconds }
+    }
+
     private func step(by offset: Int) {
         lock.lock()
         let count = Self.library.count
         trackIndex = ((trackIndex + offset) % count + count) % count
-        let next = Self.library[trackIndex]
-        track = NowPlaying(title: next.title, artist: next.artist, isPlaying: track.isPlaying, position: 0, duration: next.duration)
+        track = Self.library[trackIndex].snapshot(isPlaying: track.isPlaying)
         let snapshot = track
         lock.unlock()
         continuation.yield(snapshot)
@@ -104,6 +116,55 @@ final class DemoMediaSource: NowPlayingSource, NowPlayingController, @unchecked 
         let snapshot = track
         lock.unlock()
         continuation.yield(snapshot)
+    }
+}
+
+/// One made-up track and the cover drawn for it: three colours, a ground
+/// gradient and two soft lights. Drawn once, when the track is made, so a
+/// track change never encodes an image under the source's lock.
+struct DemoTrack {
+    let title: String
+    let artist: String
+    let duration: Double
+    private let artwork: [UInt8]?
+
+    init(title: String, artist: String, duration: Double, colors: [(Double, Double, Double)]) {
+        self.title = title
+        self.artist = artist
+        self.duration = duration
+        artwork = Self.cover(colors)
+    }
+
+    func snapshot(isPlaying: Bool) -> NowPlaying {
+        NowPlaying(
+            title: title, artist: artist, artworkData: artwork, isPlaying: isPlaying,
+            position: 0, duration: duration
+        )
+    }
+
+    private static func cover(_ colors: [(Double, Double, Double)]) -> [UInt8]? {
+        let side = 512
+        guard let context = CGContext(
+            data: nil, width: side, height: side, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+        let cg = colors.map { CGColor(red: $0.0, green: $0.1, blue: $0.2, alpha: 1) }
+        let size = CGFloat(side)
+        if let ground = CGGradient(colorsSpace: nil, colors: [cg[0], cg[1]] as CFArray, locations: [0, 1]) {
+            context.drawLinearGradient(ground, start: .zero, end: CGPoint(x: size, y: size), options: [])
+        }
+        for (center, radius, color) in [
+            (CGPoint(x: size * 0.32, y: size * 0.7), size * 0.42, cg[2]),
+            (CGPoint(x: size * 0.78, y: size * 0.22), size * 0.38, cg[1]),
+        ] {
+            let clear = color.copy(alpha: 0) ?? color
+            if let light = CGGradient(colorsSpace: nil, colors: [color, clear] as CFArray, locations: [0, 1]) {
+                context.drawRadialGradient(light, startCenter: center, startRadius: 0, endCenter: center, endRadius: radius, options: [])
+            }
+        }
+        guard let image = context.makeImage(),
+              let data = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else { return nil }
+        return [UInt8](data)
     }
 }
 
@@ -156,6 +217,11 @@ final class DemoHUDEngine: SystemHUDSource, VolumeController, ScreenBrightnessCo
         emit(.keyboardBrightness, value: value, display: nil)
     }
 
+    /// Sets a level and emits it, as a press landing on that value would.
+    func demoSet(_ kind: SystemHUD.Kind, to value: Double) {
+        emit(kind, value: value, display: nil)
+    }
+
     /// Simulates one media-key press: bumps the level (wrapping) and emits.
     func demoKeyPress(_ kind: SystemHUD.Kind) {
         lock.lock()
@@ -169,6 +235,10 @@ final class DemoHUDEngine: SystemHUDSource, VolumeController, ScreenBrightnessCo
     /// Moves the sound to the next kind of device, emitting nothing: like the
     /// real source, a device switch never pops the HUD, and the next volume
     /// press draws the new glyph.
+    func demoSetOutputDevice(_ route: AudioOutputRoute) {
+        lock.withLock { self.route = route }
+    }
+
     func demoNextOutputDevice() {
         lock.withLock {
             let all = AudioOutputRoute.allCases
