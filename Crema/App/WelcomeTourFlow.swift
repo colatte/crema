@@ -8,7 +8,6 @@ enum WelcomeTourStep: String, CaseIterable {
     case accessibility
     case style
     case tryIt
-    case more
     case finish
 }
 
@@ -53,7 +52,7 @@ enum WelcomeTourFlow {
     /// `next(after:)`, which never sees it.
     static func primaryAction(for step: WelcomeTourStep, accessibilityGranted: Bool) -> PrimaryAction {
         switch step {
-        case .welcome, .style, .tryIt, .more: .continue
+        case .welcome, .style, .tryIt: .continue
         case .accessibility: accessibilityGranted ? .continue : .grantAccess
         case .finish: .done
         }

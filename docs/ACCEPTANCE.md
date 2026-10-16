@@ -103,7 +103,7 @@
     the HUD is already gone. An honoured drag stays exactly where it was released.
 18. With version N installed and N+1 published in the appcast, the app offers the
     update and applies it.
-19. The first launch of a clean install opens the welcome tour (six steps;
+19. The first launch of a clean install opens the welcome tour (five steps;
     the player shows on the real screen, a sample when nothing plays, and a
     Mac with no built-in display is offered the switch that turns it on; the
     Accessibility step flips to Continue live when the grant lands, comes back

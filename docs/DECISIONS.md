@@ -2339,10 +2339,13 @@ hold for the popup and generalize. And what keeps an unhonoured pick out of the
 STORE is never the chrome (`the-chrome-is-not-the-guarantee`).
 
 ### the-tour-configures-instead-of-pointing
-The welcome tour is six steps that SHOW the app on the real screen and CONFIGURE
+The welcome tour is five steps that SHOW the app on the real screen and CONFIGURE
 it, not pictures of it: what Crema is, the Accessibility permission, the style
 every display draws, a key test with the switch that replaces the system
-indicators, what else Settings holds, and opening at login. Every control in it
+indicators, and opening at login. What else Settings holds (the Card
+indicator's place and look, a style per display) is left to Settings, where it
+is drawn: told in a sentence before anyone has seen the indicator, it reads as
+a list of names (HIG, Onboarding: postpone nonessential setup). Every control in it
 is the control the Settings window carries — the same persisted key, applied
 live through the same AppCore call — so nothing in the tour is a second source
 of truth and nothing it does needs undoing: what was picked there is what

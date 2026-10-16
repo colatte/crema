@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The welcome tour: six steps that show the app working on the real screen and
+/// The welcome tour: five steps that show the app working on the real screen and
 /// CONFIGURE it, instead of describing it.
 ///
 /// Every control here is the same control the Settings window carries — the same
@@ -166,7 +166,6 @@ struct WelcomeTourView: View {
         case .accessibility: accessibilityStep
         case .style: styleStep
         case .tryIt: tryItStep
-        case .more: moreStep
         case .finish: finishStep
         }
     }
@@ -394,26 +393,6 @@ struct WelcomeTourView: View {
                 SuppressionNotes(core: core, alignment: .center)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-            }
-        )
-    }
-
-    /// What the app can do beyond the defaults, named and left where it lives:
-    /// none of it is needed to start, so none of it is asked here (HIG,
-    /// Onboarding: postpone nonessential setup). One line each, because a list a
-    /// person is meant to remember is a list they will not.
-    private var moreStep: some View {
-        TourStepLayout(
-            title: String(localized: "tour.step.more.title", defaultValue: "A few more things you can change"),
-            hero: { EmptyView() },
-            content: {
-                TourFeatureList()
-                Text(String(
-                    localized: "tour.step.more.footer",
-                    defaultValue: "To change these, open Settings from the Crema icon in the menu bar."
-                ))
-                .font(.footnote)
-                .foregroundStyle(.secondary)
             }
         )
     }

@@ -14,7 +14,7 @@ import Testing
 struct WelcomeTourFlowTests {
 
     @Test func theStepsRunInOneOrderAndBothEndsAreTotal() {
-        #expect(WelcomeTourStep.allCases == [.welcome, .accessibility, .style, .tryIt, .more, .finish])
+        #expect(WelcomeTourStep.allCases == [.welcome, .accessibility, .style, .tryIt, .finish])
         // Total at both ends: asking past either one answers "no such step"
         // instead of wrapping around or trapping.
         #expect(WelcomeTourFlow.previous(before: .welcome) == nil)
@@ -44,12 +44,11 @@ struct WelcomeTourFlowTests {
     /// derivation would agree with any off-by-one the code makes.
     @Test func theProgressCounterIsOneBasedOverEveryStep() {
         let expected: [(step: WelcomeTourStep, index: Int, count: Int)] = [
-            (.welcome, 1, 6),
-            (.accessibility, 2, 6),
-            (.style, 3, 6),
-            (.tryIt, 4, 6),
-            (.more, 5, 6),
-            (.finish, 6, 6),
+            (.welcome, 1, 5),
+            (.accessibility, 2, 5),
+            (.style, 3, 5),
+            (.tryIt, 4, 5),
+            (.finish, 5, 5),
         ]
         // A step added without a row here fails, instead of being silently uncounted.
         #expect(expected.count == WelcomeTourStep.allCases.count)
