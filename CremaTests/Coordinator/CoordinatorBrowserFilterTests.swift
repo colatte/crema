@@ -152,6 +152,10 @@ struct CoordinatorBrowserFilterTests {
         h.nowPlayingSource.emit(CoordinatorHarness.playingTrack())
         #expect(await eventually { h.coordinator.state != .hidden })
         h.nowPlayingSource.emit(spotifyPaused)
+        // The pause lands before the linger is awaited: the playing track's linger
+        // has the same delay, so the wait could take that one, and the pause would
+        // then re-arm a linger the clock never advances.
+        #expect(await eventually { h.coordinator.state == .nowPlaying(spotifyPaused, expanded: false) })
         await h.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
         h.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
         #expect(await eventually { h.coordinator.state == .hidden })
