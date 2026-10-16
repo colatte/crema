@@ -29,6 +29,7 @@ app="$work/dd/Build/Products/Debug/Crema.app"
 swiftc -O scripts/site-capture/backdrop.swift -o "$work/backdrop"
 swiftc -O scripts/site-capture/post.swift -o "$work/post"
 swiftc -O scripts/site-capture/windowid.swift -o "$work/windowid"
+swiftc -O scripts/site-capture/screensize.swift -o "$work/screensize"
 
 installed_was_running=0
 if pgrep -f "/Applications/Crema.app/Contents/MacOS/Crema" >/dev/null; then
@@ -54,14 +55,18 @@ app_pid=$!
 sleep 3
 
 say() { "$work/post" "$@"; }
-# Regions in points, top-left origin of the main display; captured at 2x.
-# The notch's neighbourhood, the menu bar's right corner, the bottom block.
-top="476,0,560,200"
-corner="952,0,560,200"
-bottom="476,552,560,420"
+# Regions in points, top-left origin of the main display; captured at 2x. Taken
+# from the display's own size, so any MacBook frames the same picture: the
+# notch's neighbourhood, the menu bar's right corner, the bottom block.
+read -r screen_w screen_h < <("$work/screensize")
+w=560
+mid=$(( (screen_w - w) / 2 ))
+top="$mid,0,$w,200"
+corner="$(( screen_w - w )),0,$w,200"
+bottom="$mid,$(( screen_h - 430 )),$w,420"
 # The three styles share one frame on the page, so one size: the top's region
 # taken as tall as the bottom's.
-tall="476,0,560,420"
+tall="$mid,0,$w,420"
 shot() { screencapture -x -R"$2" "$work/raw/$1.png"; }
 window_shot() { screencapture -x -o -l"$("$work/windowid" "$app_pid")" "$work/raw/$1.png"; }
 

@@ -120,21 +120,29 @@ final class DemoMediaSource: NowPlayingSource, NowPlayingController, @unchecked 
 }
 
 /// One made-up track and the cover drawn for it: three colours, a ground
-/// gradient and two soft lights.
+/// gradient and two soft lights. Drawn once, when the track is made, so a
+/// track change never encodes an image under the source's lock.
 struct DemoTrack {
     let title: String
     let artist: String
     let duration: Double
-    let colors: [(Double, Double, Double)]
+    private let artwork: [UInt8]?
+
+    init(title: String, artist: String, duration: Double, colors: [(Double, Double, Double)]) {
+        self.title = title
+        self.artist = artist
+        self.duration = duration
+        artwork = Self.cover(colors)
+    }
 
     func snapshot(isPlaying: Bool) -> NowPlaying {
         NowPlaying(
-            title: title, artist: artist, artworkData: cover(), isPlaying: isPlaying,
+            title: title, artist: artist, artworkData: artwork, isPlaying: isPlaying,
             position: 0, duration: duration
         )
     }
 
-    private func cover() -> [UInt8]? {
+    private static func cover(_ colors: [(Double, Double, Double)]) -> [UInt8]? {
         let side = 512
         guard let context = CGContext(
             data: nil, width: side, height: side, bitsPerComponent: 8, bytesPerRow: 0,
