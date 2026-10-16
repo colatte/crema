@@ -574,7 +574,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O app de música não obedeceu ao último comando"
+            "value": "O app de música não respondeu ao último comando"
           }
         }
       }
@@ -602,13 +602,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ gets the media keys before Crema"
+            "value": "%@ gets the volume and brightness keys before Crema"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O %@ pega as teclas de mídia antes do Crema"
+            "value": "O %@ recebe as teclas de volume e brilho antes do Crema"
           }
         }
       }
@@ -619,13 +619,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Some of Crema’s indicators may not appear"
+            "value": "So some of Crema’s indicators may not appear"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Alguns indicadores do Crema podem não aparecer"
+            "value": "Por isso, alguns indicadores do Crema podem não aparecer"
           }
         }
       }
@@ -659,7 +659,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Crema não vê o que toca — permita a Automação para ele perguntar"
+            "value": "Sem a Automação, o Crema não consegue ver o que está tocando"
           }
         }
       }
@@ -710,7 +710,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mostrados pelo macOS de novo: %@"
+            "value": "O macOS voltou a mostrar: %@"
           }
         }
       }
@@ -789,13 +789,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Brightness stays with macOS while the built-in display isn’t in use"
+            "value": "Without the built-in display, macOS shows its own brightness indicator"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O brilho fica com o macOS enquanto a tela integrada não estiver em uso"
+            "value": "Sem a tela integrada, o macOS mostra o próprio indicador de brilho"
           }
         }
       }
@@ -925,13 +925,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Granting is picked up automatically — no relaunch needed. If capture still doesn’t start, relaunch Crema."
+            "value": "Crema notices the permission on its own, so there’s no need to restart. If the keys still don’t respond, quit and reopen Crema."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Crema detecta a permissão automaticamente — não é preciso reiniciar. Se mesmo assim a captura não começar, reinicie o Crema."
+            "value": "O Crema percebe a permissão sozinho, sem precisar reiniciar. Se as teclas ainda não responderem, feche e abra o Crema de novo."
           }
         }
       }
@@ -976,13 +976,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Crema needs Accessibility access"
+            "value": "Accessibility access for Crema"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Crema precisa de acesso de Acessibilidade"
+            "value": "Acesso de Acessibilidade para o Crema"
           }
         }
       }
@@ -1418,13 +1418,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "In BetterDisplay, turn on Settings → Application → Integration → OSD notification, and turn its own OSD off in that same panel."
+            "value": "In BetterDisplay, turn on Settings → Application → Integration → OSD notification. In that same panel, turn off BetterDisplay’s own brightness indicator (OSD)."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "No BetterDisplay, ative Settings → Application → Integration → OSD notification e desative o OSD dele nesse mesmo painel."
+            "value": "No BetterDisplay, ative Settings → Application → Integration → OSD notification. Nesse mesmo painel, desative o indicador de brilho do próprio BetterDisplay (OSD)."
           }
         }
       }
@@ -1765,13 +1765,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Needs Accessibility access — until then the system’s own indicators stay."
+            "value": "Needs Accessibility access. Until then, macOS keeps showing its own indicators."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Precisa do acesso de Acessibilidade — até lá os indicadores do próprio sistema continuam."
+            "value": "Precisa da Acessibilidade. Até lá, o macOS continua mostrando os indicadores dele."
           }
         }
       }
@@ -1850,13 +1850,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Off shows a view-only player — cover, title, and scrubber, without the transport buttons."
+            "value": "When this is off, the player shows only the cover, the title and the progress bar, with no play or skip buttons."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quando desativado, mostra um player só de visualização — capa, título e barra de progresso, sem os botões."
+            "value": "Desativado, o player mostra só a capa, o título e a barra de progresso, sem os botões de tocar e pular."
           }
         }
       }
@@ -1986,13 +1986,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Required"
+            "value": "Recommended"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Obrigatória"
+            "value": "Recomendada"
           }
         }
       }
@@ -2468,7 +2468,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Funde-se com o notch"
+            "value": "Se funde com o notch"
           }
         }
       }
@@ -2700,13 +2700,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "On Card, the whole indicator fills up as the level rises."
+            "value": "Instead of a thin line, the whole indicator fills up as the volume goes up. With the Card style."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "No Card, o indicador inteiro se enche conforme o nível sobe."
+            "value": "Em vez de uma linha fina, o indicador inteiro se enche conforme o volume sobe. No estilo Card."
           }
         }
       }
@@ -2717,13 +2717,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A filled indicator"
+            "value": "A bar that’s easier to see"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Indicador preenchido"
+            "value": "Uma barra mais fácil de ver"
           }
         }
       }
@@ -2734,13 +2734,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Everything else is in Settings, in the Crema menu."
+            "value": "To change these, open Settings from the Crema icon in the menu bar."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O resto fica nos Ajustes, no menu do Crema."
+            "value": "Para mudar isso, abra os Ajustes pelo ícone do Crema na barra de menus."
           }
         }
       }
@@ -2751,13 +2751,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The volume indicator shows where the sound is going: AirPods, headphones, an AirPlay speaker."
+            "value": "When you change the volume, the indicator shows whether it’s playing through AirPods, headphones or an AirPlay speaker. This one’s automatic."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O indicador de volume mostra para onde vai o som: AirPods, fones, um alto-falante AirPlay."
+            "value": "Quando você muda o volume, o indicador mostra se o som está saindo nos AirPods, nos fones ou num alto-falante AirPlay. Esse é automático."
           }
         }
       }
@@ -2768,13 +2768,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Where the sound goes"
+            "value": "See where the sound is going"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Para onde vai o som"
+            "value": "Veja para onde vai o som"
           }
         }
       }
@@ -2785,13 +2785,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Notch on the built-in display, Card on an external one."
+            "value": "With an external display connected, keep Notch on the built-in display and use Card on the other."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Notch na tela integrada, Card numa tela externa."
+            "value": "Com uma tela externa conectada, deixe o Notch na tela integrada e use o Card na outra."
           }
         }
       }
@@ -2802,13 +2802,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A style for each display"
+            "value": "A different style on each display"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Um estilo para cada tela"
+            "value": "Um estilo diferente em cada tela"
           }
         }
       }
@@ -2819,13 +2819,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "On Card, the volume and brightness indicator can sit in one of eight places."
+            "value": "The bar you saw when you pressed the volume key can sit in a corner, on either side or at the bottom. With the Card style."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "No Card, o indicador de volume e brilho pode ficar em um de oito lugares."
+            "value": "A barra que apareceu quando você apertou a tecla de volume pode ficar num canto, na lateral ou embaixo. No estilo Card."
           }
         }
       }
@@ -2836,13 +2836,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Where the indicator appears"
+            "value": "Move the indicator"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Onde o indicador aparece"
+            "value": "Mude o lugar do indicador"
           }
         }
       }
@@ -2853,13 +2853,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "More, when you want it"
+            "value": "A few more things you can change"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mais, quando você quiser"
+            "value": "Outras coisas que você pode ajustar"
           }
         }
       }
@@ -2972,13 +2972,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Crema shows what’s playing on your screen and draws its own volume and brightness indicators."
+            "value": "Crema shows what’s playing on your screen, and can show its own bar when you change the volume or brightness."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Crema mostra na tela o que está tocando e desenha os próprios indicadores de volume e brilho."
+            "value": "O Crema mostra na tela o que está tocando e pode mostrar a própria barra quando você muda o volume ou o brilho."
           }
         }
       }

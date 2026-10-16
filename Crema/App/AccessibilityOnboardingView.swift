@@ -22,7 +22,7 @@ struct AccessibilityOnboardingView: View {
                 .font(.system(size: 44))
                 .foregroundStyle(monitor.isGranted ? AnyShapeStyle(.green) : AnyShapeStyle(.tint))
 
-            Text(String(localized: "onboarding.title", defaultValue: "Crema needs Accessibility access"))
+            Text(String(localized: "onboarding.title", defaultValue: "Accessibility access for Crema"))
                 .font(.title2.bold())
                 .multilineTextAlignment(.center)
 
@@ -31,7 +31,7 @@ struct AccessibilityOnboardingView: View {
 
             Text(String(
                 localized: "onboarding.grantDetection",
-                defaultValue: "Granting is picked up automatically — no relaunch needed. If capture still doesn’t start, relaunch Crema."
+                defaultValue: "Crema notices the permission on its own, so there’s no need to restart. If the keys still don’t respond, quit and reopen Crema."
             ))
             .font(.footnote)
             .foregroundStyle(.tertiary)

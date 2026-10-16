@@ -188,7 +188,7 @@ struct WelcomeTourView: View {
             content: {
                 Text(String(
                     localized: "tour.welcome.body",
-                    defaultValue: "Crema shows what’s playing on your screen and draws its own volume and brightness indicators."
+                    defaultValue: "Crema shows what’s playing on your screen, and can show its own bar when you change the volume or brightness."
                 ))
                 .foregroundStyle(.secondary)
                 // Said for what is actually up there: the sample is named as one,
@@ -252,7 +252,8 @@ struct WelcomeTourView: View {
                     .keyboardShortcut(.defaultAction)
                     Text(String(
                         localized: "onboarding.grantDetection",
-                        defaultValue: "Granting is picked up automatically — no relaunch needed. If capture still doesn’t start, relaunch Crema."
+                        // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
+                        defaultValue: "Crema notices the permission on its own, so there’s no need to restart. If the keys still don’t respond, quit and reopen Crema."
                     ))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -403,13 +404,13 @@ struct WelcomeTourView: View {
     /// person is meant to remember is a list they will not.
     private var moreStep: some View {
         TourStepLayout(
-            title: String(localized: "tour.step.more.title", defaultValue: "More, when you want it"),
+            title: String(localized: "tour.step.more.title", defaultValue: "A few more things you can change"),
             hero: { EmptyView() },
             content: {
                 TourFeatureList()
                 Text(String(
                     localized: "tour.step.more.footer",
-                    defaultValue: "Everything else is in Settings, in the Crema menu."
+                    defaultValue: "To change these, open Settings from the Crema icon in the menu bar."
                 ))
                 .font(.footnote)
                 .foregroundStyle(.secondary)

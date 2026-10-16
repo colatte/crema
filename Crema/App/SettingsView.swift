@@ -373,7 +373,7 @@ private struct NowPlayingSettingsView: View {
             } footer: {
                 Text(String(
                     localized: "settings.nowPlaying.controls.footer",
-                    defaultValue: "Off shows a view-only player — cover, title, and scrubber, without the transport buttons."
+                    defaultValue: "When this is off, the player shows only the cover, the title and the progress bar, with no play or skip buttons."
                 ))
                 .settingsFootnote()
             }
