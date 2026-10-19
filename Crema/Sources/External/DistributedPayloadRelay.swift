@@ -1,21 +1,28 @@
 import Foundation
 
-/// The ObjC target both BetterDisplay registrations hand to
-/// `DistributedNotificationCenter`, forwarding the notification's JSON payload to
-/// a MainActor handler.
+/// The ObjC target every BetterDisplay registration hands to
+/// `DistributedNotificationCenter`, forwarding the notification's JSON payload (or,
+/// for a lifecycle name, the post itself) to a MainActor handler.
 ///
 /// It exists because the only registration that takes a suspension behaviour takes
 /// a selector, and a selector needs an ObjC target — which neither owner can be
 /// itself without dragging NSObject into an `@Observable` type and into an
-/// actor-isolated `Sendable` one. Both channels of the neighbour's integration are
-/// shaped alike (a JSON string in `object`), so the relay is written once and the
-/// owners keep only their own handling.
+/// actor-isolated `Sendable` one. The neighbour's two payload channels are shaped
+/// alike (a JSON string in `object`) and its lifecycle names carry nothing, so the
+/// relay is written once and the owners keep only their own handling.
 @MainActor
 final class DistributedPayloadRelay: NSObject {
-    private let deliver: @MainActor (String) -> Void
+    private let deliver: @MainActor (String?) -> Void
 
+    /// Forwards the JSON payload; a post without one is not on this channel's contract.
     init(deliver: @escaping @MainActor (String) -> Void) {
-        self.deliver = deliver
+        self.deliver = { json in json.map(deliver) }
+        super.init()
+    }
+
+    /// Forwards the post, payload or not: the lifecycle names carry nothing to read.
+    init(signal: @escaping @MainActor () -> Void) {
+        self.deliver = { _ in signal() }
         super.init()
     }
 
@@ -26,7 +33,7 @@ final class DistributedPayloadRelay: NSObject {
         // The payload rides in `object` as a JSON string, not in `userInfo` — that
         // is the published contract on both of BetterDisplay's channels, and a
         // dictionary would be wrong.
-        guard let json = note.object as? String else { return }
+        let json = note.object as? String
         // "For multithreaded applications running in macOS 10.3 and later,
         // distributed notifications are always delivered to the main thread"
         // (Apple, DistributedNotificationCenter) — so the MainActor is the current

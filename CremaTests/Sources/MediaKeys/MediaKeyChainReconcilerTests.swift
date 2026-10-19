@@ -209,6 +209,19 @@ struct MediaKeyChainSeamTests {
         #expect(notice(registry, betterDisplayIsFeedingUs: true) == .drawingFromBetterDisplay)
     }
 
+    @Test func aDispatchCremaTurnedOnAndReadBackSilencesTheAdvice() {
+        // The actionable line asks for the one setting the handoff already set and
+        // read back; until the neighbour's first report it would be advice already
+        // followed. Every other reading passes through untouched.
+        #expect(AppCore.mediaKeyChainNotice(.betterDisplayAheadAndSilent, betterDisplayDispatches: true)
+            == .drawingFromBetterDisplay)
+        #expect(AppCore.mediaKeyChainNotice(.betterDisplayAheadAndSilent, betterDisplayDispatches: false)
+            == .betterDisplayAheadAndSilent)
+        #expect(AppCore.mediaKeyChainNotice(.quiet, betterDisplayDispatches: true) == .quiet)
+        #expect(AppCore.mediaKeyChainNotice(.anotherAppAhead("Other"), betterDisplayDispatches: true)
+            == .anotherAppAhead("Other"))
+    }
+
     @Test func aDeliveredPayloadOutranksTheChainReading() {
         // Even with nobody ahead of us: if the neighbour is reporting, that is
         // where the brightness bar comes from, and the menu says so.

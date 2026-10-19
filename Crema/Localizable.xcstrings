@@ -1412,6 +1412,23 @@
         }
       }
     },
+    "settings.hud.betterDisplay.handoff": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "While Crema replaces the system indicators, it sets up BetterDisplay for you: it turns on “Dispatch OSD notifications” and turns off BetterDisplay’s own indicator. When you quit Crema, everything goes back to how it was."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enquanto o Crema substitui os indicadores do sistema, ele configura o BetterDisplay por você: ativa “Dispatch OSD notifications” e desativa o indicador do próprio BetterDisplay. Quando você encerra o Crema, tudo volta a ser como era."
+          }
+        }
+      }
+    },
     "settings.hud.betterDisplay.howTo": {
       "extractionState": "manual",
       "localizations": {
@@ -1459,6 +1476,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Recebendo"
+          }
+        }
+      }
+    },
+    "settings.hud.betterDisplay.unanswered": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BetterDisplay isn’t responding to Crema. In BetterDisplay, go to Settings → Application → Integration and turn on “Enable CLI access and notification based integration”."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O BetterDisplay não está respondendo ao Crema. No BetterDisplay, vá em Settings → Application → Integration e ative “Enable CLI access and notification based integration”."
           }
         }
       }

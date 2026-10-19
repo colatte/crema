@@ -97,6 +97,64 @@ struct BetterDisplayCommandChannelTests {
         try await call.value
     }
 
+    @Test func aSwitchIsReadByItsOwnNameAndAnsweredOnOrOff() async throws {
+        let wire = Wire()
+        let clock = TestSleepClock()
+        let channel = makeChannel(wire, clock: clock)
+
+        let call = Task { try await channel.read(.showsOwnIndicator) }
+        await clock.waitForSleep()
+        let request = try #require(wire.posted.first)
+        #expect(request.contains("\"get\""))
+        #expect(request.contains("\"osdShowBasic\":\"\""))
+
+        channel.handle(response: #"{"uuid":"REQ-1","result":true,"payload":"off"}"#)
+        #expect(try await call.value == false)
+    }
+
+    @Test func aSwitchIsWrittenAsTheNeighboursOnOrOff() async throws {
+        let wire = Wire()
+        let clock = TestSleepClock()
+        let channel = makeChannel(wire, clock: clock)
+
+        let call = Task { try await channel.write(.dispatchesToOtherApps, to: true) }
+        await clock.waitForSleep()
+        let request = try #require(wire.posted.first)
+        #expect(request.contains("\"set\""))
+        #expect(request.contains("\"osdIntegrationNotification\":\"on\""))
+
+        channel.handle(response: #"{"uuid":"REQ-1","result":true}"#)
+        try await call.value
+    }
+
+    @Test func aYesThatIsNotAnOnOrOffIsARefusal() async throws {
+        // Reading "1" or "true" as on would be a guess, and the guess decides
+        // what Crema hands back.
+        let wire = Wire()
+        let clock = TestSleepClock()
+        let channel = makeChannel(wire, clock: clock)
+
+        let call = Task { try await channel.read(.showsOwnIndicator) }
+        await clock.waitForSleep()
+        channel.handle(response: #"{"uuid":"REQ-1","result":true,"payload":"1"}"#)
+
+        await #expect(throws: OSDSettingsError.refused) { try await call.value }
+    }
+
+    @Test func aSettingsRequestNobodyAnswersIsSilenceNotANo() async throws {
+        // The two read differently to the person: silence is a switch to turn on
+        // in the neighbour, a no is a setup to do by hand.
+        let wire = Wire()
+        let clock = TestSleepClock()
+        let channel = makeChannel(wire, clock: clock)
+
+        let call = Task { try await channel.write(.showsOwnIndicator, to: false) }
+        await clock.waitForSleep()
+        clock.advance()
+
+        await #expect(throws: OSDSettingsError.unanswered) { try await call.value }
+    }
+
     @Test func someoneElsesAnswerIsNotOurs() async throws {
         // The channel is a broadcast: other apps' responses arrive here too, and
         // reading one as our own would report a stranger's success as ours.
@@ -168,6 +226,24 @@ struct BetterDisplayCommandTranslationTests {
         // Nothing to match it against, so acting on it would be guessing.
         #expect(BetterDisplayCommandTranslation.verdict(fromJSON: #"{"result":true}"#) == nil)
         #expect(BetterDisplayCommandTranslation.verdict(fromJSON: "garbage") == nil)
+    }
+
+    @Test func aSwitchRequestUsesTheNeighboursNames() throws {
+        let get = try #require(BetterDisplayCommandTranslation.getRequest(uuid: "A", setting: .dispatchesToOtherApps))
+        #expect(get.contains("\"get\""))
+        #expect(get.contains("\"osdIntegrationNotification\":\"\""))
+
+        let set = try #require(BetterDisplayCommandTranslation.setRequest(uuid: "A", setting: .showsOwnIndicator, value: false))
+        #expect(set.contains("\"set\""))
+        #expect(set.contains("\"osdShowBasic\":\"off\""))
+    }
+
+    @Test func onlyTheDocumentedOnAndOffAreASwitchValue() {
+        #expect(BetterDisplayCommandTranslation.switchValue(fromPayload: "on") == true)
+        #expect(BetterDisplayCommandTranslation.switchValue(fromPayload: "off") == false)
+        for payload in [nil, "", "1", "true", "On", "on,on"] {
+            #expect(BetterDisplayCommandTranslation.switchValue(fromPayload: payload) == nil)
+        }
     }
 
     @Test func aMissingResultReadsAsFailure() {

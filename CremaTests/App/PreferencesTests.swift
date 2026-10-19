@@ -11,6 +11,24 @@ struct PreferencesTests {
     /// One isolated, self-cleaning defaults store per test instance.
     private let store = EphemeralDefaults()
 
+    @Test func aNeighbourSwitchIsOwedUntilForgottenAndTheKeyGoesWithTheLast() {
+        let preferences = Preferences(defaults: store.defaults)
+        #expect(preferences.neighbourOSDOriginal(.showsOwnIndicator) == nil)
+
+        preferences.setNeighbourOSDOriginal(true, for: .showsOwnIndicator)
+        preferences.setNeighbourOSDOriginal(false, for: .dispatchesToOtherApps)
+        #expect(preferences.neighbourOSDOriginal(.showsOwnIndicator) == true)
+        #expect(preferences.neighbourOSDOriginal(.dispatchesToOtherApps) == false)
+
+        preferences.setNeighbourOSDOriginal(nil, for: .showsOwnIndicator)
+        #expect(preferences.neighbourOSDOriginal(.showsOwnIndicator) == nil)
+        #expect(preferences.neighbourOSDOriginal(.dispatchesToOtherApps) == false)
+
+        // Nothing owed leaves nothing behind in the user's defaults.
+        preferences.setNeighbourOSDOriginal(nil, for: .dispatchesToOtherApps)
+        #expect(store.defaults.object(forKey: "neighbourOSDOriginals") == nil)
+    }
+
     @Test func styleDefaultsToNotch() {
         let preferences = Preferences(defaults: store.defaults)
         #expect(preferences.style(for: internalDisplay) == .notch)

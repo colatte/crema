@@ -196,6 +196,37 @@ struct Preferences {
         nonmutating set { defaults.set(newValue, forKey: Self.suppressesNativeOSDKey) }
     }
 
+    // MARK: - The neighbour's feedback switches Crema holds
+
+    /// What each neighbour switch read before Crema changed it, for every switch
+    /// Crema changed and has not handed back yet. Persisted because the neighbour
+    /// persists the change itself (measured with
+    /// `scripts/probes/osd-settings-betterdisplay.swift`, 2026-10-18,
+    /// BetterDisplay 5.1.1: a `set` lands in its preferences on disk), so a Crema
+    /// that ends without handing back, by crash or force quit, finds here on its
+    /// next launch what it owes. A switch Crema found already as it needs is
+    /// never recorded, so it is never "restored" to anything.
+    private static let neighbourOSDOriginalsKey = "neighbourOSDOriginals"
+
+    func neighbourOSDOriginal(_ setting: NeighbourOSDSetting) -> Bool? {
+        neighbourOSDOriginals[setting.rawValue]
+    }
+
+    /// Nil forgets the switch: handed back, or taken back by the user.
+    func setNeighbourOSDOriginal(_ value: Bool?, for setting: NeighbourOSDSetting) {
+        var originals = neighbourOSDOriginals
+        originals[setting.rawValue] = value
+        if originals.isEmpty {
+            defaults.removeObject(forKey: Self.neighbourOSDOriginalsKey)
+        } else {
+            defaults.set(originals, forKey: Self.neighbourOSDOriginalsKey)
+        }
+    }
+
+    private var neighbourOSDOriginals: [String: Bool] {
+        defaults.dictionary(forKey: Self.neighbourOSDOriginalsKey) as? [String: Bool] ?? [:]
+    }
+
     // MARK: - Now-playing behavior
 
     /// Reactive appearance: media events (track change, external play/pause)
