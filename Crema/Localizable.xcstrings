@@ -449,13 +449,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Turn on “OSD notification” in BetterDisplay to see Crema’s indicator"
+            "value": "Turn on “Dispatch OSD notifications” in BetterDisplay"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ative “OSD notification” no BetterDisplay para ver o indicador do Crema"
+            "value": "Ative “Dispatch OSD notifications” no BetterDisplay"
           }
         }
       }
@@ -1418,13 +1418,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "In BetterDisplay, turn on Settings → Application → Integration → OSD notification. In that same panel, turn off BetterDisplay’s own brightness indicator (OSD)."
+            "value": "In BetterDisplay, turn on Settings → Application → Integration → Dispatch OSD notifications. Then turn off BetterDisplay’s built-in OSD, under Keyboard/OSD, so only one brightness indicator appears."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "No BetterDisplay, ative Settings → Application → Integration → OSD notification. Nesse mesmo painel, desative o indicador de brilho do próprio BetterDisplay (OSD)."
+            "value": "No BetterDisplay, ative Settings → Application → Integration → Dispatch OSD notifications. Depois, desative o OSD embutido do BetterDisplay, em Keyboard/OSD, para aparecer um indicador de brilho só."
           }
         }
       }

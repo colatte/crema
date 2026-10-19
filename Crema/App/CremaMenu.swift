@@ -189,7 +189,7 @@ struct CremaMenu: View {
             // The neighbour's setting in its own words, so the reader finds it there.
             String(
                 localized: "menu.betterDisplay.silent.detail",
-                defaultValue: "Turn on “OSD notification” in BetterDisplay to see Crema’s indicator"
+                defaultValue: "Turn on “Dispatch OSD notifications” in BetterDisplay"
             )
         case .anotherAppAhead:
             String(
