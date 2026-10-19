@@ -6,6 +6,7 @@ import Testing
 /// they sit on the glass, and each item's icon draws the bar where the Card's
 /// rule puts it — on the right edge and third, upright in the middle of a side,
 /// inside the outline, and no two alike.
+@MainActor
 struct HUDPlacementPickerTests {
 
     private let interior = HUDPlacementIcon.interior

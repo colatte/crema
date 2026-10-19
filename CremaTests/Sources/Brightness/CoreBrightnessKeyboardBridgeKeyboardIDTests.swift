@@ -121,7 +121,7 @@ private final class FakeKeyboardState: @unchecked Sendable {
     }
 }
 
-private nonisolated(unsafe) let fakeKeyboard = FakeKeyboardState()
+private let fakeKeyboard = FakeKeyboardState()
 
 private final class FakeKeyboardBrightnessClient: NSObject {
     @objc(brightnessForKeyboard:)

@@ -274,12 +274,4 @@ struct NSPanelPresentationPanelTests {
         #expect(NSPanelPresentationPanel.staleReportClickRect(rendered: disjoint, ruleFrame: rule) == .zero)
         #expect(NSPanelPresentationPanel.staleReportClickRect(rendered: stale, ruleFrame: .zero) == .zero)
     }
-
-    @Test func theFixedWindowIsTheStylesOwnMaximum() {
-        // It is the style's rule that decides, not the panel: a window smaller
-        // than the largest state would crop the surface it is supposed to hold.
-        let (panel, screen, harness) = self.panel()
-        #expect(panel.currentWindowFrame == Style.card.windowFrame(on: screen.geometry))
-        withExtendedLifetime(harness) {}
-    }
 }

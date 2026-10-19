@@ -57,8 +57,8 @@ struct CoordinatorInvokeTests {
         h.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
         #expect(await eventually { h.coordinator.state == .hidden })
 
-        // Paused media is not click-invokable — the same decision as the old
-        // paused-resurface rule: only a media event re-earns an appearance.
+        // Paused media is not click-invokable: only a media event re-earns an
+        // appearance.
         h.coordinator.invoke()
         await settle()
 

@@ -13,9 +13,6 @@ import SwiftUI
 /// this tab starts and stops, and the read behind it is the NON-prompting
 /// question — the prompting one lives behind the button, where the user's click is
 /// what asks for it.
-///
-/// Split out of SettingsView.swift because that file is at its length ceiling; the
-/// other tabs still live there.
 struct PermissionsSettingsView: View {
     let core: AppCore
 
@@ -134,16 +131,16 @@ struct PermissionsSettingsView: View {
     ///
     /// Checked rather than assumed, because the obvious objection is that Apple
     /// localizes its own app names — `Music.app`'s `InfoPlist.loctable` really
-    /// does map `pt` → "Música". Measured on a Mac with `AppleLanguages =
-    /// ("pt-BR")` (2026-08-07): `FileManager.displayName` and the bundle's
-    /// `localizedInfoDictionary` both return **"Music"**, which is also what the
-    /// Dock shows. The table has `pt` and `pt_PT` and no `pt-BR`, and macOS does
-    /// not fall back for this.
+    /// does map `pt` → "Música". Measured with
+    /// `scripts/probes/music-display-name.swift` under `AppleLanguages =
+    /// ("pt-BR")` (macOS 27.0.1, 2026-10-18): the bundle's preferred localization
+    /// is `pt`, and still `FileManager.displayName` and `localizedInfoDictionary`
+    /// both return **"Music"**, which is also what the Dock shows.
     ///
     /// So resolving the installed bundle's name would cost a LaunchServices
-    /// lookup on every body pass and produce the same three letters. If a
-    /// future macOS starts showing "Música" here, that lookup is the fix and
-    /// this paragraph is the reason it was not done sooner.
+    /// lookup on every body pass and produce the same three letters. A run of
+    /// the probe that prints "Música" invalidates this, and that lookup is then
+    /// the fix.
     private var musicApps: String {
         JXAPlayerScript.players.map(\.name).formatted(.list(type: .or))
     }

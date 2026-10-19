@@ -260,8 +260,13 @@ struct SuppressionLockControllerTests {
         h.lock.set(safe: true)
         #expect(await eventually { decisions == [true, false, true] })
 
+        // A redundant decision: the switch written again with the value it holds.
+        // An edge-only follower would hear nothing here.
+        h.controller.setPreferredSuppression(true)
+        #expect(decisions == [true, false, true, true])
+
         h.controller.setPreferredSuppression(false)
-        #expect(decisions == [true, false, true, false])
+        #expect(decisions == [true, false, true, true, false])
         #expect(decisions.last == h.suppressor.isEngaged)
     }
 }

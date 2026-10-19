@@ -204,19 +204,20 @@ struct NeighbourOSDHandoffTests {
     }
 
     @Test func aNeighbourThatIsNotRunningIsNotAsked() async {
+        // Each request to a neighbour that is not there waits out a deadline, so
+        // a lock edge or a quit with BetterDisplay closed must ask nothing.
         let h = Harness()
-        h.neighbour.running = false
         h.handoff.setWanted(true)
-        h.neighbour.running = true
+        #expect(await eventually { h.handoff.status == .inPlace })
+        let askedBefore = h.channel.calls.count
+
+        h.neighbour.running = false
         h.handoff.reconcile()
 
-        #expect(await eventually { h.handoff.status == .inPlace })
-        // Exactly one take-over's requests: the pass that found nobody running
-        // asked nothing, where each unanswered request would cost a deadline.
-        #expect(h.channel.calls == [
-            .read(.dispatchesToOtherApps), .write(.dispatchesToOtherApps, true), .read(.dispatchesToOtherApps),
-            .read(.showsOwnIndicator), .write(.showsOwnIndicator, false), .read(.showsOwnIndicator),
-        ])
+        // Leaving `.inPlace` is that pass ending; it reached the neighbour-gone
+        // answer without a single request.
+        #expect(await eventually { h.handoff.status == .idle })
+        #expect(h.channel.calls.count == askedBefore)
     }
 
     @Test func aLaunchAfterACrashPaysWhatWasOwed() async {

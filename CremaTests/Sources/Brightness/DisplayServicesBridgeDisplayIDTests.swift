@@ -126,7 +126,7 @@ private final class FakeDisplayState: @unchecked Sendable {
     }
 }
 
-private nonisolated(unsafe) let fakeDisplay = FakeDisplayState()
+private let fakeDisplay = FakeDisplayState()
 
 private func fakeGet(_ display: UInt32, _ out: UnsafeMutablePointer<Float>) -> Int32 {
     fakeDisplay.get(display, into: out)

@@ -32,9 +32,7 @@ struct WelcomeTourView: View {
     @AppStorage(Preferences.suppressesNativeOSDKey) private var suppressesNativeOSD = false
     /// Seeded-once mirrors, the shape the all-displays section uses: the declared style,
     /// which of the styles any panel actually renders, and the real login-item
-    /// status, re-read from every attempt rather than wished at. Nothing else can
-    /// write them while this window is up — it is modal in practice, being the
-    /// only thing on screen at first launch.
+    /// status, re-read from every attempt rather than wished at.
     @State private var style: Style
     @State private var rendersCard: Bool
     @State private var rendersNotch: Bool
@@ -179,7 +177,7 @@ struct WelcomeTourView: View {
             hero: {
                 // The icon carries no meaning the title does not; hidden from
                 // VoiceOver, which would otherwise read the image's name aloud.
-                Image(nsImage: NSApp.applicationIconImage ?? NSImage())
+                Image(nsImage: AppIdentity.icon)
                     .resizable()
                     .frame(width: 128, height: 128)
                     .accessibilityHidden(true)
@@ -234,10 +232,8 @@ struct WelcomeTourView: View {
                 // The grant lands while this window is open — the monitor polls, so
                 // the step answers the person who just flipped the switch in System
                 // Settings instead of waiting for a relaunch nobody would perform.
-                if granted {
-                    Text(String(localized: "tour.step.accessibility.granted", defaultValue: "Accessibility is on for Crema."))
-                        .foregroundStyle(.green)
-                } else {
+                // The offer is the flow's `.grantAccess`, the rule its tests pin.
+                if WelcomeTourFlow.primaryAction(for: .accessibility, accessibilityGranted: granted) == .grantAccess {
                     // In the step and not the footer: the footer's row has no room
                     // for it beside the way on, in either language.
                     Button(String(
@@ -256,6 +252,9 @@ struct WelcomeTourView: View {
                     ))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                } else {
+                    Text(String(localized: "tour.step.accessibility.granted", defaultValue: "Accessibility is on for Crema."))
+                        .foregroundStyle(.green)
                 }
             }
         )

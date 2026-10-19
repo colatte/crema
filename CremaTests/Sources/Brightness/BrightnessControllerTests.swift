@@ -17,8 +17,8 @@ struct BrightnessControllerTests {
         let backend = FakeBrightnessBackend(available: true)
         let controller = DisplayServicesScreenBrightnessController(backend: backend)
 
-        try await controller.setBrightness(0.3, on: nil)
-        try await controller.setBrightness(1.5, on: nil)
+        _ = try await controller.setBrightness(0.3, on: nil)
+        _ = try await controller.setBrightness(1.5, on: nil)
 
         #expect(backend.writes == [BrightnessConversion.denormalize(0.3), 1.0])
     }
@@ -49,8 +49,8 @@ struct BrightnessControllerTests {
             backend: backend, builtInDisplay: { [builtIn] in builtIn }
         )
 
-        try await controller.setBrightness(0.5, on: builtIn)
-        try await controller.setBrightness(0.25, on: nil)
+        _ = try await controller.setBrightness(0.5, on: builtIn)
+        _ = try await controller.setBrightness(0.25, on: nil)
 
         #expect(backend.writes == [
             BrightnessConversion.denormalize(0.5),

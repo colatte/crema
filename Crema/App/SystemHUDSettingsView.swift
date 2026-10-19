@@ -4,13 +4,6 @@ struct SystemHUDSettingsView: View {
     let core: AppCore
     @AppStorage(Preferences.suppressesNativeOSDKey) private var suppress = false
 
-    // Written out rather than left to the memberwise initializer, which inherits
-    // the private access of the property above and so cannot be called from the
-    // window that builds this tab.
-    init(core: AppCore) {
-        self.core = core
-    }
-
     var body: some View {
         Form {
             Section {
@@ -77,6 +70,14 @@ struct SystemHUDSettingsView: View {
                         defaultValue: "With BetterDisplay 4.2.1 or newer, Crema can show the brightness indicator for an external display. Nothing to enable here."
                     ))
                     handoffNote
+                    // The advice above is acted on in another app, which tells
+                    // Crema nothing when that switch turns on; without this the
+                    // line would stand until the next lock or toggle.
+                    if core.neighbourOSDHandoff?.status == .unanswered {
+                        Button(String(localized: "settings.hud.betterDisplay.retry", defaultValue: "Try Again")) {
+                            core.retryNeighbourOSDHandoff()
+                        }
+                    }
                 }
                 .settingsFootnote()
             }
