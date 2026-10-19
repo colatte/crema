@@ -61,6 +61,7 @@
 | Contact | Where | When it fails |
 |---|---|---|
 | BetterDisplay's `.osd` and `.response` distributed notifications, registered by selector with `.deliverImmediately` | `BetterDisplayOSDSource`, `BetterDisplayCommandChannel`, `DistributedPayloadRelay` | Without BetterDisplay nothing arrives and the source sits inert. A held answer would read as silence, so the response side delivers immediately; a request with no answer within its deadline falls back to the system actuator, and when that cannot write either the bar rolls back (docs/DECISIONS.md: the-bar-never-outruns-the-screen). No sender identity (KNOWN-GAPS: BetterDisplay's channel). |
+| BetterDisplay's own feedback switches (`osdIntegrationNotification`, `osdShowBasic`), read and written over the same request channel; its `.launched` notification; its process ending, from the workspace | `NeighbourOSDHandoff`, `BetterDisplayCommandChannel` | Silence ends the pass and keeps what is owed, recorded in `Preferences` before each write because BetterDisplay persists the write too; the next edge retries (either app launching, a lock change, the switch), and a neighbour that ends takes the verdict about it along (docs/DECISIONS.md: the-neighbour-indicator-is-borrowed). |
 
 ## The app's own lifecycle
 
@@ -68,5 +69,6 @@
 |---|---|---|
 | Login item (`SMAppService`) | `LoginItem` | Nothing is persisted on failure; a registration macOS revoked is reported in the menu, never re-registered silently (docs/DECISIONS.md: login-item-intent). |
 | Sparkle (Release builds only) | `UpdaterModel` | The framework's own timeouts; no live resource held. |
+| The quit, held with `applicationShouldTerminate` → `.terminateLater` while the neighbour's indicator is handed back | `CremaAppDelegate` | A silent neighbour costs one request deadline before the reply; a crash or force quit never reaches it, and what is owed waits in `Preferences` for the next launch. |
 | The Privacy panes, opened by URL | `AppCore` | A renamed pane opens nothing (KNOWN-GAPS: the Privacy panes). |
 | `UserDefaults` | `Preferences` | No failure path writes a preference (docs/DECISIONS.md: J5-raio-global); an unknown stored value degrades to the default (P4). |

@@ -39,7 +39,7 @@ enum WelcomeTourFlow {
         self.step(offsetting: step, by: -1)
     }
 
-    /// 1-based, because it is read out loud ("Step 2 of 6") and nobody counts
+    /// 1-based, because it is read out loud ("Step 2 of 5") and nobody counts
     /// their way through a window from zero.
     static func progress(_ step: WelcomeTourStep) -> (index: Int, count: Int) {
         let all = WelcomeTourStep.allCases

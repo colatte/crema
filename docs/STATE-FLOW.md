@@ -9,9 +9,9 @@
 
 ## One observable of state, and its mirrors
 
-A single `@Observable` of **presentation state**: the **Coordinator**. The app's other NINE `@Observable` types are read mirrors for views, never domain, and one more mirror is an `ObservableObject`: `UpdaterModel`, whose `@Published` `canCheckForUpdates` and `hasPendingUpdate` the menu reads, because Sparkle's `canCheckForUpdates` is KVO and reaches it through Combine's `publisher(for:)` assigned onto a `@Published` property. The state is two layers, the now-playing appearance and the HUD (`PresentationLayers`); what a surface drawing both shows is their projection, the `PresentationState` enum (`hidden` / `nowPlaying` / `hud`), `Equatable`. A pointer event names the surface it came from and reaches only the layers that surface draws (docs/DECISIONS.md: card-hud-placement).
+A single `@Observable` of **presentation state**: the **Coordinator**. The app's other TEN `@Observable` types are read mirrors for views, never domain, and one more mirror is an `ObservableObject`: `UpdaterModel`, whose `@Published` `canCheckForUpdates` and `hasPendingUpdate` the menu reads, because Sparkle's `canCheckForUpdates` is KVO and reaches it through Combine's `publisher(for:)` assigned onto a `@Published` property. The state is two layers, the now-playing appearance and the HUD (`PresentationLayers`); what a surface drawing both shows is their projection, the `PresentationState` enum (`hidden` / `nowPlaying` / `hud`), `Equatable`. A pointer event names the surface it came from and reaches only the layers that surface draws (docs/DECISIONS.md: card-hud-placement).
 
-The nine `@Observable` mirrors:
+The ten `@Observable` mirrors:
 
 - the Accessibility and the Automation permission monitors;
 - the suppression and the now-playing ones;
@@ -19,7 +19,8 @@ The nine `@Observable` mirrors:
 - the `LowPowerModeMirror` each panel carries along into its view's environment — guarded write, like the other mirrors, to keep the intent at the call site: the power-state edge arrives on any power-source change, and the surface it would redraw sits over the menu bar;
 - the `SettingsNavigation` — a one-shot tab request that the reader consumes and clears, because a request that lingers becomes a mode and drags the window back to the tab the user just left;
 - the `DisplayRoster` — the roster of connected displays that the General tab's per-display list reads, **reactive on purpose** (unlike the global declaration's mirrors, at the top of the same tab, seeded once, by decision): its rows ARE the displays, so a display plugged in with the window open would have no row until the window reopened, and a row that outlived its monitor would be control over a screen the user does not see. Fed by the SAME edge reading that builds the panels, never by a second `describeAll()`; the MENU never reads it, because every rebuild of its status block pays a `CGGetEventTapList` (docs/DECISIONS.md: one-screen-reading-per-edge);
-- the evidence of the neighbour's integration (`BetterDisplayOSDSource.hasReported`) — the only observable that lives **in a source**: the Settings line that shows it is read from a body SwiftUI has already built, and whoever reads it is usually the person flipping the switch in the other app, so a claim that only flips on the next open answers "no" to the very person who just made it true. Guarded write, like the other mirrors.
+- the evidence of the neighbour's integration (`BetterDisplayOSDSource.hasReported`) — the only observable that lives **in a source**: the Settings line that shows it is read from a body SwiftUI has already built, and whoever reads it is usually the person flipping the switch in the other app, so a claim that only flips on the next open answers "no" to the very person who just made it true. Guarded write, like the other mirrors;
+- the verdict of the neighbour's indicator handoff (`NeighbourOSDHandoff.status`), which the Indicators tab reads and the menu's chain notice consults. Most passes end where they began, and `@Observable`'s own equality check in the setter keeps such a pass from rebuilding the menu, whose rebuild can pay a `CGGetEventTapList` (docs/DECISIONS.md: the-neighbour-indicator-is-borrowed).
 
 ## The position tick, and why it bypasses `state`
 

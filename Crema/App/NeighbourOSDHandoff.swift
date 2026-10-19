@@ -36,8 +36,11 @@ final class NeighbourOSDHandoff {
         case refused
     }
 
-    /// Written only when it changes, since an unchanged write still rebuilds every
-    /// view reading it.
+    /// Most passes end where they began (a lock edge, a redundant decision), and
+    /// the menu's status block reads this, whose rebuild can pay a tap-chain read.
+    /// No guard is written for it: `@Observable` expands an equality check into the
+    /// setter (`shouldNotifyObservers`, `lhs != rhs` for an `Equatable` value), so an
+    /// unchanged write notifies nobody as long as `Status` stays `Equatable`.
     private(set) var status: Status = .idle {
         didSet { if status != oldValue { logger.info("neighbour OSD handoff: \(String(describing: self.status), privacy: .public)") } }
     }

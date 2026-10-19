@@ -1,3 +1,5 @@
+import Foundation
+import Observation
 import Testing
 @testable import Crema
 
@@ -156,6 +158,38 @@ struct NeighbourOSDHandoffTests {
         // Leaving `.inPlace` is the pass's end either way; where it lands is the claim.
         #expect(await eventually { h.handoff.status != .inPlace })
         #expect(h.handoff.status == .idle)
+    }
+
+    @Test func aPassThatEndsWhereItBeganNotifiesNobody() async {
+        // The menu reads the verdict, and its rebuild can pay a tap-chain read; a
+        // lock edge or a redundant decision must not cost one. What keeps it so is
+        // the equality check `@Observable` expands into the setter, which holds
+        // only while `Status` is `Equatable`.
+        let h = Harness()
+        h.handoff.setWanted(true)
+        #expect(await eventually { h.handoff.status == .inPlace })
+
+        final class FirstNotice: @unchecked Sendable {
+            private let lock = NSLock()
+            private var writes: Int?
+            var writesSeen: Int? { lock.withLock { writes } }
+            func record(_ count: Int) { lock.withLock { if writes == nil { writes = count } } }
+        }
+        let notice = FirstNotice()
+        let channel = h.channel
+        let handoff = h.handoff
+        withObservationTracking { _ = handoff.status } onChange: {
+            MainActor.assumeIsolated { notice.record(channel.writes.count) }
+        }
+
+        // A redundant decision: its pass reads both switches as held and ends there.
+        h.handoff.setWanted(true)
+        #expect(await eventually { h.channel.calls.count == 8 })
+        // The hand-back is the first real change: the notice must come from it, after
+        // its two writes, and not from the redundant pass before it.
+        await h.handoff.handBackBeforeQuitting()
+
+        #expect(notice.writesSeen == 4)
     }
 
     @Test func aWriteThatDoesNotTakeIsARefusal() async {
