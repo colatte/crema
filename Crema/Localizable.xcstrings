@@ -1418,13 +1418,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "In BetterDisplay, turn on Settings → Application → Integration → Dispatch OSD notifications. Then turn off its own OSD in Settings → Keyboard → OSD, so only one brightness indicator appears."
+            "value": "In BetterDisplay, turn on Settings → Application → Integration → Dispatch OSD notifications. Then turn off Settings → Keyboard → OSD → Show brightness, volume, mute OSD, so only Crema’s indicator appears."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "No BetterDisplay, ative Settings → Application → Integration → Dispatch OSD notifications. Depois, desative o OSD dele em Settings → Keyboard → OSD, para aparecer um indicador de brilho só."
+            "value": "No BetterDisplay, ative Settings → Application → Integration → Dispatch OSD notifications. Depois, desative Settings → Keyboard → OSD → Show brightness, volume, mute OSD, para aparecer só o indicador do Crema."
           }
         }
       }
