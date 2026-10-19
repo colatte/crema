@@ -1418,13 +1418,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "In BetterDisplay, turn on Settings → Application → Integration → Dispatch OSD notifications. Then turn off BetterDisplay’s built-in OSD, under Keyboard/OSD, so only one brightness indicator appears."
+            "value": "In BetterDisplay, turn on Settings → Application → Integration → Dispatch OSD notifications. Then turn off its own OSD in Settings → Keyboard → OSD, so only one brightness indicator appears."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "No BetterDisplay, ative Settings → Application → Integration → Dispatch OSD notifications. Depois, desative o OSD embutido do BetterDisplay, em Keyboard/OSD, para aparecer um indicador de brilho só."
+            "value": "No BetterDisplay, ative Settings → Application → Integration → Dispatch OSD notifications. Depois, desative o OSD dele em Settings → Keyboard → OSD, para aparecer um indicador de brilho só."
           }
         }
       }
