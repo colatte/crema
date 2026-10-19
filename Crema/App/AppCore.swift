@@ -1342,9 +1342,9 @@ extension AppCore {
 
 @MainActor
 extension AppCore {
-    /// Builds the handoff and joins it to the three edges it acts on: the
+    /// Builds the handoff and joins it to the four edges it acts on: the
     /// suppression decision (the switch and the lock), the neighbour becoming able
-    /// to answer, and the quit. Standalone and static so a test pins the joins
+    /// to answer, the neighbour ending, and the quit. Standalone and static so a test pins the joins
     /// without booting the graph.
     static func wireNeighbourOSDHandoff(
         channel: BetterDisplayCommandChannel,
@@ -1362,6 +1362,7 @@ extension AppCore {
         )
         lockController.onEngagementDecided = { [weak handoff] engaged in handoff?.setWanted(engaged) }
         channel.onNeighbourLaunched = { [weak handoff] in handoff?.reconcile() }
+        channel.onNeighbourTerminated = { [weak handoff] in handoff?.neighbourTerminated() }
         holdingTheQuit { [weak handoff] in await handoff?.handBackBeforeQuitting() }
         return handoff
     }

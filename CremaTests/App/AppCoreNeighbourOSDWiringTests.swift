@@ -1,10 +1,10 @@
 import Testing
 @testable import Crema
 
-/// The three joins of the neighbour's indicator handoff, which its own suite never
+/// The four joins of the neighbour's indicator handoff, which its own suite never
 /// exercises: the handoff is driven there by direct calls, and nothing outside this
-/// suite proves the suppression decision, the neighbour's launch and the quit
-/// actually reach it. Real channel, captured wire.
+/// suite proves the suppression decision, the neighbour's launch and end, and the
+/// quit actually reach it. Real channel, captured wire.
 @MainActor
 struct AppCoreNeighbourOSDWiringTests {
 
@@ -13,7 +13,7 @@ struct AppCoreNeighbourOSDWiringTests {
         var posted: [String] = []
     }
 
-    @Test func theDecisionTheLaunchAndTheQuitEachReachTheHandoff() async throws {
+    @Test func theDecisionTheLaunchTheEndAndTheQuitEachReachTheHandoff() async throws {
         let store = EphemeralDefaults()
         let preferences = Preferences(defaults: store.defaults)
         preferences.suppressesNativeOSD = true
@@ -23,8 +23,9 @@ struct AppCoreNeighbourOSDWiringTests {
             preferences: preferences
         )
         let wire = Wire()
+        let clock = TestSleepClock()
         let channel = BetterDisplayCommandChannel(
-            clock: TestSleepClock(),
+            clock: clock,
             newUUID: { "REQ" },
             post: { wire.posted.append($0) }
         )
@@ -48,19 +49,26 @@ struct AppCoreNeighbourOSDWiringTests {
         channel.handle(response: #"{"uuid":"REQ","result":true,"payload":"off"}"#)
         #expect(await eventually { handoff.status == .inPlace })
 
-        // The launch: the neighbour's ready signal runs another pass.
+        // The launch: the neighbour's ready signal runs another pass, which this
+        // time meets silence.
         let launched = try #require(channel.onNeighbourLaunched)
         launched()
         #expect(await eventually { wire.posted.count == 3 })
-        channel.handle(response: #"{"uuid":"REQ","result":true,"payload":"on"}"#)
-        #expect(await eventually { wire.posted.count == 4 })
-        channel.handle(response: #"{"uuid":"REQ","result":true,"payload":"off"}"#)
+        await clock.waitForSleep()
+        clock.advance()
+        #expect(await eventually { handoff.status == .unanswered })
+
+        // The end: "BetterDisplay isn't responding" stops being advice once it is
+        // gone.
+        let terminated = try #require(channel.onNeighbourTerminated)
+        terminated()
+        #expect(handoff.status == .idle)
 
         // The quit: held by the handoff until the pass in flight ends, then a pass
         // that, with nothing owed, asks the neighbour nothing.
         let handBack = try #require(quit)
         await handBack()
         #expect(handoff.status == .idle)
-        #expect(wire.posted.count == 4)
+        #expect(wire.posted.count == 3)
     }
 }

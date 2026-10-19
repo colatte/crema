@@ -36,8 +36,11 @@ final class NeighbourOSDHandoff {
         case refused
     }
 
-    /// Written only when it changes, since an unchanged write still rebuilds every
-    /// view reading it.
+    /// Most passes end where they began (a lock edge, a redundant decision), and
+    /// the menu's status block reads this, whose rebuild can pay a tap-chain read.
+    /// No guard is written for it: `@Observable` expands an equality check into the
+    /// setter (`shouldNotifyObservers`, `lhs != rhs` for an `Equatable` value), so an
+    /// unchanged write notifies nobody as long as `Status` stays `Equatable`.
     private(set) var status: Status = .idle {
         didSet { if status != oldValue { logger.info("neighbour OSD handoff: \(String(describing: self.status), privacy: .public)") } }
     }
@@ -85,6 +88,13 @@ final class NeighbourOSDHandoff {
         }
     }
 
+    /// The neighbour's process ended: a verdict about it, a refusal or its silence,
+    /// stops being advice the person can act on. What is owed stays owed, for its
+    /// next launch.
+    func neighbourTerminated() {
+        status = .idle
+    }
+
     /// Hands everything back before the process ends, whatever the intent: the
     /// neighbour keeps what it was told past Crema's exit. Returns when the pass is
     /// done, or when the neighbour's silence ended it.
@@ -110,6 +120,10 @@ final class NeighbourOSDHandoff {
                 try await handBack()
                 status = .idle
             }
+        } catch where !isNeighbourRunning() {
+            // A neighbour that quit mid-pass is gone, not unresponsive: its
+            // termination may already have been heard while the deadline ran.
+            status = .idle
         } catch {
             status = error == .unanswered ? .unanswered : .refused
         }

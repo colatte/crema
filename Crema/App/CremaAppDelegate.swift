@@ -1,14 +1,17 @@
 import AppKit
 
-/// The one AppKit life-cycle callback SwiftUI has no counterpart for: holding the
-/// quit while Crema hands a neighbour back what it took (NeighbourOSDHandoff).
-/// `willTerminateNotification` comes after the last point where an answer can
-/// still be awaited, and `ScenePhase` reports no quit at all.
+/// The AppKit callback that can hold the quit while Crema hands a neighbour back
+/// what it took (NeighbourOSDHandoff). `willTerminateNotification` is posted only
+/// once this callback has answered `.terminateNow` (Apple,
+/// NSApplication.willTerminateNotification), so the quit is decided by then, and
+/// `ScenePhase` reports a scene's phase, with nothing that holds a quit.
 ///
-/// Every orderly quit passes here — the menu's Quit, the updater's relaunch, a
-/// logout — since all of them go through `terminate(_:)`, which asks
-/// `applicationShouldTerminate(_:)` first (Apple, NSApplicationDelegate). A crash
-/// or a force quit does not, which is why what is owed is persisted.
+/// Two routes reach it: `terminate(_:)`, which the menu's Quit calls and which
+/// asks this delegate first (Apple, NSApplication.terminate(_:)); and the quit
+/// Apple event, which a non-document app answers by asking it too (Apple, "How
+/// Cocoa Applications Handle Apple Events") — the event Sparkle sends before it
+/// installs an update (Sparkle 2.9.4, `SPUUserDriver.h`). A crash or a force quit
+/// reaches neither, which is why what is owed is persisted.
 @MainActor
 final class CremaAppDelegate: NSObject, NSApplicationDelegate {
     /// What runs before the process may end, set once by the composition root.

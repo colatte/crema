@@ -76,12 +76,15 @@ enum BetterDisplayCommandTranslation {
         }
     }
 
-    /// BetterDisplay's names for the switches, from its CLI reference (BetterDisplay
-    /// Guide, "CLI reference", read 2026-10-18): `osdIntegrationNotification` is
-    /// Settings → Application → Integration → "Dispatch OSD notifications", and
-    /// `osdShowBasic` is Settings → Keyboard → OSD → "Show brightness, volume, mute
-    /// OSD". `osdShowCustom` stays the user's: it covers shortcuts Crema draws
-    /// nothing for.
+    /// BetterDisplay's names for the switches (BetterDisplay Guide, read
+    /// 2026-10-18). The names and what each turns on and off come from "CLI
+    /// reference": `osdIntegrationNotification` is the third-party OSD
+    /// notifications, `osdShowBasic` the basic OSD for brightness and volume. The
+    /// switches they are in BetterDisplay's window come from the pages describing
+    /// that window: "App Integration" names "Dispatch OSD notifications", and
+    /// "OSD" (Settings → Keyboard) names "Show brightness, volume, mute OSD" as the
+    /// basic feedback beside the custom one. `osdShowCustom` stays the user's: it
+    /// covers shortcuts Crema draws nothing for.
     private static func parameter(for setting: NeighbourOSDSetting) -> String {
         switch setting {
         case .dispatchesToOtherApps: "osdIntegrationNotification"
