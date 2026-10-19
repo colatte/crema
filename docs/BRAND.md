@@ -216,13 +216,8 @@ rule 2 and the one rule of theirs Crema can break by accident.
 
 ## State in the product
 
-Everything above is applied. Two things to keep true:
+Everything above is applied. One thing to keep true:
 
-- `docs/assets/settings-about.png` is a reference capture of the Settings
-  window (unlinked; listed in docs/README.md). It predates the current icon
-  and the About signature becoming prose, and still shows the earlier icon and
-  a glyph — recapture it after the next release build, or leave it knowing it
-  is stale.
 - The icon and the menu bar template are regenerated from `design/icon/`, and
   the download badge from `design/badge/`; none is edited in place. A change
   to the mark or the material is a change to `crema-mark.svg` or
