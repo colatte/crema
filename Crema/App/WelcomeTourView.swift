@@ -187,7 +187,7 @@ struct WelcomeTourView: View {
             content: {
                 Text(String(
                     localized: "tour.welcome.body",
-                    defaultValue: "Crema shows what’s playing on your screen, and can show its own bar when you change the volume or brightness."
+                    defaultValue: "Crema shows what’s playing on your screen, and its own indicator when you change the volume or brightness."
                 ))
                 .foregroundStyle(.secondary)
                 // Said for what is actually up there: the sample is named as one,
@@ -366,7 +366,7 @@ struct WelcomeTourView: View {
             content: {
                 Text(heardAKey
                     ? String(localized: "tour.step.try.heard", defaultValue: "That’s Crema’s indicator.")
-                    : String(localized: "tour.step.try.waiting", defaultValue: "Crema’s indicator shows up on your screen."))
+                    : String(localized: "tour.step.try.waiting", defaultValue: "Crema’s indicator will appear on your screen."))
                     .foregroundStyle(heardAKey ? AnyShapeStyle(.green) : AnyShapeStyle(.secondary))
 
                 VStack(spacing: 10) {

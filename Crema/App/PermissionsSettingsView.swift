@@ -112,7 +112,7 @@ struct PermissionsSettingsView: View {
                     Text(String(
                         localized: "settings.permissions.automation.footer",
                         // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
-                        defaultValue: "Optional. Crema only uses this when its usual way of seeing what’s playing fails: then it asks \(musicApps) directly. Without it, the player keeps working."
+                        defaultValue: "Crema only uses this when its usual way of seeing what’s playing fails; then it asks \(musicApps) directly. Without it, the player keeps working."
                     ))
                     automationDetail
                 }

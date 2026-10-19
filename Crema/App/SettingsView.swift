@@ -261,7 +261,7 @@ private struct GeneralSettingsView: View {
                     // twice.
                     Text(String(
                         localized: "settings.displays.showNowPlaying.footer",
-                        defaultValue: "The player appears only on the displays switched on here. The built-in display starts switched on."
+                        defaultValue: "The player appears only on the displays turned on here. It’s on for the built-in display by default."
                     ))
                     .settingsFootnote()
                 }
@@ -387,7 +387,7 @@ private struct NowPlayingSettingsView: View {
                 Text(String(
                     localized: "settings.nowPlaying.browsers.footer",
                     // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
-                    defaultValue: "Includes music playing in Safari, Chrome, and other browsers. This can make the player appear for autoplay videos on websites."
+                    defaultValue: "Includes music playing in Safari, Chrome, and other browsers. This can make the player appear for videos that start playing on their own on websites."
                 ))
                 .settingsFootnote()
             }

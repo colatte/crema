@@ -489,7 +489,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Conceder acesso de Acessibilidade…"
+            "value": "Permitir em Acessibilidade…"
           }
         }
       }
@@ -840,13 +840,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Changes every display at once."
+            "value": "Changes every display at once"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Muda todas as telas de uma vez."
+            "value": "Muda todas as telas de uma vez"
           }
         }
       }
@@ -982,7 +982,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Acesso de Acessibilidade para o Crema"
+            "value": "Permissão de Acessibilidade"
           }
         }
       }
@@ -1163,13 +1163,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The player appears only on the displays switched on here. The built-in display starts switched on."
+            "value": "The player appears only on the displays turned on here. It’s on for the built-in display by default."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O player aparece só nas telas marcadas aqui. Na tela integrada, ele já vem marcado."
+            "value": "O player aparece só nas telas ligadas aqui. Na tela integrada, ele já vem ligado."
           }
         }
       }
@@ -1322,7 +1322,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Para deixar uma tela diferente, escolha em Cada tela, logo abaixo."
+            "value": "Para dar a uma tela um estilo diferente, escolha em Cada tela, logo abaixo."
           }
         }
       }
@@ -1418,13 +1418,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "In BetterDisplay, turn on Settings → Application → Integration → Dispatch OSD notifications. Then turn off Settings → Keyboard → OSD → Show brightness, volume, mute OSD, so only Crema’s indicator appears."
+            "value": "In BetterDisplay, go to Settings → Application → Integration and turn on “Dispatch OSD notifications”. Then, in Settings → Keyboard → OSD, turn off “Show brightness, volume, mute OSD” so only Crema’s indicator appears."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "No BetterDisplay, ative Settings → Application → Integration → Dispatch OSD notifications. Depois, desative Settings → Keyboard → OSD → Show brightness, volume, mute OSD, para aparecer só o indicador do Crema."
+            "value": "No BetterDisplay, vá em Settings → Application → Integration e ative “Dispatch OSD notifications”. Depois, em Settings → Keyboard → OSD, desative “Show brightness, volume, mute OSD” para que só o indicador do Crema apareça."
           }
         }
       }
@@ -1748,13 +1748,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Brightness is only replaced on the built-in display, while the pointer is on it. With the pointer on another display, macOS shows its own."
+            "value": "Crema only replaces the brightness indicator on the built-in display, while the pointer is on it. With the pointer on another display, macOS shows its own."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O brilho só é substituído na tela integrada, com o ponteiro sobre ela. Com o ponteiro em outra tela, quem mostra é o macOS."
+            "value": "O Crema só substitui o indicador de brilho na tela integrada, com o ponteiro sobre ela. Com o ponteiro em outra tela, quem mostra o indicador é o macOS."
           }
         }
       }
@@ -1816,13 +1816,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Includes music playing in Safari, Chrome, and other browsers. This can make the player appear for autoplay videos on websites."
+            "value": "Includes music playing in Safari, Chrome, and other browsers. This can make the player appear for videos that start playing on their own on websites."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Inclui música tocando no Safari, Chrome e outros navegadores. Isso pode fazer o player aparecer em vídeos de reprodução automática em sites."
+            "value": "Inclui música tocando no Safari, Chrome e outros navegadores. Isso pode fazer o player aparecer em vídeos que começam a tocar sozinhos em sites."
           }
         }
       }
@@ -1924,7 +1924,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Crema pergunta ao macOS o que está tocando. Sem resposta, o player fica escondido e as opções abaixo não fazem efeito."
+            "value": "O Crema pergunta ao macOS o que está tocando. Sem resposta, o player fica escondido e as opções abaixo não têm efeito."
           }
         }
       }
@@ -2037,13 +2037,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Optional. Crema only uses this when its usual way of seeing what’s playing fails: then it asks %@ directly. Without it, the player keeps working."
+            "value": "Crema only uses this when its usual way of seeing what’s playing fails; then it asks %@ directly. Without it, the player keeps working."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Opcional. O Crema só usa isto quando o jeito normal de ver o que toca falha: aí ele pergunta direto a %@. Sem a permissão, o player continua funcionando."
+            "value": "O Crema só usa isto quando o jeito normal de ver o que está tocando falha. Nesse caso, ele pergunta direto ao %@. Sem essa permissão, o player continua funcionando."
           }
         }
       }
@@ -2145,7 +2145,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O macOS ainda não pediu esta permissão. Solicite o acesso e o macOS mostra a pergunta."
+            "value": "O macOS ainda não pediu esta permissão. Peça o acesso, e o macOS vai perguntar a você."
           }
         }
       }
@@ -2213,7 +2213,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Conceder acesso de Acessibilidade…"
+            "value": "Permitir em Acessibilidade…"
           }
         }
       }
@@ -2785,13 +2785,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Crema’s indicator shows up on your screen."
+            "value": "Crema’s indicator will appear on your screen."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O indicador do Crema aparece na sua tela."
+            "value": "O indicador do Crema vai aparecer na sua tela."
           }
         }
       }
@@ -2802,13 +2802,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Crema shows what’s playing on your screen, and can show its own bar when you change the volume or brightness."
+            "value": "Crema shows what’s playing on your screen, and its own indicator when you change the volume or brightness."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Crema mostra na tela o que está tocando e pode mostrar a própria barra quando você muda o volume ou o brilho."
+            "value": "O Crema mostra na tela o que está tocando e um indicador próprio quando você muda o volume ou o brilho."
           }
         }
       }
