@@ -342,7 +342,7 @@ private struct NowPlayingSettingsView: View {
                         : String(localized: "settings.nowPlaying.source.notReporting", defaultValue: "No answer"))
                         .foregroundStyle(core.nowPlayingMonitor.isActive ? .primary : .secondary)
                 } label: {
-                    Text(String(localized: "settings.nowPlaying.source", defaultValue: "Reading what’s playing"))
+                    Text(String(localized: "settings.nowPlaying.source", defaultValue: "Now Playing info"))
                 }
             } footer: {
                 Text(String(
@@ -360,7 +360,7 @@ private struct NowPlayingSettingsView: View {
             } footer: {
                 Text(String(
                     localized: "settings.nowPlaying.reactive.footer",
-                    defaultValue: "The player appears on its own when a track changes or playback starts. Turn off to keep it hidden until you open it."
+                    defaultValue: "The player appears on its own when a track changes or playback starts. Turn this off to keep it hidden until you open it."
                 ))
                 .settingsFootnote()
             }

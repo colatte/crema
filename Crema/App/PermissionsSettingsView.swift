@@ -62,7 +62,7 @@ struct PermissionsSettingsView: View {
                 Text(String(
                     localized: "settings.permissions.footer",
                     // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
-                    defaultValue: "Crema needs Accessibility to notice the volume and brightness keys and show its own indicators. Without it the app still works; it just doesn’t react to those keys. No need to relaunch after you allow it."
+                    defaultValue: "With Accessibility, Crema notices the volume and brightness keys and can show its own indicators. Without it, the app still works, but it can’t notice those keys. No need to restart after you allow it."
                 ))
                 .settingsFootnote()
             }

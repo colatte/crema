@@ -1884,7 +1884,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The player appears on its own when a track changes or playback starts. Turn off to keep it hidden until you open it."
+            "value": "The player appears on its own when a track changes or playback starts. Turn this off to keep it hidden until you open it."
           }
         },
         "pt-BR": {
@@ -1901,13 +1901,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reading what’s playing"
+            "value": "Now Playing info"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Leitura do que está tocando"
+            "value": "Informações do que está tocando"
           }
         }
       }
@@ -2128,7 +2128,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Solicitar acesso de Automação…"
+            "value": "Pedir permissão de Automação…"
           }
         }
       }
@@ -2190,13 +2190,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Crema needs Accessibility to notice the volume and brightness keys and show its own indicators. Without it the app still works; it just doesn’t react to those keys. No need to relaunch after you allow it."
+            "value": "With Accessibility, Crema notices the volume and brightness keys and can show its own indicators. Without it, the app still works, but it can’t notice those keys. No need to restart after you allow it."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Crema precisa da Acessibilidade para perceber as teclas de volume e brilho e mostrar os indicadores dele. Sem ela o app funciona, só não reage a essas teclas. Não é preciso reiniciar depois de permitir."
+            "value": "Com a Acessibilidade, o Crema percebe as teclas de volume e brilho e pode mostrar os próprios indicadores. Sem ela, o app continua funcionando, mas não percebe essas teclas. Não é preciso reiniciar depois de permitir."
           }
         }
       }
