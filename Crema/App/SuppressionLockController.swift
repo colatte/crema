@@ -51,6 +51,13 @@ final class SuppressionLockController {
     /// J7-estado-do-outro-lado). Nil unless the owner wires a recovery.
     var onUnlocked: (@MainActor () -> Void)?
 
+    /// Fired with every engagement decision — the level, not the edge — so a
+    /// second follower of the same rule keeps no decision of its own: the
+    /// neighbour's indicator is taken over exactly while suppression would be
+    /// engaged (docs/DECISIONS.md: the-neighbour-indicator-is-borrowed). Nil unless
+    /// the owner wires one.
+    var onEngagementDecided: (@MainActor (Bool) -> Void)?
+
     private var isSafe: Bool
     private var consumeTask: Task<Void, Never>?
 
@@ -103,6 +110,8 @@ final class SuppressionLockController {
     /// the pref here (not caching it) keeps the two inputs — lock state and
     /// preference — always reconciled, whichever changed last.
     private func applyEngagement() {
-        suppressor?.setEngaged(isSafe && preferences.suppressesNativeOSD)
+        let engaged = isSafe && preferences.suppressesNativeOSD
+        suppressor?.setEngaged(engaged)
+        onEngagementDecided?(engaged)
     }
 }

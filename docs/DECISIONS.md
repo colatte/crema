@@ -935,6 +935,65 @@ lock) — stamped rather than counted, because an announcement with no key of ou
 behind it is the ordinary case, and an immortal credit would silence an
 unrelated later key. Pinned in `BetterDisplayOSDSourceTests`, both orderings.
 
+### the-neighbour-indicator-is-borrowed
+BetterDisplay draws its own brightness, volume and mute indicator, and Crema draws
+one from BetterDisplay's dispatch, so with both on every press BetterDisplay
+handles shows two. Telling the user to switch BetterDisplay's off cures the double
+and breaks the other half: with Crema not running nothing draws at all, and the
+switch stays off in a window the user may never open again.
+Decision: while suppression would be engaged — opted in and the screen unlocked,
+the decision `SuppressionLockController` makes — Crema turns BetterDisplay's
+dispatch on and its basic indicator off over the request channel, and hands back
+exactly what it changed when it stops: the switch off, the lock, the quit
+(`NeighbourOSDHandoff`). It is the procedure BetterDisplay's Guide gives a
+receiving app ("Third-party app integration", "Coordinate feedback settings
+through requests", read 2026-10-18): read and save `osdShowBasic`, `osdShowCustom`
+and `osdIntegrationNotification`, enable dispatch, disable the overlays replaced,
+restore the saved values on shutdown, and "Do not blindly turn all settings on or
+off."
+- `osdShowCustom` stays the user's: it carries shortcuts Crema draws nothing for.
+- A switch already as needed is neither written nor owed, and one the user flips
+  back while Crema holds it is theirs: the hand-back writes only a switch that
+  still reads as Crema left it. Every write is read back, since an accepted
+  request is not a landed value (the Guide says so too).
+- The original reaches Crema's preferences BEFORE the write leaves, because
+  BetterDisplay persists the write. Measured with
+  `scripts/probes/osd-settings-betterdisplay.swift` 2026-10-18 on BetterDisplay
+  5.1.1: `get` and `set` answer in 1–7 ms, and a `set` of `osdShowBasic` lands in
+  its preferences on disk. A Crema killed while holding finds the debt at its next
+  launch and pays it (measured: `kill -9`, then a launch with the switch off
+  restored the indicator).
+- The quit is held with `applicationShouldTerminate` → `.terminateLater`
+  (`CremaAppDelegate`), under which AppKit runs the main run loop in
+  `NSModalPanelRunLoopMode` until the reply. The neighbour's answers arrive in that
+  mode — measured the same day: the quit took 0.15 s and the hand-back read back.
+  Invalidating signal: a quit whose log says "did not answer a read of …" while
+  BetterDisplay is running.
+- Silence ends the pass and keeps the debt; the next edge retries: Crema's launch,
+  BetterDisplay's `.launched` (posted once it can answer, which its workspace launch
+  is not), a lock change, the switch. No timer, which would keep asking a neighbour
+  that is not there.
+- With the screen locked the indicator goes back, as suppression is suspended:
+  nothing of Crema's draws over the shield, and BetterDisplay's "Traditional OSD"
+  style is the system's own indicator. Cost: two writes to BetterDisplay's
+  preferences per lock cycle.
+- The menu's "turn on Dispatch OSD notifications" yields once the handoff has read
+  dispatch back on, since that advice is already followed.
+
+Accepted cost: BetterDisplay's basic indicator also carries the volume of monitor
+speakers it drives over DDC, which Core Audio cannot see and Crema does not draw.
+The manual instruction carried the same cost; it reopens with external-display
+volume (PLAN.md, Phase 2). And a Crema deleted after a crash, before the launch
+that pays the debt, leaves BetterDisplay's indicator off with nobody drawing in
+its place: the switch is BetterDisplay's and persists by its design, and the
+request channel offers no change scoped to the caller's life. An orderly quit,
+the usual way an app is closed before it is deleted, restores everything. Reopens
+if BetterDisplay offers a setting scoped to the requesting app's life, or a user
+is reported left without the indicator this way.
+Discarded: writing BetterDisplay's preferences database directly (the Guide: the
+running app and macOS cache it); a fire-and-forget restore in `willTerminate`,
+which can neither read back nor tell the user's own flip from Crema's.
+
 ### the-bar-never-outruns-the-screen
 The bar has no local value: it draws the last reading, and a drag publishes the
 new level BEFORE the write leaves so the fill follows the finger instead of

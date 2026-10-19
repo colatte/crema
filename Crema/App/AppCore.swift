@@ -40,6 +40,9 @@ final class AppCore {
         let betterDisplaySource: BetterDisplayOSDSource?
         /// Writes for bars the neighbour drew; nil on demo sources.
         let externalScreenBrightnessController: (any ScreenBrightnessController)?
+        /// The neighbour's request channel, shared by the brightness writes above
+        /// and the handoff of its own indicator; nil on demo sources.
+        let betterDisplayChannel: BetterDisplayCommandChannel?
     }
 
     let coordinator: Coordinator
@@ -90,6 +93,10 @@ final class AppCore {
     /// re-engages on return iff the preference is on. Nil alongside a nil
     /// suppressor — nothing to lock-guard.
     private let suppressionLockController: SuppressionLockController?
+    /// Takes BetterDisplay's own indicator over exactly while suppression would be
+    /// engaged, and hands it back on quit. Nil alongside a nil lock controller, or
+    /// on demo sources. (docs/DECISIONS.md: the-neighbour-indicator-is-borrowed)
+    let neighbourOSDHandoff: NeighbourOSDHandoff?
     /// Launch-at-login control (SMAppService behind a protocol).
     let loginItem: any LoginItemManaging
     #if DEBUG
@@ -354,9 +361,13 @@ final class AppCore {
             // router-without-suppressor graph.
             Self.wireUnlockReinstall(from: lockController, to: tapSource)
             suppressionLockController = lockController
+            neighbourOSDHandoff = graph.betterDisplayChannel.map {
+                Self.wireNeighbourOSDHandoff(channel: $0, following: lockController, preferences: preferences)
+            }
         } else {
             osdSuppressor = nil
             suppressionLockController = nil
+            neighbourOSDHandoff = nil
         }
 
         // The gate's write stays here, before any window; the window waits a turn
@@ -684,58 +695,6 @@ final class AppCore {
 
     // MARK: - Graph builders
 
-    /// The default graph: real system HUD sources + actuators, the now-playing
-    /// fallback chain, and the routing media controller (commands follow the
-    /// active backend). The screen/keyboard brightness sources are shared between
-    /// the merged HUD stream and the media-key router (same instances, so a poke
-    /// emits into the stream the Coordinator consumes).
-    private static func makeRealGraph(
-        nowPlayingSource: any NowPlayingSource,
-        nowPlayingController: any NowPlayingController
-    ) -> SystemGraph {
-        let volumeSource = CoreAudioVolumeSource()
-
-        let screenBridge = DisplayServicesBridge()
-        let screenSource = PolledBrightnessSource(kind: .screenBrightness, backend: screenBridge)
-
-        let keyboardBridge = CoreBrightnessKeyboardBridge()
-        let keyboardSource = PolledBrightnessSource(kind: .keyboardBrightness, backend: keyboardBridge)
-
-        // Wired unconditionally: with BetterDisplay absent the source never emits,
-        // and with it present it is the ONLY brightness HUD Crema can draw for the
-        // keys BetterDisplay takes first (docs/DECISIONS.md:
-        // media-key-chain-contention). `standDown` covers the one press where both
-        // could speak — suppression off, so Crema's tap observes the key and arms
-        // its poll while the neighbour is the one that applies and reports.
-        let betterDisplaySource = Self.makeNeighbourSource(standingDown: screenSource)
-        // The way back: BetterDisplay applies what a drag on ITS bar asks for, on
-        // the same scale it reported. Wired unconditionally like the source — with
-        // the app absent the command simply goes unanswered and the drag reports a
-        // failed apply, which is what an unreachable actuator is.
-        let betterDisplayBrightness = BetterDisplayScreenBrightnessController(
-            channel: BetterDisplayCommandChannel(),
-            displayID: BetterDisplayScreenBrightnessController.liveDisplayID
-        )
-
-        return SystemGraph(
-            nowPlayingSource: nowPlayingSource,
-            systemHUDSource: MergedSystemHUDSource([
-                volumeSource, screenSource, keyboardSource, betterDisplaySource,
-            ]),
-            nowPlayingController: nowPlayingController,
-            volumeController: CoreAudioVolumeController(),
-            screenBrightnessController: DisplayServicesScreenBrightnessController(backend: screenBridge),
-            keyboardBrightnessController: CoreBrightnessKeyboardBrightnessController(backend: keyboardBridge),
-            screenBrightnessSampler: screenSource,
-            keyboardBrightnessSampler: keyboardSource,
-            volumeSampler: volumeSource,
-            screenBrightnessBackend: screenBridge,
-            keyboardBrightnessBackend: keyboardBridge,
-            betterDisplaySource: betterDisplaySource,
-            externalScreenBrightnessController: betterDisplayBrightness
-        )
-    }
-
     /// The now-playing chain: adapter first (covers browsers), JXA fallback
     /// (Spotify/Music only), else off. Each candidate is a factory so the chain
     /// can rebuild a dead source on self-heal.
@@ -790,7 +749,8 @@ final class AppCore {
             screenBrightnessBackend: nil,
             keyboardBrightnessBackend: nil,
             betterDisplaySource: nil,
-            externalScreenBrightnessController: nil
+            externalScreenBrightnessController: nil,
+            betterDisplayChannel: nil
         )
     }
 
@@ -877,6 +837,60 @@ extension AppCore {
             nowPlayingController: RoutingNowPlayingController(activeChannel: { chain.activeCommandChannel() })
         )
         return (chain, graph)
+    }
+
+    /// The default graph: real system HUD sources + actuators, the now-playing
+    /// fallback chain, and the routing media controller (commands follow the
+    /// active backend). The screen/keyboard brightness sources are shared between
+    /// the merged HUD stream and the media-key router (same instances, so a poke
+    /// emits into the stream the Coordinator consumes).
+    private static func makeRealGraph(
+        nowPlayingSource: any NowPlayingSource,
+        nowPlayingController: any NowPlayingController
+    ) -> SystemGraph {
+        let volumeSource = CoreAudioVolumeSource()
+
+        let screenBridge = DisplayServicesBridge()
+        let screenSource = PolledBrightnessSource(kind: .screenBrightness, backend: screenBridge)
+
+        let keyboardBridge = CoreBrightnessKeyboardBridge()
+        let keyboardSource = PolledBrightnessSource(kind: .keyboardBrightness, backend: keyboardBridge)
+
+        // Wired unconditionally: with BetterDisplay absent the source never emits,
+        // and with it present it is the ONLY brightness HUD Crema can draw for the
+        // keys BetterDisplay takes first (docs/DECISIONS.md:
+        // media-key-chain-contention). `standDown` covers the one press where both
+        // could speak — suppression off, so Crema's tap observes the key and arms
+        // its poll while the neighbour is the one that applies and reports.
+        let betterDisplaySource = Self.makeNeighbourSource(standingDown: screenSource)
+        // The way back: BetterDisplay applies what a drag on ITS bar asks for, on
+        // the same scale it reported. Wired unconditionally like the source — with
+        // the app absent the command simply goes unanswered and the drag reports a
+        // failed apply, which is what an unreachable actuator is.
+        let betterDisplayChannel = BetterDisplayCommandChannel()
+        let betterDisplayBrightness = BetterDisplayScreenBrightnessController(
+            channel: betterDisplayChannel,
+            displayID: BetterDisplayScreenBrightnessController.liveDisplayID
+        )
+
+        return SystemGraph(
+            nowPlayingSource: nowPlayingSource,
+            systemHUDSource: MergedSystemHUDSource([
+                volumeSource, screenSource, keyboardSource, betterDisplaySource,
+            ]),
+            nowPlayingController: nowPlayingController,
+            volumeController: CoreAudioVolumeController(),
+            screenBrightnessController: DisplayServicesScreenBrightnessController(backend: screenBridge),
+            keyboardBrightnessController: CoreBrightnessKeyboardBrightnessController(backend: keyboardBridge),
+            screenBrightnessSampler: screenSource,
+            keyboardBrightnessSampler: keyboardSource,
+            volumeSampler: volumeSource,
+            screenBrightnessBackend: screenBridge,
+            keyboardBrightnessBackend: keyboardBridge,
+            betterDisplaySource: betterDisplaySource,
+            externalScreenBrightnessController: betterDisplayBrightness,
+            betterDisplayChannel: betterDisplayChannel
+        )
     }
 }
 
@@ -1272,13 +1286,26 @@ extension AppCore {
     /// names who won and leaves the choice to the user, which is the only place
     /// it can be made (docs/DECISIONS.md: media-key-chain-contention).
     func mediaKeyChainNotice() -> MediaKeyChainNotice {
-        chainNoticeCache.notice(betterDisplayIsFeedingUs: betterDisplayIsReporting) { feeding in
+        let read = chainNoticeCache.notice(betterDisplayIsFeedingUs: betterDisplayIsReporting) { feeding in
             Self.mediaKeyChainNotice(
                 registry: eventTapRegistry,
                 ourPID: ProcessInfo.processInfo.processIdentifier,
                 betterDisplayIsFeedingUs: feeding
             )
         }
+        return Self.mediaKeyChainNotice(read, betterDisplayDispatches: neighbourOSDHandoff?.status == .inPlace)
+    }
+
+    /// The handoff's read-back outranks the chain's silence: once Crema has turned
+    /// the neighbour's dispatch on and read it back, "turn on Dispatch OSD
+    /// notifications" is advice already followed, and the neighbour ahead is the
+    /// arrangement working before its first report. Applied after the cache rather
+    /// than keyed into it: the flag costs nothing to read, so it is never stale.
+    static func mediaKeyChainNotice(
+        _ read: MediaKeyChainNotice,
+        betterDisplayDispatches: Bool
+    ) -> MediaKeyChainNotice {
+        read == .betterDisplayAheadAndSilent && betterDisplayDispatches ? .drawingFromBetterDisplay : read
     }
 
     /// The composition, standalone and static so a test pins it without booting
@@ -1308,6 +1335,35 @@ extension AppCore {
         }
         guard let name = registry.appName(forPID: pid) else { return .quiet }
         return .anotherAppAhead(name)
+    }
+}
+
+// MARK: - The neighbour's own indicator
+
+@MainActor
+extension AppCore {
+    /// Builds the handoff and joins it to the three edges it acts on: the
+    /// suppression decision (the switch and the lock), the neighbour becoming able
+    /// to answer, and the quit. Standalone and static so a test pins the joins
+    /// without booting the graph.
+    static func wireNeighbourOSDHandoff(
+        channel: BetterDisplayCommandChannel,
+        following lockController: SuppressionLockController,
+        preferences: Preferences,
+        isNeighbourRunning: @escaping @MainActor () -> Bool = {
+            !NSRunningApplication.runningApplications(withBundleIdentifier: BetterDisplayOSDSource.bundleID).isEmpty
+        },
+        holdingTheQuit: (@escaping @MainActor () async -> Void) -> Void = { CremaAppDelegate.beforeQuitting = $0 }
+    ) -> NeighbourOSDHandoff {
+        let handoff = NeighbourOSDHandoff(
+            channel: channel,
+            preferences: preferences,
+            isNeighbourRunning: isNeighbourRunning
+        )
+        lockController.onEngagementDecided = { [weak handoff] engaged in handoff?.setWanted(engaged) }
+        channel.onNeighbourLaunched = { [weak handoff] in handoff?.reconcile() }
+        holdingTheQuit { [weak handoff] in await handoff?.handBackBeforeQuitting() }
+        return handoff
     }
 }
 

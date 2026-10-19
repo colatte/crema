@@ -244,4 +244,24 @@ struct SuppressionLockControllerTests {
         #expect(await eventually { !h.suppressor.isEngaged })
         #expect(reinstalls == 0)
     }
+
+    @Test func everyDecisionReachesTheSecondFollowerAsALevel() async {
+        // The neighbour's indicator follows the same rule as the suppressor, so it
+        // must hear every decision, the redundant ones included: a level it can
+        // reconcile against, never an edge it could miss.
+        var decisions: [Bool] = []
+        let h = Harness(prefOn: true)
+        h.controller.onEngagementDecided = { decisions.append($0) }
+        h.controller.start()
+        #expect(decisions == [true])
+
+        h.lock.set(safe: false)
+        #expect(await eventually { decisions == [true, false] })
+        h.lock.set(safe: true)
+        #expect(await eventually { decisions == [true, false, true] })
+
+        h.controller.setPreferredSuppression(false)
+        #expect(decisions == [true, false, true, false])
+        #expect(decisions.last == h.suppressor.isEngaged)
+    }
 }

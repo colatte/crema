@@ -4,6 +4,7 @@ import SwiftUI
 /// The app. Launched by `CremaMain`, which keeps the unit-test host from
 /// running it.
 struct CremaApp: App {
+    @NSApplicationDelegateAdaptor(CremaAppDelegate.self) private var lifecycle
     @State private var core = AppCore()
     #if !DEBUG
     // Constructed only in Release: the updater must never exist in dev builds,

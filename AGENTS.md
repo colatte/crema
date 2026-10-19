@@ -129,7 +129,7 @@ design/           # icon/badge sources; outputs (AppIcon.icon) never by hand
 
 ## Known gaps
 
-- G1 — `AppCore.init` mostly unpinned by decision; 25 static seams are pinned.
+- G1 — `AppCore.init` mostly unpinned by decision; 26 static seams are pinned.
 - G2 — Three 0...1 clamps unshared; the third refuses NaN, so the gate is met.
 - G3 — The waveform carries no time veto; reopens with a power measurement.
 - G4 — A process ending is not its children's; `release.sh` reaps the adapter.

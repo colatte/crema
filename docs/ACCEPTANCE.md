@@ -147,3 +147,9 @@
 25. Over a white page, Card and Classic stay dark and their glyph and level read
     clearly, and the filled Card HUD's light end has a clean edge: no grey line
     round it (docs/DECISIONS.md: surface-border-2026).
+26. With BetterDisplay running and "Replace the system indicators" on, a
+    brightness key BetterDisplay handles shows Crema's indicator and not
+    BetterDisplay's, with nothing changed by hand in BetterDisplay. Quitting
+    Crema, or turning the switch off, brings BetterDisplay's indicator back at the
+    next press, and BetterDisplay's Settings show its switches as they were
+    before Crema ran. The same holds after Crema is force quit and opened again.
