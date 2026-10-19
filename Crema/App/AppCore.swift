@@ -1017,11 +1017,9 @@ extension AppCore {
     }
 
     /// The build the app is running as — the generation stamp for the intent.
-    /// Missing key is impossible in a built bundle; the empty fallback keeps the
-    /// comparison total (and reads as "changed" against any recorded build).
-    private static var currentBuild: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
-    }
+    /// The empty fallback keeps the comparison total (and reads as "changed"
+    /// against any recorded build).
+    private static var currentBuild: String { AppIdentity.build ?? "" }
 }
 
 // MARK: - Accessibility onboarding
@@ -1238,9 +1236,8 @@ extension AppCore {
     }
 
     private static func appIconPNG() -> [UInt8]? {
-        let icon = NSApp.applicationIconImage
         var rect = CGRect(x: 0, y: 0, width: 256, height: 256)
-        guard let image = icon?.cgImage(forProposedRect: &rect, context: nil, hints: nil),
+        guard let image = AppIdentity.icon.cgImage(forProposedRect: &rect, context: nil, hints: nil),
               let data = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else { return nil }
         return [UInt8](data)
     }
@@ -1342,6 +1339,12 @@ extension AppCore {
 
 @MainActor
 extension AppCore {
+    /// The Indicators tab's "Try Again", for the person who just switched the
+    /// neighbour's integration on: nothing in BetterDisplay announces that.
+    func retryNeighbourOSDHandoff() {
+        neighbourOSDHandoff?.reconcile()
+    }
+
     /// Builds the handoff and joins it to the four edges it acts on: the
     /// suppression decision (the switch and the lock), the neighbour becoming able
     /// to answer, the neighbour ending, and the quit. Standalone and static so a test pins the joins
@@ -1350,9 +1353,7 @@ extension AppCore {
         channel: BetterDisplayCommandChannel,
         following lockController: SuppressionLockController,
         preferences: Preferences,
-        isNeighbourRunning: @escaping @MainActor () -> Bool = {
-            !NSRunningApplication.runningApplications(withBundleIdentifier: BetterDisplayOSDSource.bundleID).isEmpty
-        },
+        isNeighbourRunning: @escaping @MainActor () -> Bool = { BetterDisplayOSDSource.isRunning() },
         holdingTheQuit: (@escaping @MainActor () async -> Void) -> Void = { CremaAppDelegate.beforeQuitting = $0 }
     ) -> NeighbourOSDHandoff {
         let handoff = NeighbourOSDHandoff(

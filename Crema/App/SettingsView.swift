@@ -14,18 +14,7 @@ struct SettingsView: View {
         self.core = core
         var initial = SettingsTab.general
         #if DEBUG
-        // Screenshot/dev harness: `-CremaSettingsInitialTab about` decides the
-        // tab this window LANDS on when it opens. The app's own opens go through
-        // `openSettings` (SwiftUI's OpenSettingsAction, macOS 14), from the menu,
-        // and the ones that name a tab steer it with `settingsNavigation`, which
-        // wins over this flag. An unknown name parses to nil and lands on
-        // General silently, which is the harness's contract: it steers a screenshot
-        // run, so a stale flag is worth a wrong tab and never a crash.
-        // DEBUG-only read; the selection state itself is ordinary TabView plumbing.
-        if let raw = UserDefaults.standard.string(forKey: "CremaSettingsInitialTab"),
-           let tab = SettingsTab(rawValue: raw) {
-            initial = tab
-        }
+        if let tab = SettingsTab.harnessInitial { initial = tab }
         #endif
         _selectedTab = State(initialValue: initial)
     }
@@ -211,16 +200,6 @@ private struct GeneralSettingsView: View {
                             localized: "settings.general.style.footer",
                             defaultValue: "Changes every display at once. On a display without a notch, Notch shows as Card."
                         ))
-                    // "Changes every display at once" is only half of what picking here
-                    // does: it also drops the per-display styles. Said only when
-                    // there is something to replace — a warning about nothing
-                    // teaches the reader to skip the footer.
-                    //
-                    // The sentence points DOWN, and may: an override existing among
-                    // the connected displays is one of the clauses that opens the
-                    // list, so whenever this line is drawn the section it names is
-                    // drawn under it. The welcome tour makes the same declaration
-                    // with no list beneath it, and owes its own wording for that.
                     // Where the other choice is: the declaration alone does not say
                     // a single display can differ, and the list it would be made in
                     // is drawn right under this section.
@@ -230,6 +209,17 @@ private struct GeneralSettingsView: View {
                             defaultValue: "To give one display a different style, choose it under Each display, below."
                         ))
                     }
+                    // "Changes every display at once" is only half of what picking here
+                    // does: it also drops the per-display styles. Said only when
+                    // there is something to replace — a warning about nothing
+                    // teaches the reader to skip the footer.
+                    //
+                    // The sentence points DOWN, and may: an override is kept for a
+                    // connected display, and any connected display opens the list
+                    // (`DisplayStyleOptions.listIsOffered`), so whenever this line
+                    // is drawn the section it names is drawn under it. The welcome
+                    // tour makes the same declaration with no list beneath it, and
+                    // owes its own wording for that.
                     if hasPerDisplayStyles {
                         Text(String(
                             localized: "settings.general.style.footer.replacesPerDisplay",
@@ -409,10 +399,8 @@ private struct AboutSettingsView: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            // null_resettable in AppKit (imported as an IUO — reads never
-            // return nil); the fallback keeps the no-force-unwrap discipline
-            // explicit. Decorative: the app name right below is the label.
-            Image(nsImage: NSApp.applicationIconImage ?? NSImage())
+            // Decorative: the app name right below is the label.
+            Image(nsImage: AppIdentity.icon)
                 .resizable()
                 .frame(width: 110, height: 110)
                 .padding(.bottom, 2)
@@ -453,22 +441,13 @@ private struct AboutSettingsView: View {
         .padding(.vertical, 30)
     }
 
-    /// Product name from the bundle (display name, then name), so a rename
-    /// never leaves a stale plaque; the literal is only the last-resort
-    /// fallback and is brand, not translatable chrome.
-    private var appName: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
-            ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
-            ?? "Crema"
-    }
+    /// The literal is only the last-resort fallback, and is brand, not
+    /// translatable chrome.
+    private var appName: String { AppIdentity.name ?? "Crema" }
 
-    private var shortVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
-    }
+    private var shortVersion: String { AppIdentity.version ?? "—" }
 
-    private var buildNumber: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
-    }
+    private var buildNumber: String { AppIdentity.build ?? "—" }
 
     @ViewBuilder
     private func link(_ title: String, _ url: URL?) -> some View {

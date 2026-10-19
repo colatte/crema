@@ -37,6 +37,13 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     /// closure the compiler does not isolate to the main actor.
     nonisolated static let bundleID = "pro.betterdisplay.BetterDisplay"
 
+    /// Whether BetterDisplay's process is up, matched by bundle ID and never by
+    /// the localized name. The one reading of it: this source, its command
+    /// channel's handoff and the composition root all ask here.
+    nonisolated static func isRunning() -> Bool {
+        !NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty
+    }
+
     /// Whether BetterDisplay has actually published to us. Presence of the app
     /// proves nothing — its OSD notification integration is a setting the user
     /// switches on, and it can be off with the app running — so only a delivered
@@ -87,9 +94,7 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     ) {
         self.target = target ?? Self.resolveTarget
         self.onReport = onReport
-        self.isNeighbourRunning = isNeighbourRunning ?? {
-            !NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleID).isEmpty
-        }
+        self.isNeighbourRunning = isNeighbourRunning ?? { Self.isRunning() }
 
         var cont: AsyncStream<SystemHUD>.Continuation!
         // Newest-bounded: a held brightness key emits once per step, and a
@@ -114,7 +119,7 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     /// here: the source is harmless when the app is absent, and the merged HUD
     /// source stays available through its other inputs either way.
     func isAvailable() async -> Bool {
-        !NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleID).isEmpty
+        Self.isRunning()
     }
 
     /// The payload entry point — a delivered OSD notification funnels here.

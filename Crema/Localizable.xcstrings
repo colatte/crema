@@ -1480,6 +1480,23 @@
         }
       }
     },
+    "settings.hud.betterDisplay.retry": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try Again"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tentar de novo"
+          }
+        }
+      }
+    },
     "settings.hud.betterDisplay.unanswered": {
       "extractionState": "manual",
       "localizations": {
