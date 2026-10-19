@@ -907,9 +907,10 @@ WHEN the claim is read. The Settings line reporting it is a body SwiftUI has alr
 built, and the person reading that line is usually the one about to switch the
 neighbour's integration on in the other app — so a claim that only refreshes on the
 next open answers "no" to someone who just made it true. `hasReported` is therefore
-observable and the line flips with the window open; the write is guarded in both
-directions, since BetterDisplay quitting with its integration off is the ordinary
-case and an unchanged write still rebuilds every view reading the claim. It stays a
+observable and the line flips with the window open. BetterDisplay quitting with its
+integration off is the ordinary case and must rebuild nothing; the @Observable setter
+already skips an equal write (`shouldNotifyObservers`), and the write is guarded in
+both directions anyway, to keep that intent at the call site. It stays a
 plain forwarding read on the way up (`AppCore.betterDisplayIsReporting` is a computed
 property over the source): caching it into a stored field anywhere on that path puts
 the staleness back.
