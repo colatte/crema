@@ -19,6 +19,9 @@ final class MockOSDSettingsChannel: OSDSettingsChannel {
     /// Runs as each write arrives, before it lands: where a test looks at what the
     /// caller had already persisted when the request left.
     var onWrite: ((NeighbourOSDSetting, Bool) -> Void)?
+    /// Runs as each read arrives, before it answers: where a test changes the
+    /// world while a request is in flight.
+    var onRead: ((NeighbourOSDSetting) -> Void)?
 
     init(_ values: [NeighbourOSDSetting: Bool]) {
         self.values = values
@@ -33,6 +36,7 @@ final class MockOSDSettingsChannel: OSDSettingsChannel {
 
     func read(_ setting: NeighbourOSDSetting) async throws(OSDSettingsError) -> Bool {
         calls.append(.read(setting))
+        onRead?(setting)
         if let failure { throw failure }
         return values[setting] ?? false
     }

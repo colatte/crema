@@ -127,6 +127,37 @@ struct NeighbourOSDHandoffTests {
         #expect(h.channel.values == [.dispatchesToOtherApps: false, .showsOwnIndicator: true])
     }
 
+    @Test func aNeighbourThatQuitsLeavesNoAdviceBehind() async {
+        // "Isn't responding, turn this on" about an app that is simply closed
+        // sends the person to a window that is not there.
+        let h = Harness()
+        h.channel.failure = .unanswered
+        h.handoff.setWanted(true)
+        #expect(await eventually { h.handoff.status == .unanswered })
+
+        h.neighbour.running = false
+        h.handoff.neighbourTerminated()
+
+        #expect(h.handoff.status == .idle)
+    }
+
+    @Test func silenceFromANeighbourThatQuitMidPassIsNotUnresponsiveness() async {
+        // The termination can be heard while the deadline still runs; the pass
+        // that ends after it must not bring the stale verdict back.
+        let h = Harness()
+        h.handoff.setWanted(true)
+        #expect(await eventually { h.handoff.status == .inPlace })
+
+        h.channel.failure = .unanswered
+        let neighbour = h.neighbour
+        h.channel.onRead = { _ in neighbour.running = false }
+        h.handoff.reconcile()
+
+        // Leaving `.inPlace` is the pass's end either way; where it lands is the claim.
+        #expect(await eventually { h.handoff.status != .inPlace })
+        #expect(h.handoff.status == .idle)
+    }
+
     @Test func aWriteThatDoesNotTakeIsARefusal() async {
         // An accepted request is not a landed value (BetterDisplay Guide: "an
         // accepted request [does not prove] a physical device completed the

@@ -966,7 +966,8 @@ off."
 - The quit is held with `applicationShouldTerminate` → `.terminateLater`
   (`CremaAppDelegate`), under which AppKit runs the main run loop in
   `NSModalPanelRunLoopMode` until the reply. The neighbour's answers arrive in that
-  mode — measured the same day: the quit took 0.15 s and the hand-back read back.
+  mode — measured the same day: an `osascript` quit returned in 0.15 s, and the
+  process logged the hand-back, read back, before it ended.
   Invalidating signal: a quit whose log says "did not answer a read of …" while
   BetterDisplay is running.
 - Silence ends the pass and keeps the debt; the next edge retries: Crema's launch,

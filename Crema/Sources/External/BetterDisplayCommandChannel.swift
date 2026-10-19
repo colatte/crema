@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import os
 
@@ -65,16 +66,24 @@ final class BetterDisplayCommandChannel: BrightnessCommandChannel, OSDSettingsCh
     // holds an observer unowned, so the deinit still has to name it.
     private nonisolated(unsafe) var responseRelay: DistributedPayloadRelay?
     private nonisolated(unsafe) var launchRelay: DistributedPayloadRelay?
+    private nonisolated(unsafe) var terminationObserver: NSObjectProtocol?
 
     /// Called each time BetterDisplay says it is ready to answer: a neighbour
     /// launched after Crema has heard nothing Crema asked before it was there.
     var onNeighbourLaunched: (@MainActor () -> Void)?
 
+    /// Called when BetterDisplay's process ends, by whatever means: whatever the
+    /// last request learned about it stops being true.
+    var onNeighbourTerminated: (@MainActor () -> Void)?
+
     private let logger = Logger.crema("External")
 
     /// How long a command waits for the neighbour's verdict before it counts as
-    /// unanswered. NOT measured: no probe has timed BetterDisplay's answer, so the
-    /// number is a choice, pinned by test so that it changes only on purpose.
+    /// unanswered. A margin, not a measurement: BetterDisplay 5.1.1 answered every
+    /// settings request in 1–7 ms (`scripts/probes/osd-settings-betterdisplay.swift`,
+    /// 2026-10-18), and no probe has timed a brightness command, so the number is a
+    /// choice far above the one round-trip measured, pinned by test so that it
+    /// changes only on purpose.
     /// Invalidating signal: a drag whose bar rolls back while the screen did move
     /// (the "did not answer … in time" line beside a brightness change), or a
     /// probe that puts the round-trip near this bound.
@@ -107,6 +116,9 @@ final class BetterDisplayCommandChannel: BrightnessCommandChannel, OSDSettingsCh
     deinit {
         for relay in [responseRelay, launchRelay].compactMap(\.self) {
             DistributedNotificationCenter.default().removeObserver(relay)
+        }
+        if let terminationObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(terminationObserver)
         }
     }
 
@@ -227,5 +239,18 @@ final class BetterDisplayCommandChannel: BrightnessCommandChannel, OSDSettingsCh
             suspensionBehavior: .deliverImmediately
         )
         launchRelay = launched
+
+        // The workspace edge, not BetterDisplay's own `.terminated`: that one is
+        // posted "during orderly shutdown" only (same Guide page), and a crash is
+        // just as much an end to what the last answer said.
+        terminationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didTerminateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            guard app?.bundleIdentifier == BetterDisplayOSDSource.bundleID else { return }
+            MainActor.assumeIsolated { self?.onNeighbourTerminated?() }
+        }
     }
 }
