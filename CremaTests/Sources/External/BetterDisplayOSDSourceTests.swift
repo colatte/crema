@@ -295,9 +295,11 @@ struct BetterDisplayOSDSourceTests {
     }
 
     @Test func aTerminationWithNothingToRetractInvalidatesNothing() async {
-        // The guarded half: BetterDisplay quitting with its OSD integration off is
-        // the ordinary case, and an unchanged write still rebuilds every view
-        // reading the claim.
+        // BetterDisplay quitting with its OSD integration off is the ordinary case,
+        // and it must rebuild nothing that reads the claim. This pins that
+        // contract, not the guard: the @Observable setter skips an equal write on
+        // its own, so removing the guard would not fail it
+        // (CoordinatorMenuMirrorTests says the same of its mirrors).
         let source = makeSource()
         let changed = Flag()
         withObservationTracking {

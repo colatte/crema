@@ -46,8 +46,9 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     /// Observable because the Settings line that shows it is read from a body
     /// SwiftUI has already built: a user who switches the neighbour's integration
     /// on with that window in front of them must see the line change there, not on
-    /// the next open. Written only when it actually flips, since an unchanged write
-    /// still rebuilds every view reading it.
+    /// the next open. Written only when it actually flips — although the
+    /// @Observable setter already skips an equal value (`shouldNotifyObservers`):
+    /// the guard keeps the intent at the call site, the way the other mirrors do.
     private(set) var hasReported = false
 
     @ObservationIgnored private let continuation: AsyncStream<SystemHUD>.Continuation
@@ -136,8 +137,8 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     /// must not keep claiming an integration that has no one on the other end.
     ///
     /// A neighbour that quits having never reported — its OSD integration switched
-    /// off — is the common case, so the write is guarded: an unchanged one still
-    /// invalidates every view reading the claim.
+    /// off — is the common case, and nothing reading the claim may rebuild for it.
+    /// The setter already skips the equal write; the guard says so here.
     func noteBetterDisplayTerminated() {
         if hasReported { hasReported = false }
     }
