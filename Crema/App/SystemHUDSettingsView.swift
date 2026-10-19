@@ -82,7 +82,7 @@ struct SystemHUDSettingsView: View {
                     Text(String(
                         localized: "settings.hud.betterDisplay.howTo",
                         // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
-                        defaultValue: "In BetterDisplay, turn on Settings → Application → Integration → OSD notification. In that same panel, turn off BetterDisplay’s own brightness indicator (OSD)."
+                        defaultValue: "In BetterDisplay, go to Settings → Application → Integration and turn on “Dispatch OSD notifications”. Then, in Settings → Keyboard → OSD, turn off “Show brightness, volume, mute OSD” so only Crema’s indicator appears."
                     ))
                 }
                 .settingsFootnote()

@@ -75,6 +75,6 @@ struct StyleMenu: View {
         // display and sweeps the per-display overrides. Same sentence the
         // Settings footer opens with, word for word — one name per concept, in
         // each language.
-        Text(String(localized: "menu.style.appliesEverywhere", defaultValue: "Changes every display at once."))
+        Text(String(localized: "menu.style.appliesEverywhere", defaultValue: "Changes every display at once"))
     }
 }

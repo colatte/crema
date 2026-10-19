@@ -91,7 +91,7 @@ while Date() < deadline {
 print("\n=== \(received) notification(s) in 25 s")
 if received == 0 {
     print("NOTHING ARRIVED. Either the integration is off in BetterDisplay")
-    print("(Settings -> Application -> Integration -> OSD notification, 4.2.1+),")
+    print("(Settings -> Application -> Integration -> Dispatch OSD notifications, 4.2.1+),")
     print("or it stopped publishing. Crema draws its brightness HUD from exactly")
     print("this payload, so with nothing arriving there is nothing for it to draw.")
 } else {

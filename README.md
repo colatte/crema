@@ -211,9 +211,11 @@ when it happens.
 <br>
 
 Yes. In BetterDisplay (4.2.1 or newer; Crema is measured against 5.1.1), turn
-on **Settings → Application → Integration → OSD notification**, and turn off
-BetterDisplay's own OSD in that same pane. BetterDisplay keeps the keys and its
-brightness curve, and Crema draws the indicator, on the display it belongs to.
+on **Settings → Application → Integration → Dispatch OSD notifications**, and
+turn off **Settings → Keyboard → OSD → Show brightness, volume, mute OSD**, so
+only Crema's indicator appears. BetterDisplay keeps the keys and its brightness
+curve, on every display, and Crema draws the indicator on the display it belongs
+to.
 Dragging the bar sends the level back through BetterDisplay's command channel,
 a separate BetterDisplay setting; with that off, a drag on the built-in display
 uses the system's own scale, and on an external one it moves nothing. Crema's
