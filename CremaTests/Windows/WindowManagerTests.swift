@@ -460,10 +460,14 @@ struct WindowManagerTests {
 
     /// Panel double that commits a hover from inside its first armed apply —
     /// exactly what arming a real hover monitor does when the cursor is already
-    /// inside the region (setActive → sample → report → hover).
+    /// inside the region (setActive → sample → report → hover). It also records
+    /// whether an apply ever began while another was still running on it: the
+    /// frame-pass guard's contract.
     @MainActor
     private final class HoverCommittingPanel: PresentationPanel {
         private(set) var appliedFrames: [CGRect] = []
+        private(set) var wasReentered = false
+        private var applying = false
         var onFirstArmedApply: (() -> Void)?
 
         // swiftlint:disable:next function_parameter_count
@@ -476,6 +480,9 @@ struct WindowManagerTests {
             hudIndicatorStyle: HUDIndicatorStyle,
             invokeZone: CGRect?
         ) {
+            if applying { wasReentered = true }
+            applying = true
+            defer { applying = false }
             appliedFrames.append(frame)
             if hoverArmed, let fire = onFirstArmedApply {
                 onFirstArmedApply = nil
@@ -486,16 +493,14 @@ struct WindowManagerTests {
         func close() {}
     }
 
-    /// The guard's actual contract, which needs a SECOND display to be visible.
-    ///
-    /// With one panel the two behaviours converge — deferred or nested, the last
-    /// frame that panel receives is the fresh one — which is why the test below
-    /// stays green against a mutation removing the guard entirely. With two, a
-    /// nested pass runs to completion in the middle of the outer one, and the
-    /// outer loop then hands its remaining panels the frame it computed BEFORE
-    /// the state changed: the second display is left holding a stale silhouette
-    /// until something else happens to trigger another pass.
-    @Test func aNestedPassNeverLeavesASecondDisplayHoldingTheOldFrame() async {
+    /// The frame-pass guard's contract: a state write made from inside a panel's
+    /// apply defers the next pass instead of running it there, so no panel's apply
+    /// is entered again while it is still running — a real panel mid-apply is
+    /// arming its hover monitors. The final frames are not the witness: each
+    /// panel's frame is read from the live layers, so every display ends on the
+    /// fresh state with or without the guard (removing it entirely leaves the
+    /// frame assertions green, measured); `wasReentered` is what fails.
+    @Test func aNestedStateWriteNeverReentersAPanelAndEveryDisplayEndsFresh() async {
         let base = CoordinatorHarness()
         let store = EphemeralDefaults()
         let preferences = Preferences(defaults: store.defaults)
@@ -536,13 +541,13 @@ struct WindowManagerTests {
         ]
         #expect(landed.count == 2)
         #expect(wanted.allSatisfy(landed.contains))
+        #expect(panels.allSatisfy { !$0.wasReentered })
     }
 
     @Test func aNestedHoverCommitDuringAFramePassConvergesOnTheFreshState() async {
-        // Every frame pass must go through the re-entrancy guard: a nested
-        // state write (here, the hover committed mid-apply) defers, and the
-        // final pass runs with the final state — two passes never interleave,
-        // and no panel is left holding a stale pre-write frame.
+        // The guard on the screen-update path, the pass a hotplug runs: the hover
+        // committed mid-apply defers the next pass, so the panel is never
+        // re-entered, and it ends on the final state.
         let base = CoordinatorHarness()
         let store = EphemeralDefaults()
         let preferences = Preferences(defaults: store.defaults)
@@ -557,12 +562,12 @@ struct WindowManagerTests {
         panel.onFirstArmedApply = { [coordinator = base.coordinator] in
             coordinator.hover(true, on: .both)
         }
-        // updateScreens is one of the passes that must go through the guard.
         manager.updateScreens([Self.screen("A")])
 
         #expect(base.coordinator.state == .nowPlaying(track, expanded: true))
         let geometry = Self.screen("A").geometry
         #expect(panel.appliedFrames.last == Style.card.frame(for: .nowPlaying(track, expanded: true), on: geometry))
+        #expect(!panel.wasReentered)
     }
 
     @Test func stateChangeAppliesFramesInTheSameCallout() async throws {
@@ -688,8 +693,7 @@ struct WindowManagerTests {
         #expect(h.recorder.panel(for: a.id)?.hoverArmedStates.last == true)
 
         // Tucked with media paused: disarmed, and no invoke zone either —
-        // paused media is not click-invokable (same rule as the old
-        // paused-resurface decision).
+        // paused media is not click-invokable.
         await h.base.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
         h.base.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
         #expect(await eventually { h.base.coordinator.state == .hidden })

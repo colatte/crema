@@ -31,7 +31,7 @@ struct BlockingCallTests {
         // stall or an output dropping mid-write.
         for _ in 0..<cores {
             Task.detached {
-                try? await blockingCall {
+                await blockingCall {
                     if started.increment() == cores { allStarted.signal() }
                     gate.wait()
                 }

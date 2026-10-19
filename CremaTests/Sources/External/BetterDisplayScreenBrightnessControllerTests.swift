@@ -28,7 +28,7 @@ struct BetterDisplayScreenBrightnessControllerTests {
             displayID: { $0 == nil ? 1 : 2 }
         )
 
-        try await controller.setBrightness(0.4, on: nil)
+        _ = try await controller.setBrightness(0.4, on: nil)
 
         // #expect does not halt the test, so the subscript needs its own guard —
         // a trap here would kill the host and every in-flight sibling.
@@ -45,7 +45,7 @@ struct BetterDisplayScreenBrightnessControllerTests {
             displayID: { [external] display in display == external ? 7 : nil }
         )
 
-        try await controller.setBrightness(0.9, on: external)
+        _ = try await controller.setBrightness(0.9, on: external)
 
         let first = try #require(channel.written.first)
         #expect(first.displayID == 7)
@@ -109,12 +109,12 @@ struct BetterDisplayScreenBrightnessControllerTests {
 
         // Three more frames of the same gesture, while the first is in flight.
         for value in [0.4, 0.6, 0.8] {
-            try? await controller.setBrightness(value, on: nil)
+            _ = try? await controller.setBrightness(value, on: nil)
         }
         #expect(channel.callCount == 1)      // none of them reached the channel
 
         channel.letGo()
-        await first.value
+        _ = await first.value
 
         #expect(await eventuallyOffActor { channel.written == [0.2, 0.8] })
     }

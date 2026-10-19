@@ -125,7 +125,7 @@ private final class ProductionWiredSuppression {
 
 /// UserDefaults that counts every write per key, so a test can tell "never
 /// written" apart from "written back to the same value".
-private final class WriteCountingDefaults: UserDefaults, @unchecked Sendable {
+private final class WriteCountingDefaults: UserDefaults {
     private let lock = NSLock()
     private var counts: [String: Int] = [:]
 

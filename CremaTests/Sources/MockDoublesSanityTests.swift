@@ -77,7 +77,7 @@ struct MockDoublesSanityTests {
     @Test func mockScreenBrightnessControllerRecordsAdjustments() async throws {
         let controller = MockScreenBrightnessController()
 
-        try await controller.setBrightness(0.9, on: nil)
+        _ = try await controller.setBrightness(0.9, on: nil)
 
         #expect(controller.commands == [.setBrightness(0.9, display: nil)])
     }
