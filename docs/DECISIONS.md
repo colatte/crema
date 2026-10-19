@@ -983,8 +983,13 @@ off."
 Accepted cost: BetterDisplay's basic indicator also carries the volume of monitor
 speakers it drives over DDC, which Core Audio cannot see and Crema does not draw.
 The manual instruction carried the same cost; it reopens with external-display
-volume (PLAN.md, Phase 2). A Crema deleted while it holds the switch leaves
-BetterDisplay's indicator off (docs/KNOWN-GAPS.md).
+volume (PLAN.md, Phase 2). And a Crema deleted after a crash, before the launch
+that pays the debt, leaves BetterDisplay's indicator off with nobody drawing in
+its place: the switch is BetterDisplay's and persists by its design, and the
+request channel offers no change scoped to the caller's life. An orderly quit,
+the usual way an app is closed before it is deleted, restores everything. Reopens
+if BetterDisplay offers a setting scoped to the requesting app's life, or a user
+is reported left without the indicator this way.
 Discarded: writing BetterDisplay's preferences database directly (the Guide: the
 running app and macOS cache it); a fire-and-forget restore in `willTerminate`,
 which can neither read back nor tell the user's own flip from Crema's.
