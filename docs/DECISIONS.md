@@ -589,7 +589,8 @@ author accepts the system's trade where the system makes it.
 - A soft shadow matches the one under the system's OSD over a pale page.
 Classic keeps the film path by identity: it is the pre-Tahoe bezel, dark and
 translucent. Systems before macOS 26 have no glass and keep it too. The Settings
-tiles still draw every floating surface dark, the film path's look.
+tiles draw the Card as glass too: Settings is the key window, where the glass
+draws its own rim and refracts the desk in the picture.
 Reopening gate: a public way to draw never-key glass active, the system's OSD
 leaving glass, or a run of either probe moving the numbers above.
 ### ink-meets-the-minimum

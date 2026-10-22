@@ -11,12 +11,11 @@ import SwiftUI
 /// - The subject is the black shape, not the scenery. A wallpaper at full
 ///   contrast competes with the one thing these pictures exist to compare, so it
 ///   goes under a dark wash and stays background.
-/// - The tiles draw every floating surface dark, the film path's look
-///   (docs/DECISIONS.md: hud-fixed-dark-palette), and a tile that went bright
-///   under a pale wallpaper would show the desk instead of the skin. The wash
-///   keeps every desk dark enough for the surface on it to read. The Card's glass
-///   turns pale over a pale page (the-card-is-glass), which the tiles do not
-///   depict.
+/// - The film path's surfaces are dark (docs/DECISIONS.md:
+///   hud-fixed-dark-palette), and a tile that went bright under a pale wallpaper
+///   would show the desk instead of the skin. The wash keeps every desk dark
+///   enough for the surface on it to read; the Card's glass, drawn as glass,
+///   takes its tone from that same desk (the-card-is-glass).
 ///
 /// The gradient stays as the fallback for a desk that cannot be read — no picture
 /// reported, or a dynamic/aerial desktop ImageIO will not open — because a hole

@@ -78,6 +78,7 @@ struct StyleThumbnail: View {
         PreviewSurface(
             size: surfaceSize,
             isOpaque: shapes.surfaceIsOpaque,
+            isGlass: shapes.surfaceIsGlass,
             hangsFromTopEdge: shapes.surfaceHangsFromTopEdge,
             arrangement: shapes.contentArrangement
         )

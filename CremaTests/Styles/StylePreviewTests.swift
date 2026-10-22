@@ -205,3 +205,22 @@ struct StylePreviewTests {
         #expect(StylePreview.hudBar(at: .topCenter).minY < 0.1)
     }
 }
+
+/// Which picture draws its surface as glass: the Card's, where the system has
+/// glass, whatever style was declared for a display that resolves to the Card.
+struct StylePreviewGlassTests {
+
+    @Test func onlyTheCardIsGlassAndOnlyWhereTheSystemHasIt() {
+        #expect(StylePreview.shapes(for: .card, cardIsGlass: true).surfaceIsGlass)
+        #expect(!StylePreview.shapes(for: .card, cardIsGlass: false).surfaceIsGlass)
+        #expect(!StylePreview.shapes(for: .notch, cardIsGlass: true).surfaceIsGlass)
+        #expect(!StylePreview.shapes(for: .classic, cardIsGlass: true).surfaceIsGlass)
+    }
+
+    @Test func aNotchOnASlitlessPanelIsPicturedAsTheGlassCardItDraws() {
+        let slitless = ScreenGeometry(frame: CGRect(x: 0, y: 0, width: 1920, height: 1080))
+        let shapes = StylePreview.shapes(for: .notch, on: slitless, cardIsGlass: true)
+        #expect(shapes.surfaceIsGlass)
+        #expect(!shapes.surfaceIsOpaque)
+    }
+}

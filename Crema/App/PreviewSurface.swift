@@ -6,32 +6,33 @@ import SwiftUI
 struct PreviewSurface: View {
     let size: CGSize
     let isOpaque: Bool
+    let isGlass: Bool
     let hangsFromTopEdge: Bool
     let arrangement: PreviewContentArrangement
     /// The corner of a floating surface: the pictures round every skin alike.
     private let cornerRadius: CGFloat = 2
 
     var body: some View {
-        shape
-            .fill(isOpaque ? Color.black : Color.black.opacity(Thumbnail.floatingSurfaceOpacity))
-            // Depth only on the ones that float, and it is the cue that survives
-            // the scale: the card's real gap from the top edge is under a point
-            // here, so a shadow says "on top of the screen" where the gap cannot,
-            // and the skin welded to the bezel correctly casts none.
+        // Depth only on the ones that float, and it is the cue that survives the
+        // scale: the card's real gap from the top edge is under a point here, so
+        // a shadow says "on top of the screen" where the gap cannot, and the skin
+        // welded to the bezel correctly casts none.
+        material
             .previewDepth(floats: !hangsFromTopEdge)
             .overlay { content }
-            // The floating skins' own border (vibrantSurface), read from the one
+            // The film path's own border (vibrantSurface), read from the one
             // place its numbers live: the real surface ramps a specular from the
             // top edge, and at this size a hairline that fades reads as no edge at
             // all, so the picture takes that ramp's brightest point
             // (`SurfaceChrome.tileStrokeTopOpacity`) as a flat line, at the
             // specular's own width. Neither number is written out here: a literal
             // would be a second description of a border the app draws elsewhere,
-            // in the one place a user compares the skins. Only the notch has none —
-            // it camouflages with the cutout it covers, and that is the difference
-            // a user names first when the three are side by side.
+            // in the one place a user compares the skins. The notch has none — it
+            // camouflages with the cutout it covers, and that is the difference a
+            // user names first when the three are side by side — and the glass
+            // draws its own.
             .overlay {
-                if !isOpaque {
+                if !isOpaque, !isGlass {
                     shape.strokeBorder(
                         .white.opacity(SurfaceChrome.tileStrokeTopOpacity),
                         lineWidth: SurfaceChrome.specularWidth
@@ -39,6 +40,19 @@ struct PreviewSurface: View {
                 }
             }
             .frame(width: size.width, height: size.height)
+    }
+
+    /// The Card's glass as glass: the Settings window is the key window, where
+    /// glass draws its own rim and refracts the desk drawn under the picture, so
+    /// it needs no stand-in and no hairline. The other floating skins keep the
+    /// dark stand-in for a material that cannot be drawn here (it blends what is
+    /// behind the window, not the desk in the picture).
+    @ViewBuilder private var material: some View {
+        if isGlass, #available(macOS 26, *) {
+            Color.clear.glassEffect(.clear, in: shape)
+        } else {
+            shape.fill(isOpaque ? Color.black : Color.black.opacity(Thumbnail.floatingSurfaceOpacity))
+        }
     }
 
     /// What the surface holds, in miniature: cover art and the track's lines.

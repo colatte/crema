@@ -25,9 +25,12 @@ private struct GlassCardSurface<S: InsettableShape>: ViewModifier {
     @Environment(\.colorSchemeContrast) private var contrast
 
     func body(content: Content) -> some View {
-        // Increase Contrast dims the glass so white ink meets the minimum, the
-        // higher contrast scheme the HIG asks that setting to deliver.
+        // What draws on the glass reads it: a recess tuned for a dark surface
+        // would cut a groove into a pale one (CapsuleTrack). Increase Contrast
+        // dims the glass so white ink meets the minimum, the higher contrast
+        // scheme the HIG asks that setting to deliver.
         content
+            .environment(\.surfaceIsGlass, true)
             .background { Color.black.opacity(SurfaceChrome.glassDimming(contrast)) }
             // Composited and clipped once, as `vibrantSurface` does: the light
             // fill's edge pixels must not show the glass beneath them as a ring.
@@ -55,5 +58,18 @@ private struct GlassCardSurface<S: InsettableShape>: ViewModifier {
                 radius: SurfaceChrome.glassShadowRadius,
                 y: SurfaceChrome.glassShadowY
             )
+    }
+}
+
+private struct SurfaceIsGlassKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// Whether the surface underneath is the Card's Liquid Glass, which follows
+    /// the page behind it instead of staying dark (`cardSurface`).
+    var surfaceIsGlass: Bool {
+        get { self[SurfaceIsGlassKey.self] }
+        set { self[SurfaceIsGlassKey.self] = newValue }
     }
 }

@@ -97,14 +97,25 @@ private struct IndicatorTile: View {
     /// rearrange fixed metrics — the icon column, the horizontal padding, the 4 pt
     /// track — into a composition no card ever shows, and a preview of an
     /// arrangement that does not exist is a preview of nothing.
+    /// What the indicator stands on. The Card's glass as glass where the Card is
+    /// glass: Settings is the key window, where glass draws its own rim and
+    /// refracts the desk drawn under the tile. Otherwise a flat stand-in for the
+    /// card's material, never `vibrantSurface`: that material blends what is
+    /// behind the WINDOW, so inside Settings it would sample the desktop behind
+    /// the pane instead of the desk drawn right here — a hole in the picture where
+    /// the surface should be.
+    @ViewBuilder private var stand: some View {
+        let shape = RoundedRectangle(cornerRadius: CardMetrics.hudSystemCornerRadius, style: .continuous)
+        if SurfaceChrome.cardIsGlass, #available(macOS 26, *) {
+            Color.clear.glassEffect(.clear, in: shape)
+        } else {
+            shape.fill(Color.black.opacity(IndicatorThumbnail.surfaceOpacity))
+        }
+    }
+
     private var surface: some View {
         ZStack {
-            // A flat stand-in for the card's material, never `vibrantSurface`:
-            // that material blends what is behind the WINDOW, so inside Settings
-            // it would sample the desktop behind the pane instead of the desk
-            // drawn right here — a hole in the picture where the surface should be.
-            RoundedRectangle(cornerRadius: CardMetrics.hudSystemCornerRadius, style: .continuous)
-                .fill(Color.black.opacity(IndicatorThumbnail.surfaceOpacity))
+            stand
             CardHUDIndicator(
                 kind: IndicatorThumbnail.sample.kind,
                 presentation: HUDPresentation(hud: IndicatorThumbnail.sample),
@@ -125,12 +136,16 @@ private struct IndicatorTile: View {
         // the scale — otherwise the half-point line arrives as a fifth of one,
         // finer than the pixel grid, and disappears the same way a faded edge does.
         .overlay {
-            RoundedRectangle(cornerRadius: CardMetrics.hudSystemCornerRadius, style: .continuous)
-                .strokeBorder(
-                    Color.white.opacity(SurfaceChrome.tileStrokeTopOpacity),
-                    lineWidth: IndicatorThumbnail.surfaceStrokeWidth
-                )
+            if !SurfaceChrome.cardIsGlass {
+                RoundedRectangle(cornerRadius: CardMetrics.hudSystemCornerRadius, style: .continuous)
+                    .strokeBorder(
+                        Color.white.opacity(SurfaceChrome.tileStrokeTopOpacity),
+                        lineWidth: IndicatorThumbnail.surfaceStrokeWidth
+                    )
+            }
         }
+        // The indicator reads the surface it sits on, as it does on the card.
+        .environment(\.surfaceIsGlass, SurfaceChrome.cardIsGlass)
         // Pinned dark ENCLOSING the surface, as the card pins it: the HUD's ink is
         // drawn for a dark surface, so in a light Settings window the glyph would
         // otherwise arrive black on black (docs/DECISIONS.md: hud-fixed-dark-palette).
