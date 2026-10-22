@@ -104,6 +104,9 @@ enum PanelSurface: Hashable, Sendable {
     /// The skin's: the Card's HUD hangs from the top of its own window too, and
     /// commits its hover at once like the card.
     var surfaceVerticalAnchor: SurfaceVerticalAnchor { style.surfaceVerticalAnchor }
+    /// Room the window keeps above the surface it hangs from its top: an upright
+    /// Card HUD's, for the pull past the bar's top end; none anywhere else.
+    var surfaceTopInset: CGFloat { CardMetrics.hudTopHeadroom(for: hudAxis) }
     var hoverCommit: Style.HoverCommit { style.hoverCommit }
 
     /// The skin's own view, reading the layers `displayPolicy` names.

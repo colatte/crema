@@ -24,6 +24,18 @@ final class Coordinator {
     /// restarting on every key press). The single place this number lives.
     static let defaultHUDRevertDelay: Double = 1.5
 
+    /// How long a press past the end holds the bar pulled out before it springs
+    /// back. Long enough for the pull to read on a single press; an autorepeat
+    /// burst refreshes it every few tens of milliseconds, so a held key holds
+    /// the bar out (docs/DECISIONS.md: the-bar-answers-the-press).
+    static let defaultHUDPushHold: Double = 0.15
+
+    /// How long the bar stays grown after the last press or the end of a drag
+    /// before it settles thin, well inside the HUD's own revert: the grown bar
+    /// says "in use", the thin one "showing the level"
+    /// (docs/DECISIONS.md: the-bar-answers-the-press).
+    static let defaultHUDEngagedHold: Double = 0.6
+
     /// How long a now-playing appearance lingers before tucking away. In
     /// reactive mode a media event (track change, play/pause) surfaces it
     /// temporarily; it does not sit on screen for the whole playback. Hover
@@ -61,6 +73,15 @@ final class Coordinator {
     private(set) var layers = PresentationLayers() {
         didSet { onPresentationChange?() }
     }
+
+    /// The press past an end the bar is answering, nil at rest. Kept apart from
+    /// `layers`: it moves no frame, and a write there runs the frame pass.
+    private(set) var hudPush: HUDPush?
+
+    /// Whether the HUD is in use — a press just landed or a drag is under way —
+    /// which grows the bar; it settles thin `hudEngagedHold` after the last
+    /// one. Apart from `layers` for the same reason as `hudPush`.
+    private(set) var hudIsEngaged = false
 
     /// The layers as a surface drawing both shows them — the HUD over the
     /// appearance. The global answer, read by the Coordinator's own guards and
@@ -224,7 +245,14 @@ final class Coordinator {
     @ObservationIgnored private let keyboardWrites = SerialWrites()
     @ObservationIgnored private let keyboardBrightnessController: any KeyboardBrightnessController
     @ObservationIgnored private let clock: any SleepClock
+    /// The press motion's own clock (`hudPush`, `hudIsEngaged`). Those timers
+    /// shape how the bar moves, never what is presented or for how long, so they
+    /// keep off the presentation timeline: a test that steps the HUD's revert or
+    /// the linger by "the next parked timer" would otherwise step a settle.
+    @ObservationIgnored private let motionClock: any SleepClock
     @ObservationIgnored private let hudRevertDelay: Double
+    @ObservationIgnored private let hudPushHold: Double
+    @ObservationIgnored private let hudEngagedHold: Double
     @ObservationIgnored private let nowPlayingLinger: Double
     @ObservationIgnored private let invokedLinger: Double
     @ObservationIgnored private let hoverIntentDelay: Double
@@ -306,6 +334,8 @@ final class Coordinator {
 
     @ObservationIgnored private var consumptionTasks: [Task<Void, Never>] = []
     @ObservationIgnored private var hudRevertTask: Task<Void, Never>?
+    @ObservationIgnored private var hudPushTask: Task<Void, Never>?
+    @ObservationIgnored private var hudEngagedTask: Task<Void, Never>?
     @ObservationIgnored private var lingerTask: Task<Void, Never>?
     @ObservationIgnored private var hoverIntentTask: Task<Void, Never>?
     /// The seek-in-flight authority window (pure decision in ScrubGrace);
@@ -330,7 +360,10 @@ final class Coordinator {
         externalScreenBrightnessController: (any ScreenBrightnessController)? = nil,
         volumeReading: (any VolumeReading)? = nil,
         clock: any SleepClock = ContinuousSleepClock(),
+        motionClock: any SleepClock = ContinuousSleepClock(),
         hudRevertDelay: Double = Coordinator.defaultHUDRevertDelay,
+        hudPushHold: Double = Coordinator.defaultHUDPushHold,
+        hudEngagedHold: Double = Coordinator.defaultHUDEngagedHold,
         nowPlayingLinger: Double = Coordinator.defaultNowPlayingLinger,
         invokedLinger: Double = Coordinator.defaultInvokedLinger,
         hoverIntentDelay: Double = Coordinator.defaultHoverIntentDelay,
@@ -349,7 +382,10 @@ final class Coordinator {
         self.externalScreenBrightnessController = externalScreenBrightnessController
         self.volumeReading = volumeReading
         self.clock = clock
+        self.motionClock = motionClock
         self.hudRevertDelay = hudRevertDelay
+        self.hudPushHold = hudPushHold
+        self.hudEngagedHold = hudEngagedHold
         self.nowPlayingLinger = nowPlayingLinger
         self.invokedLinger = invokedLinger
         self.hoverIntentDelay = hoverIntentDelay
@@ -777,6 +813,7 @@ final class Coordinator {
     func hudSliderChanged(to value: Double) {
         guard case .hud(let hud) = state else { return }
         hudSliderHeld = true
+        engageHUD()
         switch hud.kind {
         case .volume:
             // A drag to any audible target unmutes first, mirroring the
@@ -816,6 +853,7 @@ final class Coordinator {
     /// exists to avoid.
     func hudSliderReleased() {
         hudSliderHeld = false
+        engageHUD()
         settleScreenBarIfUnconfirmed()
     }
 
@@ -1072,6 +1110,7 @@ final class Coordinator {
         next.hud = hud
         next.hudDisplays = displays
         layers = next
+        engageHUD()
         // A key while the pointer holds the HUD must not re-arm the revert —
         // the hold owns dismissal until the pointer leaves. A pointer the
         // write's own frame pass just found under the HUD holds nothing: the
@@ -1087,8 +1126,12 @@ final class Coordinator {
     /// on a successor's state (dismiss its HUD, tuck its appearance). Every
     /// display timer goes through here — the guard is a correctness invariant,
     /// and hand-rolled copies are how it gets lost.
-    private func scheduleTimer(after delay: Double, fire: @escaping @MainActor () -> Void) -> Task<Void, Never> {
-        Task { [clock] in
+    private func scheduleTimer(
+        after delay: Double,
+        on timerClock: (any SleepClock)? = nil,
+        fire: @escaping @MainActor () -> Void
+    ) -> Task<Void, Never> {
+        Task { [clock = timerClock ?? clock] in
             do {
                 try await clock.sleep(for: delay)
             } catch {
@@ -1096,6 +1139,30 @@ final class Coordinator {
             }
             guard !Task.isCancelled else { return }
             fire()
+        }
+    }
+
+    /// A step key pressed against the end it points to (the suppressor's
+    /// `onPushedPastEnd`). The reading that follows reports the end and cannot
+    /// say it was pressed past, so the press arrives here on its own. It may land
+    /// before the reading puts the HUD up; the bar then appears pulled out and
+    /// springs back, as the native one does on a first press at full.
+    func hudPushedPastEnd(_ key: MediaKey) {
+        guard let push = HUDPush(key: key) else { return }
+        hudPush = push
+        hudPushTask?.cancel()
+        hudPushTask = scheduleTimer(after: hudPushHold, on: motionClock) { [weak self] in self?.hudPush = nil }
+        engageHUD()
+    }
+
+    /// Marks the HUD in use and restarts its settle; a drag holds it in use until
+    /// the release calls here again.
+    private func engageHUD() {
+        hudIsEngaged = true
+        hudEngagedTask?.cancel()
+        guard !hudSliderHeld else { return }
+        hudEngagedTask = scheduleTimer(after: hudEngagedHold, on: motionClock) { [weak self] in
+            self?.hudIsEngaged = false
         }
     }
 

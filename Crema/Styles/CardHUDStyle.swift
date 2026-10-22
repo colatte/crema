@@ -19,6 +19,14 @@ struct CardHUDStyle: PresentationStyle {
         return hud
     }
 
+    /// Hung from its top like every Card window, plus room above an upright bar
+    /// for the pull past its top end (`CardMetrics.hudTopHeadroom`).
+    func windowFrame(on geometry: ScreenGeometry) -> CGRect {
+        var rect = fixedWindowFrame(on: geometry, anchor: .top)
+        rect.size.height += CardMetrics.hudTopHeadroom(for: placement.axis)
+        return rect
+    }
+
     /// The HUD has no expanded form to hover into, so the extension's seed — the
     /// compact and expanded frames — is empty here; the hover that matters on
     /// this panel is the one that holds the HUD, around the HUD itself.

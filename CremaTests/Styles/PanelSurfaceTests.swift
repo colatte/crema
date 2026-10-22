@@ -100,14 +100,16 @@ struct PanelSurfaceTests {
                 let drawn = try SurfaceClickThrough.surfaceRect(
                     size: #require(surface.stateSizes(on: geometry)).hud,
                     window: window,
-                    anchor: surface.surfaceVerticalAnchor
+                    anchor: surface.surfaceVerticalAnchor,
+                    topInset: surface.surfaceTopInset
                 )
                 #expect(drawn == spot, "\(placement)")
-                // Headroom for the open spring, sideways and down; the top stays pinned.
+                // Headroom for the open spring, sideways and down; above, only an
+                // upright bar's room for the pull past its top end.
                 #expect(window.minX == spot.minX - SurfaceAnimation.overshootHeadroom, "\(placement)")
                 #expect(window.maxX == spot.maxX + SurfaceAnimation.overshootHeadroom, "\(placement)")
                 #expect(window.minY == spot.minY - SurfaceAnimation.overshootHeadroom, "\(placement)")
-                #expect(window.maxY == spot.maxY, "\(placement)")
+                #expect(window.maxY == spot.maxY + CardMetrics.hudTopHeadroom(for: placement.axis), "\(placement)")
             }
         }
     }

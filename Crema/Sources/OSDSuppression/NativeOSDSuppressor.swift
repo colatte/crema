@@ -33,6 +33,11 @@ protocol NativeOSDSuppressor: AnyObject {
     /// per-domain-suspension).
     var onHandedBackToTheSystem: (@MainActor (MediaKey) -> Void)? { get set }
 
+    /// Fired after a verified apply of a step key whose level already sat at the
+    /// end the key points to — the press the bar answers by pulling past its end
+    /// (docs/DECISIONS.md: the-bar-answers-the-press).
+    var onPushedPastEnd: (@MainActor (MediaKey) -> Void)? { get set }
+
     /// Domains that have failed long enough (with the channel present) to be
     /// worth telling the user about — the menu names these. Transient
     /// suspensions (a device swap re-engaging in seconds) never appear here.

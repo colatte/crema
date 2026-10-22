@@ -13,6 +13,7 @@ final class RecordingOSDSuppressor: NativeOSDSuppressor {
     private(set) var engageHistory: [Bool] = []
     var onApplied: (@MainActor (MediaKey) -> Void)?
     var onHandedBackToTheSystem: (@MainActor (MediaKey) -> Void)?
+    var onPushedPastEnd: (@MainActor (MediaKey) -> Void)?
 
     private(set) var longSuspendedDomains: Set<OSDSuppressionDomain> = []
     var onSuspensionStateChange: (@MainActor () -> Void)?

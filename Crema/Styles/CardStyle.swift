@@ -133,6 +133,53 @@ enum CardMetrics {
     /// leaves the bar floating over the apps (docs/DECISIONS.md:
     /// card-hud-placement).
     static let hudEdgeMargin: CGFloat = 16
+
+    /// The filled HUD is its own bar, so the whole surface answers a press: it
+    /// grows across the bar while the HUD is in use and is pulled along it past
+    /// the end a key pushes against. By author taste against the iPhone's
+    /// volume indicator, not measured (docs/DECISIONS.md:
+    /// the-bar-answers-the-press). Both stay inside the window's overshoot
+    /// headroom (pinned by test); the pull past an upright bar's top end has
+    /// headroom of its own (`hudTopHeadroom`).
+    static let hudFilledEngagedGrowth: CGFloat = 4
+    static let hudFilledPushOverreach: CGFloat = 8
+
+    /// The filled HUD's surface answering a press: `size` grown across the bar
+    /// while engaged and lengthened along it while pulled.
+    static func hudFilledPressedSize(_ size: CGSize, axis: Axis, engaged: Bool, push: HUDPush.End?) -> CGSize {
+        let across = engaged ? hudFilledEngagedGrowth : 0
+        let along = push == nil ? 0 : hudFilledPushOverreach
+        return axis == .horizontal
+            ? CGSize(width: size.width + along, height: size.height + across)
+            : CGSize(width: size.width + across, height: size.height + along)
+    }
+
+    /// Where the lengthened surface moves so only the pulled end travels. The
+    /// view centres the surface across its window and hangs it from the top, in
+    /// coordinates SwiftUI lays out from the leading edge (`CapsuleTrack.drawnSpan`
+    /// has the measurement): a horizontal bar's full end is trailing, so a pull
+    /// there shifts it by half the growth toward the trailing side and a pull at
+    /// the start by half toward the leading one; an upright bar grows down from
+    /// the top already, so a pull at its start needs no shift and one at its
+    /// full end, the top, lifts it by the whole growth.
+    static func hudFilledPressOffset(axis: Axis, push: HUDPush.End?) -> CGSize {
+        guard let push else { return .zero }
+        switch (axis, push) {
+        case (.horizontal, .end): return CGSize(width: hudFilledPushOverreach / 2, height: 0)
+        case (.horizontal, .start): return CGSize(width: -hudFilledPushOverreach / 2, height: 0)
+        case (.vertical, .end): return CGSize(width: 0, height: -hudFilledPushOverreach)
+        case (.vertical, .start): return .zero
+        }
+    }
+
+    /// Room an upright HUD's window keeps above the surface, for the pull past
+    /// its top end. The window hangs every Card surface from its top edge with no
+    /// room above (`fixedWindowFrame`), and a horizontal bar never needs any. The
+    /// window rule, the click region and the view each read this one number.
+    static func hudTopHeadroom(for axis: Axis) -> CGFloat {
+        axis == .vertical ? hudFilledPushOverreach : 0
+    }
+
     /// Now-playing surface radius: generous, yet well short of the compact
     /// strip's half height (20 against 32), so the player reads as a soft block
     /// and never as a capsule, at the strip's height or any taller one.

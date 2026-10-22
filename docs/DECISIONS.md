@@ -3018,3 +3018,50 @@ draws the speaker); AirPlay, HDMI and DisplayPort transports on real devices; th
 order of the data-source and volume notifications when a jack is plugged in.
 Reopening gate: a harvested ModelUID table for Bluetooth, or a measured jack on
 Apple Silicon.
+
+### the-bar-answers-the-press
+The iPhone's volume indicator answers the hand in two ways the level alone does
+not: pressed against the end it points to, the bar is pulled past that end and
+springs back, and while it is in use it is thicker than when it settles to show
+the level. The author asked for both. Apple's own glass describes the same
+behaviour, "Liquid Glass responds to interaction by instantly flexing", and
+"elements can even lift up into Liquid Glass temporarily, such as when you
+interact with a component. This lets the resting state stay visually quiet,
+while it comes to life on touch" (WWDC25 "Meet Liquid Glass", session 219).
+Decision:
+- A press past the end is known only where the key is applied: the suppressor's
+  pre-read finds the level already at the end the key points to
+  (`onPushedPastEnd`). The reading that follows reports the end, and so does the
+  reading after the press that reached it; the boundary refresh emits on both. So
+  the press travels on its own path to the Coordinator (`hudPushedPastEnd`), which
+  holds `hudPush` for `defaultHUDPushHold` (0.15 s) and refreshes it on every
+  repeat, so a held key holds the bar out.
+- In use is any HUD published or a drag under way (`hudIsEngaged`); it settles
+  `defaultHUDEngagedHold` (0.6 s) after the last, inside the 1.5 s revert, so
+  every HUD shows its thin bar before it goes. Both timers run on their own
+  injected clock (`motionClock`): they shape motion, never what is presented, and
+  on the presentation clock they would be stepped by every test that advances
+  "the next parked timer".
+- Where a bar has a track, the track answers: the capsule (Card slider, Notch)
+  grows from 4 to 6 pt and is pulled 6 pt past the pressed end, inside the row's
+  padding and the gap to the glyph. Where the surface is the bar, the surface
+  answers: the filled Card grows 4 pt across and is pulled 8 pt along, the pulled
+  end alone moving. Classic's segments answer neither; the pre-Tahoe bezel never
+  moved.
+- The window never moves (hover-follows-the-eye), so every growth fits the room
+  it keeps: sideways and below, the open spring's headroom. The upright HUD's top
+  end has none, the window hanging from its top edge, so that window keeps 8 pt
+  above (`CardMetrics.hudTopHeadroom`), read by the window rule, the click region
+  and the view.
+- Reduce Motion turns both off: the system's glass "disables any elastic
+  properties for the material" under it (same session).
+- Motion: the pull is fast and nearly dead, the release under-damped (the
+  wobble is the elastic), the settle without overshoot. The growth rides the
+  level's spring because it lands in the transaction of the first level change
+  after a settle, and one transaction carries one animation.
+The sizes and springs are the author's taste against the iPhone, not measured;
+a hardware session that finds them too faint or too busy changes the numbers,
+not the shape. Paths not taken: inferring the press from a repeated reading at
+the end, which fires on the press that reaches it; a keyframe animation per
+press, which restarts from rest on each repeat and stutters under a held key; a
+scale transform on the filled surface, which stretches its glyph.
