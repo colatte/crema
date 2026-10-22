@@ -99,7 +99,7 @@ design/           # icon/badge sources; outputs (AppIcon.icon) never by hand
   chain picks; one that cannot run ends its stream or says so. docs/SOURCES.md.
 - State: one `@Observable` of presentation state, the Coordinator; the others
   are read mirrors with guarded writes. Skins are a pure function of state,
-  always dark; motion vetoes gate in `SurfaceAnimation`; docs/STATE-FLOW.md.
+  dark palette; motion vetoes gate in `SurfaceAnimation`; docs/STATE-FLOW.md.
 - Tests: Swift Testing, mirroring the app's tree, mocks in `CremaTests/Mocks/`;
   waits are wall-clock-bounded, a negative claim needs a barrier, every clock
   is injected, `#expect` does not halt (`try #require`). Depth: docs/TESTING.md.
