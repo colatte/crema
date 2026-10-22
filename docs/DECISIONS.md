@@ -549,38 +549,44 @@ Beside the system's own volume OSD on macOS 27, the Card read as a different
 object: over a white page its film-darkened material sat at a middle grey (#6e)
 where the system's glass turns pale (#d1–#d9), and its filled HUD stacked three
 darks into a slab. Measured side by side over a white and a black page with
-scripts/probes/native-osd-edge.swift (the system's OSD, read off a capture) and
-scripts/probes/hud-surface-contrast.swift (the Card's candidates, in a
-never-key panel like the app's), Liquid Glass reproduced the system's body
-within a few levels on both (#c1 against #d1–#d9 over white, #19 against
-#1a–#21 over black). The system pays for that look in legibility: its white ink
-over a pale page reads about 1.5:1.
-Decision: on macOS 26 and later the Card draws on Liquid Glass (`cardSurface`),
-and the author accepts the system's trade where the system makes it.
-- The slider HUD shows the glass bare: pale over a pale page, white ink at
-  1.80:1 there (`SurfaceChrome.glassBareInkRatioOverWhitePage`), the one surface
-  below the minimum, recorded as an exception and held to nothing.
-- Wherever white ink must read, the glass is dimmed by a black layer inside the
-  content (`SurfaceChrome.glassDimOpacity`, 0.5): every player state, and the
-  filled HUD, whose glyph inverts what lies beneath it and needs a dark
-  remainder. Measured: 5.16:1 over white, 19.8:1 over black, inside the band
-  every ink test already holds against, so those tests speak for the glass.
-- The glass's own `.tint(.black)` does not darken it; it measured lighter over
-  white (#cd at 0.6 against #c1 bare), which is why the dimming is a layer.
-- Never-key glass draws no rim, so the Card strokes one read off the system's:
-  white about 0.32 along the top, 0.17 down the sides, 0.25 along the bottom,
-  half a point (`SurfaceChrome.glassRimStops`).
-- The glass stops a point inside the outline (`SurfaceChrome.glassInset`): at
-  half a point the filled HUD's light corner rings over white (#e4 between a #ee
-  fill and the page), at a point it is clean.
-- The dimming changes with the radius, on the same spring: a HUD↔player morph
-  changes the tone and keeps the material.
+scripts/probes/native-osd-edge.swift (the system's OSD, read off a capture, and
+the Card's, captured the same way) and scripts/probes/hud-surface-contrast.swift
+(the Card's candidates, in a never-key panel like the app's), Liquid Glass
+reproduced the system's body within a few levels on both (#c1 against #d1–#d9
+over white, #19 against #1a–#21 over black). The system pays for that look in
+legibility: its white ink over a pale page reads about 1.5:1.
+Decision: on macOS 26 and later the whole Card draws on Liquid Glass
+(`cardSurface`), the slider HUD, the filled HUD and the player alike, and the
+author accepts the system's trade where the system makes it.
+- The glass is bare by default: pale over a pale page, white ink at 1.80:1 there
+  (`SurfaceChrome.glassBareInkRatioOverWhitePage`), recorded as an exception to
+  the minimum and held to nothing. The player's title and the filled HUD's glyph
+  read as the system's OSD reads.
+- Under Increase Contrast a black layer of 0.5 dims the glass
+  (`SurfaceChrome.glassDimming`): 5.16:1 over white, 19.8:1 over black, inside
+  the band every ink test holds against, which is the minimum the HIG asks that
+  setting to deliver. The glass's own `.tint(.black)` does not darken it; it
+  measured lighter over white (#cd at 0.6 against #c1 bare), so the dimming is a
+  layer.
+- The filled HUD's remainder is the glass itself; the glyph keeps its
+  difference blend, dark over a pale remainder and light over a dark one. Under
+  Increase Contrast it takes the film path's remainder again.
+- Never-key glass draws no rim and no shadow, so the Card draws both, read off
+  the system's: an edge line brightest along the top and a glow under it that
+  falls off inward and is strongest along the bottom (`glassRimStops`,
+  `glassGlowStops`), and a soft shadow visible only over a pale page.
+- The glass stops a point inside the outline (`glassInset`): flush, its blur
+  rings the filled HUD's light corner over white (#b7 against a #f9 fill), at
+  a point it is clean (#f8). The edge line is as wide as that gap, which a
+  narrower one leaves as a dark notch over black.
+- The body stays the system's `.regular` glass. Measured lighter variants each
+  missed one side: `.clear` #de over white but #2d over black, a white veil of
+  0.06 #c8 and #21, a white tint of 0.15 #c5 and #20.
 Classic keeps the film path by identity: it is the pre-Tahoe bezel, dark and
 translucent. Systems before macOS 26 have no glass and keep it too. The Settings
 tiles still draw every floating surface dark, the film path's look.
 Reopening gate: the system's OSD leaving glass, or a run of either probe moving
 the numbers above.
-
 ### ink-meets-the-minimum
 Two inks were calibrated by eye and called legible: the accent's brightness
 band (a saturated blue at its floor drew 2.1:1 on the Notch's black) and the
@@ -598,9 +604,9 @@ the floating surface guarantees white ink and nothing darker
 Contrast resolves the accent against that lightest surface, which leaves it
 near white, and pushes the filled bar's fill and remainder apart — the higher
 contrast scheme the HIG asks that setting to provide where the default does not.
-The Card's bare glass under the slider HUD is the recorded exception
-(the-card-is-glass): white ink over a pale page below the minimum, as the
-system's own OSD draws it.
+The Card's bare glass is the recorded exception (the-card-is-glass): white ink
+over a pale page below the minimum, as the system's own OSD draws it, and lifted
+to the minimum under Increase Contrast.
 
 ### scrub-grace
 A scrubber whose drag does not own the gesture fights its own stream: every

@@ -1,28 +1,29 @@
+import SwiftUI
 import Testing
 @testable import Crema
 
-/// Which Card states show the glass bare and which dim it. The slider HUD is the
-/// one that matches the system's OSD, pale over a pale page; everything carrying
-/// white ink the contract holds to the minimum (the player's text, the filled
-/// HUD's inverting glyph) is dimmed. Pinned on the effective layout, as the radius
-/// is, so a surface fading out keeps its tone.
+/// When the Card's glass is dimmed. By default never: the Card shows the glass
+/// bare, as the system's OSD does, and accepts the system's legibility over a
+/// pale page. Under Increase Contrast always, because the HIG asks that setting
+/// to deliver the minimum where the default does not, and the dimmed glass is
+/// measured to (docs/DECISIONS.md: the-card-is-glass).
 struct CardSurfaceDimmingTests {
 
-    @Test func onlyTheSliderHUDShowsTheGlassBare() {
-        #expect(!CardView.surfaceIsDimmed(for: .hud, indicator: .slider))
-        #expect(CardView.surfaceIsDimmed(for: .hud, indicator: .filled))
+    @Test func theGlassIsBareByDefault() {
+        #expect(SurfaceChrome.glassDimming(.standard) == 0)
     }
 
-    @Test func everyPlayerStateIsDimmedWhateverTheIndicator() {
-        for kind in [CardView.LayoutKind.compact, .expanded] {
-            for indicator in HUDIndicatorStyle.allCases {
-                #expect(CardView.surfaceIsDimmed(for: kind, indicator: indicator), "\(kind) with \(indicator)")
-            }
-        }
+    @Test func increaseContrastDimsTheGlassToTheMeasuredLayer() {
+        #expect(SurfaceChrome.glassDimming(.increased) == SurfaceChrome.glassDimOpacity)
     }
 
-    @Test func aHUDFadingOutKeepsTheToneItHad() {
-        let kind = CardView.effectiveLayoutKind(layout: .empty, lastVisible: .hud)
-        #expect(!CardView.surfaceIsDimmed(for: kind, indicator: .slider))
+    @Test func onTheGlassTheFilledRemainderIsTheGlassUntilIncreaseContrast() {
+        // The remainder is the glass itself by default, so the fill sweeps over a
+        // surface that follows the backdrop; under Increase Contrast the dimmed
+        // glass gets the film path's remainder, which the glyph's contrast test
+        // holds to the minimum.
+        #expect(CardMetrics.hudFilledEmptyOpacity(.standard, onGlass: true) == 0)
+        #expect(CardMetrics.hudFilledEmptyOpacity(.increased, onGlass: true)
+            == CardMetrics.hudFilledEmptyOpacity(.increased, onGlass: false))
     }
 }

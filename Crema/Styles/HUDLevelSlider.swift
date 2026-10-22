@@ -191,9 +191,9 @@ struct HUDLevelSlider: View {
     }
 
     /// iOS-style bar: the whole HUD surface is the indicator. The fill sweeps
-    /// from the bar's start to `value` over a dark remainder, no thumb and no
-    /// inner track — the component fills the space it is proposed (the card's
-    /// HUD frame) and the card's own rounded-rect clip (vibrantSurface) rounds
+    /// from the bar's start to `value` over the remainder (`hudFilledEmpty`), no
+    /// thumb and no inner track — the component fills the space it is proposed
+    /// (the card's HUD frame) and the card's own rounded-rect clip rounds
     /// the sweep, so no radius or fixed thickness lives here. That container clip
     /// is also what clamps the fill through a spring overshoot: the animated
     /// length can drive past full and the card's far corners crop it.

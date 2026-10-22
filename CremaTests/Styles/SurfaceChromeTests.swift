@@ -83,30 +83,40 @@ struct SurfaceChromeTests {
     }
 
     @Test func theDimmedGlassHoldsWhiteInkInsideTheBandEveryInkIsHeldAgainst() {
-        // The player's accent, the filled HUD's glyph and every white ink on the
-        // Card are held against the band the film path sets; the dimmed glass,
-        // measured, must sit inside it, or those tests stop speaking for it.
+        // Under Increase Contrast the player's accent, the filled HUD's glyph and
+        // every white ink on the Card are held against the band the film path
+        // sets; the dimmed glass, measured, must sit inside it, or those tests
+        // stop speaking for it.
         #expect(SurfaceChrome.glassDimOpacity > 0)
         #expect(SurfaceChrome.glassDimOpacity < 1)
         #expect(SurfaceChrome.glassDimmedInkRatioOverWhitePage >= SurfaceChrome.whiteInkRatioOverWhitePage)
         #expect(SurfaceChrome.glassDimmedInkRatioOverBlackDesktop >= SurfaceChrome.whiteInkRatioOverBlackDesktop)
     }
 
-    @Test func theBareGlassIsTheOneSurfaceBelowTheMinimumAndSaysSo() {
-        // The slider HUD's accepted exception: a number recorded, not a guarantee,
-        // so nothing may hold ink against it as if it were one.
+    @Test func theBareGlassIsBelowTheMinimumAndSaysSo() {
+        // The accepted exception: a number recorded, not a guarantee, so nothing
+        // may hold ink against it as if it were one.
         #expect(SurfaceChrome.glassBareInkRatioOverWhitePage < WCAGContrast.minimumRatio)
     }
 
-    @Test func theGlassRimIsLitFromAboveAndRingsTheWholeOutline() {
-        // Read off the system's OSD: brightest along the top, never gone at the
-        // sides or the bottom, which is what tells it from the specular's top-only
-        // ramp on the film path.
-        let stops = SurfaceChrome.glassRimStops
-        #expect(stops.first?.location == 0)
-        #expect(stops.last?.location == 1)
-        let top = stops.first?.opacity ?? 0
-        #expect(stops.allSatisfy { $0.opacity > 0 && $0.opacity <= top })
-        #expect(SurfaceChrome.glassRimWidth > 0)
+    @Test func theGlassRimIsLitFromAboveAndClosesTheInsetGap() {
+        // The edge line is brightest along the top, as the system's is; it never
+        // goes dark round the outline; and it is at least as wide as the gap the
+        // glass leaves inside the outline, which otherwise reads as a dark notch.
+        let edge = SurfaceChrome.glassRimStops
+        #expect(edge.first?.location == 0)
+        #expect(edge.last?.location == 1)
+        let top = edge.first?.opacity ?? 0
+        #expect(edge.allSatisfy { $0.opacity > 0 && $0.opacity <= top })
+        #expect(SurfaceChrome.glassRimWidth >= SurfaceChrome.glassInset)
+        // The glow under it reaches further in and never vanishes.
+        #expect(SurfaceChrome.glassGlowWidth > SurfaceChrome.glassRimWidth)
+        #expect(SurfaceChrome.glassGlowStops.allSatisfy { $0.opacity > 0 })
+    }
+
+    @Test func theGlassShadowIsSoftAndFallsDown() {
+        #expect(SurfaceChrome.glassShadowOpacity > 0)
+        #expect(SurfaceChrome.glassShadowOpacity < 0.5)
+        #expect(SurfaceChrome.glassShadowY > 0)
     }
 }

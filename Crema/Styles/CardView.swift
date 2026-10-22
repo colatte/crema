@@ -93,17 +93,12 @@ struct CardView: View, SurfaceStyleBody {
         .artworkAccent(from: coverArtwork)
         // One morphing outline for every state: the radius is state-dependent
         // (the short HUD would read as a capsule at the now-playing radius).
-        .cardSurface(
-            in: RoundedRectangle(cornerRadius: surfaceCornerRadius, style: .continuous),
-            dimmed: Self.surfaceIsDimmed(for: effectiveLayoutKind, indicator: displayPolicy.hudIndicatorStyle)
-        )
+        .cardSurface(in: RoundedRectangle(cornerRadius: surfaceCornerRadius, style: .continuous))
         // Radius is geometry: it morphs HUD↔now-playing but SNAPS on an
         // appearance from or disappearance to hidden. Keyed on the radius VALUE so
         // it fires only when the corner actually changes (never on a same-radius
         // appear), and it sits above the clamp, so it drives the corner without
-        // overriding the content crossfade's own inner scope. The glass's dimming
-        // changes on the same edges, so it rides the same spring: a morph changes
-        // the tone, an appearance snaps it.
+        // overriding the content crossfade's own inner scope.
         .animation(geometryAnimation, value: surfaceCornerRadius)
         .opacity(layoutKind == .empty ? 0 : 1)
         // The appearance/disappearance fade (`fadeAnimation`, where its reach is
@@ -123,15 +118,6 @@ struct CardView: View, SurfaceStyleBody {
     /// surface keeps the radius it faded out with (empty-after-hud keeps the HUD's).
     private var surfaceCornerRadius: CGFloat {
         Self.surfaceCornerRadius(for: effectiveLayoutKind)
-    }
-
-    /// Whether the glass is dimmed: wherever white ink has to read, which is every
-    /// player state and the filled HUD; the slider HUD alone shows it bare, as the
-    /// system's OSD does (`cardSurface`, docs/DECISIONS.md: the-card-is-glass).
-    /// Read on the EFFECTIVE layout, like the radius, so a surface fading out
-    /// keeps the tone it had.
-    nonisolated static func surfaceIsDimmed(for kind: LayoutKind, indicator: HUDIndicatorStyle) -> Bool {
-        !(kind == .hud && indicator == .slider)
     }
 
     nonisolated static func surfaceCornerRadius(for kind: LayoutKind) -> CGFloat {
