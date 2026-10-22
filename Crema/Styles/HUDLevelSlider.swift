@@ -176,7 +176,6 @@ struct HUDLevelSlider: View {
                 appearance: appearance, isHovered: isHovered, isEditing: isEditing
             ),
             reduceMotion: reduceMotion,
-            layoutDirection: layoutDirection,
             axis: runningAxis,
             thickness: moves && isEngaged ? CapsuleTrack.engagedThickness : CapsuleTrack.trackThickness,
             overreach: moves ? CapsuleTrack.overreach(for: push) : 0

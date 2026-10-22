@@ -93,8 +93,7 @@ struct ScrubberRow: View {
             CapsuleTrack(
                 value: Self.fill(position: shown, duration: duration),
                 showsKnob: (isHovered || isEditing) && interactive,
-                reduceMotion: reduceMotion,
-                layoutDirection: layoutDirection
+                reduceMotion: reduceMotion
             )
             // The whole row is the target, as the stock slider's track is: a
             // drag anywhere scrubs, and a tap (minimumDistance 0) seeks at the

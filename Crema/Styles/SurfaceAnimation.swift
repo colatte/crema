@@ -58,7 +58,8 @@ enum SurfaceAnimation {
     /// geometry/content/width morph resolves to nil so layouts land dry and only
     /// the opacity fades survive (a cross-fade is the accessibility-preferred
     /// substitution). The leaves' own value animations ask `respecting` below,
-    /// and the one perpetual animation asks `allowsPerpetualMotion`.
+    /// and the perpetual animations (the waveform, the title marquee) ask
+    /// `allowsPerpetualMotion`.
     static func geometryAnimation(fromEmpty: Bool, toEmpty: Bool, expanding: Bool, reduceMotion: Bool) -> Animation? {
         guard !reduceMotion else { return nil }
         guard !fromEmpty, !toEmpty else { return nil }

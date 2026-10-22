@@ -75,7 +75,7 @@ final class Coordinator {
     }
 
     /// The press past an end the bar is answering, nil at rest. Kept apart from
-    /// `layers`: it moves no frame, and a write there runs the frame pass.
+    /// `layers`: it moves no window, and a write there runs the frame pass.
     private(set) var hudPush: HUDPush?
 
     /// Whether the HUD is in use — a press just landed or a drag is under way —

@@ -26,6 +26,15 @@ struct HUDLevelSliderTests {
         #expect(!CapsuleTrack.runsReversed(axis: .horizontal, layoutDirection: .leftToRight))
     }
 
+    @Test func aDrawingIsReversedOnlyUpright() {
+        // Drawing coordinates already mirror under right-to-left, where pointer
+        // coordinates do not; a knob drawn by the pointer's rule lands at the
+        // wrong end of a right-to-left bar.
+        #expect(!CapsuleTrack.drawnReversed(axis: .horizontal))
+        #expect(CapsuleTrack.drawnReversed(axis: .vertical))
+        #expect(CapsuleTrack.runsReversed(axis: .horizontal, layoutDirection: .rightToLeft))
+    }
+
     @Test func anUprightBarStartsAtTheBottomInEveryLanguage() {
         // Kills an upright bar that follows the reading direction: a level rises
         // from the bottom whether the interface runs left to right or right to
