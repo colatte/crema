@@ -72,9 +72,9 @@ struct CardHUDIndicator: View {
         case .filled:
             // Fused, full-bleed: the bar fills the whole HUD frame (no padding,
             // no inner track) and the HOST's rounded-rect clip rounds the sweep —
-            // the card's own (vibrantSurface), the picker tile's on its stand-in
+            // the card's own (cardSurface), the picker tile's on its stand-in
             // surface. The icon rides inside at the bar's start, over the fill at
-            // high levels and the dark remainder at low ones, and inverts what lies
+            // high levels and the remainder at low ones, and inverts what lies
             // beneath it (CardMetrics.hudFilledGlyph says why).
             slider(appearance: .filled)
                 .overlay(alignment: CapsuleTrack.startAlignment(axis: axis)) {

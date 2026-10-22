@@ -151,33 +151,38 @@ enum CardMetrics {
 
     /// Filled HUD indicator (HUDIndicatorStyle.filled): the whole card IS the
     /// bar. The fill sweeps edge to edge under the card's own corners with no
-    /// inner track; the level is the boundary between a light fill and a dark
-    /// remainder (iOS Control Center contrast). No radius here — the card's
-    /// rounded-rect clip rounds the sweep. Under Increase Contrast both ends
-    /// move apart: an opaque fill over a deeper remainder.
+    /// inner track; the level is the boundary between a light fill and the
+    /// remainder. No radius here — the card's rounded-rect clip rounds the sweep.
+    /// On the glass the remainder is the glass itself, pale or dark with what is
+    /// behind it; on the film path, and on the glass under Increase Contrast, it
+    /// is a dark remainder (iOS Control Center contrast), and both ends move apart
+    /// under that setting: an opaque fill over a deeper remainder
+    /// (docs/DECISIONS.md: the-card-is-glass).
     static func hudFilledFill(_ contrast: ColorSchemeContrast) -> Color {
         Color.white.opacity(hudFilledFillOpacity(contrast))
     }
 
     static func hudFilledEmpty(_ contrast: ColorSchemeContrast) -> Color {
-        Color.black.opacity(hudFilledEmptyOpacity(contrast))
+        Color.black.opacity(hudFilledEmptyOpacity(contrast, onGlass: SurfaceChrome.cardIsGlass))
     }
 
     static func hudFilledFillOpacity(_ contrast: ColorSchemeContrast) -> Double {
         contrast == .increased ? 1 : 0.9
     }
 
-    static func hudFilledEmptyOpacity(_ contrast: ColorSchemeContrast) -> Double {
-        contrast == .increased ? 0.75 : 0.55
+    static func hudFilledEmptyOpacity(_ contrast: ColorSchemeContrast, onGlass: Bool) -> Double {
+        if onGlass, contrast != .increased { return 0 }
+        return contrast == .increased ? 0.75 : 0.55
     }
 
     /// What the glyph riding in the bar draws over `backdrop`, one encoded
     /// component: its inverse. The glyph sits over the light fill at a high level
-    /// and the dark remainder at a low one, and no single ink reads on both (a
-    /// 0.5 grey comes out near 3:1 on each), so it is white under a difference
-    /// blend — dark over the fill, light over the remainder, split where the
-    /// level crosses it. HUDFilledContrastTests holds this against the surface's
-    /// lightest and darkest (docs/DECISIONS.md: ink-meets-the-minimum).
+    /// and the remainder at a low one, and no single ink reads on both (a 0.5
+    /// grey comes out near 3:1 on each), so it is white under a difference blend —
+    /// dark over the fill, and over the remainder the inverse of whatever the
+    /// surface shows there, which on the bare glass follows the page behind.
+    /// HUDFilledContrastTests holds this against the film path's lightest and
+    /// darkest (docs/DECISIONS.md: ink-meets-the-minimum, the-card-is-glass).
     static func hudFilledGlyph(over backdrop: Double) -> Double {
         1 - backdrop
     }

@@ -145,12 +145,12 @@
     device it cannot name keep the speaker, and mute shows the slashed speaker on
     any device. Switching outputs shows nothing by itself.
 25. Over a white page, Classic stays dark and its glyph and level read clearly.
-    On macOS 26 and later the Card is glass: its slider HUD turns pale over the
-    page as the system's own volume indicator does, while the player and the
-    filled HUD stay dim enough that their white text and glyph read clearly;
-    over a black page all of it is dark, with a thin light rim. The filled Card
-    HUD's light end has a clean edge: no grey line round it (docs/DECISIONS.md:
-    surface-border-2026, the-card-is-glass).
+    On macOS 26 and later the Card is glass: its HUD and its player turn pale
+    over the page as the system's own volume indicator does, with a soft shadow
+    under them; over a black page they are dark, lit along the top edge. With
+    Increase Contrast on, the Card dims over the white page until its text and
+    glyph read clearly. The filled Card HUD's light end has a clean edge: no grey
+    line round it (docs/DECISIONS.md: surface-border-2026, the-card-is-glass).
 26. With BetterDisplay running and "Replace the system indicators" on, a
     brightness key BetterDisplay handles shows Crema's indicator and not
     BetterDisplay's, with nothing changed by hand in BetterDisplay. Quitting

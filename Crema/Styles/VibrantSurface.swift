@@ -51,7 +51,7 @@ extension View {
     /// Never-key glass draws no specular edge and is as light as this material
     /// over a white page; with semantic ink it follows the system appearance, not
     /// the backdrop. The Card's glass answers both: it strokes the rim itself and
-    /// keeps white ink, dimmed where that ink has to read (`cardSurface`).
+    /// keeps white ink, dimmed under Increase Contrast (`cardSurface`).
     func vibrantSurface(in shape: some InsettableShape) -> some View {
         background { SurfaceChrome.scrim }
             .compositingGroup()
@@ -64,14 +64,15 @@ extension View {
     }
 }
 
-/// The floating surface's numbers, in one place: pure and calibratable here,
-/// and read by the Settings tiles that draw the same edge in miniature, so the
-/// picture and the thing cannot drift apart. The rationale for each lives on
-/// `vibrantSurface`, where they are applied: the film carries the boundary, the
-/// specular carries the light. Values are starting points to tune on hardware,
-/// like SurfaceAnimation's — what must survive a retune is the shape, a dark
-/// surface lit at the top, not any single number (docs/DECISIONS.md:
-/// surface-border-2026).
+/// The floating surface's numbers, in one place, read by the Settings tiles that
+/// draw the same edge in miniature so the picture and the thing cannot drift
+/// apart. Two surfaces live here. The film path's (Classic, and the Card before
+/// macOS 26) has its rationale on `vibrantSurface`: the film carries the
+/// boundary, the specular the light, and its values are starting points to tune
+/// on hardware — what must survive a retune is the shape, a dark surface lit at
+/// the top (docs/DECISIONS.md: surface-border-2026). The Card's glass numbers
+/// are measurements, each beside its own reading, applied by `cardSurface`
+/// (docs/DECISIONS.md: the-card-is-glass).
 enum SurfaceChrome {
 
     /// The film between the material and the ink, which keeps the surface dark
@@ -128,56 +129,105 @@ enum SurfaceChrome {
     /// app doesn't have, in the one place the user compares the skins.
     static let tileStrokeTopOpacity: Double = specularTopOpacity
 
-    /// The black layer over the Card's Liquid Glass wherever white ink has to
-    /// read (`cardSurface`). Measured with scripts/probes/hud-surface-contrast.swift,
-    /// mode `tint` (macOS 27.0.1, 2026-10-22): over a white page 0.4 leaves white
-    /// ink at 3.99:1 and 0.5 at 5.16:1; over black, 0.5 at 19.8:1. The glass's
-    /// own `.tint(.black)` measured the other way, lighter over white (#c1 bare,
-    /// #cd at 0.6), which is why the darkening is a layer. Invalidated by a run
-    /// where 0.5 falls under 4.5:1 over white.
-    static let glassDimOpacity: Double = 0.5
+    /// Whether the Card draws on Liquid Glass: the system has it from macOS 26.
+    /// The same check `cardSurface` makes with its own `#available`, which the
+    /// compiler needs at the call that uses the glass.
+    static var cardIsGlass: Bool {
+        if #available(macOS 26, *) {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// The black layer over the Card's glass under Increase Contrast
+    /// (`cardSurface`). Measured with scripts/probes/hud-surface-contrast.swift,
+    /// mode `tint`, on the shipped `.clear` glass (macOS 27.0.1, 2026-10-22):
+    /// over a white page 0.5 leaves white ink at 4.28:1, 0.55 at 4.94:1 and 0.6
+    /// at 5.75:1; over black, 0.55 at 19.6:1. A layer rather than the glass's
+    /// tint, which darkens `.clear` (#66 at 0.6) but lightens `.regular`, so a
+    /// change of glass would silently invert it. Invalidated by a run where 0.55
+    /// falls under 4.5:1 over white.
+    static let glassDimOpacity: Double = 0.55
+
+    /// The layer for a contrast setting: none by default, where the Card shows
+    /// the glass bare as the system's OSD does; `glassDimOpacity` under Increase
+    /// Contrast, which the HIG asks to deliver the minimum.
+    static func glassDimming(_ contrast: ColorSchemeContrast) -> Double {
+        contrast == .increased ? glassDimOpacity : 0
+    }
+
     /// White ink over the dimmed glass at its lightest and darkest, measured with
     /// `glassDimOpacity` above. Both sit inside the band `whiteInkRatioOverWhitePage`
     /// and `whiteInkRatioOverBlackDesktop` bound, so ink held against that band
-    /// holds on the glass too.
-    static let glassDimmedInkRatioOverWhitePage: Double = 5.16
-    static let glassDimmedInkRatioOverBlackDesktop: Double = 19.8
-    /// White ink over the BARE glass the slider HUD shows, over a white page: the
-    /// same measurement, 1.80:1, under the minimum. Accepted as the system's own
-    /// OSD accepts it (about 1.5:1, scripts/probes/native-osd-edge.swift): a bar
-    /// read at a glance, and a pale page is where the glass is meant to turn pale
-    /// (docs/DECISIONS.md: the-card-is-glass).
-    static let glassBareInkRatioOverWhitePage: Double = 1.8
+    /// under Increase Contrast holds on the glass too.
+    static let glassDimmedInkRatioOverWhitePage: Double = 4.94
+    static let glassDimmedInkRatioOverBlackDesktop: Double = 19.6
+    /// White ink over the BARE glass, over a white page: the same measurement,
+    /// 1.42:1, under the minimum. Accepted as the system's own OSD accepts it
+    /// (about 1.5:1, scripts/probes/native-osd-edge.swift), and lifted by
+    /// Increase Contrast (docs/DECISIONS.md: the-card-is-glass).
+    static let glassBareInkRatioOverWhitePage: Double = 1.42
 
-    /// The rim the glass does not draw in a panel that is never key, read off the
-    /// system's own OSD (scripts/probes/native-osd-edge.swift, 2026-10-22): white
-    /// at about 0.32 along the top, 0.17 down the sides, 0.25 along the bottom,
-    /// half a point wide (one device pixel on a Retina panel). A full ring, unlike the specular's top-only ramp,
-    /// because the glass carries its own darkness no film is adding here.
-    static let glassRimStops: [(location: Double, opacity: Double)] = [
-        (0, 0.32),
-        (0.5, 0.17),
-        (1, 0.25),
-    ]
-    static let glassRimWidth: CGFloat = 0.5
-
-    /// How far inside the outline the Card's glass stops, the glass's own
-    /// `materialInset`, and wider: the glass's blur reaches past its shape.
-    /// Measured with scripts/probes/hud-surface-contrast.swift, mode `edge`, over
-    /// a white page (macOS 27.0.1, 2026-10-22): at half a point the filled HUD's
-    /// leading corner shows a ring (#e4 between a #ee fill and the page), at a
-    /// point it is clean (#ed). Invalidated by a run where a point rings.
+    /// How far inside the outline the Card's glass stops, and how much further
+    /// in its own edge is cut. Measured with scripts/probes/hud-surface-contrast.swift,
+    /// mode `edge`, the filled HUD's leading corner over a white page: with the
+    /// glass flush its blur rings the light fill (#b7 against a #f9 fill); a point
+    /// in, clean. The glass also draws its edge darker than its body over a pale
+    /// page (#a5 against #d8 down the sides, scripts/probes/native-osd-edge.swift);
+    /// cut half a point further in, the sides run #f8 straight into the body.
     static let glassInset: CGFloat = 1
+    static let glassEdgeCut: CGFloat = 0.5
 
-    static var glassRimGradient: LinearGradient {
+    /// The rim the glass does not draw in a never-key panel: three strokes, each
+    /// a vertical ramp (top, held from 35% to 75% of the height, bottom), laid so
+    /// the Card's edge reads as the system OSD's, pixel by pixel from the outline
+    /// in. Measured with scripts/probes/native-osd-edge.swift on captures of both
+    /// over a black page (macOS 27.0.1, 2026-10-22):
+    ///   top            system #66 #3f #28 into #21, Card #65 #42 #2b into #21
+    ///   sides, midway  system about #1b, no rim, Card #1e
+    ///   top corners    system #44 #2b, Card #4b #39 #2c
+    ///   bottom         system #48 #55, Card #47 #55
+    /// The widest stroke spans the band between the outline and the cut glass and
+    /// carries the body's tone across it, so the sides show no seam; the two
+    /// narrower ones are the light, brightest on top and second at the bottom.
+    static let glassRim: [RimStroke] = [
+        RimStroke(width: 1.5, top: 0.13, middle: 0.09, bottom: 0.10),
+        RimStroke(width: 1, top: 0.09, middle: 0, bottom: 0.14),
+        RimStroke(width: 0.5, top: 0.15, middle: 0, bottom: 0.06),
+    ]
+
+    /// One stroke of the glass rim: its width and its white opacity along the
+    /// top, held through the middle and along the bottom.
+    struct RimStroke {
+        let width: CGFloat
+        let top: Double
+        let middle: Double
+        let bottom: Double
+    }
+
+    static let glassRimHeld: (from: Double, to: Double) = (0.35, 0.75)
+
+    static func glassRimGradient(_ stroke: RimStroke) -> LinearGradient {
         LinearGradient(
-            stops: glassRimStops.map {
-                Gradient.Stop(color: Color.white.opacity($0.opacity), location: CGFloat($0.location))
-            },
+            stops: [
+                Gradient.Stop(color: Color.white.opacity(stroke.top), location: 0),
+                Gradient.Stop(color: Color.white.opacity(stroke.middle), location: glassRimHeld.from),
+                Gradient.Stop(color: Color.white.opacity(stroke.middle), location: glassRimHeld.to),
+                Gradient.Stop(color: Color.white.opacity(stroke.bottom), location: 1),
+            ],
             startPoint: specularStart,
             endPoint: specularEnd
         )
     }
+
+    /// The soft shadow under the system's OSD, visible over a white page a few
+    /// pixels below its edge (#f1 there); the Card's measures #f2 just under its
+    /// edge and #f9 ten pixels down. Over a dark page it is invisible, as the
+    /// system's is.
+    static let glassShadowOpacity: Double = 0.12
+    static let glassShadowRadius: CGFloat = 6
+    static let glassShadowY: CGFloat = 2
 
     static var specularGradient: LinearGradient {
         LinearGradient(

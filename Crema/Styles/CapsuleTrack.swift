@@ -25,6 +25,9 @@ struct CapsuleTrack: View {
     /// names the placements where a bar stands upright.
     var axis: Axis = .horizontal
 
+    /// Set by the Card's glass, whose pale body takes its own recess (`glassTrack`).
+    @Environment(\.surfaceIsGlass) private var onGlass
+
     // Measured off the Tahoe banner (macOS 26.5.2): a 4 pt track with
     // semicircular caps, a subtle recess, and a 17.5×14 pt knob only under the
     // pointer. The recess is ANCHORED — a black base under a white wash — so the
@@ -36,6 +39,13 @@ struct CapsuleTrack: View {
     nonisolated static let trackThickness: CGFloat = 4
     static let trackBase = Color.black.opacity(0.25)
     static let trackWash = Color.white.opacity(0.15)
+    /// The recess on the Card's glass, which turns pale over a pale page, where
+    /// the anchored recess above cuts a dark groove (#b0 against a #d8 body).
+    /// Read off the system OSD's own track with scripts/probes/native-osd-edge.swift
+    /// (macOS 27.0.1, 2026-10-22): #45 over a body near #1d on a dark page, #d1
+    /// under a #d8 body on a pale one. A grey of 0.74 at a quarter opacity lands
+    /// on both: lighter than a dark body, a shade under a pale one.
+    static let glassTrack = Color(white: 0.74).opacity(0.25)
     static let fillColor = Color.white
     /// As drawn on a horizontal bar; an upright bar draws it transposed, so its
     /// long side always lies along the track.
@@ -151,8 +161,12 @@ struct CapsuleTrack: View {
             // length-pinned (a bare ZStack would report the union of its children
             // and grow with the oversized animated fill instead of cropping it).
             ZStack(alignment: Self.startAlignment(axis: axis)) {
-                Capsule().fill(Self.trackBase)
-                Capsule().fill(Self.trackWash)
+                if onGlass {
+                    Capsule().fill(Self.glassTrack)
+                } else {
+                    Capsule().fill(Self.trackBase)
+                    Capsule().fill(Self.trackWash)
+                }
                 Capsule()
                     .fill(Self.fillColor)
                     .frame(along: axis, Self.capsuleFillLength(for: value, trackLength: length))
