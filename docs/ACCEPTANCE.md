@@ -147,7 +147,7 @@
 25. Over a white page, Classic stays dark and its glyph and level read clearly.
     On macOS 26 and later the Card is glass: its HUD and its player turn pale
     over the page as the system's own volume indicator does, with a soft shadow
-    under them; over a black page they are dark, with a thin light rim. With
+    under them; over a black page they are dark, lit along the top edge. With
     Increase Contrast on, the Card dims over the white page until its text and
     glyph read clearly. The filled Card HUD's light end has a clean edge: no grey
     line round it (docs/DECISIONS.md: surface-border-2026, the-card-is-glass).

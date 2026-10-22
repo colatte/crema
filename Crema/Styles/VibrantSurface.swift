@@ -64,14 +64,15 @@ extension View {
     }
 }
 
-/// The floating surface's numbers, in one place: pure and calibratable here,
-/// and read by the Settings tiles that draw the same edge in miniature, so the
-/// picture and the thing cannot drift apart. The rationale for each lives on
-/// `vibrantSurface`, where they are applied: the film carries the boundary, the
-/// specular carries the light. Values are starting points to tune on hardware,
-/// like SurfaceAnimation's — what must survive a retune is the shape, a dark
-/// surface lit at the top, not any single number (docs/DECISIONS.md:
-/// surface-border-2026).
+/// The floating surface's numbers, in one place, read by the Settings tiles that
+/// draw the same edge in miniature so the picture and the thing cannot drift
+/// apart. Two surfaces live here. The film path's (Classic, and the Card before
+/// macOS 26) has its rationale on `vibrantSurface`: the film carries the
+/// boundary, the specular the light, and its values are starting points to tune
+/// on hardware — what must survive a retune is the shape, a dark surface lit at
+/// the top (docs/DECISIONS.md: surface-border-2026). The Card's glass numbers
+/// are measurements, each beside its own reading, applied by `cardSurface`
+/// (docs/DECISIONS.md: the-card-is-glass).
 enum SurfaceChrome {
 
     /// The film between the material and the ink, which keeps the surface dark
@@ -129,6 +130,8 @@ enum SurfaceChrome {
     static let tileStrokeTopOpacity: Double = specularTopOpacity
 
     /// Whether the Card draws on Liquid Glass: the system has it from macOS 26.
+    /// The same check `cardSurface` makes with its own `#available`, which the
+    /// compiler needs at the call that uses the glass.
     static var cardIsGlass: Bool {
         if #available(macOS 26, *) {
             true

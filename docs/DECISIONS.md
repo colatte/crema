@@ -584,7 +584,8 @@ author accepts the system's trade where the system makes it.
   the cut glass leaves, the narrower two are the light. Over black the Card's
   edge reads #66 #44 #2b down the top, #1e midway down the sides and #47 #55 at
   the bottom, against the system's #66 #3f #28, about #1b and #48 #55. A ring of
-  even brightness, an earlier rim, read as a drawn outline.
+  even brightness reads as a drawn outline, which is why the light stays off the
+  sides.
 - A soft shadow matches the one under the system's OSD over a pale page.
 Classic keeps the film path by identity: it is the pre-Tahoe bezel, dark and
 translucent. Systems before macOS 26 have no glass and keep it too. The Settings
@@ -2554,8 +2555,8 @@ in place it adds nothing to a dark surface, and around the filled HUD's light
 sweep it reads as a drawn outline over a white page. The anchor carries a year
 because the specular's shape is the one the 2026 platform redesign settled on —
 provenance, recorded so nobody re-derives it, never the authority. This is the
-edge of Classic and of the Card before macOS 26; the Card's glass carries a full
-rim read off the system's OSD instead (the-card-is-glass).
+edge of Classic and of the Card before macOS 26; the Card's glass carries its own
+rim, read off the system's OSD (the-card-is-glass).
 
 Three mechanics are load bearing.
 

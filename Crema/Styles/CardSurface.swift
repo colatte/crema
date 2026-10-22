@@ -6,8 +6,9 @@ extension View {
     /// Card reads as the system's: pale over a bright page, dark over a dark one,
     /// with the system's rim and shadow drawn by hand because a never-key panel's
     /// glass draws neither. The glass is `.clear`, whose body matches the
-    /// system's on both kinds of page (`SurfaceChrome.glassRim`). Earlier systems have no glass and keep
-    /// `vibrantSurface` (docs/DECISIONS.md: the-card-is-glass).
+    /// system's on both kinds of page. Systems before macOS 26 have no glass and
+    /// keep `vibrantSurface` (docs/DECISIONS.md: the-card-is-glass, where the
+    /// measurements are).
     @ViewBuilder
     func cardSurface(in shape: some InsettableShape) -> some View {
         if #available(macOS 26, *) {
