@@ -165,3 +165,9 @@
     thicker, and it settles thin before the indicator goes. Classic's bar does
     neither, and with Reduce Motion on no indicator does
     (docs/DECISIONS.md: the-bar-answers-the-press).
+28. A track whose title does not fit: the compact Card cuts it with an ellipsis
+    and stays narrower than the expanded player; the expanded player, in every
+    style, rests on the title's start, scrolls it through, and rests again, its
+    artist line moving with it when that does not fit either. With Reduce Motion
+    on, or in Low Power Mode, nothing scrolls and both lines end in an ellipsis
+    (docs/DECISIONS.md: a-long-title-scrolls-where-it-is-read).

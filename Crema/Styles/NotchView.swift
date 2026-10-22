@@ -228,7 +228,7 @@ struct NotchView: View, SurfaceStyleBody {
                 // Flexible role on the text again, never a trailing Spacer: the
                 // Spacer is a subview like any other, so the row pays its gap to
                 // reach it — 8 pt of title column for nothing (see compactContent).
-                TrackTextStack(title: track.title, artist: track.artist)
+                TrackTextStack(title: track.title, artist: track.artist, scrolls: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(height: NotchMetrics.expandedArtworkSide)

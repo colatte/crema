@@ -32,6 +32,12 @@ final class DemoMediaSource: NowPlayingSource, NowPlayingController, @unchecked 
                   colors: [(0.06, 0.16, 0.30), (0.12, 0.45, 0.55), (0.62, 0.86, 0.84)]),
         DemoTrack(title: "Golden Hour", artist: "Maré Alta", duration: 247,
                   colors: [(0.42, 0.13, 0.20), (0.86, 0.45, 0.33), (0.99, 0.84, 0.55)]),
+        // Long on purpose, and last, so the site's captures, which step through
+        // the first three, never reach it: the title that truncates in the
+        // compact strip and scrolls in the expanded player.
+        DemoTrack(title: "Everything We Said Before the Tide Came In", artist: "The Lantern Society Orchestra",
+                  duration: 312,
+                  colors: [(0.10, 0.22, 0.20), (0.30, 0.58, 0.46), (0.86, 0.90, 0.72)]),
     ]
 
     init() {

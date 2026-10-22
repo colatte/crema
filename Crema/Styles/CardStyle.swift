@@ -78,10 +78,16 @@ struct CardStyle: PresentationStyle {
 /// bounding hover and click regions.
 enum CardMetrics {
     static let topMargin: CGFloat = 8
-    /// Rule-frame compact size; the width doubles as the adaptive ceiling.
+    /// Rule-frame compact size: as wide as the expanded rule, so the card grows
+    /// down only and the expanded frame contains the compact one (the hover
+    /// extension's hysteresis rests on that containment).
     static let compact = CGSize(width: 280, height: 64)
     static let compactMinWidth: CGFloat = 180
-    static var compactMaxWidth: CGFloat { compact.width }
+    /// The widest the compact strip hugs, inside its rule. The strip announces a
+    /// track for a few seconds, so a long title truncates here rather than
+    /// stretching it to the full player's width; the expanded player, which is
+    /// read, scrolls it (docs/DECISIONS.md: a-long-title-scrolls-where-it-is-read).
+    static let compactMaxWidth: CGFloat = 250
     /// Derived, not declared: the expanded height is the exact sum of its
     /// stacked sections (header, scrubber, controls, gaps, padding). Dead
     /// vertical space cannot reappear without a metric saying so — and
