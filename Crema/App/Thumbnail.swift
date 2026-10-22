@@ -41,11 +41,9 @@ enum Thumbnail {
     /// to taste; the rationale for exaggerating at all is on `surfaceSize`.
     static let stripSurfaceWidthBoost: CGFloat = 2.0
     static let stripSurfaceHeightBoost: CGFloat = 1.35
-    /// How dark a picture draws a floating surface on the film path (Classic, and
-    /// the Card before macOS 26): it stands in for a material that cannot be drawn
-    /// in Settings, dark enough that the surface on the desk reads as the app's
-    /// (docs/DECISIONS.md: hud-fixed-dark-palette). The Card's glass is drawn as
-    /// glass (`PreviewSurface`).
+    /// How dark every picture draws a floating surface: it stands in for a material
+    /// that cannot be drawn in Settings, dark enough that the surface on the desk
+    /// reads as the app's (docs/DECISIONS.md: hud-fixed-dark-palette).
     static let floatingSurfaceOpacity = 0.62
 
     /// The menu bar strip's height in a picture `pictureHeight` tall, from its

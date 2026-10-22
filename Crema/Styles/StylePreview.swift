@@ -30,14 +30,9 @@ struct StylePreviewShapes: Equatable {
     /// about a skin's look that no frame rule produces (`contentArrangement` below
     /// is the other), and the difference a user names first: only the notch style is
     /// black, because it camouflages with the hardware cutout it covers; the card
-    /// and classic are translucent, lit at the top (docs/DECISIONS.md:
-    /// surface-border-2026).
+    /// and classic are a translucent material under a dark film, lit at the top
+    /// by `vibrantSurface`'s specular (docs/DECISIONS.md: surface-border-2026).
     let surfaceIsOpaque: Bool
-
-    /// Whether the surface is the Card's Liquid Glass (macOS 26 and later), which
-    /// the picture draws as glass rather than as a dark stand-in
-    /// (docs/DECISIONS.md: the-card-is-glass).
-    let surfaceIsGlass: Bool
 
     /// How the surface arranges what it holds: a cover with the track's two lines
     /// beside it on the skins that live along the top edge, a cover above one line
@@ -136,8 +131,7 @@ enum StylePreview {
     /// screen, to head itself with what that screen draws (`DisplayStyleRow`).
     static func shapes(
         for style: Style,
-        on geometry: ScreenGeometry = Self.notchedReference,
-        cardIsGlass: Bool = SurfaceChrome.cardIsGlass
+        on geometry: ScreenGeometry = Self.notchedReference
     ) -> StylePreviewShapes {
         let rendered = style.resolved(on: geometry)
         let screen = geometry.frame
@@ -154,7 +148,6 @@ enum StylePreview {
             slit: rendered == .notch ? slit(of: geometry, in: screen) : nil,
             menuBar: fraction(bar, of: screen.height),
             surfaceIsOpaque: rendered == .notch,
-            surfaceIsGlass: rendered == .card && cardIsGlass,
             contentArrangement: rendered == .classic ? .coverAboveOneLine : .coverBesideTwoLines,
             aspectRatio: fraction(screen.width, of: screen.height)
         )
