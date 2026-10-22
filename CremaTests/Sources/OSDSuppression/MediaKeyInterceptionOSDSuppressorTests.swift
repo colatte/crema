@@ -146,6 +146,47 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         #expect(h.suppressor.suspendedDomains.isEmpty)
     }
 
+    @Test func aPressAtTheEndItPointsToIsReportedAsPushedPastIt() async {
+        // Each press is followed by onApplied, so the applied count is the
+        // barrier that lets the last press's silence count as an answer.
+        let h = OSDSuppressorHarness()
+        let applies = CounterBox()
+        let pushed = KeyLog()
+        h.suppressor.onApplied = { [applies] _ in applies.count += 1 }
+        h.suppressor.onPushedPastEnd = { [pushed] in pushed.keys.append($0) }
+        h.volume.value = 1.0
+        h.screen.value = 0.0
+        h.keyboard.value = 1.0
+        h.suppressor.setEngaged(true)
+
+        h.keys.press(.volumeUp)
+        h.keys.press(.screenBrightnessDown)
+        h.keys.press(.keyboardBrightnessUp, fine: true)
+        #expect(await eventually { applies.count == 3 })
+
+        #expect(pushed.keys == [.volumeUp, .screenBrightnessDown, .keyboardBrightnessUp])
+    }
+
+    @Test func thePressThatReachesTheEndOrLeavesItIsNotPushedPastIt() async {
+        // The press that lands ON the end reports the same level the next one
+        // does; only the pre-read tells them apart, which is why the suppressor
+        // and not the reading carries this.
+        let h = OSDSuppressorHarness()
+        let applies = CounterBox()
+        let pushed = KeyLog()
+        h.suppressor.onApplied = { [applies] _ in applies.count += 1 }
+        h.suppressor.onPushedPastEnd = { [pushed] in pushed.keys.append($0) }
+        h.volume.value = 1.0 - OSDTest.step
+        h.suppressor.setEngaged(true)
+
+        h.keys.press(.volumeUp)
+        h.keys.press(.volumeDown)
+        h.keys.press(.mute)
+        #expect(await eventually { applies.count == 3 })
+
+        #expect(pushed.keys.isEmpty)
+    }
+
     @Test func anAbsentCapabilityIsANoOpNeverASuspension() async {
         // HDMI/USB outputs without volume or mute, Macs without a keyboard
         // backlight: the native handler no-ops there (prohibited HUD), and

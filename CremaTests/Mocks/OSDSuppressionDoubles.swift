@@ -93,6 +93,10 @@ final class BrightnessTargetBox: @unchecked Sendable {
 @MainActor
 final class CounterBox { var count = 0 }
 
+/// The keys a @MainActor hook reported, in order.
+@MainActor
+final class KeyLog { var keys: [MediaKey] = [] }
+
 /// Shared constants for the suppressor suites.
 enum OSDTest {
     static let step = 1.0 / 16.0

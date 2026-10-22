@@ -143,6 +143,14 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     /// per-domain-suspension).
     var onHandedBackToTheSystem: (@MainActor (MediaKey) -> Void)?
 
+    /// Fired after a verified apply whose step had nowhere to go: the level
+    /// already sat at the end the key points to. Only this side knows it, from
+    /// the pre-read, and the reading that follows cannot tell it apart from the
+    /// press that reached the end (both report the end, and the boundary refresh
+    /// emits on both); AppCore hands it to the Coordinator, which pulls the bar
+    /// past its end (docs/DECISIONS.md: the-bar-answers-the-press).
+    var onPushedPastEnd: (@MainActor (MediaKey) -> Void)?
+
     private(set) var longSuspendedDomains: Set<OSDSuppressionDomain> = []
     var onSuspensionStateChange: (@MainActor () -> Void)?
 
@@ -466,8 +474,10 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     /// warning without a single write — one press on an output that lost its
     /// volume control is enough to wipe five episodes of evidence.
     private enum ApplyOutcome {
-        /// A write landed and the read-back proved it moved.
-        case verified
+        /// A write landed and the read-back proved it moved, or the level already
+        /// sat at the end the key points to (`pastEnd`), where the native handler
+        /// is a no-op too.
+        case verified(pastEnd: Bool)
         /// The channel reports no such capability; nothing was written.
         case noOp
     }
@@ -485,9 +495,10 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
             // the write-flap axis and any menu warning a dead write had raised —
             // genuine recovery the read-only probe could never prove. A no-op
             // wrote nothing, so it earns neither that nor the HUD poke.
-            if generation == self.generation, case .verified = outcome {
+            if generation == self.generation, case .verified(let pastEnd) = outcome {
                 confirmWriteHealthy(domain)
                 onApplied?(key)
+                if pastEnd { onPushedPastEnd?(key) }
             }
         } catch {
             suspend(domain, after: key, error: error, generation: generation)
@@ -507,8 +518,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
             // Its keyboard sibling below is a different animal and gets different
             // treatment; that divergence is the reason both are commented.
             guard screen.isAvailable() else { noteAbsent(.screenBrightness, generation: generation); return .noOp }
-            try await step(screen, key: key, fine: fine)
-            return .verified
+            return try await .verified(pastEnd: step(screen, key: key, fine: fine))
         case .keyboardBrightnessUp, .keyboardBrightnessDown:
             // Raced like the volume guards: CoreBrightness answers this by
             // enumerating the backlight IDs over the private client's connection —
@@ -517,8 +527,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
             guard try await readWithDeadline({ [keyboard] in keyboard.isAvailable() }) else {
                 noteAbsent(.keyboardBrightness, generation: generation); return .noOp
             }
-            try await step(keyboard, key: key, fine: fine)
-            return .verified
+            return try await .verified(pastEnd: step(keyboard, key: key, fine: fine))
         }
     }
 
@@ -539,7 +548,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
             throw ApplyFailure.currentValueUnreadable
         }
         guard after == !muted else { throw ApplyFailure.verificationFailed }
-        return .verified
+        return .verified(pastEnd: false)
     }
 
     private func applyVolumeStep(_ key: MediaKey, fine: Bool, generation: Int) async throws -> ApplyOutcome {
@@ -585,11 +594,12 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
                 noteAbsent(.mute, generation: generation)
             }
         }
-        try await step(volume, key: key, fine: fine)
-        return .verified
+        return try await .verified(pastEnd: step(volume, key: key, fine: fine))
     }
 
-    private func step(_ channel: any OSDChannel, key: MediaKey, fine: Bool) async throws {
+    /// True when the level already sat at the end the key points to, so the step
+    /// had nowhere to go.
+    private func step(_ channel: any OSDChannel, key: MediaKey, fine: Bool) async throws -> Bool {
         // Pre-read and read-back are deadline-raced: a blocked C read on the
         // MainActor would freeze the app and wedge the queue.
         guard let before = try await readWithDeadline({ [channel] in channel.read() }),
@@ -625,6 +635,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         guard OSDApplyVerification.verified(before: before, target: target, after: settled) else {
             throw ApplyFailure.verificationFailed
         }
+        return target == before
     }
 
     /// Bounds a write by the apply deadline (mechanism in OSDApplyDeadline): a

@@ -9,7 +9,9 @@ import os
 /// demo sources only; it reaches nothing a Release build has.
 ///
 /// Commands: `play`, `pause`, `next`, `seek <seconds>`, `invoke`,
-/// `hud <volume|screenBrightness|keyboardBrightness> <0…1>`, `route <case>`,
+/// `hud <volume|screenBrightness|keyboardBrightness> <0…1>`, `push <MediaKey case>`
+/// (a step key pressed past the end it points to, as the suppressor reports it),
+/// `route <case>`,
 /// `style <notch|card|classic>`, `place <HUDPlacement>`, `indicator <slider|filled>`,
 /// `tour <step|close>`, `appearance <dark|light>`, `quit`. An unknown or malformed
 /// line is logged and ignored.
@@ -58,6 +60,13 @@ enum DemoRemote {
         case "hud":
             guard let kind = SystemHUD.Kind.allCases.first(where: { argument == "\($0)" }), let value else { return false }
             demo.hud.demoSet(kind, to: value)
+        case "push":
+            let keys: [MediaKey] = [
+                .volumeUp, .volumeDown, .screenBrightnessUp, .screenBrightnessDown,
+                .keyboardBrightnessUp, .keyboardBrightnessDown,
+            ]
+            guard let key = keys.first(where: { argument == "\($0)" }) else { return false }
+            core.coordinator.hudPushedPastEnd(key)
         case "route":
             guard let route = AudioOutputRoute.allCases.first(where: { argument == "\($0)" }) else { return false }
             demo.hud.demoSetOutputDevice(route)

@@ -249,7 +249,9 @@ final class NSPanelPresentationPanel: PresentationPanel {
         // hover-follows-the-eye).
         if !frame.isEmpty {
             let rendered = reportedSurfaceSize.map { size in
-                SurfaceClickThrough.surfaceRect(size: size, window: fixedWindowFrame, anchor: surface.surfaceVerticalAnchor)
+                SurfaceClickThrough.surfaceRect(
+                    size: size, window: fixedWindowFrame, anchor: surface.surfaceVerticalAnchor, topInset: surface.surfaceTopInset
+                )
             }
             if let regions = SurfaceHoverRegions.forApply(
                 ruleFrame: frame, lastRendered: rendered, margins: surface.hoverExitMargins
@@ -305,7 +307,9 @@ final class NSPanelPresentationPanel: PresentationPanel {
         guard let size = reportedSurfaceSize else { return }
         var visible: CGRect = currentFrame.isEmpty
             ? .zero
-            : SurfaceClickThrough.surfaceRect(size: size, window: fixedWindowFrame, anchor: surface.surfaceVerticalAnchor)
+            : SurfaceClickThrough.surfaceRect(
+                size: size, window: fixedWindowFrame, anchor: surface.surfaceVerticalAnchor, topInset: surface.surfaceTopInset
+            )
         if tightensToRuleFrame {
             // Apply path only: the reported size predates the state, so the
             // click region may not exceed the state's tight rule frame — the

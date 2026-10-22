@@ -24,6 +24,12 @@ struct CapsuleTrack: View {
     /// The direction the bar runs: horizontal by default; `HUDPlacement.axis`
     /// names the placements where a bar stands upright.
     var axis: Axis = .horizontal
+    /// Across the bar: `trackThickness` at rest, `engagedThickness` while the HUD
+    /// is in use (docs/DECISIONS.md: the-bar-answers-the-press).
+    var thickness: CGFloat = Self.trackThickness
+    /// How far the bar is pulled past one of its ends: positive past the end
+    /// that holds a full level, negative past the start. Zero at rest.
+    var overreach: CGFloat = 0
 
     /// Set by the Card's glass, whose pale body takes its own recess (`glassTrack`).
     @Environment(\.surfaceIsGlass) private var onGlass
@@ -37,6 +43,13 @@ struct CapsuleTrack: View {
     // target must not regress and no surrounding layout may move.
     nonisolated static let trackHitHeight: CGFloat = 16
     nonisolated static let trackThickness: CGFloat = 4
+    /// The bar while the HUD is in use, and how far a press past an end pulls
+    /// it. By author taste against the iPhone's volume indicator, not measured
+    /// (docs/DECISIONS.md: the-bar-answers-the-press). The pull spends the row's
+    /// padding at the far end and the gap to the glyph at the near one, so it
+    /// stays under both (pinned by test).
+    nonisolated static let engagedThickness: CGFloat = 6
+    nonisolated static let pushOverreach: CGFloat = 6
     static let trackBase = Color.black.opacity(0.25)
     static let trackWash = Color.white.opacity(0.15)
     /// The recess on the Card's glass, which turns pale over a pale page, where
@@ -111,14 +124,46 @@ struct CapsuleTrack: View {
         max(0, min(value, 1)) * trackLength
     }
 
-    /// The curved fill's length: the proportional length floored at the track
+    /// The curved fill's length: the proportional length floored at the bar's
     /// thickness, so the smallest visible fill is a circle-capped nub — a fill
     /// shorter than it is thick would draw as a squashed oval across the track.
     /// Exactly zero stays empty: 0% shows the bare track, never a phantom dot.
-    nonisolated static func capsuleFillLength(for value: Double, trackLength: CGFloat) -> CGFloat {
+    nonisolated static func capsuleFillLength(
+        for value: Double,
+        trackLength: CGFloat,
+        thickness: CGFloat = trackThickness
+    ) -> CGFloat {
         let fill = fillLength(for: value, trackLength: trackLength)
         guard fill > 0 else { return 0 }
-        return max(fill, trackThickness)
+        return max(fill, thickness)
+    }
+
+    /// The pull a press past `end` gives the bar; zero with no press.
+    nonisolated static func overreach(for end: HUDPush.End?) -> CGFloat {
+        switch end {
+        case nil: 0
+        case .end: pushOverreach
+        case .start: -pushOverreach
+        }
+    }
+
+    /// Where the bar is drawn along its axis, pulled by `overreach`: its length,
+    /// and its centre in the view's own coordinates, which SwiftUI lays out from
+    /// the leading edge in either language and from the top (measured with
+    /// ImageRenderer, macOS 27.0.1, 2026-10-22: `offset` and `position` mirror
+    /// under right-to-left). So a horizontal bar starts at the low coordinate and
+    /// an upright one at the high one, and the pulled end moves while the other
+    /// stays where it was.
+    nonisolated static func drawnSpan(
+        length: CGFloat,
+        overreach: CGFloat,
+        axis: Axis
+    ) -> (length: CGFloat, center: CGFloat) {
+        let pull = abs(overreach)
+        let startIsLow = axis == .horizontal
+        let pulledEndIsLow = (overreach < 0) == startIsLow
+        let low: CGFloat = overreach != 0 && pulledEndIsLow ? -pull : 0
+        return (length + pull, low + (length + pull) / 2)
     }
 
     /// The knob travels the inset track [halfKnob, length − halfKnob] linearly
@@ -153,6 +198,7 @@ struct CapsuleTrack: View {
     var body: some View {
         GeometryReader { geometry in
             let length = Self.length(of: geometry.size, axis: axis)
+            let span = Self.drawnSpan(length: length, overreach: overreach, axis: axis)
             // The fill's end is CURVED — a deliberate deviation from the
             // measured native flat cut, the iOS Music/players language the
             // author prefers (hud-capsule-track). Its starting cap coincides
@@ -169,12 +215,12 @@ struct CapsuleTrack: View {
                 }
                 Capsule()
                     .fill(Self.fillColor)
-                    .frame(along: axis, Self.capsuleFillLength(for: value, trackLength: length))
+                    .frame(along: axis, Self.capsuleFillLength(for: value, trackLength: span.length, thickness: thickness))
             }
-            .frame(along: axis, length)
+            .frame(along: axis, span.length)
             .clipShape(Capsule())
-            .frame(across: axis, Self.trackThickness)
-            .frame(maxWidth: axis == .vertical ? .infinity : nil, maxHeight: axis == .horizontal ? .infinity : nil)
+            .frame(across: axis, thickness)
+            .position(Self.point(along: span.center, centeredIn: geometry.size, axis: axis))
             .overlay {
                 Capsule()
                     .fill(Self.knobColor)

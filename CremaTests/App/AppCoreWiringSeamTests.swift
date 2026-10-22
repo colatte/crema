@@ -74,6 +74,20 @@ struct AppCoreWiringSeamTests {
         #expect(taken == Pokes(screen: 1, keyboard: 1, volume: 1))
     }
 
+    // MARK: - The press past the end
+
+    @Test func aPressPastTheEndReachesTheCoordinatorsBar() {
+        // The only path for it: the reading that follows reports the end and
+        // cannot say the key pushed past it.
+        let suppressor = RecordingOSDSuppressor()
+        let h = CoordinatorHarness()
+        AppCore.wireHUDPush(from: suppressor, to: h.coordinator)
+
+        suppressor.onPushedPastEnd?(.screenBrightnessDown)
+
+        #expect(h.coordinator.hudPush == HUDPush(kind: .screenBrightness, end: .start))
+    }
+
     // MARK: - The escalation mirror the menu reads
 
     @Test func theMenuMirrorFollowsTheSuppressorInBothDirections() {

@@ -18,13 +18,19 @@ enum SurfaceClickThrough {
     }
 
     /// Screen rect of a surface of `size` as the views draw it: horizontally
-    /// centered, pinned to the style's `anchor` edge of the fixed window. Used
-    /// with the rendered size the view reports — the rule frame can't know a
-    /// width-hugging or view-only-shortened surface.
-    static func surfaceRect(size: CGSize, window: CGRect, anchor: SurfaceVerticalAnchor) -> CGRect {
+    /// centered, pinned to the style's `anchor` edge of the fixed window, `topInset`
+    /// below the top edge where the window keeps room above (`PanelSurface
+    /// .surfaceTopInset`). Used with the rendered size the view reports — the rule
+    /// frame can't know a width-hugging or view-only-shortened surface.
+    static func surfaceRect(
+        size: CGSize,
+        window: CGRect,
+        anchor: SurfaceVerticalAnchor,
+        topInset: CGFloat = 0
+    ) -> CGRect {
         CGRect(
             x: window.midX - size.width / 2,
-            y: anchor == .top ? window.maxY - size.height : window.minY,
+            y: anchor == .top ? window.maxY - topInset - size.height : window.minY,
             width: size.width,
             height: size.height
         )

@@ -157,3 +157,10 @@
     Crema, or turning the switch off, brings BetterDisplay's indicator back at the
     next press, and BetterDisplay's Settings show its switches as they were
     before Crema ran. The same holds after Crema is force quit and opened again.
+27. With "Replace the system indicators" on and the volume at full, another
+    volume-up press pulls the indicator's bar past its full end and it springs
+    back; holding the key holds it out. At zero, volume-down does the same at
+    the empty end, and brightness keys alike. While keys are pressed the bar is
+    thicker, and it settles thin before the indicator goes. Classic's bar does
+    neither, and with Reduce Motion on no indicator does
+    (docs/DECISIONS.md: the-bar-answers-the-press).
