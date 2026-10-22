@@ -512,8 +512,8 @@ appearance the revert brings back — and the rule's cost is a card that stays w
 the user adjusts a level beside it.
 
 ### hud-fixed-dark-palette
-Every skin surface commits to one fixed dark palette, in every state and under
-either system appearance: Card and Classic pin `.colorScheme = .dark`
+Every skin commits to one fixed dark palette, its ink drawn for a dark surface in
+every state and under either system appearance: Card and Classic pin `.colorScheme = .dark`
 **enclosing** `vibrantSurface` (the environment reaches the AppKit-backed
 material; one level lower it would darken only the ink over light glass), with
 the `NSVisualEffectView` appearance also pinned as belt-and-braces — the same
@@ -523,7 +523,10 @@ aqua), so a system-following surface renders per-style inconsistency (Notch
 dark, the rest light) and inactive-gray control chrome in a never-key panel;
 and an appearance scoped per branch would flip the palette mid HUD↔now-playing
 morph — one appearance per surface, always. Consequence: the artwork accent
-needs a single brightness band (there is no light band).
+needs a single brightness band (there is no light band). The Card's surface on
+macOS 26 and later is the one exception to the DARK body, not to the palette:
+its glass turns pale over a pale page while the ink stays white
+(the-card-is-glass).
 
 The material alone does not hold that commitment over a bright desktop: it takes
 on what is behind it, and over a white page it turns light grey, leaving the
@@ -535,9 +538,48 @@ alternative on macOS 27 and does not replace it: in a never-key panel it draws n
 specular edge and is as light as the material over white, and with semantic ink
 it follows the system appearance rather than the backdrop, faint over white and
 black alike. The numbers live in scripts/probes/hud-surface-contrast.swift, which
-a retune re-runs.
-Reopening gate: never-key glass drawing its edge, or semantic ink reaching
-4.5:1 over both a white and a black backdrop on that probe.
+a retune re-runs. The film path stays for Classic and for the Card before macOS
+26; the Card on 26 and later took the glass by the author's choice, with the
+rim drawn by hand and white ink kept, measured in the-card-is-glass.
+Reopening gate for Classic: never-key glass drawing its edge, or semantic ink
+reaching 4.5:1 over both a white and a black backdrop on that probe.
+
+### the-card-is-glass
+Beside the system's own volume OSD on macOS 27, the Card read as a different
+object: over a white page its film-darkened material sat at a middle grey (#6e)
+where the system's glass turns pale (#d1–#d9), and its filled HUD stacked three
+darks into a slab. Measured side by side over a white and a black page with
+scripts/probes/native-osd-edge.swift (the system's OSD, read off a capture) and
+scripts/probes/hud-surface-contrast.swift (the Card's candidates, in a
+never-key panel like the app's), Liquid Glass reproduced the system's body
+within a few levels on both (#c1 against #d1–#d9 over white, #19 against
+#1a–#21 over black). The system pays for that look in legibility: its white ink
+over a pale page reads about 1.5:1.
+Decision: on macOS 26 and later the Card draws on Liquid Glass (`cardSurface`),
+and the author accepts the system's trade where the system makes it.
+- The slider HUD shows the glass bare: pale over a pale page, white ink at
+  1.80:1 there (`SurfaceChrome.glassBareInkRatioOverWhitePage`), the one surface
+  below the minimum, recorded as an exception and held to nothing.
+- Wherever white ink must read, the glass is dimmed by a black layer inside the
+  content (`SurfaceChrome.glassDimOpacity`, 0.5): every player state, and the
+  filled HUD, whose glyph inverts what lies beneath it and needs a dark
+  remainder. Measured: 5.16:1 over white, 19.8:1 over black, inside the band
+  every ink test already holds against, so those tests speak for the glass.
+- The glass's own `.tint(.black)` does not darken it; it measured lighter over
+  white (#cd at 0.6 against #c1 bare), which is why the dimming is a layer.
+- Never-key glass draws no rim, so the Card strokes one read off the system's:
+  white about 0.32 along the top, 0.17 down the sides, 0.25 along the bottom,
+  half a point (`SurfaceChrome.glassRimStops`).
+- The glass stops a point inside the outline (`SurfaceChrome.glassInset`): at
+  half a point the filled HUD's light corner rings over white (#e4 between a #ee
+  fill and the page), at a point it is clean.
+- The dimming changes with the radius, on the same spring: a HUD↔player morph
+  changes the tone and keeps the material.
+Classic keeps the film path by identity: it is the pre-Tahoe bezel, dark and
+translucent. Systems before macOS 26 have no glass and keep it too. The Settings
+tiles still draw every floating surface dark, the film path's look.
+Reopening gate: the system's OSD leaving glass, or a run of either probe moving
+the numbers above.
 
 ### ink-meets-the-minimum
 Two inks were calibrated by eye and called legible: the accent's brightness
@@ -556,6 +598,9 @@ the floating surface guarantees white ink and nothing darker
 Contrast resolves the accent against that lightest surface, which leaves it
 near white, and pushes the filled bar's fill and remainder apart — the higher
 contrast scheme the HIG asks that setting to provide where the default does not.
+The Card's bare glass under the slider HUD is the recorded exception
+(the-card-is-glass): white ink over a pale page below the minimum, as the
+system's own OSD draws it.
 
 ### scrub-grace
 A scrubber whose drag does not own the gesture fights its own stream: every
@@ -2498,7 +2543,9 @@ highlight the material does not draw itself. There is no dark rim: with the film
 in place it adds nothing to a dark surface, and around the filled HUD's light
 sweep it reads as a drawn outline over a white page. The anchor carries a year
 because the specular's shape is the one the 2026 platform redesign settled on —
-provenance, recorded so nobody re-derives it, never the authority.
+provenance, recorded so nobody re-derives it, never the authority. This is the
+edge of Classic and of the Card before macOS 26; the Card's glass carries a full
+rim read off the system's OSD instead (the-card-is-glass).
 
 Three mechanics are load bearing.
 

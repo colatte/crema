@@ -81,4 +81,32 @@ struct SurfaceChromeTests {
         #expect(SurfaceChrome.tileStrokeTopOpacity >= SurfaceChrome.specularTopOpacity)
         #expect(SurfaceChrome.tileStrokeTopOpacity > 0)
     }
+
+    @Test func theDimmedGlassHoldsWhiteInkInsideTheBandEveryInkIsHeldAgainst() {
+        // The player's accent, the filled HUD's glyph and every white ink on the
+        // Card are held against the band the film path sets; the dimmed glass,
+        // measured, must sit inside it, or those tests stop speaking for it.
+        #expect(SurfaceChrome.glassDimOpacity > 0)
+        #expect(SurfaceChrome.glassDimOpacity < 1)
+        #expect(SurfaceChrome.glassDimmedInkRatioOverWhitePage >= SurfaceChrome.whiteInkRatioOverWhitePage)
+        #expect(SurfaceChrome.glassDimmedInkRatioOverBlackDesktop >= SurfaceChrome.whiteInkRatioOverBlackDesktop)
+    }
+
+    @Test func theBareGlassIsTheOneSurfaceBelowTheMinimumAndSaysSo() {
+        // The slider HUD's accepted exception: a number recorded, not a guarantee,
+        // so nothing may hold ink against it as if it were one.
+        #expect(SurfaceChrome.glassBareInkRatioOverWhitePage < WCAGContrast.minimumRatio)
+    }
+
+    @Test func theGlassRimIsLitFromAboveAndRingsTheWholeOutline() {
+        // Read off the system's OSD: brightest along the top, never gone at the
+        // sides or the bottom, which is what tells it from the specular's top-only
+        // ramp on the film path.
+        let stops = SurfaceChrome.glassRimStops
+        #expect(stops.first?.location == 0)
+        #expect(stops.last?.location == 1)
+        let top = stops.first?.opacity ?? 0
+        #expect(stops.allSatisfy { $0.opacity > 0 && $0.opacity <= top })
+        #expect(SurfaceChrome.glassRimWidth > 0)
+    }
 }

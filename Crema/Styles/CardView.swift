@@ -74,8 +74,8 @@ struct CardView: View, SurfaceStyleBody {
             content
         }
         // The content crossfade. This scope is closest to the branches, so it
-        // wins over the radius snap above AND governs the bounds the material,
-        // clip and stroke are sized off (vibrantSurface's `.background`/clip size
+        // wins over the radius snap above AND governs the bounds the surface,
+        // clip and stroke are sized off (cardSurface's `.background`/clip size
         // to the node below them — this clamp output). It is therefore
         // provenance-aware: nil on an appearance (the geometry snaps, no ghost
         // springs past the snapped outer frame; the content is invisible under
@@ -93,21 +93,27 @@ struct CardView: View, SurfaceStyleBody {
         .artworkAccent(from: coverArtwork)
         // One morphing outline for every state: the radius is state-dependent
         // (the short HUD would read as a capsule at the now-playing radius).
-        .vibrantSurface(in: RoundedRectangle(cornerRadius: surfaceCornerRadius, style: .continuous))
+        .cardSurface(
+            in: RoundedRectangle(cornerRadius: surfaceCornerRadius, style: .continuous),
+            dimmed: Self.surfaceIsDimmed(for: effectiveLayoutKind, indicator: displayPolicy.hudIndicatorStyle)
+        )
         // Radius is geometry: it morphs HUD↔now-playing but SNAPS on an
         // appearance from or disappearance to hidden. Keyed on the radius VALUE so
         // it fires only when the corner actually changes (never on a same-radius
         // appear), and it sits above the clamp, so it drives the corner without
-        // overriding the content crossfade's own inner scope.
+        // overriding the content crossfade's own inner scope. The glass's dimming
+        // changes on the same edges, so it rides the same spring: a morph changes
+        // the tone, an appearance snaps it.
         .animation(geometryAnimation, value: surfaceCornerRadius)
         .opacity(layoutKind == .empty ? 0 : 1)
         // The appearance/disappearance fade (`fadeAnimation`, where its reach is
         // stated): opacity keeps its spring while the geometry snaps, so a
         // surface born from hidden fades in at its final frame.
         .animation(fadeAnimation, value: layoutKind)
-        // Pinned dark ENCLOSING vibrantSurface (the environment reaches the
-        // AppKit-backed material): per-branch scoping would flip the palette
-        // mid HUD↔now-playing morph (docs/DECISIONS.md: hud-fixed-dark-palette).
+        // Pinned dark ENCLOSING the surface (the environment reaches the
+        // AppKit-backed material of the pre-glass path, and the ink is drawn for
+        // it): per-branch scoping would flip the palette mid HUD↔now-playing
+        // morph (docs/DECISIONS.md: hud-fixed-dark-palette).
         .environment(\.colorScheme, .dark)
     }
 
@@ -117,6 +123,15 @@ struct CardView: View, SurfaceStyleBody {
     /// surface keeps the radius it faded out with (empty-after-hud keeps the HUD's).
     private var surfaceCornerRadius: CGFloat {
         Self.surfaceCornerRadius(for: effectiveLayoutKind)
+    }
+
+    /// Whether the glass is dimmed: wherever white ink has to read, which is every
+    /// player state and the filled HUD; the slider HUD alone shows it bare, as the
+    /// system's OSD does (`cardSurface`, docs/DECISIONS.md: the-card-is-glass).
+    /// Read on the EFFECTIVE layout, like the radius, so a surface fading out
+    /// keeps the tone it had.
+    nonisolated static func surfaceIsDimmed(for kind: LayoutKind, indicator: HUDIndicatorStyle) -> Bool {
+        !(kind == .hud && indicator == .slider)
     }
 
     nonisolated static func surfaceCornerRadius(for kind: LayoutKind) -> CGFloat {
