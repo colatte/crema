@@ -51,7 +51,8 @@ extension View {
     /// Never-key glass draws no specular edge and is as light as this material
     /// over a white page; with semantic ink it follows the system appearance, not
     /// the backdrop. The Card's glass answers both: it strokes the rim itself and
-    /// keeps white ink, dimmed under Increase Contrast (`cardSurface`).
+    /// keeps white ink, dimmed under the player's text and under Increase
+    /// Contrast (`cardSurface`).
     func vibrantSurface(in shape: some InsettableShape) -> some View {
         background { SurfaceChrome.scrim }
             .compositingGroup()
@@ -140,8 +141,8 @@ enum SurfaceChrome {
         }
     }
 
-    /// The black layer over the Card's glass under Increase Contrast
-    /// (`cardSurface`). Measured with scripts/probes/hud-surface-contrast.swift,
+    /// The black layer over the Card's glass where white ink must meet the
+    /// minimum (`glassDimming`). Measured with scripts/probes/hud-surface-contrast.swift,
     /// mode `tint`, on the shipped `.clear` glass (macOS 27.0.1, 2026-10-22):
     /// over a white page 0.5 leaves white ink at 4.28:1, 0.55 at 4.94:1 and 0.6
     /// at 5.75:1; over black, 0.55 at 19.6:1. A layer rather than the glass's
@@ -150,23 +151,28 @@ enum SurfaceChrome {
     /// falls under 4.5:1 over white.
     static let glassDimOpacity: Double = 0.55
 
-    /// The layer for a contrast setting: none by default, where the Card shows
-    /// the glass bare as the system's OSD does; `glassDimOpacity` under Increase
-    /// Contrast, which the HIG asks to deliver the minimum.
-    static func glassDimming(_ contrast: ColorSchemeContrast) -> Double {
-        contrast == .increased ? glassDimOpacity : 0
+    /// The layer for what the glass carries. Text must be read, so the player
+    /// is always dimmed: bare, its title read about 1.7:1 over a white page
+    /// (read off the author's capture, 2026-10-22). The indicator is a glyph and
+    /// a bar whose level reads from its shape, so it shows the glass bare as the
+    /// system's OSD does, and is dimmed only under Increase Contrast, which the
+    /// HIG asks to deliver the minimum (docs/DECISIONS.md: the-card-is-glass).
+    static func glassDimming(_ contrast: ColorSchemeContrast, carriesText: Bool) -> Double {
+        carriesText || contrast == .increased ? glassDimOpacity : 0
     }
 
     /// White ink over the dimmed glass at its lightest and darkest, measured with
     /// `glassDimOpacity` above. Both sit inside the band `whiteInkRatioOverWhitePage`
     /// and `whiteInkRatioOverBlackDesktop` bound, so ink held against that band
-    /// under Increase Contrast holds on the glass too.
+    /// holds on the dimmed glass too: the player's always, the indicator's under
+    /// Increase Contrast.
     static let glassDimmedInkRatioOverWhitePage: Double = 4.94
     static let glassDimmedInkRatioOverBlackDesktop: Double = 19.6
     /// White ink over the BARE glass, over a white page: the same measurement,
-    /// 1.42:1, under the minimum. Accepted as the system's own OSD accepts it
-    /// (about 1.5:1, scripts/probes/native-osd-edge.swift), and lifted by
-    /// Increase Contrast (docs/DECISIONS.md: the-card-is-glass).
+    /// 1.42:1, under the minimum. Accepted for the indicator alone, as the
+    /// system's own OSD accepts it (about 1.5:1, scripts/probes/native-osd-edge.swift),
+    /// and lifted by Increase Contrast; text never sits on it
+    /// (docs/DECISIONS.md: the-card-is-glass).
     static let glassBareInkRatioOverWhitePage: Double = 1.42
 
     /// How far inside the outline the Card's glass stops, and how much further
@@ -178,6 +184,16 @@ enum SurfaceChrome {
     /// cut half a point further in, the sides run #f8 straight into the body.
     static let glassInset: CGFloat = 1
     static let glassEdgeCut: CGFloat = 0.5
+
+    /// Where a surface's glass stops: the indicator's as above; the player's at
+    /// the outline. Under the player's dimming the band between the outline and
+    /// cut glass shows the page through the layer instead of the glass, a ring
+    /// lighter than the body over a pale page (#75 round a #5a body, measured on a
+    /// capture of the app, 2026-10-22), and the glass's own darker edge, dimmed,
+    /// sits a shade under the body instead of standing out against it.
+    static func glassStop(carriesText: Bool) -> (inset: CGFloat, cut: CGFloat) {
+        carriesText ? (0, 0) : (glassInset, glassEdgeCut)
+    }
 
     /// The rim the glass does not draw in a never-key panel: three strokes, each
     /// a vertical ramp (top, held from 35% to 75% of the height, bottom), laid so
@@ -197,6 +213,19 @@ enum SurfaceChrome {
         RimStroke(width: 0.5, top: 0.15, middle: 0, bottom: 0.06),
     ]
 
+    /// The player's rim: the two light strokes alone, softer. Its glass reaches
+    /// the outline, so there is no band for the widest stroke to carry; and its
+    /// dimmed body is darker than the system's on every page, so the same light
+    /// reads as a drawn outline round it. The softening is the author's taste
+    /// against that outline, not a measurement (docs/DECISIONS.md:
+    /// the-card-is-glass).
+    static let glassPlayerRimScale: Double = 0.6
+
+    static func glassRim(carriesText: Bool) -> [RimStroke] {
+        guard carriesText else { return glassRim }
+        return glassRim.dropFirst().map { $0.scaled(by: glassPlayerRimScale) }
+    }
+
     /// One stroke of the glass rim: its width and its white opacity along the
     /// top, held through the middle and along the bottom.
     struct RimStroke {
@@ -204,6 +233,10 @@ enum SurfaceChrome {
         let top: Double
         let middle: Double
         let bottom: Double
+
+        func scaled(by factor: Double) -> Self {
+            Self(width: width, top: top * factor, middle: middle * factor, bottom: bottom * factor)
+        }
     }
 
     static let glassRimHeld: (from: Double, to: Double) = (0.35, 0.75)

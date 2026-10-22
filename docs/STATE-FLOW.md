@@ -63,7 +63,7 @@ Reduce Motion is the user asking that nothing move; Low Power Mode is the system
 
 ## The palette is always dark
 
-Card and Classic pin `.environment(\.colorScheme, .dark)` **wrapping** their surface (on the film path the environment reaches the AppKit material; the `VibrancyMaterial` still pins `NSAppearance` as belt-and-suspenders), as the Notch has always done with its opaque black — one appearance per surface, in every state; scoping it per branch would flip the palette mid-way through the HUD↔now-playing morph (docs/DECISIONS.md: hud-fixed-dark-palette). Consequence: the artwork accent uses a single brightness band. The Card's glass on macOS 26 and later keeps that ink while its body follows the backdrop, dimmed under Increase Contrast (docs/DECISIONS.md: the-card-is-glass).
+Card and Classic pin `.environment(\.colorScheme, .dark)` **wrapping** their surface (on the film path the environment reaches the AppKit material; the `VibrancyMaterial` still pins `NSAppearance` as belt-and-suspenders), as the Notch has always done with its opaque black — one appearance per surface, in every state; scoping it per branch would flip the palette mid-way through the HUD↔now-playing morph (docs/DECISIONS.md: hud-fixed-dark-palette). Consequence: the artwork accent uses a single brightness band. The Card's glass on macOS 26 and later keeps that ink while its body follows the backdrop: the player's always dimmed for its text, the indicator's only under Increase Contrast (docs/DECISIONS.md: the-card-is-glass).
 
 ## Animation contracts
 
