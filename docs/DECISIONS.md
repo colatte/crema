@@ -525,7 +525,7 @@ and an appearance scoped per branch would flip the palette mid HUD↔now-playing
 morph — one appearance per surface, always. Consequence: the artwork accent
 needs a single brightness band (there is no light band). The Card's surface on
 macOS 26 and later is the one exception to the DARK body, not to the palette:
-its glass turns pale over a pale page while the ink stays white
+its indicator's glass turns pale over a pale page while the ink stays white
 (the-card-is-glass).
 
 The material alone does not hold that commitment over a bright desktop: it takes
@@ -565,14 +565,27 @@ author accepts the system's trade where the system makes it.
   and a shadow drawn by hand to the system's measurements.
 - The body is `.clear`: #d8 over white and #21 over black against the system's
   #d1–#d9 and #1a–#21, where `.regular` reads #c1, a grey slab over a pale page.
-- The glass is bare by default: white ink over a pale page at 1.42:1
+- The indicator's glass is bare: white ink over a pale page at 1.42:1
   (`SurfaceChrome.glassBareInkRatioOverWhitePage`), as the system's reads about
-  1.5:1, recorded as an exception to the minimum and held to nothing.
-- Under Increase Contrast a black layer of 0.55 dims it
-  (`SurfaceChrome.glassDimming`): 4.94:1 over white, 19.6:1 over black, inside the
-  band every ink test holds against, the minimum the HIG asks that setting to
-  deliver. A layer, not the glass's tint, which darkens `.clear` but lightens
-  `.regular`.
+  1.5:1, recorded as an exception to the minimum and held to nothing. A glyph
+  and a bar read by their shape.
+- Text is not read by its shape. Bare, the player's title read about 1.7:1 over
+  a white page and its artist less, so the player's glass is always dimmed by a
+  black layer of 0.55 (`SurfaceChrome.glassDimming`): 4.94:1 over white, 19.6:1
+  over black, inside the band every ink test holds against. Over a pale page the
+  player is smoked glass, still blurring the page, not the system's pale body.
+  Under Increase Contrast the indicator takes the same layer, the minimum the
+  HIG asks that setting to deliver. A layer, not the glass's tint, which darkens
+  `.clear` but lightens `.regular`. The player's glass reaches the outline
+  (`glassStop`): cut short, the band showed the page through the layer, a #75
+  ring round a #5a body over white. Its rim is the two light strokes at 0.6
+  (`glassPlayerRimScale`), the author's taste against the outline the full rim
+  drew round a body darker than the system's: over black #2d #17 down the top
+  and no ring down the sides, where the full one read #53 #34 #21 and #17.
+  Turning the text dark over a pale page, as
+  Apple's own glass does, needs the backdrop's luminance, which a never-key
+  panel's glass does not adapt to and reading the screen would need Screen
+  Recording for.
 - The filled HUD's remainder is the glass itself; the glyph keeps its difference
   blend. Under Increase Contrast it takes the film path's remainder again.
 - The glass stops a point inside the outline, and its own edge, which it draws
@@ -611,9 +624,10 @@ the floating surface guarantees white ink and nothing darker
 Contrast resolves the accent against that lightest surface, which leaves it
 near white, and pushes the filled bar's fill and remainder apart — the higher
 contrast scheme the HIG asks that setting to provide where the default does not.
-The Card's bare glass is the recorded exception (the-card-is-glass): white ink
-over a pale page below the minimum, as the system's own OSD draws it, and lifted
-to the minimum under Increase Contrast.
+The Card indicator's bare glass is the recorded exception (the-card-is-glass):
+white ink over a pale page below the minimum, as the system's own OSD draws it,
+and lifted to the minimum under Increase Contrast. The player's glass is always
+dimmed to the minimum: text gets no exception.
 
 ### scrub-grace
 A scrubber whose drag does not own the gesture fights its own stream: every

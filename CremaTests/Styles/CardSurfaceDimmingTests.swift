@@ -2,19 +2,31 @@ import SwiftUI
 import Testing
 @testable import Crema
 
-/// When the Card's glass is dimmed. By default never: the Card shows the glass
-/// bare, as the system's OSD does, and accepts the system's legibility over a
-/// pale page. Under Increase Contrast always, because the HIG asks that setting
-/// to deliver the minimum where the default does not, and the dimmed glass is
-/// measured to (docs/DECISIONS.md: the-card-is-glass).
+/// When the Card's glass is dimmed. Under text always: the player's white text
+/// must be read, and bare glass over a pale page leaves it near 1.7:1. Under the
+/// indicator only with Increase Contrast: a glyph and a bar read by their shape,
+/// shown bare as the system's OSD shows them, until that setting asks for the
+/// minimum (docs/DECISIONS.md: the-card-is-glass).
 struct CardSurfaceDimmingTests {
 
-    @Test func theGlassIsBareByDefault() {
-        #expect(SurfaceChrome.glassDimming(.standard) == 0)
+    @Test func thePlayerIsDimmedWhateverTheContrast() {
+        #expect(SurfaceChrome.glassDimming(.standard, carriesText: true) == SurfaceChrome.glassDimOpacity)
+        #expect(SurfaceChrome.glassDimming(.increased, carriesText: true) == SurfaceChrome.glassDimOpacity)
     }
 
-    @Test func increaseContrastDimsTheGlassToTheMeasuredLayer() {
-        #expect(SurfaceChrome.glassDimming(.increased) == SurfaceChrome.glassDimOpacity)
+    @Test func theIndicatorIsBareUntilIncreaseContrast() {
+        #expect(SurfaceChrome.glassDimming(.standard, carriesText: false) == 0)
+        #expect(SurfaceChrome.glassDimming(.increased, carriesText: false) == SurfaceChrome.glassDimOpacity)
+    }
+
+    @Test func everyPlayerStateCarriesTextAndTheHUDNone() {
+        // Keyed on the effective layout, which resolves a fading surface to the
+        // layout it is leaving, so a fading HUD arrives here as `.hud`. `.empty`
+        // draws nothing; dimmed is the answer that can never leave text bare.
+        for kind in [CardView.LayoutKind.compact, .expanded, .empty] {
+            #expect(CardView.surfaceCarriesText(for: kind), "\(kind)")
+        }
+        #expect(!CardView.surfaceCarriesText(for: .hud))
     }
 
     @Test func onTheGlassTheFilledRemainderIsTheGlassUntilIncreaseContrast() {

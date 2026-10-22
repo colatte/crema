@@ -14,9 +14,9 @@ import SwiftUI
 /// - The tiles draw every floating surface dark, the film path's look
 ///   (docs/DECISIONS.md: hud-fixed-dark-palette), and a tile that went bright
 ///   under a pale wallpaper would show the desk instead of the skin. The wash
-///   keeps every desk dark enough for the surface on it to read. The Card's glass
-///   turns pale over a pale page (the-card-is-glass), which the tiles do not
-///   depict.
+///   keeps every desk dark enough for the surface on it to read. The Card
+///   indicator's glass turns pale over a pale page (the-card-is-glass), which the
+///   tiles do not depict.
 ///
 /// The gradient stays as the fallback for a desk that cannot be read — no picture
 /// reported, or a dynamic/aerial desktop ImageIO will not open — because a hole

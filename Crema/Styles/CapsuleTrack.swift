@@ -31,7 +31,8 @@ struct CapsuleTrack: View {
     /// that holds a full level, negative past the start. Zero at rest.
     var overreach: CGFloat = 0
 
-    /// Set by the Card's glass, whose pale body takes its own recess (`glassTrack`).
+    /// Set by the Card's glass, whose body can turn pale and takes its own recess
+    /// (`glassTrack`).
     @Environment(\.surfaceIsGlass) private var onGlass
 
     // Measured off the Tahoe banner (macOS 26.5.2): a 4 pt track with
@@ -57,7 +58,9 @@ struct CapsuleTrack: View {
     /// Read off the system OSD's own track with scripts/probes/native-osd-edge.swift
     /// (macOS 27.0.1, 2026-10-22): #45 over a body near #1d on a dark page, #d1
     /// under a #d8 body on a pale one. A grey of 0.74 at a quarter opacity lands
-    /// on both: lighter than a dark body, a shade under a pale one.
+    /// on both: lighter than a dark body, a shade under a pale one. The player's
+    /// glass is dimmed (`SurfaceChrome.glassDimming`), a dark body on any page,
+    /// where the same grey reads lighter than the body as the system's does.
     static let glassTrack = Color(white: 0.74).opacity(0.25)
     static let fillColor = Color.white
     /// As drawn on a horizontal bar; an upright bar draws it transposed, so its

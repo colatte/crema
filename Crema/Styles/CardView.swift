@@ -101,7 +101,10 @@ struct CardView: View, SurfaceStyleBody {
         .artworkAccent(from: coverArtwork)
         // One morphing outline for every state: the radius is state-dependent
         // (the short HUD would read as a capsule at the now-playing radius).
-        .cardSurface(in: RoundedRectangle(cornerRadius: surfaceCornerRadius, style: .continuous))
+        .cardSurface(
+            in: RoundedRectangle(cornerRadius: surfaceCornerRadius, style: .continuous),
+            carriesText: Self.surfaceCarriesText(for: effectiveLayoutKind)
+        )
         // Radius is geometry: it morphs HUD↔now-playing but SNAPS on an
         // appearance from or disappearance to hidden. Keyed on the radius VALUE so
         // it fires only when the corner actually changes (never on a same-radius
@@ -130,6 +133,15 @@ struct CardView: View, SurfaceStyleBody {
 
     nonisolated static func surfaceCornerRadius(for kind: LayoutKind) -> CGFloat {
         kind == .hud ? CardMetrics.hudSystemCornerRadius : CardMetrics.cornerRadius
+    }
+
+    /// Whether the surface carries text, which the glass must dim for
+    /// (`cardSurface`): every now-playing state does, the HUD does not. Keyed on
+    /// the EFFECTIVE layout like the radius, so a surface fading out keeps the
+    /// dimming it had, and the change morphs with the radius between the HUD and
+    /// the player.
+    nonisolated static func surfaceCarriesText(for kind: LayoutKind) -> Bool {
+        kind != .hud
     }
 
     private var adaptiveMinWidth: CGFloat? {

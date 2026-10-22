@@ -83,10 +83,10 @@ struct SurfaceChromeTests {
     }
 
     @Test func theDimmedGlassHoldsWhiteInkInsideTheBandEveryInkIsHeldAgainst() {
-        // Under Increase Contrast the player's accent, the filled HUD's glyph and
-        // every white ink on the Card are held against the band the film path
-        // sets; the dimmed glass, measured, must sit inside it, or those tests
-        // stop speaking for it.
+        // The player's accent and text, and under Increase Contrast the filled
+        // HUD's glyph and every white ink on the indicator, are held against the
+        // band the film path sets; the dimmed glass, measured, must sit inside
+        // it, or those tests stop speaking for it.
         #expect(SurfaceChrome.glassDimOpacity > 0)
         #expect(SurfaceChrome.glassDimOpacity < 1)
         #expect(SurfaceChrome.glassDimmedInkRatioOverWhitePage >= SurfaceChrome.whiteInkRatioOverWhitePage)
@@ -94,8 +94,9 @@ struct SurfaceChromeTests {
     }
 
     @Test func theBareGlassIsBelowTheMinimumAndSaysSo() {
-        // The accepted exception: a number recorded, not a guarantee, so nothing
-        // may hold ink against it as if it were one.
+        // The indicator's accepted exception: a number recorded, not a guarantee,
+        // so nothing may hold ink against it as if it were one, and no text sits
+        // on it.
         #expect(SurfaceChrome.glassBareInkRatioOverWhitePage < WCAGContrast.minimumRatio)
     }
 
@@ -126,5 +127,26 @@ struct SurfaceChromeTests {
         #expect(SurfaceChrome.glassShadowOpacity > 0)
         #expect(SurfaceChrome.glassShadowOpacity < 0.5)
         #expect(SurfaceChrome.glassShadowY > 0)
+    }
+
+    @Test func thePlayersGlassReachesTheOutlineAndTheIndicatorsStopsShortOfIt() {
+        // Under the player's dimming a band without glass shows the page through
+        // the layer, a light ring round a dark body over a pale page.
+        #expect(SurfaceChrome.glassStop(carriesText: true) == (0, 0))
+        #expect(SurfaceChrome.glassStop(carriesText: false)
+            == (SurfaceChrome.glassInset, SurfaceChrome.glassEdgeCut))
+    }
+
+    @Test func thePlayersRimIsTheLightAloneAndSofter() {
+        // No band to carry, so no band stroke; and no stroke of it brighter than
+        // the indicator's, which is the one matched to the system's.
+        let indicator = SurfaceChrome.glassRim(carriesText: false)
+        let player = SurfaceChrome.glassRim(carriesText: true)
+        #expect(indicator.map(\.width) == SurfaceChrome.glassRim.map(\.width))
+        #expect(player.map(\.width) == SurfaceChrome.glassRim.dropFirst().map(\.width))
+        for (soft, matched) in zip(player, SurfaceChrome.glassRim.dropFirst()) {
+            #expect(soft.top < matched.top && soft.middle <= matched.middle && soft.bottom < matched.bottom)
+            #expect(soft.top > 0)
+        }
     }
 }
