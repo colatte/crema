@@ -61,9 +61,9 @@ A leaf component that holds **phase** in `@State` (the `WaveformGlyph`) has one 
 
 Reduce Motion is the user asking that nothing move; Low Power Mode is the system asking that nothing be spent on movement — and a `repeatForever` pulse over the menu bar is exactly that. The second arrives as rendering context, never domain: `ProcessInfoLowPowerModeSource` (`Sources/Power/` — a synchronous authoritative read at init, because a Mac that already boots in Low Power posts no notification at all, and every `NSProcessInfoPowerStateDidChange` edge triggers a **re-read**, never a toggle: the system posts that edge for any power-source change) feeds the `LowPowerModeMirror`, which each panel injects into its view's environment; an absent mirror (previews, Settings tiles) is absence of veto.
 
-## Surfaces are always dark
+## The palette is always dark
 
-Card and Classic pin `.environment(\.colorScheme, .dark)` **wrapping** the `vibrantSurface` (the environment reaches the AppKit material; the `VibrancyMaterial` still pins `NSAppearance` as belt-and-suspenders), as the Notch has always done with its opaque black — one appearance per surface, in every state; scoping it per branch would flip the palette mid-way through the HUD↔now-playing morph (docs/DECISIONS.md: hud-fixed-dark-palette). Consequence: the artwork accent uses a single brightness band.
+Card and Classic pin `.environment(\.colorScheme, .dark)` **wrapping** their surface (on the film path the environment reaches the AppKit material; the `VibrancyMaterial` still pins `NSAppearance` as belt-and-suspenders), as the Notch has always done with its opaque black — one appearance per surface, in every state; scoping it per branch would flip the palette mid-way through the HUD↔now-playing morph (docs/DECISIONS.md: hud-fixed-dark-palette). Consequence: the artwork accent uses a single brightness band. The Card's glass on macOS 26 and later keeps that ink while its body follows the backdrop, dimmed wherever the ink must read (docs/DECISIONS.md: the-card-is-glass).
 
 ## Animation contracts
 

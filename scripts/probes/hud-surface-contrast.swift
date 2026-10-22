@@ -19,11 +19,15 @@
 //   3. glassEffect(.regular), never-key panel, white ink, dark scheme
 //   4. glassEffect(.regular), never-key panel, semantic ink, system scheme
 //   5. NSGlassEffectView, never-key panel, semantic ink, system scheme
-// Mode `edge` shows the filled HUD twice, its light sweep at the leading end:
+// Mode `edge` shows the filled HUD three times, its light sweep at the leading end:
 //   1. layered: material and film clipped apart from the content (the control)
-//   2. the shipped surface
+//   2. the shipped surface (vibrantSurface: Classic, and the Card before macOS 26)
+//   3. the Card's glass (cardSurface, dimmed), the glass a point inside the outline
 // and prints the darkest pixel over the leading top corner beside the fill and
 // the backdrop: a fringe is an edge darker than both.
+// Mode `tint` shows Liquid Glass darkened five ways, white ink: the glass's own
+// `.tint(.black 0.6)`, then a black layer over the glass at 0, 0.3, 0.4 and 0.5
+// (SurfaceChrome.glassDimOpacity, docs/DECISIONS.md: the-card-is-glass).
 //
 // Measured with this probe 2026-10-15, macOS 27.0.1, MacBook Pro 14", system in
 // Light appearance, film 0.44.
@@ -33,17 +37,25 @@
 //   edge over white, fill #eeeeee on #ffffff: darkest corner pixel
 //     1. layered #c1c1c2 (a fringe)   2. shipped #ededed (clean)
 //   edge over black: both clean.
+// Measured 2026-10-22, macOS 27.0.1, same Mac:
+//   tint, ink over white / black:
+//     .tint(black 0.6) 1.57:1 (#cd, lighter than bare) / 13.5:1
+//     layer 0 1.80:1 (#c1) / 17.4:1   0.3 3.17:1 / 19.0:1
+//     layer 0.4 3.99:1 / 19.4:1       0.5 5.16:1 (#6d) / 19.8:1
+//   edge over white, glass inset half a point: #e4 (a fringe); a point: #ed
+//   (clean, the shipped value); over black, clean.
 // Never-key glass draws no specular edge (a key window's does), and its
 // semantic ink follows the system appearance, not the backdrop: in Light, pale
 // glass over white and mid-grey glass over black, the ink faint on both.
 // Invalidated by never-key glass drawing its edge, by variant 4 or 5 reaching
-// 4.5:1 over both backdrops, or by the shipped edge reading darker than both
-// its fill and its backdrop.
+// 4.5:1 over both backdrops, by the dimmed glass's layer 0.5 falling under 4.5:1
+// over white, or by the shipped or glass edge reading darker than both its fill
+// and its backdrop.
 //
 // Read-only: it opens its own windows for a few seconds and writes nothing but
 // a temporary capture.
 //
-// Run: swift scripts/probes/hud-surface-contrast.swift white|black|gradient [film] [contrast|edge]
+// Run: swift scripts/probes/hud-surface-contrast.swift white|black|gradient [film] [contrast|edge|tint]
 import AppKit
 import SwiftUI
 
@@ -116,6 +128,18 @@ func shipped(_ content: some View) -> some View {
         .environment(\.colorScheme, .dark)
 }
 
+/// `cardSurface` on macOS 26 and later, dimmed: the black layer composited with
+/// the content, the glass a point inside the outline, the rim on top.
+func glassShipped(_ content: some View) -> some View {
+    content
+        .background { Color.black.opacity(0.5) }
+        .compositingGroup()
+        .clipShape(shape)
+        .glassEffect(.regular, in: shape.inset(by: 1))
+        .overlay(shape.strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5))
+        .environment(\.colorScheme, .dark)
+}
+
 /// Material and film clipped apart from the content: the arrangement that
 /// fringes a light fill.
 func layered(_ content: some View) -> some View {
@@ -170,9 +194,21 @@ backdrop.orderFrontRegardless()
 
 func hosting(_ view: some View) -> NSView { NSHostingView(rootView: view) }
 
+/// The darkenings mode `tint` sweeps over Liquid Glass, white ink: the glass's own
+/// black tint, then a black layer laid over the glass inside its content.
+let tints: [Double] = [0.6, 0, 0.3, 0.4, 0.5]
+
 if mode == "edge" {
     show(hosting(layered(Filled())), column: 0)
     show(hosting(shipped(Filled())), column: 1)
+    show(hosting(glassShipped(Filled())), column: 2)
+} else if mode == "tint" {
+    for (i, amount) in tints.enumerated() {
+        let bar = i == 0
+            ? AnyView(Bar().glassEffect(.regular.tint(.black.opacity(amount)), in: shape))
+            : AnyView(Bar().background { shape.fill(Color.black.opacity(amount)) }.glassEffect(.regular, in: shape))
+        show(hosting(bar.environment(\.colorScheme, .dark)), column: i)
+    }
 } else {
     show(hosting(Bar().background { Vibrancy() }.clipShape(shape).environment(\.colorScheme, .dark)), column: 0)
     show(hosting(shipped(Bar())), column: 1)
@@ -226,7 +262,7 @@ DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
     let scale = Double(rep.pixelsWide) / 1300
     // The bar spans 62–100 pt down the capture.
     if mode == "edge" {
-        for (i, name) in ["layered", "shipped"].enumerated() {
+        for (i, name) in ["layered", "shipped", "glass"].enumerated() {
             let x = columns[i]
             let fill = average(rep, x: Int((x + 40) * scale), y: Int(81 * scale), radius: 2)
             let ground = average(rep, x: Int((x - 10) * scale), y: Int(81 * scale), radius: 2)
@@ -244,8 +280,10 @@ DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 + "darkest corner pixel \(hex(darkest)) — \(fringe ? "FRINGE" : "clean")")
         }
     } else {
-        let names = ["material", "shipped, film \(film)", "glass, white ink", "glass, semantic ink",
-                     "NSGlassEffectView, semantic"]
+        let names = mode == "tint"
+            ? tints.enumerated().map { $0.offset == 0 ? "glass, .tint(black \($0.element))" : "glass, black layer \($0.element)" }
+            : ["material", "shipped, film \(film)", "glass, white ink", "glass, semantic ink",
+               "NSGlassEffectView, semantic"]
         for (i, x) in columns.enumerated() {
             // The surface is read above the track near the trailing end, the ink on
             // the track at the bar's middle.

@@ -2,17 +2,18 @@ import AppKit
 import SwiftUI
 
 extension View {
-    /// Floating-surface material for the card and classic skins (the notch
-    /// style is opaque black — it camouflages with the hardware cutout and
-    /// takes neither this material nor the border below: an edge there would
-    /// draw the very outline that skin exists to hide).
+    /// Floating-surface material for the Classic skin, and for the Card on
+    /// systems before macOS 26, which have no Liquid Glass (the Card on 26 and
+    /// later takes `cardSurface`; the notch style is opaque black — it
+    /// camouflages with the hardware cutout and takes neither this material nor
+    /// the border below: an edge there would draw the very outline that skin
+    /// exists to hide).
     ///
-    /// We deliberately do not use Liquid Glass here. `glassEffect` renders vivid
-    /// only while the window is key/active, and Crema's surface is a never-key
-    /// nonactivating LSUIElement panel, so glass there is permanently flat with
-    /// no public override (see the design note). Instead we back the surface with
-    /// the classic vibrancy material forced active — public, stable, and
-    /// focus-independent, so it looks intentional regardless of app focus.
+    /// Classic stays here by identity: it is the pre-Tahoe bezel, dark and
+    /// translucent, and glass would erase what it recalls (docs/DECISIONS.md:
+    /// the-card-is-glass). The material is the classic vibrancy one forced active
+    /// — public, stable and focus-independent in a never-key panel, where Liquid
+    /// Glass draws flat (see the design note).
     ///
     /// The edge is the surface itself: the film (`SurfaceChrome.scrim`) keeps it
     /// dark over any desktop, so it stands out from a bright one on its own, and
@@ -49,9 +50,8 @@ extension View {
     /// exposes no active-state override, unlike this material's `state = .active`.
     /// Never-key glass draws no specular edge and is as light as this material
     /// over a white page; with semantic ink it follows the system appearance, not
-    /// the backdrop, and the ink is faint over white and black alike. To switch to
-    /// real (if flatter) glass, replace the background with
-    /// `glassEffect(.regular, in: shape)` under `#available(macOS 26, *)`.
+    /// the backdrop. The Card's glass answers both: it strokes the rim itself and
+    /// keeps white ink, dimmed where that ink has to read (`cardSurface`).
     func vibrantSurface(in shape: some InsettableShape) -> some View {
         background { SurfaceChrome.scrim }
             .compositingGroup()
@@ -127,6 +127,57 @@ enum SurfaceChrome {
     /// edge. Derived, never a literal: a forked number here paints a border the
     /// app doesn't have, in the one place the user compares the skins.
     static let tileStrokeTopOpacity: Double = specularTopOpacity
+
+    /// The black layer over the Card's Liquid Glass wherever white ink has to
+    /// read (`cardSurface`). Measured with scripts/probes/hud-surface-contrast.swift,
+    /// mode `tint` (macOS 27.0.1, 2026-10-22): over a white page 0.4 leaves white
+    /// ink at 3.99:1 and 0.5 at 5.16:1; over black, 0.5 at 19.8:1. The glass's
+    /// own `.tint(.black)` measured the other way, lighter over white (#c1 bare,
+    /// #cd at 0.6), which is why the darkening is a layer. Invalidated by a run
+    /// where 0.5 falls under 4.5:1 over white.
+    static let glassDimOpacity: Double = 0.5
+    /// White ink over the dimmed glass at its lightest and darkest, measured with
+    /// `glassDimOpacity` above. Both sit inside the band `whiteInkRatioOverWhitePage`
+    /// and `whiteInkRatioOverBlackDesktop` bound, so ink held against that band
+    /// holds on the glass too.
+    static let glassDimmedInkRatioOverWhitePage: Double = 5.16
+    static let glassDimmedInkRatioOverBlackDesktop: Double = 19.8
+    /// White ink over the BARE glass the slider HUD shows, over a white page: the
+    /// same measurement, 1.80:1, under the minimum. Accepted as the system's own
+    /// OSD accepts it (about 1.5:1, scripts/probes/native-osd-edge.swift): a bar
+    /// read at a glance, and a pale page is where the glass is meant to turn pale
+    /// (docs/DECISIONS.md: the-card-is-glass).
+    static let glassBareInkRatioOverWhitePage: Double = 1.8
+
+    /// The rim the glass does not draw in a panel that is never key, read off the
+    /// system's own OSD (scripts/probes/native-osd-edge.swift, 2026-10-22): white
+    /// at about 0.32 along the top, 0.17 down the sides, 0.25 along the bottom,
+    /// half a point wide (one device pixel on a Retina panel). A full ring, unlike the specular's top-only ramp,
+    /// because the glass carries its own darkness no film is adding here.
+    static let glassRimStops: [(location: Double, opacity: Double)] = [
+        (0, 0.32),
+        (0.5, 0.17),
+        (1, 0.25),
+    ]
+    static let glassRimWidth: CGFloat = 0.5
+
+    /// How far inside the outline the Card's glass stops, the glass's own
+    /// `materialInset`, and wider: the glass's blur reaches past its shape.
+    /// Measured with scripts/probes/hud-surface-contrast.swift, mode `edge`, over
+    /// a white page (macOS 27.0.1, 2026-10-22): at half a point the filled HUD's
+    /// leading corner shows a ring (#e4 between a #ee fill and the page), at a
+    /// point it is clean (#ed). Invalidated by a run where a point rings.
+    static let glassInset: CGFloat = 1
+
+    static var glassRimGradient: LinearGradient {
+        LinearGradient(
+            stops: glassRimStops.map {
+                Gradient.Stop(color: Color.white.opacity($0.opacity), location: CGFloat($0.location))
+            },
+            startPoint: specularStart,
+            endPoint: specularEnd
+        )
+    }
 
     static var specularGradient: LinearGradient {
         LinearGradient(
