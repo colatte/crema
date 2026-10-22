@@ -91,7 +91,7 @@ struct StyleTests {
         #expect(CardMetrics.compact == CGSize(width: 280, height: 64))
         #expect(CardMetrics.expanded == CGSize(width: 280, height: 128))
         #expect(CardMetrics.compactMinWidth == 180)
-        #expect(CardMetrics.compactMaxWidth == 280)
+        #expect(CardMetrics.compactMaxWidth == 250)
         #expect(CardMetrics.expandedMinWidth == 240)
         #expect(CardMetrics.expandedMaxWidth == 280)
         #expect(CardMetrics.cornerRadius == 20)

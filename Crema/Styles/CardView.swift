@@ -314,7 +314,7 @@ struct CardView: View, SurfaceStyleBody {
                 side: CardMetrics.expandedArtworkSide,
                 cornerRadius: CardMetrics.expandedArtworkRadius
             )
-            TrackTextStack(title: track.title, artist: track.artist)
+            TrackTextStack(title: track.title, artist: track.artist, scrolls: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: CardMetrics.expandedArtworkSide)

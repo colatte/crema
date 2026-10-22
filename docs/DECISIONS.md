@@ -3079,3 +3079,31 @@ not the shape. Paths not taken: inferring the press from a repeated reading at
 the end, which fires on the press that reaches it; a keyframe animation per
 press, which restarts from rest on each repeat and stutters under a held key; a
 scale transform on the filled surface, which stretches its glyph.
+
+### a-long-title-scrolls-where-it-is-read
+A long title stretched the compact Card to its full 280 pt and was cut with an
+ellipsis wherever it still did not fit. The author found the strip too wide and
+asked for the title to scroll. Apple documents a label that scrolls when longer
+than its space on tvOS (TVMLKit, label state values), and Music on the iPhone
+scrolled long titles in its player; the HIG states no rule either way.
+Decision:
+- The expanded player, of every skin, scrolls a line that does not fit
+  (`MarqueeLine`, `TrackTextStack.scrolls`): it rests 2 s at its start, slides
+  at 30 pt/s until a copy 32 pt behind arrives where it began, and rests again;
+  the trailing edge fades over 12 pt, the leading one only while text runs past
+  it. Title and artist share one rhythm: one start, and a run as long as the
+  longer line needs, the shorter one waiting where it began, so both rest
+  together; drifting apart, two lines moving at once read as busy.
+- The compact strips truncate. They announce a track for a few seconds, so a
+  scroll would barely start before they went, and it would be one more thing
+  moving beside the menu bar. The Card's strip hugs to 250 pt at most
+  (`CardMetrics.compactMaxWidth`) inside its unchanged 280 pt rule, which keeps
+  the expanded frame containing the compact one.
+- Reduce Motion and Low Power Mode stop it (`SurfaceAnimation.allowsPerpetualMotion`),
+  leaving the truncated line.
+- The scrolling line is drawn over the truncated one, which stays laid out
+  unseen, so scrolling moves nothing around it and the Card still hugs its text.
+  VoiceOver reads the line once.
+The pace, rest, gap and fade are taste, not measured. Path not taken: stripping
+reissue tags ("- 2011 Remaster") from titles, which services spell differently,
+and which some listeners want to see.

@@ -152,7 +152,7 @@ struct ClassicView: View, SurfaceStyleBody {
                 side: ClassicMetrics.expandedArtworkSide,
                 cornerRadius: ClassicMetrics.expandedArtworkRadius
             )
-            TrackTextStack(title: track.title, artist: track.artist, alignment: .center)
+            TrackTextStack(title: track.title, artist: track.artist, alignment: .center, scrolls: true)
                 .frame(height: ClassicMetrics.textStackHeight)
             scrubber
                 .frame(height: ClassicMetrics.scrubberRowHeight)
