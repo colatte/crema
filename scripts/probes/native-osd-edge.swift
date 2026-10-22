@@ -2,12 +2,13 @@
 //
 // Liquid Glass in a never-key panel draws no rim of its own (measured with
 // scripts/probes/hud-surface-contrast.swift), so the Card's glass strokes one
-// (SurfaceChrome.glassRimStops). This reads that rim off a capture of the
+// (SurfaceChrome.glassRim). This reads that rim off a capture of the
 // system's own volume OSD: press a volume key with Crema's replacement off,
 // screenshot the OSD over a black page, and point this at the PNG with a column
 // that crosses the box top to bottom. It prints every change in tone down that
 // column, so the top edge, the body and the bottom edge read off directly; run it
-// again on a row to read the sides.
+// again on a row to read the sides. The same run on a capture of the Card, over
+// the same page, is how `glassRim` was matched to the system's edge.
 //
 // Measured 2026-10-22, macOS 27.0.1, MacBook Pro 14" (2x), the OSD over a black
 // page, column x=600: body #1a–#21; edge pixels #66 at the top and #55 at the

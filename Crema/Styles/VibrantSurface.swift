@@ -139,12 +139,13 @@ enum SurfaceChrome {
 
     /// The black layer over the Card's glass under Increase Contrast
     /// (`cardSurface`). Measured with scripts/probes/hud-surface-contrast.swift,
-    /// mode `tint` (macOS 27.0.1, 2026-10-22): over a white page 0.4 leaves white
-    /// ink at 3.99:1 and 0.5 at 5.16:1; over black, 0.5 at 19.8:1. The glass's
-    /// own `.tint(.black)` measured the other way, lighter over white (#c1 bare,
-    /// #cd at 0.6), which is why the darkening is a layer. Invalidated by a run
-    /// where 0.5 falls under 4.5:1 over white.
-    static let glassDimOpacity: Double = 0.5
+    /// mode `tint`, on the shipped `.clear` glass (macOS 27.0.1, 2026-10-22):
+    /// over a white page 0.5 leaves white ink at 4.28:1, 0.55 at 4.94:1 and 0.6
+    /// at 5.75:1; over black, 0.55 at 19.6:1. A layer rather than the glass's
+    /// tint, which darkens `.clear` (#66 at 0.6) but lightens `.regular`, so a
+    /// change of glass would silently invert it. Invalidated by a run where 0.55
+    /// falls under 4.5:1 over white.
+    static let glassDimOpacity: Double = 0.55
 
     /// The layer for a contrast setting: none by default, where the Card shows
     /// the glass bare as the system's OSD does; `glassDimOpacity` under Increase
@@ -157,49 +158,65 @@ enum SurfaceChrome {
     /// `glassDimOpacity` above. Both sit inside the band `whiteInkRatioOverWhitePage`
     /// and `whiteInkRatioOverBlackDesktop` bound, so ink held against that band
     /// under Increase Contrast holds on the glass too.
-    static let glassDimmedInkRatioOverWhitePage: Double = 5.16
-    static let glassDimmedInkRatioOverBlackDesktop: Double = 19.8
+    static let glassDimmedInkRatioOverWhitePage: Double = 4.94
+    static let glassDimmedInkRatioOverBlackDesktop: Double = 19.6
     /// White ink over the BARE glass, over a white page: the same measurement,
-    /// 1.80:1, under the minimum. Accepted as the system's own OSD accepts it
+    /// 1.42:1, under the minimum. Accepted as the system's own OSD accepts it
     /// (about 1.5:1, scripts/probes/native-osd-edge.swift), and lifted by
     /// Increase Contrast (docs/DECISIONS.md: the-card-is-glass).
-    static let glassBareInkRatioOverWhitePage: Double = 1.8
+    static let glassBareInkRatioOverWhitePage: Double = 1.42
 
-    /// The rim the glass does not draw in a never-key panel, in two strokes laid
-    /// to match the system OSD's edge profile. Read with
-    /// scripts/probes/native-osd-edge.swift on captures of the system's OSD and of
-    /// the Card (macOS 27.0.1, 2026-10-22), down the top edge, outline inward:
-    /// over black the system's #66 #3f #28 into a #1a–#21 body, the Card's #63
-    /// #38 into #1a; over white the system's #e1 #d9 into #d1, the Card's #cb
-    /// into #c1. The edge line is brightest
-    /// along the top; the glow under it is widest in reach and strongest along
-    /// the bottom, where the system's edge reads two pixels deep (#48 #55).
-    static let glassRimStops: [(location: Double, opacity: Double)] = [
-        (0, 0.24),
-        (0.5, 0.11),
-        (1, 0.07),
-    ]
-    /// As wide as the gap `glassInset` leaves between the outline and the glass,
-    /// which a narrower line leaves as a dark notch over black (#62 #23 #38 down
-    /// the top edge at half a point).
-    static let glassRimWidth: CGFloat = 1
-    static let glassGlowStops: [(location: Double, opacity: Double)] = [
-        (0, 0.10),
-        (0.5, 0.07),
-        (1, 0.19),
-    ]
-    static let glassGlowWidth: CGFloat = 1.5
-
-    static var glassRimGradient: LinearGradient { gradient(glassRimStops) }
-    static var glassGlowGradient: LinearGradient { gradient(glassGlowStops) }
-
-    /// How far inside the outline the Card's glass stops: the glass's blur
-    /// reaches past its shape. Measured with scripts/probes/hud-surface-contrast.swift,
-    /// mode `edge`, the filled HUD's leading corner over a white page against a
-    /// #f9 fill: flush #b7, half a point #e9, three quarters #f6 (each a ring by
-    /// the probe's rule), a point #f8 (clean). Invalidated by a run where a point
-    /// rings.
+    /// How far inside the outline the Card's glass stops, and how much further
+    /// in its own edge is cut. Measured with scripts/probes/hud-surface-contrast.swift,
+    /// mode `edge`, the filled HUD's leading corner over a white page: with the
+    /// glass flush its blur rings the light fill (#b7 against a #f9 fill); a point
+    /// in, clean. The glass also draws its edge darker than its body over a pale
+    /// page (#a5 against #d8 down the sides, scripts/probes/native-osd-edge.swift);
+    /// cut half a point further in, the sides run #f8 straight into the body.
     static let glassInset: CGFloat = 1
+    static let glassEdgeCut: CGFloat = 0.5
+
+    /// The rim the glass does not draw in a never-key panel: three strokes, each
+    /// a vertical ramp (top, held from 35% to 75% of the height, bottom), laid so
+    /// the Card's edge reads as the system OSD's, pixel by pixel from the outline
+    /// in. Measured with scripts/probes/native-osd-edge.swift on captures of both
+    /// over a black page (macOS 27.0.1, 2026-10-22):
+    ///   top            system #66 #3f #28 into #21, Card #65 #42 #2b into #21
+    ///   sides, midway  system about #1b, no rim, Card #1e
+    ///   top corners    system #44 #2b, Card #4b #39 #2c
+    ///   bottom         system #48 #55, Card #47 #55
+    /// The widest stroke spans the band between the outline and the cut glass and
+    /// carries the body's tone across it, so the sides show no seam; the two
+    /// narrower ones are the light, brightest on top and second at the bottom.
+    static let glassRim: [RimStroke] = [
+        RimStroke(width: 1.5, top: 0.13, middle: 0.09, bottom: 0.10),
+        RimStroke(width: 1, top: 0.09, middle: 0, bottom: 0.14),
+        RimStroke(width: 0.5, top: 0.15, middle: 0, bottom: 0.06),
+    ]
+
+    /// One stroke of the glass rim: its width and its white opacity along the
+    /// top, held through the middle and along the bottom.
+    struct RimStroke {
+        let width: CGFloat
+        let top: Double
+        let middle: Double
+        let bottom: Double
+    }
+
+    static let glassRimHeld: (from: Double, to: Double) = (0.35, 0.75)
+
+    static func glassRimGradient(_ stroke: RimStroke) -> LinearGradient {
+        LinearGradient(
+            stops: [
+                Gradient.Stop(color: Color.white.opacity(stroke.top), location: 0),
+                Gradient.Stop(color: Color.white.opacity(stroke.middle), location: glassRimHeld.from),
+                Gradient.Stop(color: Color.white.opacity(stroke.middle), location: glassRimHeld.to),
+                Gradient.Stop(color: Color.white.opacity(stroke.bottom), location: 1),
+            ],
+            startPoint: specularStart,
+            endPoint: specularEnd
+        )
+    }
 
     /// The soft shadow under the system's OSD, visible over a white page a few
     /// pixels below its edge (#f1 there); the Card's measures #f2 just under its
@@ -208,14 +225,6 @@ enum SurfaceChrome {
     static let glassShadowOpacity: Double = 0.12
     static let glassShadowRadius: CGFloat = 6
     static let glassShadowY: CGFloat = 2
-
-    private static func gradient(_ stops: [(location: Double, opacity: Double)]) -> LinearGradient {
-        LinearGradient(
-            stops: stops.map { Gradient.Stop(color: Color.white.opacity($0.opacity), location: CGFloat($0.location)) },
-            startPoint: specularStart,
-            endPoint: specularEnd
-        )
-    }
 
     static var specularGradient: LinearGradient {
         LinearGradient(

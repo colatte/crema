@@ -99,19 +99,27 @@ struct SurfaceChromeTests {
         #expect(SurfaceChrome.glassBareInkRatioOverWhitePage < WCAGContrast.minimumRatio)
     }
 
-    @Test func theGlassRimIsLitFromAboveAndClosesTheInsetGap() {
-        // The edge line is brightest along the top, as the system's is; it never
-        // goes dark round the outline; and it is at least as wide as the gap the
-        // glass leaves inside the outline, which otherwise reads as a dark notch.
-        let edge = SurfaceChrome.glassRimStops
-        #expect(edge.first?.location == 0)
-        #expect(edge.last?.location == 1)
-        let top = edge.first?.opacity ?? 0
-        #expect(edge.allSatisfy { $0.opacity > 0 && $0.opacity <= top })
-        #expect(SurfaceChrome.glassRimWidth >= SurfaceChrome.glassInset)
-        // The glow under it reaches further in and never vanishes.
-        #expect(SurfaceChrome.glassGlowWidth > SurfaceChrome.glassRimWidth)
-        #expect(SurfaceChrome.glassGlowStops.allSatisfy { $0.opacity > 0 })
+    @Test func theGlassRimSpansTheBandTheCutGlassLeaves() {
+        // Between the outline and the cut glass lies a band the glass does not
+        // reach; a rim narrower than it shows the backdrop raw there, a dark seam
+        // over a black page.
+        let widest = SurfaceChrome.glassRim.map(\.width).max() ?? 0
+        #expect(widest >= SurfaceChrome.glassInset + SurfaceChrome.glassEdgeCut)
+    }
+
+    @Test func theGlassRimIsLitFromAboveAndAlmostAbsentDownTheSides() {
+        // Read off the system's OSD: its edge is bright along the top, second
+        // along the bottom, and next to nothing midway down the sides, which is
+        // what keeps it from reading as a drawn outline. The light strokes say so
+        // in their ramps; none goes negative.
+        for stroke in SurfaceChrome.glassRim {
+            #expect(min(stroke.top, stroke.middle, stroke.bottom) >= 0)
+            #expect(stroke.top >= stroke.middle)
+            #expect(stroke.bottom >= stroke.middle)
+        }
+        let light = SurfaceChrome.glassRim.filter { $0.middle == 0 }
+        #expect(!light.isEmpty)
+        #expect(SurfaceChrome.glassRimHeld.from < SurfaceChrome.glassRimHeld.to)
     }
 
     @Test func theGlassShadowIsSoftAndFallsDown() {

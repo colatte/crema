@@ -5,7 +5,8 @@ extension View {
     /// material the system's own volume and brightness OSD is drawn in, so the
     /// Card reads as the system's: pale over a bright page, dark over a dark one,
     /// with the system's rim and shadow drawn by hand because a never-key panel's
-    /// glass draws neither. Earlier systems have no glass and keep
+    /// glass draws neither. The glass is `.clear`, whose body matches the
+    /// system's on both kinds of page (`SurfaceChrome.glassRim`). Earlier systems have no glass and keep
     /// `vibrantSurface` (docs/DECISIONS.md: the-card-is-glass).
     @ViewBuilder
     func cardSurface(in shape: some InsettableShape) -> some View {
@@ -27,18 +28,25 @@ private struct GlassCardSurface<S: InsettableShape>: ViewModifier {
         // higher contrast scheme the HIG asks that setting to deliver.
         content
             .background { Color.black.opacity(SurfaceChrome.glassDimming(contrast)) }
-            // Composited and clipped once, as `vibrantSurface` does, and the glass
-            // stops `glassInset` inside the outline: the light fill's edge pixels
-            // must not show the glass beneath them as a ring.
+            // Composited and clipped once, as `vibrantSurface` does: the light
+            // fill's edge pixels must not show the glass beneath them as a ring.
             .compositingGroup()
             .clipShape(shape)
-            .glassEffect(.regular, in: shape.inset(by: SurfaceChrome.glassInset))
-            // The rim, glow under edge: the glow falls off inward from the outline
-            // and the edge line closes the gap the inset leaves.
+            // The glass as a layer of its own, so its edge can be cut: it stops
+            // `glassInset` inside the outline, and the ring its own edge draws,
+            // darker than its body over a pale page, is clipped a further
+            // `glassEdgeCut` away. The rim covers the band that leaves.
+            .background {
+                Color.clear
+                    .glassEffect(.clear, in: shape.inset(by: SurfaceChrome.glassInset))
+                    .clipShape(shape.inset(by: SurfaceChrome.glassInset + SurfaceChrome.glassEdgeCut))
+            }
             .overlay {
                 ZStack {
-                    shape.strokeBorder(SurfaceChrome.glassGlowGradient, lineWidth: SurfaceChrome.glassGlowWidth)
-                    shape.strokeBorder(SurfaceChrome.glassRimGradient, lineWidth: SurfaceChrome.glassRimWidth)
+                    ForEach(SurfaceChrome.glassRim.indices, id: \.self) { index in
+                        let stroke = SurfaceChrome.glassRim[index]
+                        shape.strokeBorder(SurfaceChrome.glassRimGradient(stroke), lineWidth: stroke.width)
+                    }
                 }
             }
             .shadow(
