@@ -134,9 +134,11 @@ func shipped(_ content: some View) -> some View {
         .environment(\.colorScheme, .dark)
 }
 
-/// `cardSurface` on macOS 26 and later: an optional black layer composited with
-/// the content, the clear glass a point inside the outline with its own edge cut
-/// half a point further in, and the three rim strokes on top.
+/// `cardSurface` on macOS 26 and later as the indicator draws it: an optional
+/// black layer composited with the content, the clear glass a point inside the
+/// outline with its own edge cut half a point further in, and the three rim
+/// strokes on top. The player's glass reaches the outline under a softer rim
+/// (`SurfaceChrome.glassStop`, `glassRim(carriesText:)`), which this does not draw.
 func glassShipped(_ content: some View, dim: Double = 0) -> some View {
     func ramp(_ top: Double, _ middle: Double, _ bottom: Double) -> LinearGradient {
         LinearGradient(stops: [.init(color: .white.opacity(top), location: 0),

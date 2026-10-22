@@ -131,7 +131,7 @@ design/           # icon/badge sources; outputs (AppIcon.icon) never by hand
 
 - G1 — `AppCore.init` mostly unpinned by decision; 26 static seams are pinned.
 - G2 — Three 0...1 clamps unshared; the third refuses NaN, so the gate is met.
-- G3 — The waveform carries no time veto; reopens with a power measurement.
+- G3 — Waveform and title marquee carry no time veto; reopens on a power read.
 - G4 — A process ending is not its children's; `release.sh` reaps the adapter.
 - G5 — Backlight client resolved once, never rebuilt; needs a hardware repro.
 - G6 — No dead-code gate in CI (SwiftLint analyzer rules off); a hand sweep.

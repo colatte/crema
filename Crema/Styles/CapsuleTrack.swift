@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// The bar this app draws for a 0…1 value: a 4 pt capsule with a white fill and
-/// a knob that appears only under the pointer.
+/// The bar this app draws for a 0…1 value: a capsule 4 pt thick at rest, 6 pt
+/// while its HUD is in use, with a white fill and a knob that appears only under
+/// the pointer.
 ///
 /// It lives here because two surfaces draw it — the HUD level and the
 /// now-playing scrubber — and one home is what keeps the two bars in one card
@@ -20,7 +21,6 @@ struct CapsuleTrack: View {
     /// surface for a HUD (hover holds it open), the row itself for a scrubber.
     let showsKnob: Bool
     var reduceMotion: Bool = false
-    var layoutDirection: LayoutDirection = .leftToRight
     /// The direction the bar runs: horizontal by default; `HUDPlacement.axis`
     /// names the placements where a bar stands upright.
     var axis: Axis = .horizontal
@@ -78,19 +78,31 @@ struct CapsuleTrack: View {
     }
 
     /// Where the bar STARTS — the end its fill grows from and its zero sits at —
-    /// expressed against the view's own coordinates, where x grows rightward and
-    /// y downward. A horizontal bar starts at the leading edge, which is the far
-    /// end of x under right-to-left. An upright bar starts at the BOTTOM, the far
-    /// end of y, in every language: a level rises, it is not read.
+    /// against the POINTER's coordinates, which SwiftUI reports from the left
+    /// edge in either language, x growing rightward and y downward. A horizontal
+    /// bar starts at the leading edge, the far end of x under right-to-left. An
+    /// upright bar starts at the BOTTOM, the far end of y, in every language: a
+    /// level rises, it is not read. Measured with a window under each direction
+    /// (macOS 27.0.1, 2026-10-22): a press 20 pt from the left edge reads x = 20
+    /// in both. What is DRAWN at a coordinate follows `drawnReversed` instead.
     nonisolated static func runsReversed(axis: Axis, layoutDirection: LayoutDirection) -> Bool {
         axis == .vertical || layoutDirection == .rightToLeft
     }
 
+    /// The same start against the coordinates a view is DRAWN at (`position`,
+    /// `offset`), which SwiftUI lays out from the leading edge in either language
+    /// (measured with ImageRenderer, macOS 27.0.1, 2026-10-22: both mirror under
+    /// right-to-left) and from the top. So only an upright bar runs reversed here.
+    /// Reading `runsReversed` for a drawing flips it twice under right-to-left.
+    nonisolated static func drawnReversed(axis: Axis) -> Bool {
+        axis == .vertical
+    }
+
     /// The same start, as layout: the alignment the fill grows from. `.leading`
     /// flips under right-to-left on its own, so only the axis decides here; the
-    /// coordinate half of the question, which SwiftUI does not flip, is
-    /// `runsReversed`. Every body drawn from a start reads it — the capsule, the
-    /// filled bar, the glyph riding inside it — so fill and drag cannot part.
+    /// pointer half of the question is `runsReversed`. Every body drawn from a
+    /// start reads it — the capsule, the filled bar, the glyph riding inside
+    /// it — so fill and drag cannot part.
     nonisolated static func startAlignment(axis: Axis) -> Alignment {
         axis == .horizontal ? .leading : .bottom
     }
@@ -151,19 +163,16 @@ struct CapsuleTrack: View {
     }
 
     /// Where the bar is drawn along its axis, pulled by `overreach`: its length,
-    /// and its centre in the view's own coordinates, which SwiftUI lays out from
-    /// the leading edge in either language and from the top (measured with
-    /// ImageRenderer, macOS 27.0.1, 2026-10-22: `offset` and `position` mirror
-    /// under right-to-left). So a horizontal bar starts at the low coordinate and
-    /// an upright one at the high one, and the pulled end moves while the other
-    /// stays where it was.
+    /// and its centre in the coordinates it is drawn at (`drawnReversed`), where a
+    /// horizontal bar starts at the low coordinate and an upright one at the high
+    /// one. The pulled end moves while the other stays where it was.
     nonisolated static func drawnSpan(
         length: CGFloat,
         overreach: CGFloat,
         axis: Axis
     ) -> (length: CGFloat, center: CGFloat) {
         let pull = abs(overreach)
-        let startIsLow = axis == .horizontal
+        let startIsLow = !drawnReversed(axis: axis)
         let pulledEndIsLow = (overreach < 0) == startIsLow
         let low: CGFloat = overreach != 0 && pulledEndIsLow ? -pull : 0
         return (length + pull, low + (length + pull) / 2)
@@ -177,8 +186,8 @@ struct CapsuleTrack: View {
     /// inset it to match. The knob never exits the row and never stops
     /// responding: a boundary clamp instead freezes it for the last ~halfKnob of
     /// travel at each extreme while the fill keeps following the pointer — the
-    /// jam seen on hardware at 0 and 100%. The coordinate is along the bar, in
-    /// the view's own space.
+    /// jam seen on hardware at 0 and 100%. The coordinate is along the bar, in the
+    /// space the knob is drawn in (`drawnReversed`).
     nonisolated static func knobCenter(for value: Double, trackLength: CGFloat, reversed: Bool) -> CGFloat {
         let halfKnob = knobSize.width / 2
         let travel = max(trackLength - knobSize.width, 0)
@@ -243,7 +252,7 @@ struct CapsuleTrack: View {
         let along = Self.knobCenter(
             for: value,
             trackLength: length,
-            reversed: Self.runsReversed(axis: axis, layoutDirection: layoutDirection)
+            reversed: Self.drawnReversed(axis: axis)
         )
         return Self.point(along: along, centeredIn: size, axis: axis)
     }
