@@ -146,8 +146,10 @@
     any device. Switching outputs shows nothing by itself.
 25. Over a white page, Classic stays dark and its glyph and level read clearly.
     On macOS 26 and later the Card is glass: its HUD turns pale over the page as
-    the system's own volume indicator does, with a soft shadow under it; over a
-    black page it is dark, lit along the top edge. The player is darker glass
+    the system's own volume indicator does, with no shadow and no dark line
+    round it; over a black page it is dark, lit along the top and bottom edges
+    and not down the sides, and over a coloured page its edge is a thin light
+    line, never a heavy ring. The player is darker glass
     over the white page, its title and artist reading clearly. With Increase
     Contrast on, the HUD dims over the white page too, until its glyph reads
     clearly. The filled Card HUD's light end has a clean edge: no grey

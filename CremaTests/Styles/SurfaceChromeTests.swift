@@ -100,14 +100,6 @@ struct SurfaceChromeTests {
         #expect(SurfaceChrome.glassBareInkRatioOverWhitePage < WCAGContrast.minimumRatio)
     }
 
-    @Test func theGlassRimSpansTheBandTheCutGlassLeaves() {
-        // Between the outline and the cut glass lies a band the glass does not
-        // reach; a rim narrower than it shows the backdrop raw there, a dark seam
-        // over a black page.
-        let widest = SurfaceChrome.glassRim.map(\.width).max() ?? 0
-        #expect(widest >= SurfaceChrome.glassInset + SurfaceChrome.glassEdgeCut)
-    }
-
     @Test func theGlassRimIsLitFromAboveAndAlmostAbsentDownTheSides() {
         // Read off the system's OSD: its edge is bright along the top, second
         // along the bottom, and next to nothing midway down the sides, which is
@@ -123,28 +115,14 @@ struct SurfaceChromeTests {
         #expect(SurfaceChrome.glassRimHeld.from < SurfaceChrome.glassRimHeld.to)
     }
 
-    @Test func theGlassShadowIsSoftAndFallsDown() {
-        #expect(SurfaceChrome.glassShadowOpacity > 0)
-        #expect(SurfaceChrome.glassShadowOpacity < 0.5)
-        #expect(SurfaceChrome.glassShadowY > 0)
-    }
-
-    @Test func thePlayersGlassReachesTheOutlineAndTheIndicatorsStopsShortOfIt() {
-        // Under the player's dimming a band without glass shows the page through
-        // the layer, a light ring round a dark body over a pale page.
-        #expect(SurfaceChrome.glassStop(carriesText: true) == (0, 0))
-        #expect(SurfaceChrome.glassStop(carriesText: false)
-            == (SurfaceChrome.glassInset, SurfaceChrome.glassEdgeCut))
-    }
-
-    @Test func thePlayersRimIsTheLightAloneAndSofter() {
-        // No band to carry, so no band stroke; and no stroke of it brighter than
-        // the indicator's, which is the one matched to the system's.
+    @Test func thePlayersRimIsTheIndicatorsSofter() {
+        // The same strokes, none of them brighter than the indicator's, which is
+        // the one matched to the system's.
         let indicator = SurfaceChrome.glassRim(carriesText: false)
         let player = SurfaceChrome.glassRim(carriesText: true)
         #expect(indicator.map(\.width) == SurfaceChrome.glassRim.map(\.width))
-        #expect(player.map(\.width) == SurfaceChrome.glassRim.dropFirst().map(\.width))
-        for (soft, matched) in zip(player, SurfaceChrome.glassRim.dropFirst()) {
+        #expect(player.map(\.width) == indicator.map(\.width))
+        for (soft, matched) in zip(player, indicator) {
             #expect(soft.top < matched.top && soft.middle <= matched.middle && soft.bottom < matched.bottom)
             #expect(soft.top > 0)
         }
