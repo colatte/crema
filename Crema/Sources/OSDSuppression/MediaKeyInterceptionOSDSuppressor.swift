@@ -338,17 +338,6 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         onHandedBackToTheSystem?(key)
     }
 
-    private func handleUp(_ key: MediaKey, generation: Int) {
-        guard generation == self.generation, heldKeys.remove(key) != nil else { return }
-        onPushReleased?(key)
-    }
-
-    private func releaseHeldKeys() {
-        let released = heldKeys
-        heldKeys.removeAll()
-        for key in released { onPushReleased?(key) }
-    }
-
     /// Capabilities with a re-check in flight. Autorepeat arrives at the HID timer's
     /// cadence, not the user's, so without this every repeat of a handed-back key
     /// would start its own border read; the probe's kick is coalesced the same way.
@@ -665,36 +654,6 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         return target == before
     }
 
-    /// Bounds a write by the apply deadline (mechanism in OSDApplyDeadline): a
-    /// hung actuator (coreaudiod stall, Bluetooth output dropping mid-write) that
-    /// never returns would otherwise strand the apply chain while keys keep being
-    /// consumed. Maps the timeout onto the domain-suspension path.
-    private func withDeadline(_ operation: @escaping @Sendable () async throws -> Void) async throws {
-        do {
-            try await raceWriteDeadline(seconds: applyDeadline, clock: clock, operation)
-        } catch is DeadlineExceeded {
-            logger.error("apply exceeded the \(self.applyDeadline, privacy: .public)s deadline — abandoning the hung write, suspending the domain")
-            throw ApplyFailure.writeTimedOut
-        }
-    }
-
-    /// The read-side sibling of the write deadline: bounds a blocking C read by
-    /// the same deadline so a stalled read never freezes the MainActor and wedges
-    /// the queue. Reads sleep on `readClock`, apart from the probe backoff on
-    /// `clock`. (docs/DECISIONS.md: read-deadline-pool-rule)
-    private func readWithDeadline<T: Sendable>(_ read: @escaping @Sendable () -> T) async throws -> T {
-        do {
-            return try await raceReadDeadline(seconds: applyDeadline, clock: readClock, read)
-        } catch is DeadlineExceeded {
-            // Deliberately does not name a consequence: the apply path maps this
-            // onto a domain suspension, while the capability re-check is clear-only
-            // and just leaves the absence standing. Naming one would lie to whoever
-            // reads the other in Console.
-            logger.error("a channel read exceeded the \(self.applyDeadline, privacy: .public)s deadline — abandoning the hung read")
-            throw ApplyFailure.readTimedOut
-        }
-    }
-
     // MARK: - Per-domain suspension and recovery
 
     private func suspend(_ domain: OSDSuppressionDomain, after key: MediaKey, error: Error, generation: Int) {
@@ -937,5 +896,56 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     private func cancelAllProbes() {
         for probe in probes.values { probe.task?.cancel() }
         probes.removeAll()
+    }
+}
+
+// MARK: - The key's up
+
+/// An extension and not the class body, like the deadlines below: the body sits
+/// at the `type_body_length` ceiling.
+extension MediaKeyInterceptionOSDSuppressor {
+    private func handleUp(_ key: MediaKey, generation: Int) {
+        guard generation == self.generation, heldKeys.remove(key) != nil else { return }
+        onPushReleased?(key)
+    }
+
+    private func releaseHeldKeys() {
+        let released = heldKeys
+        heldKeys.removeAll()
+        for key in released { onPushReleased?(key) }
+    }
+}
+
+// MARK: - Deadlines
+
+extension MediaKeyInterceptionOSDSuppressor {
+    /// Bounds a write by the apply deadline (mechanism in OSDApplyDeadline): a
+    /// hung actuator (coreaudiod stall, Bluetooth output dropping mid-write) that
+    /// never returns would otherwise strand the apply chain while keys keep being
+    /// consumed. Maps the timeout onto the domain-suspension path.
+    private func withDeadline(_ operation: @escaping @Sendable () async throws -> Void) async throws {
+        do {
+            try await raceWriteDeadline(seconds: applyDeadline, clock: clock, operation)
+        } catch is DeadlineExceeded {
+            logger.error("apply exceeded the \(self.applyDeadline, privacy: .public)s deadline — abandoning the hung write, suspending the domain")
+            throw ApplyFailure.writeTimedOut
+        }
+    }
+
+    /// The read-side sibling of the write deadline: bounds a blocking C read by
+    /// the same deadline so a stalled read never freezes the MainActor and wedges
+    /// the queue. Reads sleep on `readClock`, apart from the probe backoff on
+    /// `clock`. (docs/DECISIONS.md: read-deadline-pool-rule)
+    private func readWithDeadline<T: Sendable>(_ read: @escaping @Sendable () -> T) async throws -> T {
+        do {
+            return try await raceReadDeadline(seconds: applyDeadline, clock: readClock, read)
+        } catch is DeadlineExceeded {
+            // Deliberately does not name a consequence: the apply path maps this
+            // onto a domain suspension, while the capability re-check is clear-only
+            // and just leaves the absence standing. Naming one would lie to whoever
+            // reads the other in Console.
+            logger.error("a channel read exceeded the \(self.applyDeadline, privacy: .public)s deadline — abandoning the hung read")
+            throw ApplyFailure.readTimedOut
+        }
     }
 }
