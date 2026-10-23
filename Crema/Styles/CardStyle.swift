@@ -160,16 +160,18 @@ enum CardMetrics {
     /// inner track; the level is the boundary between a light fill and the
     /// remainder. No radius here — the card's rounded-rect clip rounds the sweep.
     /// On the glass the remainder is the glass itself, pale or dark with what is
-    /// behind it; on the film path, and on the glass under Increase Contrast, it
-    /// is a dark remainder (iOS Control Center contrast), and both ends move apart
-    /// under that setting: an opaque fill over a deeper remainder
+    /// behind it, wherever the bar is drawn on it (`surfaceIsGlass`, never the
+    /// system alone: Settings' tiles draw it on a flat stand-in); on the film
+    /// path, and on the glass under Increase Contrast, it is a dark remainder
+    /// (iOS Control Center contrast), and both ends move apart under that
+    /// setting: an opaque fill over a deeper remainder
     /// (docs/DECISIONS.md: the-card-is-glass).
     static func hudFilledFill(_ contrast: ColorSchemeContrast) -> Color {
         Color.white.opacity(hudFilledFillOpacity(contrast))
     }
 
-    static func hudFilledEmpty(_ contrast: ColorSchemeContrast) -> Color {
-        Color.black.opacity(hudFilledEmptyOpacity(contrast, onGlass: SurfaceChrome.cardIsGlass))
+    static func hudFilledEmpty(_ contrast: ColorSchemeContrast, onGlass: Bool) -> Color {
+        Color.black.opacity(hudFilledEmptyOpacity(contrast, onGlass: onGlass))
     }
 
     static func hudFilledFillOpacity(_ contrast: ColorSchemeContrast) -> Double {
