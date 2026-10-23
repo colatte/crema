@@ -66,6 +66,7 @@ struct HUDLevelSlider: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.layoutDirection) private var layoutDirection
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.surfaceIsGlass) private var onGlass
 
     // The capsule's numbers and its drawing live in `CapsuleTrack`, shared with
     // the now-playing scrubber so the two bars in one card cannot drift again.
@@ -198,7 +199,7 @@ struct HUDLevelSlider: View {
     /// length can drive past full and the card's far corners crop it.
     private func filledBar(length: CGFloat) -> some View {
         ZStack(alignment: CapsuleTrack.startAlignment(axis: runningAxis)) {
-            Rectangle().fill(CardMetrics.hudFilledEmpty(colorSchemeContrast))
+            Rectangle().fill(CardMetrics.hudFilledEmpty(colorSchemeContrast, onGlass: onGlass))
             Rectangle()
                 .fill(CardMetrics.hudFilledFill(colorSchemeContrast))
                 .frame(along: runningAxis, CapsuleTrack.fillLength(for: value, trackLength: length))
