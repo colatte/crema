@@ -107,17 +107,33 @@ struct StyleContractTests {
         // `previous` follows every kind (a disappearance must not be gated as a
         // morph), while `lastVisible` skips `.empty` so the fade-out sits on the
         // rect it is leaving instead of snapping to compact behind the fade.
+        let hud = StyleContent.hud(SystemHUD(kind: .volume, value: 0.5))
         var provenance = SurfaceProvenance()
-        provenance.advance(to: .hud)
-        #expect(provenance == SurfaceProvenance(previous: .hud, lastVisible: .hud))
+        provenance.advance(to: hud)
+        #expect(provenance == SurfaceProvenance(previous: .hud, lastVisible: .hud, lastVisibleContent: hud))
         provenance.advance(to: .empty)
-        #expect(provenance == SurfaceProvenance(previous: .empty, lastVisible: .hud))
+        #expect(provenance == SurfaceProvenance(previous: .empty, lastVisible: .hud, lastVisibleContent: hud))
     }
 
     @Test func advancingBetweenVisibleLayoutsMovesBoth() {
+        let track = NowPlaying(title: "Breathe", artist: "Pink Floyd", isPlaying: true, position: 10, duration: 169)
         var provenance = SurfaceProvenance()
-        provenance.advance(to: .compact)
-        provenance.advance(to: .expanded)
-        #expect(provenance == SurfaceProvenance(previous: .expanded, lastVisible: .expanded))
+        provenance.advance(to: .nowPlayingCompact(track))
+        provenance.advance(to: .nowPlayingExpanded(track))
+        #expect(provenance == SurfaceProvenance(
+            previous: .expanded, lastVisible: .expanded, lastVisibleContent: .nowPlayingExpanded(track)
+        ))
+    }
+
+    @Test func aHiddenSurfaceDrawsWhatItLastShowed() {
+        // Hidden and shown are two states of one surface: removed as a branch, the
+        // content took a fade of its own under the surface's, and went out at the
+        // square of its opacity, ahead of its outline.
+        let hud = StyleContent.hud(SystemHUD(kind: .screenBrightness, value: 0.7))
+        #expect(SurfaceLayout.drawnContent(.empty, lastVisible: hud) == hud)
+        let other = StyleContent.hud(SystemHUD(kind: .volume, value: 0.2))
+        #expect(SurfaceLayout.drawnContent(other, lastVisible: hud) == other)
+        // Before anything has shown there is nothing to keep.
+        #expect(SurfaceLayout.drawnContent(.empty, lastVisible: .empty) == .empty)
     }
 }

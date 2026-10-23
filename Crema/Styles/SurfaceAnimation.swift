@@ -77,12 +77,11 @@ enum SurfaceAnimation {
     /// show it). On appearance the surface is invisible anyway (opacity 0, faded
     /// in separately), so the branch swap needs no motion — nil.
     ///
-    /// On a DISAPPEARANCE it stays the directional spring so the outgoing glyph
-    /// FADES with the surface instead of popping out a frame before the opacity
-    /// fade catches up; the disappearance geometry does not travel because the
-    /// hidden layout freezes the outgoing rect (each view's effective-layout
-    /// geometry), so a non-nil spring here has no size delta to animate. Between
-    /// visible layouts it is the same crossfade+morph as the geometry spring.
+    /// On a DISAPPEARANCE nothing under it changes: a hidden surface draws the
+    /// content it is leaving (`SurfaceLayout.drawnContent`) on the rect it is
+    /// leaving (each view's effective-layout geometry), so the opacity fade alone
+    /// carries it out. Between visible layouts it is the same crossfade+morph as
+    /// the geometry spring.
     static func contentAnimation(fromEmpty: Bool, expanding: Bool, reduceMotion: Bool) -> Animation? {
         guard !reduceMotion else { return nil }
         return fromEmpty ? nil : (expanding ? open : close)

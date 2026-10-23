@@ -6,6 +6,15 @@ import SwiftUI
 /// position tick or a HUD level change.
 enum SurfaceLayoutKind: Equatable {
     case empty, compact, expanded, hud
+
+    init(_ content: StyleContent) {
+        switch content {
+        case .empty: self = .empty
+        case .nowPlayingCompact: self = .compact
+        case .nowPlayingExpanded: self = .expanded
+        case .hud: self = .hud
+        }
+    }
 }
 
 /// The pure layout rules every skin shares — one implementation, so a contract
@@ -24,6 +33,18 @@ enum SurfaceLayout {
         lastVisible: SurfaceLayoutKind
     ) -> SurfaceLayoutKind {
         layout == .empty ? lastVisible : layout
+    }
+
+    /// The content the surface draws: what it shows, and while it is hidden the
+    /// content it last showed, so a disappearance changes the surface's opacity
+    /// alone. Hidden and shown are two states of one surface, not two views:
+    /// removed as a branch, the content took a fade of its own under the
+    /// surface's, and opacities multiply, so it went out at the square of the
+    /// surface's opacity, ahead of its outline (SwiftUI, `View.opacity(_:)`:
+    /// "multiplies the effect of the underlying opacity transformation"; WWDC21
+    /// "Demystify SwiftUI", session 10022: "try to preserve identity").
+    nonisolated static func drawnContent(_ content: StyleContent, lastVisible: StyleContent) -> StyleContent {
+        content == .empty ? lastVisible : content
     }
 
     nonisolated static func surfaceSize(
@@ -55,8 +76,8 @@ enum SurfaceLayout {
 }
 
 /// Where the surface is coming FROM: the provenance the motion gates and the
-/// empty-boundary freeze both read. Two fields rather than one, because they
-/// answer different questions — `previous` advances to `.empty` as well (an
+/// empty-boundary freeze both read. Two layout fields rather than one, because
+/// they answer different questions — `previous` advances to `.empty` as well (an
 /// appearance is not a morph), while `lastVisible` has to survive the whole
 /// hidden period; a single field would flip the frozen rect to compact one
 /// render into the fade. The storage stays in each view (@State: ephemeral,
@@ -70,12 +91,18 @@ struct SurfaceProvenance: Equatable {
     /// Compact until something has shown — the fallback `effectiveLayoutKind`
     /// documents.
     var lastVisible: SurfaceLayoutKind = .compact
+    /// What a hidden surface draws while it fades (`SurfaceLayout.drawnContent`).
+    var lastVisibleContent: StyleContent = .empty
 
     /// Advanced AFTER the render that read it (each view's `onChange`), so the
     /// body pass animating a transition still sees its true FROM.
-    mutating func advance(to kind: SurfaceLayoutKind) {
+    mutating func advance(to content: StyleContent) {
+        let kind = SurfaceLayoutKind(content)
         previous = kind
-        if kind != .empty { lastVisible = kind }
+        if kind != .empty {
+            lastVisible = kind
+            lastVisibleContent = content
+        }
     }
 }
 
@@ -114,12 +141,12 @@ extension SurfaceStyleBody {
     }
 
     var layoutKind: SurfaceLayoutKind {
-        switch contentKind {
-        case .empty: .empty
-        case .nowPlayingCompact: .compact
-        case .nowPlayingExpanded: .expanded
-        case .hud: .hud
-        }
+        SurfaceLayoutKind(contentKind)
+    }
+
+    /// What the surface draws (`SurfaceLayout.drawnContent`).
+    var drawnContent: StyleContent {
+        SurfaceLayout.drawnContent(contentKind, lastVisible: provenance.lastVisibleContent)
     }
 
     var isExpanded: Bool {
@@ -128,10 +155,10 @@ extension SurfaceStyleBody {
     }
 
     /// Artwork bytes behind the cover and the accent — from the state payload
-    /// (ticks never rewrite it); nil outside now-playing, so the tone fades out
-    /// with the surface.
+    /// (ticks never rewrite it); nil under a HUD, and a hidden surface keeps the
+    /// cover it fades out with (`drawnContent`).
     var coverArtwork: [UInt8]? {
-        switch contentKind {
+        switch drawnContent {
         case .nowPlayingCompact(let track), .nowPlayingExpanded(let track):
             track.artworkData
         case .empty, .hud:
@@ -227,5 +254,19 @@ extension SurfaceStyleBody {
 
     func hudSliderReleased() {
         coordinator.hudSliderReleased()
+    }
+}
+
+private struct SurfaceIsShownKey: EnvironmentKey {
+    static let defaultValue = true
+}
+
+extension EnvironmentValues {
+    /// Whether the surface drawing this view is shown. A hidden surface still
+    /// draws the content it faded out with (`SurfaceLayout.drawnContent`), so
+    /// what loops on it stops: nothing new is drawn where nobody sees it.
+    var surfaceIsShown: Bool {
+        get { self[SurfaceIsShownKey.self] }
+        set { self[SurfaceIsShownKey.self] = newValue }
     }
 }

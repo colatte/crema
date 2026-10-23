@@ -90,6 +90,15 @@ struct WaveformGlyphTests {
         #expect(WaveformGlyph.stillHeights(animating: true, reduceMotion: true, lowPower: false) == vetoed)
     }
 
+    @Test func aHiddenSurfaceStopsThePulseAndKeepsTheSilhouette() {
+        // A hidden surface still draws the glyph it faded out with, so it vetoes
+        // the pulse as Reduce Motion does: no motion nobody sees, and the same
+        // silhouette, so nothing settles during the fade.
+        #expect(!WaveformGlyph.dances(animating: true, reduceMotion: false, lowPower: false, shown: false))
+        #expect(WaveformGlyph.stillHeights(animating: true, reduceMotion: false, lowPower: false, shown: false)
+            == WaveformGlyph.stillHeights(animating: true, reduceMotion: true, lowPower: false))
+    }
+
     @Test func theSilhouetteFollowsATuningItDoesNotHardcode() {
         // A skin that diverges (Configuration is per call site) gets its own span
         // and its own bar count — the fractions are the constant, not the points.

@@ -46,14 +46,15 @@ struct WaveformGlyph: View {
     /// flips right after insertion (onAppear), a real change, so the pulse
     /// provably starts. Purely visual ephemeral state.
     ///
-    /// It tracks `shouldDance`, not `animating`, and that is what makes BOTH vetoes
-    /// live: Reduce Motion can be switched on — and Low Power Mode can engage — with
-    /// the glyph already mounted and pulsing, and a phase latched at mount would
-    /// keep the bars dancing under either. The sibling gates follow a live flip for
-    /// free, because they read their input inside a body, which re-runs; a phase in
-    /// @State has to be told. One derived value carries both vetoes, so the
-    /// `onChange` below stays keyed on it rather than growing a key per input —
-    /// which is how one of them ends up watched and the other forgotten.
+    /// It tracks `shouldDance`, not `animating`, and that is what makes every veto
+    /// live: Reduce Motion can be switched on, Low Power Mode can engage and the
+    /// surface can hide with the glyph already mounted and pulsing, and a phase
+    /// latched at mount would keep the bars dancing under any of them. The sibling
+    /// gates follow a live flip for free, because they read their input inside a
+    /// body, which re-runs; a phase in @State has to be told. One derived value
+    /// carries every veto, so the `onChange` below stays keyed on it rather than
+    /// growing a key per input — which is how one of them ends up watched and
+    /// another forgotten.
     ///
     /// It carries the PULSE alone. The form the bars hold when it is false comes
     /// from `stillHeights`, read inside the body: a veto arriving mid-playback
@@ -63,6 +64,7 @@ struct WaveformGlyph: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Nil off the panels (previews, the Settings tiles): no mirror, no veto.
     @Environment(\.lowPowerMode) private var lowPowerMode
+    @Environment(\.surfaceIsShown) private var shown
     @Environment(\.artworkAccent) private var accent
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
 
@@ -74,7 +76,7 @@ struct WaveformGlyph: View {
 
     var body: some View {
         let still = Self.stillHeights(
-            animating: animating, reduceMotion: reduceMotion, lowPower: lowPower, config: config
+            animating: animating, reduceMotion: reduceMotion, lowPower: lowPower, shown: shown, config: config
         )
         HStack(alignment: .center, spacing: config.barSpacing) {
             ForEach(0..<config.barCount, id: \.self) { index in
@@ -119,7 +121,7 @@ struct WaveformGlyph: View {
     /// only at the next transport event. Read inside the body, so an @Observable
     /// mirror flip invalidates it like the accessibility preference does.
     private var shouldDance: Bool {
-        Self.dances(animating: animating, reduceMotion: reduceMotion, lowPower: lowPower)
+        Self.dances(animating: animating, reduceMotion: reduceMotion, lowPower: lowPower, shown: shown)
     }
 
     private var lowPower: Bool { lowPowerMode?.isLowPower ?? false }
@@ -129,11 +131,13 @@ struct WaveformGlyph: View {
     /// standing request that nothing move, and Low Power Mode is the system's
     /// request that nothing be spent on motion — a repeatForever pulse on a
     /// surface that sits over the menu bar is exactly what it means. An absent
-    /// mirror means nobody wired one, which is no veto.
+    /// mirror means nobody wired one, which is no veto. A hidden surface stops it
+    /// as a veto does (`surfaceIsShown`): it still draws the glyph it faded out
+    /// with, and keeps the silhouette it faded out on.
     ///
     /// It decides the PULSE and nothing else; the silhouette is `stillHeights`.
-    static func dances(animating: Bool, reduceMotion: Bool, lowPower: Bool) -> Bool {
-        animating && SurfaceAnimation.allowsPerpetualMotion(reduceMotion: reduceMotion, lowPower: lowPower)
+    static func dances(animating: Bool, reduceMotion: Bool, lowPower: Bool, shown: Bool = true) -> Bool {
+        animating && shown && SurfaceAnimation.allowsPerpetualMotion(reduceMotion: reduceMotion, lowPower: lowPower)
     }
 
     /// The frozen equalizer, as fractions of the rest→peak span. One bar down,
@@ -154,9 +158,10 @@ struct WaveformGlyph: View {
     /// autoreverse animates between the height declared here and the peak, so a
     /// bar handed its profile height would pulse from peak to peak — invisibly.
     static func stillHeights(
-        animating: Bool, reduceMotion: Bool, lowPower: Bool, config: Configuration = .standard
+        animating: Bool, reduceMotion: Bool, lowPower: Bool, shown: Bool = true, config: Configuration = .standard
     ) -> [CGFloat] {
-        let vetoed = animating && !dances(animating: animating, reduceMotion: reduceMotion, lowPower: lowPower)
+        let vetoed = animating
+            && !dances(animating: animating, reduceMotion: reduceMotion, lowPower: lowPower, shown: shown)
         guard vetoed, !stillProfile.isEmpty else {
             return Array(repeating: config.restHeight, count: config.barCount)
         }
