@@ -130,17 +130,6 @@ enum SurfaceChrome {
     /// app doesn't have, in the one place the user compares the skins.
     static let tileStrokeTopOpacity: Double = specularTopOpacity
 
-    /// Whether the Card draws on Liquid Glass: the system has it from macOS 26.
-    /// The same check `cardSurface` makes with its own `#available`, which the
-    /// compiler needs at the call that uses the glass.
-    static var cardIsGlass: Bool {
-        if #available(macOS 26, *) {
-            true
-        } else {
-            false
-        }
-    }
-
     /// The black layer over the Card's glass where white ink must meet the
     /// minimum (`glassDimming`). Measured with scripts/probes/hud-surface-contrast.swift,
     /// mode `tint`, on the shipped `.clear` glass (macOS 27.0.1, 2026-10-22):
