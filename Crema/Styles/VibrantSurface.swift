@@ -164,55 +164,45 @@ enum SurfaceChrome {
     /// (docs/DECISIONS.md: the-card-is-glass).
     static let glassBareInkRatioOverWhitePage: Double = 1.42
 
-    /// How far inside the outline the Card's glass stops, and how much further
-    /// in its own edge is cut. Measured with scripts/probes/hud-surface-contrast.swift,
-    /// mode `edge`, the filled HUD's leading corner over a white page: with the
-    /// glass flush its blur rings the light fill (#b7 against a #f9 fill); a point
-    /// in, clean. The glass also draws its edge darker than its body over a pale
-    /// page (#a5 against #d8 down the sides, scripts/probes/native-osd-edge.swift);
-    /// cut half a point further in, the sides run #f8 straight into the body.
-    static let glassInset: CGFloat = 1
+    /// How far inside the outline the Card's glass, and what is drawn on it, are
+    /// cut: the glass draws its own outermost pixel far darker than its body over
+    /// a pale page (#8a against a #cf body down the sides, where the system's
+    /// edge darkens only to #ba), the one pixel that read as a black, broken
+    /// outline. Cut by more, the band left showed the page: a gap round the body
+    /// over a pale page, a frame round a full filled bar over a dark one.
+    /// Measured with scripts/probes/native-osd-edge.swift (macOS 27.0.1,
+    /// 2026-10-23); a capture whose side edge reads differently invalidates it.
     static let glassEdgeCut: CGFloat = 0.5
-
-    /// Where a surface's glass stops: the indicator's as above; the player's at
-    /// the outline. Under the player's dimming the band between the outline and
-    /// cut glass shows the page through the layer instead of the glass, a ring
-    /// lighter than the body over a pale page (#75 round a #5a body, measured on a
-    /// capture of the app, 2026-10-22), and the glass's own darker edge, dimmed,
-    /// sits a shade under the body instead of standing out against it.
-    static func glassStop(carriesText: Bool) -> (inset: CGFloat, cut: CGFloat) {
-        carriesText ? (0, 0) : (glassInset, glassEdgeCut)
-    }
 
     /// The rim the glass does not draw in a never-key panel: three strokes, each
     /// a vertical ramp (top, held from 35% to 75% of the height, bottom), laid so
     /// the Card's edge reads as the system OSD's, pixel by pixel from the outline
-    /// in. Measured with scripts/probes/native-osd-edge.swift on captures of both
-    /// over a black page (macOS 27.0.1, 2026-10-22):
-    ///   top            system #66 #3f #28 into #21, Card #65 #42 #2b into #21
-    ///   sides, midway  system about #1b, no rim, Card #1e
-    ///   top corners    system #44 #2b, Card #4b #39 #2c
-    ///   bottom         system #48 #55, Card #47 #55
-    /// The widest stroke spans the band between the outline and the cut glass and
-    /// carries the body's tone across it, so the sides show no seam; the two
-    /// narrower ones are the light, brightest on top and second at the bottom.
+    /// in. Light alone: the glass reaches the outline but for its cut
+    /// (`glassEdgeCut`), so no stroke carries the body. Measured with
+    /// scripts/probes/native-osd-edge.swift on captures of both over a black page,
+    /// read across the middle of each edge (macOS 27.0.1, 2026-10-23):
+    ///   top, outline in      system #83 #58 #33 #2e, Card #80 #54 #2e #2d
+    ///   bottom, outline in   system #63 #5d #34 #2e, Card #61 #59 #2b #2a
+    ///   sides, midway        system no rim, Card no rim
+    /// The system's edge is brighter at its specular spots and dimmer toward its
+    /// ends (#40 #4d at the top there); the Card holds the run between. Over a
+    /// coloured page the system's edge stays a thin line, which a wider, even
+    /// ring does not: that ring read as a drawn outline. A capture whose edge
+    /// reads differently invalidates the stops.
     static let glassRim: [RimStroke] = [
-        RimStroke(width: 1.5, top: 0.13, middle: 0.09, bottom: 0.10),
-        RimStroke(width: 1, top: 0.09, middle: 0, bottom: 0.14),
-        RimStroke(width: 0.5, top: 0.15, middle: 0, bottom: 0.06),
+        RimStroke(width: 2, top: 0.10, middle: 0, bottom: 0.09),
+        RimStroke(width: 1, top: 0.19, middle: 0, bottom: 0.23),
+        RimStroke(width: 0.5, top: 0.33, middle: 0, bottom: 0.13),
     ]
 
-    /// The player's rim: the two light strokes alone, softer. Its glass reaches
-    /// the outline, so there is no band for the widest stroke to carry; and its
-    /// dimmed body is darker than the system's on every page, so the same light
-    /// reads as a drawn outline round it. The softening is the author's taste
-    /// against that outline, not a measurement (docs/DECISIONS.md:
-    /// the-card-is-glass).
+    /// The player's rim: the same strokes, softer. Its dimmed body is darker than
+    /// the system's on every page, so the same light reads as a drawn outline
+    /// round it. The softening is the author's taste against that outline, not a
+    /// measurement (docs/DECISIONS.md: the-card-is-glass).
     static let glassPlayerRimScale: Double = 0.6
 
     static func glassRim(carriesText: Bool) -> [RimStroke] {
-        guard carriesText else { return glassRim }
-        return glassRim.dropFirst().map { $0.scaled(by: glassPlayerRimScale) }
+        carriesText ? glassRim.map { $0.scaled(by: glassPlayerRimScale) } : glassRim
     }
 
     /// One stroke of the glass rim: its width and its white opacity along the
@@ -242,14 +232,6 @@ enum SurfaceChrome {
             endPoint: specularEnd
         )
     }
-
-    /// The soft shadow under the system's OSD, visible over a white page a few
-    /// pixels below its edge (#f1 there); the Card's measures #f2 just under its
-    /// edge and #f9 ten pixels down. Over a dark page it is invisible, as the
-    /// system's is.
-    static let glassShadowOpacity: Double = 0.12
-    static let glassShadowRadius: CGFloat = 6
-    static let glassShadowY: CGFloat = 2
 
     static var specularGradient: LinearGradient {
         LinearGradient(

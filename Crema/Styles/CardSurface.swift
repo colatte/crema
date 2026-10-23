@@ -3,8 +3,8 @@ import SwiftUI
 extension View {
     /// The Card's floating surface. On macOS 26 and later it is Liquid Glass, the
     /// material the system's own volume and brightness OSD is drawn in, so the
-    /// Card reads as the system's, with the system's rim and shadow drawn by hand
-    /// because a never-key panel's glass draws neither. The glass is `.clear`,
+    /// Card reads as the system's, with the system's rim drawn by hand because a
+    /// never-key panel's glass draws none. The glass is `.clear`,
     /// whose body matches the system's on both kinds of page. Bare, it turns pale
     /// over a bright page, which the indicator accepts as the system's OSD does;
     /// a surface that `carriesText` is dimmed so its white text meets the
@@ -37,18 +37,16 @@ private struct GlassCardSurface<S: InsettableShape>: ViewModifier {
             .background { Color.black.opacity(SurfaceChrome.glassDimming(contrast, carriesText: carriesText)) }
             // Composited and clipped once, as `vibrantSurface` does: the light
             // fill's edge pixels must not show the glass beneath them as a ring.
+            // Clipped where the glass is, so the two share one edge.
             .compositingGroup()
-            .clipShape(shape)
-            // The glass as a layer of its own, so its edge can be cut: under the
-            // indicator it stops `glassInset` inside the outline, and the ring its
-            // own edge draws, darker than its body over a pale page, is clipped a
-            // further `glassEdgeCut` away, the rim covering the band that leaves;
-            // under the player it reaches the outline (`glassStop`).
+            .clipShape(shape.inset(by: SurfaceChrome.glassEdgeCut))
+            // The glass to the outline, its own darker outermost pixel cut away
+            // (`SurfaceChrome.glassEdgeCut`). No shadow: the system's OSD casts
+            // none.
             .background {
-                let stop = SurfaceChrome.glassStop(carriesText: carriesText)
                 Color.clear
-                    .glassEffect(.clear, in: shape.inset(by: stop.inset))
-                    .clipShape(shape.inset(by: stop.inset + stop.cut))
+                    .glassEffect(.clear, in: shape)
+                    .clipShape(shape.inset(by: SurfaceChrome.glassEdgeCut))
             }
             .overlay {
                 let rim = SurfaceChrome.glassRim(carriesText: carriesText)
@@ -58,11 +56,6 @@ private struct GlassCardSurface<S: InsettableShape>: ViewModifier {
                     }
                 }
             }
-            .shadow(
-                color: .black.opacity(SurfaceChrome.glassShadowOpacity),
-                radius: SurfaceChrome.glassShadowRadius,
-                y: SurfaceChrome.glassShadowY
-            )
     }
 }
 

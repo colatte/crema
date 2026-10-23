@@ -562,7 +562,7 @@ author accepts the system's trade where the system makes it.
   `effectIsInteractive` too. Only a window that is really key draws it, and a HUD
   that took the key would take the keyboard from whoever is typing. The private
   `set_variant:` stays out. So the Card's polish is the glass's body plus a rim
-  and a shadow drawn by hand to the system's measurements.
+  drawn by hand to the system's measurements.
 - The body is `.clear`: #d8 over white and #21 over black against the system's
   #d1–#d9 and #1a–#21, where `.regular` reads #c1, a grey slab over a pale page.
 - The indicator's glass is bare: white ink over a pale page at 1.42:1
@@ -576,30 +576,32 @@ author accepts the system's trade where the system makes it.
   player is smoked glass, still blurring the page, not the system's pale body.
   Under Increase Contrast the indicator takes the same layer, the minimum the
   HIG asks that setting to deliver. A layer, not the glass's tint, which darkens
-  `.clear` but lightens `.regular`. The player's glass reaches the outline
-  (`glassStop`): cut short, the band showed the page through the layer, a #75
-  ring round a #5a body over white. Its rim is the two light strokes at 0.6
+  `.clear` but lightens `.regular`. The player's rim is the indicator's at 0.6
   (`glassPlayerRimScale`), the author's taste against the outline the full rim
-  drew round a body darker than the system's: over black #2d #17 down the top
-  and no ring down the sides, where the full one read #53 #34 #21 and #17.
-  Turning the text dark over a pale page, as
+  draws round a body darker than the system's. Turning the text dark over a
+  pale page, as
   Apple's own glass does, needs the backdrop's luminance, which a never-key
   panel's glass does not adapt to and reading the screen would need Screen
   Recording for.
 - The filled HUD's remainder is the glass itself; the glyph keeps its difference
   blend. Under Increase Contrast it takes the film path's remainder again.
-- The glass stops a point inside the outline, and its own edge, which it draws
-  darker than its body over a pale page (#a5 against #d8 down the sides), is cut
-  half a point further in (`glassInset`, `glassEdgeCut`). Flush, its blur rings
-  the filled HUD's light corner (#b7 against a #f9 fill).
-- The rim is three strokes, each a vertical ramp held dark through the middle
-  of the height (`glassRim`): the widest carries the body's tone across the band
-  the cut glass leaves, the narrower two are the light. Over black the Card's
-  edge reads #66 #44 #2b down the top, #1e midway down the sides and #47 #55 at
-  the bottom, against the system's #66 #3f #28, about #1b and #48 #55. A ring of
-  even brightness reads as a drawn outline, which is why the light stays off the
-  sides.
-- A soft shadow matches the one under the system's OSD over a pale page.
+- Every surface's glass reaches the outline but for its own outermost pixel,
+  which it draws far darker than its body over a pale page (#8a against #cf
+  down the sides, where the system's edge darkens only to #ba): that pixel is
+  cut, half a point (`glassEdgeCut`), and what is drawn on the glass with it, so
+  a filled bar and the glass beside it share one edge. Cut further in, the band
+  left showed the page: a gap round the body over a pale page, a frame round a
+  full filled bar over a dark one.
+- The rim is light alone, three strokes, each a vertical ramp held dark through
+  the middle of the height (`glassRim`). Read across the middle of each edge
+  over black (macOS 27.0.1, 2026-10-23), the Card's edge is #80 #54 #2e down the
+  top, none down the sides and #61 #59 at the bottom, against the system's #83
+  #58 #33, none and #63 #5d; the system's is brighter at its specular spots and
+  dimmer toward its ends. A wider ring of even brightness read as a drawn,
+  heavy outline over a coloured page, where the system's edge stays a thin line.
+- No shadow: the system's OSD casts none over a white page (the page reads 254
+  to 255 right under its edge). One cast by what is drawn ran darker under the
+  fill and the cover than under bare glass.
 Classic keeps the film path by identity: it is the pre-Tahoe bezel, dark and
 translucent. Systems before macOS 26 have no glass and keep it too. The Settings
 tiles draw every floating surface dark, the film path's look: a tile is a
