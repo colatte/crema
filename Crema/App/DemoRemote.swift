@@ -9,8 +9,9 @@ import os
 /// demo sources only; it reaches nothing a Release build has.
 ///
 /// Commands: `play`, `pause`, `next`, `seek <seconds>`, `invoke`,
-/// `hud <volume|screenBrightness|keyboardBrightness> <0…1>`, `push <MediaKey case>`
-/// (a step key pressed past the end it points to, as the suppressor reports it),
+/// `hud <volume|screenBrightness|keyboardBrightness> <0…1>`, `press <MediaKey case>`
+/// (a step key tapped, as the suppressor reports it), `push <MediaKey case>` (the
+/// same tap finding the level already at the end it points to),
 /// `route <case>`,
 /// `style <notch|card|classic>`, `place <HUDPlacement>`, `indicator <slider|filled>`,
 /// `tour <step|close>`, `appearance <dark|light>`, `quit`. An unknown or malformed
@@ -60,15 +61,16 @@ enum DemoRemote {
         case "hud":
             guard let kind = SystemHUD.Kind.allCases.first(where: { argument == "\($0)" }), let value else { return false }
             demo.hud.demoSet(kind, to: value)
-        case "push":
+        case "press", "push":
             let keys: [MediaKey] = [
                 .volumeUp, .volumeDown, .screenBrightnessUp, .screenBrightnessDown,
                 .keyboardBrightnessUp, .keyboardBrightnessDown,
             ]
             guard let key = keys.first(where: { argument == "\($0)" }) else { return false }
-            // A tap: the up follows at once, and the pull's floor keeps it seen.
-            core.coordinator.hudPushedPastEnd(key)
-            core.coordinator.hudPushReleased(key)
+            // A tap, the up following at once: the press's floor keeps it seen.
+            core.coordinator.hudKeyPressed(key)
+            if command == "push" { core.coordinator.hudPushedPastEnd(key) }
+            core.coordinator.hudKeyReleased(key)
         case "route":
             guard let route = AudioOutputRoute.allCases.first(where: { argument == "\($0)" }) else { return false }
             demo.hud.demoSetOutputDevice(route)

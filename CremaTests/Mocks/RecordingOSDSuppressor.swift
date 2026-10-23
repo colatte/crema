@@ -14,7 +14,8 @@ final class RecordingOSDSuppressor: NativeOSDSuppressor {
     var onApplied: (@MainActor (MediaKey) -> Void)?
     var onHandedBackToTheSystem: (@MainActor (MediaKey) -> Void)?
     var onPushedPastEnd: (@MainActor (MediaKey) -> Void)?
-    var onPushReleased: (@MainActor (MediaKey) -> Void)?
+    var onKeyPressed: (@MainActor (MediaKey) -> Void)?
+    var onKeyReleased: (@MainActor (MediaKey) -> Void)?
 
     private(set) var longSuspendedDomains: Set<OSDSuppressionDomain> = []
     var onSuspensionStateChange: (@MainActor () -> Void)?

@@ -104,12 +104,18 @@ struct PanelSurfaceTests {
                     topInset: surface.surfaceTopInset
                 )
                 #expect(drawn == spot, "\(placement)")
-                // Headroom for the open spring, sideways and down; above, only an
-                // upright bar's room for the pull past its top end.
-                #expect(window.minX == spot.minX - SurfaceAnimation.overshootHeadroom, "\(placement)")
-                #expect(window.maxX == spot.maxX + SurfaceAnimation.overshootHeadroom, "\(placement)")
-                #expect(window.minY == spot.minY - SurfaceAnimation.overshootHeadroom, "\(placement)")
-                #expect(window.maxY == spot.maxY + CardMetrics.hudTopHeadroom(for: placement.axis), "\(placement)")
+                // Headroom for the open spring, sideways and down, widened to the
+                // press's reach along the bar; above, only an upright bar's room
+                // for the press past its top end.
+                let axis = placement.axis
+                let reach = max(SurfaceAnimation.overshootHeadroom, CardMetrics.hudPressRoom(for: axis))
+                let sideways = axis == .horizontal ? reach : SurfaceAnimation.overshootHeadroom
+                let below = axis == .vertical ? reach : SurfaceAnimation.overshootHeadroom
+                #expect(window.minX == spot.minX - sideways, "\(placement)")
+                #expect(window.maxX == spot.maxX + sideways, "\(placement)")
+                #expect(window.minY == spot.minY - below, "\(placement)")
+                #expect(window.maxY == spot.maxY + CardMetrics.hudTopHeadroom(for: axis), "\(placement)")
+                #expect(CardMetrics.hudTopHeadroom(for: axis) == (axis == .vertical ? reach : 0), "\(placement)")
             }
         }
     }

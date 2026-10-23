@@ -105,7 +105,7 @@ enum PanelSurface: Hashable, Sendable {
     /// commits its hover at once like the card.
     var surfaceVerticalAnchor: SurfaceVerticalAnchor { style.surfaceVerticalAnchor }
     /// Room the window keeps above the surface it hangs from its top: an upright
-    /// Card HUD's, for the pull past the bar's top end; none anywhere else.
+    /// Card HUD's, for the press past the bar's top end; none anywhere else.
     var surfaceTopInset: CGFloat { CardMetrics.hudTopHeadroom(for: hudAxis) }
     var hoverCommit: Style.HoverCommit { style.hoverCommit }
 
