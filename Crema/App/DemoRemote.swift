@@ -66,7 +66,9 @@ enum DemoRemote {
                 .keyboardBrightnessUp, .keyboardBrightnessDown,
             ]
             guard let key = keys.first(where: { argument == "\($0)" }) else { return false }
+            // A tap: the up follows at once, and the pull's floor keeps it seen.
             core.coordinator.hudPushedPastEnd(key)
+            core.coordinator.hudPushReleased(key)
         case "route":
             guard let route = AudioOutputRoute.allCases.first(where: { argument == "\($0)" }) else { return false }
             demo.hud.demoSetOutputDevice(route)

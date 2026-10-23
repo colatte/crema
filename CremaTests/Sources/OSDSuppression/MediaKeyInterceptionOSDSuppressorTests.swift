@@ -167,6 +167,60 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         #expect(pushed.keys == [.volumeUp, .screenBrightnessDown, .keyboardBrightnessUp])
     }
 
+    @Test func aTapPastTheEndIsReleasedRightAfterItsPush() async {
+        // The tap's up can reach the main actor before its apply finishes, and the
+        // release it fires then finds no pull, so the verdict owes one more.
+        let h = OSDSuppressorHarness()
+        let applies = CounterBox()
+        let log = PushLog()
+        h.suppressor.onApplied = { [applies] _ in applies.count += 1 }
+        log.record(on: h.suppressor)
+        h.volume.value = 1.0
+        h.suppressor.setEngaged(true)
+
+        h.keys.press(.volumeUp)
+        #expect(await eventually { applies.count == 1 })
+
+        // Either order ends the same: the last thing said lets the pull go.
+        #expect(await eventually { log.events.suffix(2) == [.push(.volumeUp), .release(.volumeUp)] })
+    }
+
+    @Test func aKeyHeldPastTheEndIsReleasedWithItsUp() async {
+        let h = OSDSuppressorHarness()
+        let applies = CounterBox()
+        let log = PushLog()
+        h.suppressor.onApplied = { [applies] _ in applies.count += 1 }
+        log.record(on: h.suppressor)
+        h.screen.value = 0.0
+        h.suppressor.setEngaged(true)
+
+        h.keys.pressDown(.screenBrightnessDown)
+        // onApplied and the push fire in one pass, so the count is the barrier.
+        #expect(await eventually { applies.count == 1 })
+        #expect(log.events == [.push(.screenBrightnessDown)])
+
+        h.keys.pressUp(.screenBrightnessDown)
+        #expect(await eventually { log.events == [.push(.screenBrightnessDown), .release(.screenBrightnessDown)] })
+    }
+
+    @Test func disengagingReleasesAKeyStillDown() async {
+        // A removed consumer hears no up, so the pull would be left to its
+        // longest hold.
+        let h = OSDSuppressorHarness()
+        let applies = CounterBox()
+        let log = PushLog()
+        h.suppressor.onApplied = { [applies] _ in applies.count += 1 }
+        log.record(on: h.suppressor)
+        h.volume.value = 1.0
+        h.suppressor.setEngaged(true)
+
+        h.keys.pressDown(.volumeUp)
+        #expect(await eventually { applies.count == 1 })
+
+        h.suppressor.setEngaged(false)
+        #expect(log.events == [.push(.volumeUp), .release(.volumeUp)])
+    }
+
     @Test func thePressThatReachesTheEndOrLeavesItIsNotPushedPastIt() async {
         // The press that lands ON the end reports the same level the next one
         // does; only the pre-read tells them apart, which is why the suppressor

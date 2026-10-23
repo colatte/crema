@@ -1,6 +1,6 @@
 /// A step key pressed against the end of the scale it points to: volume-up at
 /// full, brightness-down at zero. The level cannot follow, so the bar answers
-/// the press by pulling past that end and springing back
+/// the press by pulling past that end until the key lets go
 /// (docs/DECISIONS.md: the-bar-answers-the-press).
 struct HUDPush: Equatable, Sendable {
     /// The two ends of a bar, named by the level they hold rather than by a side

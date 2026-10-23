@@ -3047,15 +3047,23 @@ Decision:
   pre-read finds the level already at the end the key points to
   (`onPushedPastEnd`). The reading that follows reports the end, and so does the
   reading after the press that reached it; the boundary refresh emits on both. So
-  the press travels on its own path to the Coordinator (`hudPushedPastEnd`), which
-  holds `hudPush` for `defaultHUDPushHold` (0.15 s) and refreshes it on every
-  repeat, so a held key holds the bar out.
+  the press travels on its own path to the Coordinator (`hudPushedPastEnd`).
+- The pull follows the key: `hudPush` holds from the press until the key comes
+  up (`onPushReleased`), never under `defaultHUDPushMinimumHold` (0.15 s), so a
+  tap is seen, and never past `defaultHUDPushLongestHold` (3 s) without a press,
+  so a lost up cannot leave the bar out; an autorepeat re-arms that ceiling. A
+  tap's up can reach the main actor before its apply finishes, so only the
+  suppressor knows whether the hand is still down at the verdict, and it fires
+  the release for a key already up right after the push.
+- The push engages nothing; the reading behind it does. Changed together, the
+  pull and the growth land in one transaction and ride one spring, chosen by
+  which of the two arrived first.
 - In use is any HUD published or a drag under way (`hudIsEngaged`); it settles
   `defaultHUDEngagedHold` (0.6 s) after the last, inside the 1.5 s revert, so
-  every HUD shows its thin bar before it goes. Both timers run on their own
-  injected clock (`motionClock`): they shape motion, never what is presented, and
-  on the presentation clock they would be stepped by every test that advances
-  "the next parked timer".
+  every HUD shows its thin bar before it goes. The pull's holds and this settle
+  run on their own injected clock (`motionClock`): they shape motion, never what
+  is presented, and on the presentation clock they would be stepped by every test
+  that advances "the next parked timer".
 - Where a bar has a track, the track answers: the capsule (Card slider, Notch)
   grows from 4 to 6 pt and is pulled 6 pt past the pressed end, inside the row's
   padding and the gap to the glyph. Where the surface is the bar, the surface
@@ -3069,16 +3077,22 @@ Decision:
   and the view.
 - Reduce Motion turns both off: the system's glass "disables any elastic
   properties for the material" under it (same session).
-- Motion: the pull is fast and nearly dead, the release under-damped (the
-  wobble is the elastic), the settle without overshoot. The growth rides the
+- Motion: the pull is fast and nearly dead; the release and the settle carry no
+  overshoot. A key press has no momentum, and Apple keeps overshoot for gestures
+  that do: "Because the tap doesn't have any momentum [...] we use 100% damping"
+  (WWDC18 "Designing Fluid Interfaces", session 803). The growth rides the
   level's spring because it lands in the transaction of the first level change
   after a settle, and one transaction carries one animation.
-The sizes and springs are the author's taste against the iPhone, not measured;
-a hardware session that finds them too faint or too busy changes the numbers,
-not the shape. Paths not taken: inferring the press from a repeated reading at
+The sizes, springs and holds are the author's taste against the iPhone, not
+measured; a hardware session that finds them too faint or too busy changes the
+numbers, not the shape. Paths not taken: inferring the press from a repeated reading at
 the end, which fires on the press that reaches it; a keyframe animation per
 press, which restarts from rest on each repeat and stutters under a held key; a
-scale transform on the filled surface, which stretches its glyph.
+scale transform on the filled surface, which stretches its glyph; a fixed hold
+let go by a timer, which springs back before the first autorepeat
+(`InitialKeyRepeat`, 30 ticks or 500 ms as read on the author's Mac) and pulls
+again under the same held key; an under-damped release, whose wobble outlasts
+the pull and becomes the thing seen.
 
 ### a-long-title-scrolls-where-it-is-read
 A long title stretched the compact Card to its full 280 pt and was cut with an

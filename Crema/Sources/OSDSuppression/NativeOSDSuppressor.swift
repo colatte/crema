@@ -38,6 +38,12 @@ protocol NativeOSDSuppressor: AnyObject {
     /// (docs/DECISIONS.md: the-bar-answers-the-press).
     var onPushedPastEnd: (@MainActor (MediaKey) -> Void)? { get set }
 
+    /// Fired when a consumed key lets go, so the bar a press pulled is released
+    /// with the hand. Every `onPushedPastEnd` is followed by one: a press whose
+    /// key came up before its apply finished gets it right after the push, and a
+    /// disengage releases every key still down.
+    var onPushReleased: (@MainActor (MediaKey) -> Void)? { get set }
+
     /// Domains that have failed long enough (with the channel present) to be
     /// worth telling the user about — the menu names these. Transient
     /// suspensions (a device swap re-engaging in seconds) never appear here.

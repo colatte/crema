@@ -24,11 +24,18 @@ final class Coordinator {
     /// restarting on every key press). The single place this number lives.
     static let defaultHUDRevertDelay: Double = 1.5
 
-    /// How long a press past the end holds the bar pulled out before it springs
-    /// back. Long enough for the pull to read on a single press; an autorepeat
-    /// burst refreshes it every few tens of milliseconds, so a held key holds
-    /// the bar out (docs/DECISIONS.md: the-bar-answers-the-press).
-    static let defaultHUDPushHold: Double = 0.15
+    /// The bar stays pulled while the key is down and lets go when it comes up,
+    /// but never sooner than this after the pull began: a tap's release reaches
+    /// here right behind its push, and without a floor the pull would not be
+    /// seen (docs/DECISIONS.md: the-bar-answers-the-press).
+    static let defaultHUDPushMinimumHold: Double = 0.15
+
+    /// The pull lets go after this long without a press past the end even if no
+    /// up arrived (the event tap disabled mid-press, a pointer holding the HUD).
+    /// An autorepeat re-arms it, so it only has to outlast the delay before the
+    /// first repeat (`InitialKeyRepeat`); the margin over that delay is taste,
+    /// not measured.
+    static let defaultHUDPushLongestHold: Double = 3
 
     /// How long the bar stays grown after the last press or the end of a drag
     /// before it settles thin, well inside the HUD's own revert: the grown bar
@@ -251,7 +258,8 @@ final class Coordinator {
     /// the linger by "the next parked timer" would otherwise step a settle.
     @ObservationIgnored private let motionClock: any SleepClock
     @ObservationIgnored private let hudRevertDelay: Double
-    @ObservationIgnored private let hudPushHold: Double
+    @ObservationIgnored private let hudPushMinimumHold: Double
+    @ObservationIgnored private let hudPushLongestHold: Double
     @ObservationIgnored private let hudEngagedHold: Double
     @ObservationIgnored private let nowPlayingLinger: Double
     @ObservationIgnored private let invokedLinger: Double
@@ -334,7 +342,11 @@ final class Coordinator {
 
     @ObservationIgnored private var consumptionTasks: [Task<Void, Never>] = []
     @ObservationIgnored private var hudRevertTask: Task<Void, Never>?
-    @ObservationIgnored private var hudPushTask: Task<Void, Never>?
+    /// Running while the pull is younger than `hudPushMinimumHold`; an up that
+    /// lands meanwhile is owed and paid when it ends.
+    @ObservationIgnored private var hudPushMinimumTask: Task<Void, Never>?
+    @ObservationIgnored private var hudPushReleaseOwed = false
+    @ObservationIgnored private var hudPushLongestTask: Task<Void, Never>?
     @ObservationIgnored private var hudEngagedTask: Task<Void, Never>?
     @ObservationIgnored private var lingerTask: Task<Void, Never>?
     @ObservationIgnored private var hoverIntentTask: Task<Void, Never>?
@@ -362,7 +374,8 @@ final class Coordinator {
         clock: any SleepClock = ContinuousSleepClock(),
         motionClock: any SleepClock = ContinuousSleepClock(),
         hudRevertDelay: Double = Coordinator.defaultHUDRevertDelay,
-        hudPushHold: Double = Coordinator.defaultHUDPushHold,
+        hudPushMinimumHold: Double = Coordinator.defaultHUDPushMinimumHold,
+        hudPushLongestHold: Double = Coordinator.defaultHUDPushLongestHold,
         hudEngagedHold: Double = Coordinator.defaultHUDEngagedHold,
         nowPlayingLinger: Double = Coordinator.defaultNowPlayingLinger,
         invokedLinger: Double = Coordinator.defaultInvokedLinger,
@@ -384,7 +397,8 @@ final class Coordinator {
         self.clock = clock
         self.motionClock = motionClock
         self.hudRevertDelay = hudRevertDelay
-        self.hudPushHold = hudPushHold
+        self.hudPushMinimumHold = hudPushMinimumHold
+        self.hudPushLongestHold = hudPushLongestHold
         self.hudEngagedHold = hudEngagedHold
         self.nowPlayingLinger = nowPlayingLinger
         self.invokedLinger = invokedLinger
@@ -1146,13 +1160,47 @@ final class Coordinator {
     /// `onPushedPastEnd`). The reading that follows reports the end and cannot
     /// say it was pressed past, so the press arrives here on its own. It may land
     /// before the reading puts the HUD up; the bar then appears pulled out and
-    /// springs back, as the native one does on a first press at full.
+    /// eases back, as the native one does on a first press at full.
+    ///
+    /// It engages nothing: the reading behind it does, so the pull never shares a
+    /// transaction, and a spring, with the growth (`SurfaceAnimation.hudPull`).
     func hudPushedPastEnd(_ key: MediaKey) {
         guard let push = HUDPush(key: key) else { return }
-        hudPush = push
-        hudPushTask?.cancel()
-        hudPushTask = scheduleTimer(after: hudPushHold, on: motionClock) { [weak self] in self?.hudPush = nil }
-        engageHUD()
+        // The key is down again, so any up owed belongs to a press already over.
+        hudPushReleaseOwed = false
+        if hudPush != push {
+            hudPush = push
+            hudPushMinimumTask?.cancel()
+            hudPushMinimumTask = scheduleTimer(after: hudPushMinimumHold, on: motionClock) { [weak self] in
+                guard let self else { return }
+                hudPushMinimumTask = nil
+                if hudPushReleaseOwed { endHUDPush() }
+            }
+        }
+        hudPushLongestTask?.cancel()
+        hudPushLongestTask = scheduleTimer(after: hudPushLongestHold, on: motionClock) { [weak self] in
+            self?.endHUDPush()
+        }
+    }
+
+    /// The key behind a press past the end came up (the suppressor's
+    /// `onPushReleased`); the bar lets go with it, once the pull has been seen.
+    func hudPushReleased(_ key: MediaKey) {
+        guard let push = HUDPush(key: key), push == hudPush else { return }
+        if hudPushMinimumTask == nil {
+            endHUDPush()
+        } else {
+            hudPushReleaseOwed = true
+        }
+    }
+
+    private func endHUDPush() {
+        hudPushMinimumTask?.cancel()
+        hudPushMinimumTask = nil
+        hudPushLongestTask?.cancel()
+        hudPushLongestTask = nil
+        hudPushReleaseOwed = false
+        hudPush = nil
     }
 
     /// Marks the HUD in use and restarts its settle; a drag holds it in use until

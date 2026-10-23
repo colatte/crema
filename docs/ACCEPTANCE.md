@@ -159,11 +159,12 @@
     next press, and BetterDisplay's Settings show its switches as they were
     before Crema ran. The same holds after Crema is force quit and opened again.
 27. With "Replace the system indicators" on and the volume at full, another
-    volume-up press pulls the indicator's bar past its full end and it springs
-    back; holding the key holds it out. At zero, volume-down does the same at
-    the empty end, and brightness keys alike. While keys are pressed the bar is
-    thicker, and it settles thin before the indicator goes. Classic's bar does
-    neither, and with Reduce Motion on no indicator does
+    volume-up press pulls the indicator's bar past its full end, and it eases
+    back without a wobble; holding the key holds it out until the key comes up,
+    with no snap back before the key repeats. At zero, volume-down does the same
+    at the empty end, and brightness keys alike. While keys are pressed the bar
+    is thicker, and it settles thin before the indicator goes. Classic's bar
+    does neither, and with Reduce Motion on no indicator does
     (docs/DECISIONS.md: the-bar-answers-the-press).
 28. A track whose title does not fit: the compact Card cuts it with an ellipsis
     and stays narrower than the expanded player; the expanded player, in every
