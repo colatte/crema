@@ -150,6 +150,12 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     /// emits on both); AppCore hands it to the Coordinator, which pulls the bar
     /// past its end (docs/DECISIONS.md: the-bar-answers-the-press).
     var onPushedPastEnd: (@MainActor (MediaKey) -> Void)?
+    var onPushReleased: (@MainActor (MediaKey) -> Void)?
+
+    /// Consumed keys whose up has not arrived. A tap's up can hop here before its
+    /// apply finishes, so the verdict reads this to know whether the hand is
+    /// still on the key.
+    private var heldKeys: Set<MediaKey> = []
 
     private(set) var longSuspendedDomains: Set<OSDSuppressionDomain> = []
     var onSuspensionStateChange: (@MainActor () -> Void)?
@@ -251,6 +257,8 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
                     Task { @MainActor in
                         self.handleConsumedDown(key, fine: fine, swallowed: swallow, generation: installedGeneration)
                     }
+                } else {
+                    Task { @MainActor in self.handleUp(key, generation: installedGeneration) }
                 }
                 return swallow
             }
@@ -261,6 +269,8 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
             // suspension: it cancels every probe and clears all domain state,
             // so re-engaging is born fully healthy, exactly like a relaunch.
             keys.setConsumer(nil)
+            // No up can reach a removed consumer, so a key still down is let go here.
+            releaseHeldKeys()
             cancelAllProbes()
             decider.reset()
             unconfirmedApplyFailures.removeAll()
@@ -295,6 +305,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     private func handleConsumedDown(_ key: MediaKey, fine: Bool, swallowed: Bool, generation: Int) {
         guard generation == self.generation, isEngaged else { return }
         if swallowed {
+            heldKeys.insert(key)
             enqueue(key, fine: fine, generation: generation)
             return
         }
@@ -325,6 +336,17 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
             }
         }
         onHandedBackToTheSystem?(key)
+    }
+
+    private func handleUp(_ key: MediaKey, generation: Int) {
+        guard generation == self.generation, heldKeys.remove(key) != nil else { return }
+        onPushReleased?(key)
+    }
+
+    private func releaseHeldKeys() {
+        let released = heldKeys
+        heldKeys.removeAll()
+        for key in released { onPushReleased?(key) }
     }
 
     /// Capabilities with a re-check in flight. Autorepeat arrives at the HID timer's
@@ -498,7 +520,12 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
             if generation == self.generation, case .verified(let pastEnd) = outcome {
                 confirmWriteHealthy(domain)
                 onApplied?(key)
-                if pastEnd { onPushedPastEnd?(key) }
+                if pastEnd {
+                    onPushedPastEnd?(key)
+                    // The up already went by (a tap): the release it fired found
+                    // no pull yet, so this one lets go of the pull just made.
+                    if !heldKeys.contains(key) { onPushReleased?(key) }
+                }
             }
         } catch {
             suspend(domain, after: key, error: error, generation: generation)

@@ -1467,12 +1467,16 @@ extension AppCore {
         }
     }
 
-    /// A press past the end reaches the bar only through here: the reading that
-    /// follows reports the end and cannot tell this press from the one that
-    /// reached it (docs/DECISIONS.md: the-bar-answers-the-press).
+    /// A press past the end, and the up that lets it go, reach the bar only
+    /// through here: the reading that follows reports the end and cannot tell
+    /// this press from the one that reached it, nor say when the key came up
+    /// (docs/DECISIONS.md: the-bar-answers-the-press).
     static func wireHUDPush(from suppressor: any NativeOSDSuppressor, to coordinator: Coordinator) {
         suppressor.onPushedPastEnd = { [weak coordinator] key in
             coordinator?.hudPushedPastEnd(key)
+        }
+        suppressor.onPushReleased = { [weak coordinator] key in
+            coordinator?.hudPushReleased(key)
         }
     }
 

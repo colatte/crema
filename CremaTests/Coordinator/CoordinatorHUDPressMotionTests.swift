@@ -8,15 +8,65 @@ import Testing
 @MainActor
 struct CoordinatorHUDPressMotionTests {
 
-    @Test func aPressPastTheEndPullsThatEndUntilItsHoldRunsOut() async {
+    @Test func aPressPastTheEndPullsThatEndUntilItsKeyComesUp() async {
         let h = CoordinatorHarness()
 
         h.coordinator.hudPushedPastEnd(.volumeUp)
         #expect(h.coordinator.hudPush == HUDPush(kind: .volume, end: .end))
 
-        await h.motionClock.waitForSleep(delay: Coordinator.defaultHUDPushHold)
-        h.motionClock.advance(delay: Coordinator.defaultHUDPushHold)
+        await h.motionClock.waitForSleep(delay: Coordinator.defaultHUDPushMinimumHold)
+        h.motionClock.advance(delay: Coordinator.defaultHUDPushMinimumHold)
+        await settle()
+        #expect(h.coordinator.hudPush == HUDPush(kind: .volume, end: .end))
+
+        // Letting go at once is also the barrier for the line above: had the
+        // floor not run out yet, the up would only be owed.
+        h.coordinator.hudPushReleased(.volumeUp)
+        #expect(h.coordinator.hudPush == nil)
+    }
+
+    @Test func aTapKeepsThePullForItsFloor() async {
+        // A tap's up reaches the Coordinator right after its push.
+        let h = CoordinatorHarness()
+        h.coordinator.hudPushedPastEnd(.screenBrightnessDown)
+        h.coordinator.hudPushReleased(.screenBrightnessDown)
+        #expect(h.coordinator.hudPush == HUDPush(kind: .screenBrightness, end: .start))
+
+        await h.motionClock.waitForSleep(delay: Coordinator.defaultHUDPushMinimumHold)
+        h.motionClock.advance(delay: Coordinator.defaultHUDPushMinimumHold)
         #expect(await eventually { h.coordinator.hudPush == nil })
+    }
+
+    @Test func aPullWhoseUpNeverArrivesLetsGoAfterTheLongestHold() async {
+        let h = CoordinatorHarness()
+        h.coordinator.hudPushedPastEnd(.volumeUp)
+
+        await h.motionClock.waitForSleep(delay: Coordinator.defaultHUDPushLongestHold)
+        h.motionClock.advance(delay: Coordinator.defaultHUDPushLongestHold)
+        #expect(await eventually { h.coordinator.hudPush == nil })
+    }
+
+    @Test func theUpOfAnotherKeyLeavesThePull() async {
+        let h = CoordinatorHarness()
+        h.coordinator.hudPushedPastEnd(.volumeUp)
+        await h.motionClock.waitForSleep(delay: Coordinator.defaultHUDPushMinimumHold)
+        h.motionClock.advance(delay: Coordinator.defaultHUDPushMinimumHold)
+        await settle()
+
+        h.coordinator.hudPushReleased(.volumeDown)
+        h.coordinator.hudPushReleased(.mute)
+        #expect(h.coordinator.hudPush == HUDPush(kind: .volume, end: .end))
+
+        h.coordinator.hudPushReleased(.volumeUp)
+        #expect(h.coordinator.hudPush == nil)
+    }
+
+    @Test func aPushEngagesNothingOfItsOwn() {
+        // The reading behind the press grows the bar; growing it here would put
+        // the growth and the pull in one transaction, under one spring.
+        let h = CoordinatorHarness()
+        h.coordinator.hudPushedPastEnd(.volumeUp)
+        #expect(!h.coordinator.hudIsEngaged)
     }
 
     @Test func eachKeyNamesItsOwnKindAndEndAndMuteNamesNone() {
@@ -29,16 +79,16 @@ struct CoordinatorHUDPressMotionTests {
     }
 
     @Test func aHeldKeyKeepsTheBarPulledOut() async {
-        // Autorepeat at the end: each press restarts the hold, so the pull lasts
-        // as long as the key does instead of springing back between repeats.
+        // Autorepeat at the end: each press re-arms the longest hold, so a key
+        // held past it is never let go under the hand.
         let h = CoordinatorHarness()
         h.coordinator.hudPushedPastEnd(.volumeUp)
-        await h.motionClock.waitForSleep(delay: Coordinator.defaultHUDPushHold)
+        await h.motionClock.waitForSleep(delay: Coordinator.defaultHUDPushLongestHold)
 
         h.coordinator.hudPushedPastEnd(.volumeUp)
 
         #expect(await eventually { h.motionClock.cancelledCount >= 1 })
-        await h.motionClock.waitForSleep(delay: Coordinator.defaultHUDPushHold)
+        await h.motionClock.waitForSleep(delay: Coordinator.defaultHUDPushLongestHold)
         #expect(h.coordinator.hudPush == HUDPush(kind: .volume, end: .end))
     }
 
@@ -76,7 +126,7 @@ struct CoordinatorHUDPressMotionTests {
     @Test func bothSettleWhileTheHUDIsStillUp() {
         // The settle is part of what the HUD shows: a hold that outlived the
         // revert would fade every HUD out grown and never show the thin bar.
-        #expect(Coordinator.defaultHUDPushHold < Coordinator.defaultHUDEngagedHold)
+        #expect(Coordinator.defaultHUDPushMinimumHold < Coordinator.defaultHUDEngagedHold)
         #expect(Coordinator.defaultHUDEngagedHold < Coordinator.defaultHUDRevertDelay)
     }
 }

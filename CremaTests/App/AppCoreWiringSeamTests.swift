@@ -88,6 +88,21 @@ struct AppCoreWiringSeamTests {
         #expect(h.coordinator.hudPush == HUDPush(kind: .screenBrightness, end: .start))
     }
 
+    @Test func theUpBehindAPressPastTheEndReachesTheCoordinatorsBar() async {
+        // Unwired, every pull would hang out until its longest hold.
+        let suppressor = RecordingOSDSuppressor()
+        let h = CoordinatorHarness()
+        AppCore.wireHUDPush(from: suppressor, to: h.coordinator)
+        suppressor.onPushedPastEnd?(.volumeUp)
+        await h.motionClock.waitForSleep(delay: Coordinator.defaultHUDPushMinimumHold)
+        h.motionClock.advance(delay: Coordinator.defaultHUDPushMinimumHold)
+        await settle()
+
+        suppressor.onPushReleased?(.volumeUp)
+
+        #expect(h.coordinator.hudPush == nil)
+    }
+
     // MARK: - The escalation mirror the menu reads
 
     @Test func theMenuMirrorFollowsTheSuppressorInBothDirections() {
