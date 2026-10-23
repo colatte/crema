@@ -76,31 +76,33 @@ struct AppCoreWiringSeamTests {
 
     // MARK: - The press past the end
 
-    @Test func aPressPastTheEndReachesTheCoordinatorsBar() {
-        // The only path for it: the reading that follows reports the end and
-        // cannot say the key pushed past it.
+    @Test func aKeyAndItsPushPastTheEndReachTheCoordinatorsBar() {
+        // The only path for them: the reading that follows says neither when the
+        // key went down nor that it pushed past the end.
         let suppressor = RecordingOSDSuppressor()
         let h = CoordinatorHarness()
-        AppCore.wireHUDPush(from: suppressor, to: h.coordinator)
+        AppCore.wireHUDPress(from: suppressor, to: h.coordinator)
+
+        suppressor.onKeyPressed?(.screenBrightnessDown)
+        #expect(h.coordinator.hudPress == HUDPress(kind: .screenBrightness, end: .start))
 
         suppressor.onPushedPastEnd?(.screenBrightnessDown)
-
-        #expect(h.coordinator.hudPush == HUDPush(kind: .screenBrightness, end: .start))
+        #expect(h.coordinator.hudPress == HUDPress(kind: .screenBrightness, end: .start, stepsPastEnd: 1))
     }
 
-    @Test func theUpBehindAPressPastTheEndReachesTheCoordinatorsBar() async {
-        // Unwired, every pull would hang out until its longest hold.
+    @Test func theUpOfAKeyReachesTheCoordinatorsBar() async {
+        // Unwired, every press would hang on until its longest hold.
         let suppressor = RecordingOSDSuppressor()
         let h = CoordinatorHarness()
-        AppCore.wireHUDPush(from: suppressor, to: h.coordinator)
-        suppressor.onPushedPastEnd?(.volumeUp)
-        await h.motionClock.waitForSleep(delay: Coordinator.defaultHUDPushMinimumHold)
-        h.motionClock.advance(delay: Coordinator.defaultHUDPushMinimumHold)
+        AppCore.wireHUDPress(from: suppressor, to: h.coordinator)
+        suppressor.onKeyPressed?(.volumeUp)
+        await h.motionClock.waitForSleep(delay: Coordinator.defaultHUDPressMinimumHold)
+        h.motionClock.advance(delay: Coordinator.defaultHUDPressMinimumHold)
         await settle()
 
-        suppressor.onPushReleased?(.volumeUp)
+        suppressor.onKeyReleased?(.volumeUp)
 
-        #expect(h.coordinator.hudPush == nil)
+        #expect(h.coordinator.hudPress == nil)
     }
 
     // MARK: - The escalation mirror the menu reads

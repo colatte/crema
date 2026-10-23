@@ -3034,65 +3034,77 @@ Reopening gate: a harvested ModelUID table for Bluetooth, or a measured jack on
 Apple Silicon.
 
 ### the-bar-answers-the-press
-The iPhone's volume indicator answers the hand in two ways the level alone does
-not: pressed against the end it points to, the bar is pulled past that end and
-springs back, and while it is in use it is thicker than when it settles to show
-the level. The author asked for both. Apple's own glass describes the same
-behaviour, "Liquid Glass responds to interaction by instantly flexing", and
-"elements can even lift up into Liquid Glass temporarily, such as when you
-interact with a component. This lets the resting state stay visually quiet,
-while it comes to life on touch" (WWDC25 "Meet Liquid Glass", session 219).
+The iPhone's volume indicator answers a held button, not only the level: the
+whole bar scales while the button is down, and pressed against the end it points
+to it is pushed past that end, the far end travelling and the near one following
+it. The author asked for that answer. Its motion is UIKit's own, read decompiled
+from UIKitCore, ControlCenterUIKit and SpringBoard of iOS 26.1 (23B85): the volume
+HUD (`SBElasticSliderView`) is Control Center's elastic slider
+(`CCUIBaseSliderView`), whose geometry `_UIFluidSliderInteraction` computes and
+the volume buttons drive through `_UIFluidSliderDiscreteButtonDriver`. Apple's
+glass describes the same: "Liquid Glass responds to interaction by instantly
+flexing" (WWDC25 "Meet Liquid Glass", session 219).
 Decision:
-- A press past the end is known only where the key is applied: the suppressor's
-  pre-read finds the level already at the end the key points to
-  (`onPushedPastEnd`). The reading that follows reports the end, and so does the
-  reading after the press that reached it; the boundary refresh emits on both. So
-  the press travels on its own path to the Coordinator (`hudPushedPastEnd`).
-- The pull follows the key: `hudPush` holds from the press until the key comes
-  up (`onPushReleased`), never under `defaultHUDPushMinimumHold` (0.15 s), so a
-  tap is seen, and never past `defaultHUDPushLongestHold` (3 s) without a press,
-  so a lost up cannot leave the bar out; an autorepeat re-arms that ceiling. A
-  tap's up can reach the main actor before its apply finishes, so only the
-  suppressor knows whether the hand is still down at the verdict, and it fires
-  the release for a key already up right after the push.
-- The push engages nothing; the reading behind it does. Changed together, the
-  pull and the growth land in one transaction and ride one spring, chosen by
-  which of the two arrived first.
-- In use is any HUD published or a drag under way (`hudIsEngaged`); it settles
-  `defaultHUDEngagedHold` (0.6 s) after the last, inside the 1.5 s revert, so
-  every HUD shows its thin bar before it goes. The pull's holds and this settle
-  run on their own injected clock (`motionClock`): they shape motion, never what
-  is presented, and on the presentation clock they would be stepped by every test
-  that advances "the next parked timer".
-- Where a bar has a track, the track answers: the capsule (Card slider, Notch)
-  grows from 4 to 6 pt and is pulled 6 pt past the pressed end, inside the row's
-  padding and the gap to the glyph. Where the surface is the bar, the surface
-  answers: the filled Card grows 4 pt across and is pulled 8 pt along, the pulled
-  end alone moving. Classic's segments answer neither; the pre-Tahoe bezel never
-  moved.
-- The window never moves (hover-follows-the-eye), so every growth fits the room
-  it keeps: sideways and below, the open spring's headroom. The upright HUD's top
-  end has none, the window hanging from its top edge, so that window keeps 8 pt
-  above (`CardMetrics.hudTopHeadroom`), read by the window rule, the click region
-  and the view.
+- A key is answered from its down to its up. The suppressor reports every down
+  of a consumed key, autorepeats included (`onKeyPressed`), and its up
+  (`onKeyReleased`); the Coordinator holds `hudPress` between them, never under
+  `defaultHUDPressMinimumHold` (0.25 s, UIKit's `minimumPressDuration`), so a tap
+  is seen, and never past `defaultHUDPressLongestHold` (3 s) without a down, so a
+  lost up cannot leave the bar pressed. A disengage releases every key still down.
+- A press past the end is known only where the key is applied: the pre-read finds
+  the level already at the end (`onPushedPastEnd`), while the reading after it
+  reports the end either way. Each such press of one hold counts once more
+  (`HUDPress.stepsPastEnd`). A tap's up can reach the main actor before its apply
+  finishes, so the suppressor fires the release again right after a push whose
+  key is already up.
+- The shape is UIKit's (`HUDPressShape`). While the key is down the whole bar
+  scales about its centre: x1.03 for the key that raises the level and x0.96 for
+  the one that lowers it on a horizontal bar, x1.06 and x0.92 on an upright one
+  (`_UIFluidSliderDiscreteButtonDriverSettings`). Each press past the end adds a
+  sixteenth of the bar to an excess the bar shows as
+  `c * (1 - 1 / (1 + 0.55 * excess / c))`, `c` its ceiling: the first press goes
+  far, every next one less. The bar takes that push by drifting 77% of it toward
+  the end and lengthening by 73% (`sliderDriftFactor` 0.27), so the far end goes
+  about 114% out and the near one about 40% after it, and it thins toward 92% of
+  its thickness at the ceiling (`_UIFluidSliderSettings`). UIKit thins by the
+  larger of 8% and 4 pt, which would erase a 4 pt track; the bar takes the
+  gentler of the two.
+- The ceiling is the one number not read: the HUD's own (`compactStretchAmount`)
+  did not survive decompilation. The capsule (Card slider, Notch) takes 4 pt, the
+  most its reach allows inside the row's padding and the gap to the glyph on
+  either axis. The filled Card takes 10 pt, the most whose reach stays inside the
+  16 pt margin a placed HUD keeps to the screen's edge, and its window at a HUD
+  placement keeps that reach along the bar (`CardMetrics.hudPressRoom`): sideways
+  for a horizontal bar, above and below an upright one; on the card's own spot
+  the card's window keeps it already. The window never moves
+  (hover-follows-the-eye). Across a horizontal filled bar the surface grows down
+  from its top, the card's window keeping no room above it: its glyph moves by
+  under a point.
+- A key does not grow the bar, nor does its reading: the press is the answer.
+  Only a drag grows it (`hudIsEngaged`: the capsule 4 to 6 pt, the filled Card
+  4 pt across), by taste, settling `defaultHUDEngagedHold` (0.6 s) after the
+  release. A press changes in a transaction of its own, apart from the level's,
+  since one transaction carries one animation; the drag's growth rides the
+  level's spring because it lands in the drag's first level change.
+- Motion: UIKit's springs, `update` (response 0.3) while the key is down and
+  `settle` (0.6) once it is up, both critically damped. A key press carries no
+  momentum to reward: "Because the tap doesn't have any momentum [...] we use
+  100% damping" (WWDC18 "Designing Fluid Interfaces", session 803). The holds and
+  the settle run on their own injected clock (`motionClock`): they shape motion,
+  never what is presented, and on the presentation clock they would be stepped by
+  every test that advances "the next parked timer".
 - Reduce Motion turns both off: the system's glass "disables any elastic
-  properties for the material" under it (same session).
-- Motion: the pull is fast and nearly dead; the release and the settle carry no
-  overshoot. A key press has no momentum, and Apple keeps overshoot for gestures
-  that do: "Because the tap doesn't have any momentum [...] we use 100% damping"
-  (WWDC18 "Designing Fluid Interfaces", session 803). The growth rides the
-  level's spring because it lands in the transaction of the first level change
-  after a settle, and one transaction carries one animation.
-The sizes, springs and holds are the author's taste against the iPhone, not
-measured; a hardware session that finds them too faint or too busy changes the
-numbers, not the shape. Paths not taken: inferring the press from a repeated reading at
-the end, which fires on the press that reaches it; a keyframe animation per
-press, which restarts from rest on each repeat and stutters under a held key; a
-scale transform on the filled surface, which stretches its glyph; a fixed hold
-let go by a timer, which springs back before the first autorepeat
-(`InitialKeyRepeat`, 30 ticks or 500 ms as read on the author's Mac) and pulls
-again under the same held key; an under-damped release, whose wobble outlasts
-the pull and becomes the thing seen.
+  properties for the material" under it (session 219). Classic's segments answer
+  neither; the pre-Tahoe bezel never moved.
+The ceilings follow the room each bar has and the drag's growth is taste; the
+rest is UIKit's, read, not measured on an iPhone. Paths not taken: inferring the press from a repeated
+reading at the end, which fires on the press that reaches it; a keyframe
+animation per press, which restarts from rest on each repeat and stutters under a
+held key; a scale transform on the filled surface, which stretches its glyph; a
+fixed pull of one end let go by a timer, which left the near end still, sprang
+back before the first autorepeat (`InitialKeyRepeat`, 500 ms as read on the
+author's Mac) and moved the glyph with the surface's growth; an under-damped
+release, whose wobble outlasted the pull.
 
 ### a-long-title-scrolls-where-it-is-read
 A long title stretched the compact Card to its full 280 pt and was cut with an

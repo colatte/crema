@@ -139,28 +139,25 @@ enum SurfaceAnimation {
     private static let hudLevelDamping: Double = 0.86
     static let hudLevel: Animation = .spring(response: hudLevelResponse, dampingFraction: hudLevelDamping)
 
-    /// The bar's answer to a press (docs/DECISIONS.md: the-bar-answers-the-press),
-    /// by author taste against the iPhone's volume indicator; no measurement
-    /// behind them. A press past the end pulls out fast and nearly dead, so the
-    /// pull reads as the press's own; the release eases back without overshoot,
-    /// because a key press carries no momentum to reward (Apple, WWDC18 "Designing
-    /// Fluid Interfaces", session 803: a tap "doesn't have any momentum", so "we
-    /// use 100% damping"). The bar settles thin without overshoot: that is the bar
-    /// going quiet.
+    /// The bar's answer to a held key (docs/DECISIONS.md: the-bar-answers-the-press):
+    /// UIKit's own springs for the volume buttons, `update` while the key is down
+    /// and `settle` once it is up, both critically damped (UIKitCore, iOS 26.1,
+    /// `_UIFluidSliderDiscreteButtonDriverSettings`, read decompiled). A key press
+    /// carries no momentum to reward: Apple keeps overshoot for gestures that do
+    /// (WWDC18 "Designing Fluid Interfaces", session 803).
     ///
-    /// The growth rides `hudLevel` on purpose: it lands in the same transaction
-    /// as the first level change after a settle, and one transaction carries one
-    /// animation, so a growth spring of its own would also drive that press's
-    /// glide. The pull and its release arrive alone: the push engages nothing
-    /// (`Coordinator.hudPushedPastEnd`), the reading after a press past the end
-    /// changes no level, and the release comes from the key or a timer.
-    static let hudPull: Animation = .spring(response: 0.14, dampingFraction: 0.9)
-    static let hudPullRelease: Animation = .spring(response: 0.32, dampingFraction: 1.0)
+    /// The drag's growth rides `hudLevel` on purpose: it lands in the same
+    /// transaction as the drag's first level change, and one transaction carries
+    /// one animation. A press shares none: it engages nothing, and the reading it
+    /// causes arrives in a transaction of its own (`Coordinator.hudKeyPressed`).
+    static let hudPress: Animation = .spring(response: 0.3, dampingFraction: 1.0)
+    static let hudPressSettle: Animation = .spring(response: 0.6, dampingFraction: 1.0)
+    /// The drag's growth settling thin.
     static let hudSettle: Animation = .spring(response: 0.45, dampingFraction: 1.0)
 
-    /// The pull or its release, by where the bar is going.
-    static func hudPull(pulled: Bool) -> Animation {
-        pulled ? hudPull : hudPullRelease
+    /// The press or its settle, by where the bar is going.
+    static func hudPress(pressed: Bool) -> Animation {
+        pressed ? hudPress : hudPressSettle
     }
 
     /// The growth or the settle, by where the bar is going.

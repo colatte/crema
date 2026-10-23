@@ -19,11 +19,22 @@ struct CardHUDStyle: PresentationStyle {
         return hud
     }
 
-    /// Hung from its top like every Card window, plus room above an upright bar
-    /// for the pull past its top end (`CardMetrics.hudTopHeadroom`).
+    /// Hung from its top like every Card window, plus the room a press needs
+    /// along the bar (`CardMetrics.hudPressRoom`) where the open spring's headroom
+    /// falls short: sideways for a horizontal bar; below an upright one, and above
+    /// it, where the window keeps none (`CardMetrics.hudTopHeadroom`).
     func windowFrame(on geometry: ScreenGeometry) -> CGRect {
         var rect = fixedWindowFrame(on: geometry, anchor: .top)
-        rect.size.height += CardMetrics.hudTopHeadroom(for: placement.axis)
+        let axis = placement.axis
+        let beyondHeadroom = max(0, CardMetrics.hudPressRoom(for: axis) - SurfaceAnimation.overshootHeadroom)
+        switch axis {
+        case .horizontal:
+            rect = rect.insetBy(dx: -beyondHeadroom, dy: 0)
+        case .vertical:
+            rect.origin.y -= beyondHeadroom
+            rect.size.height += beyondHeadroom
+        }
+        rect.size.height += CardMetrics.hudTopHeadroom(for: axis)
         return rect
     }
 

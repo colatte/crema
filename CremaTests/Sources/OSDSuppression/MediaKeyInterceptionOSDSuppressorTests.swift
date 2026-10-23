@@ -172,7 +172,7 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         // release it fires then finds no pull, so the verdict owes one more.
         let h = OSDSuppressorHarness()
         let applies = CounterBox()
-        let log = PushLog()
+        let log = PressLog()
         h.suppressor.onApplied = { [applies] _ in applies.count += 1 }
         log.record(on: h.suppressor)
         h.volume.value = 1.0
@@ -188,7 +188,7 @@ struct MediaKeyInterceptionOSDSuppressorTests {
     @Test func aKeyHeldPastTheEndIsReleasedWithItsUp() async {
         let h = OSDSuppressorHarness()
         let applies = CounterBox()
-        let log = PushLog()
+        let log = PressLog()
         h.suppressor.onApplied = { [applies] _ in applies.count += 1 }
         log.record(on: h.suppressor)
         h.screen.value = 0.0
@@ -197,10 +197,12 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         h.keys.pressDown(.screenBrightnessDown)
         // onApplied and the push fire in one pass, so the count is the barrier.
         #expect(await eventually { applies.count == 1 })
-        #expect(log.events == [.push(.screenBrightnessDown)])
+        #expect(log.events == [.press(.screenBrightnessDown), .push(.screenBrightnessDown)])
 
         h.keys.pressUp(.screenBrightnessDown)
-        #expect(await eventually { log.events == [.push(.screenBrightnessDown), .release(.screenBrightnessDown)] })
+        #expect(await eventually {
+            log.events == [.press(.screenBrightnessDown), .push(.screenBrightnessDown), .release(.screenBrightnessDown)]
+        })
     }
 
     @Test func disengagingReleasesAKeyStillDown() async {
@@ -208,7 +210,7 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         // longest hold.
         let h = OSDSuppressorHarness()
         let applies = CounterBox()
-        let log = PushLog()
+        let log = PressLog()
         h.suppressor.onApplied = { [applies] _ in applies.count += 1 }
         log.record(on: h.suppressor)
         h.volume.value = 1.0
@@ -218,7 +220,24 @@ struct MediaKeyInterceptionOSDSuppressorTests {
         #expect(await eventually { applies.count == 1 })
 
         h.suppressor.setEngaged(false)
-        #expect(log.events == [.push(.volumeUp), .release(.volumeUp)])
+        #expect(log.events == [.press(.volumeUp), .push(.volumeUp), .release(.volumeUp)])
+    }
+
+    @Test func everyDownOfAConsumedKeyIsAPressItsAutorepeatsIncluded() async {
+        let h = OSDSuppressorHarness()
+        let applies = CounterBox()
+        let log = PressLog()
+        h.suppressor.onApplied = { [applies] _ in applies.count += 1 }
+        log.record(on: h.suppressor)
+        h.volume.value = 0.5
+        h.suppressor.setEngaged(true)
+
+        h.keys.pressDown(.volumeUp)
+        h.keys.pressDown(.volumeUp)
+        h.keys.pressUp(.volumeUp)
+        #expect(await eventually { applies.count == 2 })
+
+        #expect(await eventually { log.events == [.press(.volumeUp), .press(.volumeUp), .release(.volumeUp)] })
     }
 
     @Test func thePressThatReachesTheEndOrLeavesItIsNotPushedPastIt() async {

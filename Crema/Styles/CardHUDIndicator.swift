@@ -33,9 +33,9 @@ struct CardHUDIndicator: View {
     /// names the placements where it stands upright. Upright, the glyph sits
     /// under the bar, where the level starts.
     var axis: Axis = .horizontal
-    /// The bar's answer to a press (`HUDLevelSlider.push`, `isEngaged`); the
+    /// The bar's answer to a press (`HUDLevelSlider.press`, `isEngaged`); the
     /// picker's frozen tile leaves both at rest.
-    var push: HUDPush.End?
+    var press: HUDPress?
     var isEngaged = false
 
     /// Fixed slot for the glyph along the bar — a column beside a horizontal bar,
@@ -115,7 +115,7 @@ struct CardHUDIndicator: View {
             appearance: appearance,
             isHovered: isHovered,
             axis: axis,
-            push: push,
+            press: press,
             isEngaged: isEngaged
         )
     }

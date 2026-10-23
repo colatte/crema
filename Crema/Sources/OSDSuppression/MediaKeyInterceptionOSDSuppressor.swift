@@ -147,10 +147,11 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     /// already sat at the end the key points to. Only this side knows it, from
     /// the pre-read, and the reading that follows cannot tell it apart from the
     /// press that reached the end (both report the end, and the boundary refresh
-    /// emits on both); AppCore hands it to the Coordinator, which pulls the bar
+    /// emits on both); AppCore hands it to the Coordinator, which pushes the bar
     /// past its end (docs/DECISIONS.md: the-bar-answers-the-press).
     var onPushedPastEnd: (@MainActor (MediaKey) -> Void)?
-    var onPushReleased: (@MainActor (MediaKey) -> Void)?
+    var onKeyPressed: (@MainActor (MediaKey) -> Void)?
+    var onKeyReleased: (@MainActor (MediaKey) -> Void)?
 
     /// Consumed keys whose up has not arrived. A tap's up can hop here before its
     /// apply finishes, so the verdict reads this to know whether the hand is
@@ -306,6 +307,7 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         guard generation == self.generation, isEngaged else { return }
         if swallowed {
             heldKeys.insert(key)
+            onKeyPressed?(key)
             enqueue(key, fine: fine, generation: generation)
             return
         }
@@ -511,9 +513,9 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
                 onApplied?(key)
                 if pastEnd {
                     onPushedPastEnd?(key)
-                    // The up already went by (a tap): the release it fired found
-                    // no pull yet, so this one lets go of the pull just made.
-                    if !heldKeys.contains(key) { onPushReleased?(key) }
+                    // The up already went by (a tap): the release it fired came
+                    // before this push, so this one lets go of it.
+                    if !heldKeys.contains(key) { onKeyReleased?(key) }
                 }
             }
         } catch {
@@ -906,13 +908,13 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
 extension MediaKeyInterceptionOSDSuppressor {
     private func handleUp(_ key: MediaKey, generation: Int) {
         guard generation == self.generation, heldKeys.remove(key) != nil else { return }
-        onPushReleased?(key)
+        onKeyReleased?(key)
     }
 
     private func releaseHeldKeys() {
         let released = heldKeys
         heldKeys.removeAll()
-        for key in released { onPushReleased?(key) }
+        for key in released { onKeyReleased?(key) }
     }
 }
 

@@ -281,7 +281,7 @@ struct NotchView: View, SurfaceStyleBody {
                     .symbolReplace(on: presentation.iconSystemName)
             HUDLevelSlider(kind: hud.kind, value: presentation.value, onChange: { hudSliderMoved(to: $0) }, onRelease: { hudSliderReleased() },
                            isHovered: displayPolicy.pointerInside,
-                           push: coordinator.hudPush?.end(for: hud.kind), isEngaged: coordinator.hudIsEngaged)
+                           press: coordinator.hudPress?.for(hud.kind), isEngaged: coordinator.hudIsEngaged)
         }
         .padding(.horizontal, NotchMetrics.contentPaddingHorizontal)
     }

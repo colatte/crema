@@ -33,16 +33,19 @@ protocol NativeOSDSuppressor: AnyObject {
     /// per-domain-suspension).
     var onHandedBackToTheSystem: (@MainActor (MediaKey) -> Void)? { get set }
 
+    /// Fired for every down of a consumed key, its autorepeats included: the bar
+    /// answers a key while it is held (docs/DECISIONS.md: the-bar-answers-the-press).
+    var onKeyPressed: (@MainActor (MediaKey) -> Void)? { get set }
+
     /// Fired after a verified apply of a step key whose level already sat at the
-    /// end the key points to — the press the bar answers by pulling past its end
-    /// (docs/DECISIONS.md: the-bar-answers-the-press).
+    /// end the key points to — the press the bar answers by going past its end.
     var onPushedPastEnd: (@MainActor (MediaKey) -> Void)? { get set }
 
-    /// Fired when a consumed key lets go, so the bar a press pulled is released
-    /// with the hand. Every `onPushedPastEnd` is followed by one: a press whose
-    /// key came up before its apply finished gets it right after the push, and a
-    /// disengage releases every key still down.
-    var onPushReleased: (@MainActor (MediaKey) -> Void)? { get set }
+    /// Fired when a consumed key lets go, so the bar lets go with the hand. Every
+    /// `onKeyPressed` and `onPushedPastEnd` is followed by one: a press whose key
+    /// came up before its apply finished gets it again right after the push, and
+    /// a disengage releases every key still down.
+    var onKeyReleased: (@MainActor (MediaKey) -> Void)? { get set }
 
     /// Domains that have failed long enough (with the channel present) to be
     /// worth telling the user about — the menu names these. Transient

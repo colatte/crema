@@ -97,11 +97,12 @@ final class CounterBox { var count = 0 }
 @MainActor
 final class KeyLog { var keys: [MediaKey] = [] }
 
-/// The pushes past the end and the releases a suppressor reported, interleaved
-/// in the order it fired them.
+/// The downs, pushes past the end and releases a suppressor reported,
+/// interleaved in the order it fired them.
 @MainActor
-final class PushLog {
+final class PressLog {
     enum Event: Equatable {
+        case press(MediaKey)
         case push(MediaKey)
         case release(MediaKey)
     }
@@ -109,8 +110,9 @@ final class PushLog {
     var events: [Event] = []
 
     func record(on suppressor: MediaKeyInterceptionOSDSuppressor) {
+        suppressor.onKeyPressed = { [weak self] in self?.events.append(.press($0)) }
         suppressor.onPushedPastEnd = { [weak self] in self?.events.append(.push($0)) }
-        suppressor.onPushReleased = { [weak self] in self?.events.append(.release($0)) }
+        suppressor.onKeyReleased = { [weak self] in self?.events.append(.release($0)) }
     }
 }
 
