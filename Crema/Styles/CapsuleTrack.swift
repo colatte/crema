@@ -1,8 +1,7 @@
 import SwiftUI
 
-/// The bar this app draws for a 0…1 value: a capsule 4 pt thick at rest, 6 pt
-/// under a drag of its HUD, with a white fill and a knob that appears only under
-/// the pointer.
+/// The bar this app draws for a 0…1 value: a 4 pt capsule with a white fill and
+/// a knob that appears only under the pointer.
 ///
 /// It lives here because two surfaces draw it — the HUD level and the
 /// now-playing scrubber — and one home is what keeps the two bars in one card
@@ -24,12 +23,6 @@ struct CapsuleTrack: View {
     /// The direction the bar runs: horizontal by default; `HUDPlacement.axis`
     /// names the placements where a bar stands upright.
     var axis: Axis = .horizontal
-    /// Across the bar: `trackThickness` at rest, `engagedThickness` under a drag
-    /// (docs/DECISIONS.md: the-bar-answers-the-press).
-    var thickness: CGFloat = Self.trackThickness
-    /// The key this bar answers (`HUDPressShape`), already matched to its kind;
-    /// nil at rest.
-    var press: HUDPress?
 
     /// Set by the Card's glass, whose body can turn pale and takes its own recess
     /// (`glassTrack`).
@@ -44,13 +37,6 @@ struct CapsuleTrack: View {
     // target must not regress and no surrounding layout may move.
     nonisolated static let trackHitHeight: CGFloat = 16
     nonisolated static let trackThickness: CGFloat = 4
-    /// The bar under a drag, by author taste, not measured
-    /// (docs/DECISIONS.md: the-bar-answers-the-press).
-    nonisolated static let engagedThickness: CGFloat = 6
-    /// How far a press may push the bar past its end (`HUDPressShape`). Its far
-    /// end spends the row's padding, or the gap to the glyph, whichever it
-    /// faces, so its reach stays under both on either axis (pinned by test).
-    nonisolated static let pressCeiling: CGFloat = 4
     static let trackBase = Color.black.opacity(0.25)
     static let trackWash = Color.white.opacity(0.15)
     /// The recess on the Card's glass, which turns pale over a pale page, where
@@ -139,31 +125,14 @@ struct CapsuleTrack: View {
         max(0, min(value, 1)) * trackLength
     }
 
-    /// The curved fill's length: the proportional length floored at the bar's
+    /// The curved fill's length: the proportional length floored at the track
     /// thickness, so the smallest visible fill is a circle-capped nub — a fill
     /// shorter than it is thick would draw as a squashed oval across the track.
     /// Exactly zero stays empty: 0% shows the bare track, never a phantom dot.
-    nonisolated static func capsuleFillLength(
-        for value: Double,
-        trackLength: CGFloat,
-        thickness: CGFloat = trackThickness
-    ) -> CGFloat {
+    nonisolated static func capsuleFillLength(for value: Double, trackLength: CGFloat) -> CGFloat {
         let fill = fillLength(for: value, trackLength: trackLength)
         guard fill > 0 else { return 0 }
-        return max(fill, thickness)
-    }
-
-    /// Where a bar of `length` answering `shape` is drawn along its axis: its
-    /// length, and its centre in the coordinates it is drawn at (`drawnReversed`),
-    /// where a horizontal bar's full end is the high coordinate and an upright
-    /// one's the low one.
-    nonisolated static func drawnSpan(
-        length: CGFloat,
-        shape: HUDPressShape,
-        axis: Axis
-    ) -> (length: CGFloat, center: CGFloat) {
-        let towardFull: CGFloat = drawnReversed(axis: axis) ? -1 : 1
-        return (shape.length, length / 2 + towardFull * shape.shift)
+        return max(fill, trackThickness)
     }
 
     /// The knob travels the inset track [halfKnob, length − halfKnob] linearly
@@ -198,10 +167,6 @@ struct CapsuleTrack: View {
     var body: some View {
         GeometryReader { geometry in
             let length = Self.length(of: geometry.size, axis: axis)
-            let shape = HUDPressShape(
-                length: length, thickness: thickness, axis: axis, press: press, ceiling: Self.pressCeiling
-            )
-            let span = Self.drawnSpan(length: length, shape: shape, axis: axis)
             // The fill's end is CURVED — a deliberate deviation from the
             // measured native flat cut, the iOS Music/players language the
             // author prefers (hud-capsule-track). Its starting cap coincides
@@ -218,12 +183,12 @@ struct CapsuleTrack: View {
                 }
                 Capsule()
                     .fill(Self.fillColor)
-                    .frame(along: axis, Self.capsuleFillLength(for: value, trackLength: span.length, thickness: shape.thickness))
+                    .frame(along: axis, Self.capsuleFillLength(for: value, trackLength: length))
             }
-            .frame(along: axis, span.length)
+            .frame(along: axis, length)
             .clipShape(Capsule())
-            .frame(across: axis, shape.thickness)
-            .position(Self.point(along: span.center, centeredIn: geometry.size, axis: axis))
+            .frame(across: axis, Self.trackThickness)
+            .frame(maxWidth: axis == .vertical ? .infinity : nil, maxHeight: axis == .horizontal ? .infinity : nil)
             .overlay {
                 Capsule()
                     .fill(Self.knobColor)
@@ -231,7 +196,7 @@ struct CapsuleTrack: View {
                     // turned with the bar.
                     .shadow(color: .black.opacity(0.25), radius: 1, y: 0.5)
                     .frame(width: Self.knobFrame(axis: axis).width, height: Self.knobFrame(axis: axis).height)
-                    .position(knobPosition(in: geometry.size, span: span))
+                    .position(knobPosition(in: geometry.size, length: length))
                     .opacity(showsKnob ? 1 : 0)
                     .animation(Self.knobReveal(reduceMotion: reduceMotion), value: showsKnob)
                     .allowsHitTesting(false)
@@ -239,14 +204,13 @@ struct CapsuleTrack: View {
         }
     }
 
-    /// On the bar as drawn, so a press carries the knob with it.
-    private func knobPosition(in size: CGSize, span: (length: CGFloat, center: CGFloat)) -> CGPoint {
+    private func knobPosition(in size: CGSize, length: CGFloat) -> CGPoint {
         let along = Self.knobCenter(
             for: value,
-            trackLength: span.length,
+            trackLength: length,
             reversed: Self.drawnReversed(axis: axis)
         )
-        return Self.point(along: span.center - span.length / 2 + along, centeredIn: size, axis: axis)
+        return Self.point(along: along, centeredIn: size, axis: axis)
     }
 }
 

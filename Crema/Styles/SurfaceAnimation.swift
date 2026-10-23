@@ -139,41 +139,6 @@ enum SurfaceAnimation {
     private static let hudLevelDamping: Double = 0.86
     static let hudLevel: Animation = .spring(response: hudLevelResponse, dampingFraction: hudLevelDamping)
 
-    /// The bar's answer to a held key (docs/DECISIONS.md: the-bar-answers-the-press):
-    /// UIKit's own springs for the volume buttons, `update` while the key is down
-    /// and `settle` once it is up, both critically damped (UIKitCore, iOS 26.1,
-    /// `_UIFluidSliderDiscreteButtonDriverSettings`, read decompiled). A key press
-    /// carries no momentum to reward: Apple keeps overshoot for gestures that do
-    /// (WWDC18 "Designing Fluid Interfaces", session 803).
-    ///
-    /// The drag's growth rides `hudLevel` on purpose: it lands in the same
-    /// transaction as the drag's first level change, and one transaction carries
-    /// one animation. A press shares none: it engages nothing, and the reading it
-    /// causes arrives in a transaction of its own (`Coordinator.hudKeyPressed`).
-    static let hudPress: Animation = .spring(response: 0.3, dampingFraction: 1.0)
-    static let hudPressSettle: Animation = .spring(response: 0.6, dampingFraction: 1.0)
-    /// The drag's growth settling thin.
-    static let hudSettle: Animation = .spring(response: 0.45, dampingFraction: 1.0)
-
-    /// The press or its settle, by where the bar is going.
-    static func hudPress(pressed: Bool) -> Animation {
-        pressed ? hudPress : hudPressSettle
-    }
-
-    /// The growth or the settle, by where the bar is going.
-    static func hudEngage(engaged: Bool) -> Animation {
-        engaged ? hudLevel : hudSettle
-    }
-
-    /// Whether the bar answers a press at all. Reduce Motion turns both off: the
-    /// system's own glass "disables any elastic properties" under it (Apple,
-    /// WWDC25 "Meet Liquid Glass", session 219), and a bar that grows and shrinks
-    /// on every press is the same motion by another name. The level's glide is
-    /// gated on its own (`HUDLevelSlider.levelAnimation`).
-    static func allowsHUDPressMotion(reduceMotion: Bool) -> Bool {
-        !reduceMotion
-    }
-
     /// Headroom the fixed window keeps past the expanded frame (sideways and away
     /// from the anchored edge, which stays pinned): the open spring's overshoot carries
     /// the surface a few points past its target, and without headroom the

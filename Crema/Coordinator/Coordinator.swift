@@ -24,26 +24,6 @@ final class Coordinator {
     /// restarting on every key press). The single place this number lives.
     static let defaultHUDRevertDelay: Double = 1.5
 
-    /// The bar answers a key while it is down and lets go when it comes up, but
-    /// never sooner than this after the press began, so a tap is seen: UIKit's
-    /// `minimumPressDuration` for the volume buttons (UIKitCore, iOS 26.1,
-    /// `_UIFluidSliderDiscreteButtonDriverSettings`, read decompiled;
-    /// docs/DECISIONS.md: the-bar-answers-the-press).
-    static let defaultHUDPressMinimumHold: Double = 0.25
-
-    /// The press lets go after this long without a down even if no up arrived
-    /// (the event tap disabled mid-press, a pointer holding the HUD). An
-    /// autorepeat re-arms it, so it only has to outlast the delay before the
-    /// first repeat (`InitialKeyRepeat`); the margin over that delay is taste,
-    /// not measured.
-    static let defaultHUDPressLongestHold: Double = 3
-
-    /// How long the bar stays grown after a drag ends before it settles thin,
-    /// well inside the HUD's own revert: the grown bar says "under the hand",
-    /// the thin one "showing the level"
-    /// (docs/DECISIONS.md: the-bar-answers-the-press).
-    static let defaultHUDEngagedHold: Double = 0.6
-
     /// How long a now-playing appearance lingers before tucking away. In
     /// reactive mode a media event (track change, play/pause) surfaces it
     /// temporarily; it does not sit on screen for the whole playback. Hover
@@ -81,15 +61,6 @@ final class Coordinator {
     private(set) var layers = PresentationLayers() {
         didSet { onPresentationChange?() }
     }
-
-    /// The key the bar is answering, nil at rest. Kept apart from `layers`: it
-    /// moves no window, and a write there runs the frame pass.
-    private(set) var hudPress: HUDPress?
-
-    /// Whether a drag is under way, or just ended, which grows the bar; it
-    /// settles thin `hudEngagedHold` after the release. Apart from `layers` for
-    /// the same reason as `hudPress`.
-    private(set) var hudIsEngaged = false
 
     /// The layers as a surface drawing both shows them — the HUD over the
     /// appearance. The global answer, read by the Coordinator's own guards and
@@ -253,15 +224,7 @@ final class Coordinator {
     @ObservationIgnored private let keyboardWrites = SerialWrites()
     @ObservationIgnored private let keyboardBrightnessController: any KeyboardBrightnessController
     @ObservationIgnored private let clock: any SleepClock
-    /// The press motion's own clock (`hudPress`, `hudIsEngaged`). Those timers
-    /// shape how the bar moves, never what is presented or for how long, so they
-    /// keep off the presentation timeline: a test that steps the HUD's revert or
-    /// the linger by "the next parked timer" would otherwise step a settle.
-    @ObservationIgnored private let motionClock: any SleepClock
     @ObservationIgnored private let hudRevertDelay: Double
-    @ObservationIgnored private let hudPressMinimumHold: Double
-    @ObservationIgnored private let hudPressLongestHold: Double
-    @ObservationIgnored private let hudEngagedHold: Double
     @ObservationIgnored private let nowPlayingLinger: Double
     @ObservationIgnored private let invokedLinger: Double
     @ObservationIgnored private let hoverIntentDelay: Double
@@ -343,12 +306,6 @@ final class Coordinator {
 
     @ObservationIgnored private var consumptionTasks: [Task<Void, Never>] = []
     @ObservationIgnored private var hudRevertTask: Task<Void, Never>?
-    /// Running while the press is younger than `hudPressMinimumHold`; an up that
-    /// lands meanwhile is owed and paid when it ends.
-    @ObservationIgnored private var hudPressMinimumTask: Task<Void, Never>?
-    @ObservationIgnored private var hudPressReleaseOwed = false
-    @ObservationIgnored private var hudPressLongestTask: Task<Void, Never>?
-    @ObservationIgnored private var hudEngagedTask: Task<Void, Never>?
     @ObservationIgnored private var lingerTask: Task<Void, Never>?
     @ObservationIgnored private var hoverIntentTask: Task<Void, Never>?
     /// The seek-in-flight authority window (pure decision in ScrubGrace);
@@ -373,11 +330,7 @@ final class Coordinator {
         externalScreenBrightnessController: (any ScreenBrightnessController)? = nil,
         volumeReading: (any VolumeReading)? = nil,
         clock: any SleepClock = ContinuousSleepClock(),
-        motionClock: any SleepClock = ContinuousSleepClock(),
         hudRevertDelay: Double = Coordinator.defaultHUDRevertDelay,
-        hudPressMinimumHold: Double = Coordinator.defaultHUDPressMinimumHold,
-        hudPressLongestHold: Double = Coordinator.defaultHUDPressLongestHold,
-        hudEngagedHold: Double = Coordinator.defaultHUDEngagedHold,
         nowPlayingLinger: Double = Coordinator.defaultNowPlayingLinger,
         invokedLinger: Double = Coordinator.defaultInvokedLinger,
         hoverIntentDelay: Double = Coordinator.defaultHoverIntentDelay,
@@ -396,11 +349,7 @@ final class Coordinator {
         self.externalScreenBrightnessController = externalScreenBrightnessController
         self.volumeReading = volumeReading
         self.clock = clock
-        self.motionClock = motionClock
         self.hudRevertDelay = hudRevertDelay
-        self.hudPressMinimumHold = hudPressMinimumHold
-        self.hudPressLongestHold = hudPressLongestHold
-        self.hudEngagedHold = hudEngagedHold
         self.nowPlayingLinger = nowPlayingLinger
         self.invokedLinger = invokedLinger
         self.hoverIntentDelay = hoverIntentDelay
@@ -828,7 +777,6 @@ final class Coordinator {
     func hudSliderChanged(to value: Double) {
         guard case .hud(let hud) = state else { return }
         hudSliderHeld = true
-        engageHUD()
         switch hud.kind {
         case .volume:
             // A drag to any audible target unmutes first, mirroring the
@@ -868,7 +816,6 @@ final class Coordinator {
     /// exists to avoid.
     func hudSliderReleased() {
         hudSliderHeld = false
-        engageHUD()
         settleScreenBarIfUnconfirmed()
     }
 
@@ -1140,12 +1087,8 @@ final class Coordinator {
     /// on a successor's state (dismiss its HUD, tuck its appearance). Every
     /// display timer goes through here — the guard is a correctness invariant,
     /// and hand-rolled copies are how it gets lost.
-    private func scheduleTimer(
-        after delay: Double,
-        on timerClock: (any SleepClock)? = nil,
-        fire: @escaping @MainActor () -> Void
-    ) -> Task<Void, Never> {
-        Task { [clock = timerClock ?? clock] in
+    private func scheduleTimer(after delay: Double, fire: @escaping @MainActor () -> Void) -> Task<Void, Never> {
+        Task { [clock] in
             do {
                 try await clock.sleep(for: delay)
             } catch {
@@ -1153,83 +1096,6 @@ final class Coordinator {
             }
             guard !Task.isCancelled else { return }
             fire()
-        }
-    }
-
-    /// A step key went down, or repeated (the suppressor's `onKeyPressed`): the
-    /// bar answers it until the key comes up. A repeat of the key already held
-    /// keeps the presses it counted past the end. It engages nothing: a reading
-    /// changes the level in a transaction of its own, so the two never share a
-    /// spring (`SurfaceAnimation.hudPress`).
-    func hudKeyPressed(_ key: MediaKey) {
-        guard let press = HUDPress(key: key) else { return }
-        hudPressReleaseOwed = false
-        if hudPress?.isOf(key) != true { beginHUDPress(press) }
-        rearmHUDPressLongestHold()
-    }
-
-    /// A press found the level already at the end its key points to (the
-    /// suppressor's `onPushedPastEnd`). The reading that follows reports the end
-    /// and cannot say it was pressed past, so the press arrives here on its own.
-    /// It may land before the reading puts the HUD up; the bar then appears
-    /// pushed out and eases back, as the native one does on a first press at full.
-    func hudPushedPastEnd(_ key: MediaKey) {
-        guard var press = HUDPress(key: key) else { return }
-        if let held = hudPress, held.isOf(key) {
-            press.stepsPastEnd = held.stepsPastEnd + 1
-            hudPress = press
-        } else {
-            press.stepsPastEnd = 1
-            beginHUDPress(press)
-        }
-        rearmHUDPressLongestHold()
-    }
-
-    /// The key came up (the suppressor's `onKeyReleased`); the bar lets go with
-    /// it, once the press has been seen.
-    func hudKeyReleased(_ key: MediaKey) {
-        guard hudPress?.isOf(key) == true else { return }
-        if hudPressMinimumTask == nil {
-            endHUDPress()
-        } else {
-            hudPressReleaseOwed = true
-        }
-    }
-
-    private func beginHUDPress(_ press: HUDPress) {
-        hudPress = press
-        hudPressMinimumTask?.cancel()
-        hudPressMinimumTask = scheduleTimer(after: hudPressMinimumHold, on: motionClock) { [weak self] in
-            guard let self else { return }
-            hudPressMinimumTask = nil
-            if hudPressReleaseOwed { endHUDPress() }
-        }
-    }
-
-    private func rearmHUDPressLongestHold() {
-        hudPressLongestTask?.cancel()
-        hudPressLongestTask = scheduleTimer(after: hudPressLongestHold, on: motionClock) { [weak self] in
-            self?.endHUDPress()
-        }
-    }
-
-    private func endHUDPress() {
-        hudPressMinimumTask?.cancel()
-        hudPressMinimumTask = nil
-        hudPressLongestTask?.cancel()
-        hudPressLongestTask = nil
-        hudPressReleaseOwed = false
-        hudPress = nil
-    }
-
-    /// Grows the bar under a drag and restarts its settle; the drag holds it
-    /// grown until the release calls here again.
-    private func engageHUD() {
-        hudIsEngaged = true
-        hudEngagedTask?.cancel()
-        guard !hudSliderHeld else { return }
-        hudEngagedTask = scheduleTimer(after: hudEngagedHold, on: motionClock) { [weak self] in
-            self?.hudIsEngaged = false
         }
     }
 

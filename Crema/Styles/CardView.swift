@@ -30,11 +30,8 @@ struct CardView: View, SurfaceStyleBody {
         Group {
             if let size = surfaceSize {
                 // Adaptive states hug (nil width ⇒ intrinsic, clamped inside
-                // `surface`); the HUD stays rule-sized, shaped by a drag or a
-                // key while the filled bar answers it.
-                surface
-                    .frame(width: adaptiveWidth ? nil : size.width, height: size.height)
-                    .offset(filledPressOffset)
+                // `surface`); the HUD stays rule-sized.
+                surface.frame(width: adaptiveWidth ? nil : size.width, height: size.height)
             } else {
                 surface
             }
@@ -45,7 +42,6 @@ struct CardView: View, SurfaceStyleBody {
         .onGeometryChange(for: CGSize.self, of: { $0.size }, action: { size in
             reportSurfaceSize?(size)
         })
-        .padding(.top, CardMetrics.hudTopHeadroom(for: displayPolicy.hudAxis))
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         // This frame is geometry: it morphs only between visible layouts; an
         // appearance from or disappearance to `.empty` snaps it, so a HUD/card
@@ -61,10 +57,6 @@ struct CardView: View, SurfaceStyleBody {
         .animation(SurfaceAnimation.morph(reduceMotion: reduceMotion), value: adaptiveWidthKey)
         // Toggling view-only resizes the card while it is open — animate it too.
         .animation(SurfaceAnimation.morph(reduceMotion: reduceMotion), value: showsControls)
-        // Outside the geometry gate above, which wins where both change at once:
-        // a HUD appearing under a key lands in its shape, at its final frame.
-        .animation(SurfaceAnimation.hudEngage(engaged: hudIsEngaged), value: hudIsEngaged)
-        .animation(SurfaceAnimation.hudPress(pressed: hudPress != nil), value: hudPress)
         .onChange(of: layoutKind) { _, newValue in
             provenance.advance(to: newValue)
         }
@@ -213,36 +205,7 @@ struct CardView: View, SurfaceStyleBody {
 
     private var surfaceSize: CGSize? {
         guard let stateSizes else { return nil }
-        let size = Self.surfaceSize(for: effectiveLayoutKind, in: stateSizes, showsControls: showsControls)
-        return answersPressWithSurface ? filledPressed(size).size : size
-    }
-
-    private var filledPressOffset: CGSize {
-        guard answersPressWithSurface, let stateSizes else { return .zero }
-        let rest = Self.surfaceSize(for: effectiveLayoutKind, in: stateSizes, showsControls: showsControls)
-        return filledPressed(rest).offset
-    }
-
-    private func filledPressed(_ rest: CGSize) -> (size: CGSize, offset: CGSize) {
-        CardMetrics.hudFilledPressed(rest, axis: displayPolicy.hudAxis, engaged: hudIsEngaged, press: hudPress)
-    }
-
-    /// The filled HUD is its own bar, so its surface is what grows and is
-    /// pushed; the slider's capsule answers inside it (`HUDLevelSlider`).
-    private var answersPressWithSurface: Bool {
-        layoutKind == .hud && displayPolicy.hudIndicatorStyle == .filled
-            && SurfaceAnimation.allowsHUDPressMotion(reduceMotion: reduceMotion)
-    }
-
-    /// The press motion this panel's bar answers, read only while it shows a
-    /// HUD: the key held over a bar of this kind, and whether a drag grows it.
-    private var hudPress: HUDPress? {
-        guard case .hud(let hud) = contentKind else { return nil }
-        return coordinator.hudPress?.for(hud.kind)
-    }
-
-    private var hudIsEngaged: Bool {
-        layoutKind == .hud && coordinator.hudIsEngaged
+        return Self.surfaceSize(for: effectiveLayoutKind, in: stateSizes, showsControls: showsControls)
     }
 
     // One-line delegates into SurfaceLayout (the shared implementation): the
@@ -383,9 +346,7 @@ struct CardView: View, SurfaceStyleBody {
             isHovered: displayPolicy.pointerInside,
             onChange: { hudSliderMoved(to: $0) },
             onRelease: { hudSliderReleased() },
-            axis: displayPolicy.hudAxis,
-            press: hudPress,
-            isEngaged: hudIsEngaged
+            axis: displayPolicy.hudAxis
         )
     }
 }

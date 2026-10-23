@@ -15,9 +15,6 @@ struct CoordinatorHarness {
     /// for it, so every other test keeps the single-actuator wiring.
     let external: MockScreenBrightnessController?
     let clock = TestSleepClock()
-    /// The press motion's timers, apart from the presentation timeline `clock`
-    /// steps.
-    let motionClock = TestSleepClock()
     /// Screen-brightness drag writes the Coordinator has finished, fallback and
     /// correction included: the end-of-work barrier for a negative about a write.
     let finishedScreenWrites = Tally()
@@ -46,7 +43,6 @@ struct CoordinatorHarness {
             externalScreenBrightnessController: external,
             volumeReading: volumeReading,
             clock: clock,
-            motionClock: motionClock,
             hudRevertDelay: hudRevertDelay,
             nowPlayingLinger: nowPlayingLinger,
             invokedLinger: invokedLinger,

@@ -158,17 +158,7 @@
     Crema, or turning the switch off, brings BetterDisplay's indicator back at the
     next press, and BetterDisplay's Settings show its switches as they were
     before Crema ran. The same holds after Crema is force quit and opened again.
-27. With "Replace the system indicators" on, holding a volume or brightness key
-    scales the whole bar, larger for the key that raises the level and smaller
-    for the one that lowers it, and lets go without a wobble when the key comes
-    up. At full, another volume-up press drifts the bar past its full end, the
-    far end travelling and the near one following, further on every repeat but
-    less each time; at zero, volume-down does the same at the empty end, and
-    brightness keys alike. A key does not thicken the bar; a drag does, and it
-    settles thin before the indicator goes. Classic's bar does neither, and with
-    Reduce Motion on no indicator does
-    (docs/DECISIONS.md: the-bar-answers-the-press).
-28. A track whose title does not fit: the compact Card cuts it with an ellipsis
+27. A track whose title does not fit: the compact Card cuts it with an ellipsis
     and stays narrower than the expanded player; the expanded player, in every
     style, rests on the title's start, scrolls it through, and rests again, its
     artist line moving with it when that does not fit either. With Reduce Motion

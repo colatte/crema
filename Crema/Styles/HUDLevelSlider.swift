@@ -58,13 +58,6 @@ struct HUDLevelSlider: View {
     /// The direction the bar runs (`CapsuleTrack.axis`): horizontal by default;
     /// `HUDPlacement.axis` names the placements where a bar stands upright.
     var axis: Axis = .horizontal
-    /// The key this bar answers, already matched to `kind`, and whether a drag
-    /// grows it (`Coordinator.hudPress`, `hudIsEngaged`). The capsule answers
-    /// both; the filled bar's answer is the card's own surface (`CardView`), and
-    /// the bezel's segments answer neither — the pre-Tahoe bezel never moved
-    /// (docs/DECISIONS.md: the-bar-answers-the-press).
-    var press: HUDPress?
-    var isEngaged = false
 
     /// True while the user is dragging: the spring is suspended so the fill
     /// (and knob) track the finger 1:1 rather than rubber-banding behind it.
@@ -169,19 +162,14 @@ struct HUDLevelSlider: View {
     /// The track itself, drawn by `CapsuleTrack` — the curved fill, its floor,
     /// the overshoot crop and the knob are described there, once.
     private func capsule(size: CGSize) -> some View {
-        let moves = SurfaceAnimation.allowsHUDPressMotion(reduceMotion: reduceMotion)
-        return CapsuleTrack(
+        CapsuleTrack(
             value: value,
             showsKnob: Self.showsKnob(
                 appearance: appearance, isHovered: isHovered, isEditing: isEditing
             ),
             reduceMotion: reduceMotion,
-            axis: runningAxis,
-            thickness: moves && isEngaged ? CapsuleTrack.engagedThickness : CapsuleTrack.trackThickness,
-            press: moves ? press : nil
+            axis: runningAxis
         )
-        .animation(SurfaceAnimation.hudEngage(engaged: isEngaged), value: isEngaged)
-        .animation(SurfaceAnimation.hudPress(pressed: press != nil), value: press)
         .frame(width: size.width, height: size.height)
     }
 

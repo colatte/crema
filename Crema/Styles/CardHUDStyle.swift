@@ -19,25 +19,6 @@ struct CardHUDStyle: PresentationStyle {
         return hud
     }
 
-    /// Hung from its top like every Card window, plus the room a press needs
-    /// along the bar (`CardMetrics.hudPressRoom`) where the open spring's headroom
-    /// falls short: sideways for a horizontal bar; below an upright one, and above
-    /// it, where the window keeps none (`CardMetrics.hudTopHeadroom`).
-    func windowFrame(on geometry: ScreenGeometry) -> CGRect {
-        var rect = fixedWindowFrame(on: geometry, anchor: .top)
-        let axis = placement.axis
-        let beyondHeadroom = max(0, CardMetrics.hudPressRoom(for: axis) - SurfaceAnimation.overshootHeadroom)
-        switch axis {
-        case .horizontal:
-            rect = rect.insetBy(dx: -beyondHeadroom, dy: 0)
-        case .vertical:
-            rect.origin.y -= beyondHeadroom
-            rect.size.height += beyondHeadroom
-        }
-        rect.size.height += CardMetrics.hudTopHeadroom(for: axis)
-        return rect
-    }
-
     /// The HUD has no expanded form to hover into, so the extension's seed — the
     /// compact and expanded frames — is empty here; the hover that matters on
     /// this panel is the one that holds the HUD, around the HUD itself.

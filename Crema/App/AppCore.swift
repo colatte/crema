@@ -337,7 +337,6 @@ final class AppCore {
             // `menuStatus` on each menu build, so a transient suspension that
             // heals never shows.
             Self.wireSuspensionMirror(from: suppressor, to: osdSuppressionMonitor)
-            Self.wireHUDPress(from: suppressor, to: coordinator)
             // Suppression is only ever engaged through the lock controller, so a
             // locked/off-console context suspends it (native OSD restored) and
             // the lock path never touches the persisted opt-in.
@@ -1464,22 +1463,6 @@ extension AppCore {
     ) {
         suppressor.onSuspensionStateChange = { [weak suppressor] in
             monitor.update(suppressor?.longSuspendedDomains ?? [])
-        }
-    }
-
-    /// A key held, a press past the end and the up that lets go reach the bar
-    /// only through here: the reading that follows a press says neither when the
-    /// key went down or came up, nor whether it pushed past the end
-    /// (docs/DECISIONS.md: the-bar-answers-the-press).
-    static func wireHUDPress(from suppressor: any NativeOSDSuppressor, to coordinator: Coordinator) {
-        suppressor.onKeyPressed = { [weak coordinator] key in
-            coordinator?.hudKeyPressed(key)
-        }
-        suppressor.onPushedPastEnd = { [weak coordinator] key in
-            coordinator?.hudPushedPastEnd(key)
-        }
-        suppressor.onKeyReleased = { [weak coordinator] key in
-            coordinator?.hudKeyReleased(key)
         }
     }
 
