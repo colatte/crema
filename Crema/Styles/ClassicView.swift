@@ -50,7 +50,7 @@ struct ClassicView: View, SurfaceStyleBody {
         // Toggling view-only resizes the block while it is open — animate it too,
         // dry under Reduce Motion like the geometry spring.
         .animation(SurfaceAnimation.morph(reduceMotion: reduceMotion), value: showsControls)
-        .onChange(of: layoutKind) { _, newValue in
+        .onChange(of: contentKind) { _, newValue in
             provenance.advance(to: newValue)
         }
     }
@@ -63,11 +63,15 @@ struct ClassicView: View, SurfaceStyleBody {
             // `.background`/clip size to the node below them). Provenance-aware:
             // nil on an appearance snaps that geometry to the destination (no
             // material springing past the snapped outer frame — the ghost behind
-            // the HUD), the directional spring on a disappearance fades the
-            // content out, and between visible layouts it is the crossfade+morph.
+            // the HUD), and between visible layouts it is the crossfade+morph; a
+            // disappearance changes nothing under it (`drawnContent`).
             .animation(contentAnimation, value: layoutKind)
             .vibrantSurface(in: RoundedRectangle(cornerRadius: ClassicMetrics.cornerRadius, style: .continuous))
             .opacity(layoutKind == .empty ? 0 : 1)
+            // Hidden, the surface still draws what it faded out with (`drawnContent`):
+            // out of reach of VoiceOver, and its loops stopped.
+            .accessibilityHidden(layoutKind == .empty)
+            .environment(\.surfaceIsShown, layoutKind != .empty)
             // The appearance/disappearance fade (`fadeAnimation`, where its reach
             // is stated): opacity keeps its spring while the geometry snaps, so a
             // block born from hidden fades in at its final rect.
@@ -82,7 +86,7 @@ struct ClassicView: View, SurfaceStyleBody {
     /// survives every branch swap.
     @ViewBuilder private var content: some View {
         ZStack {
-            switch contentKind {
+            switch drawnContent {
             case .empty:
                 Color.clear
             case .nowPlayingCompact(let track):

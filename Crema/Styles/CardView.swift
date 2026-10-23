@@ -57,7 +57,7 @@ struct CardView: View, SurfaceStyleBody {
         .animation(SurfaceAnimation.morph(reduceMotion: reduceMotion), value: adaptiveWidthKey)
         // Toggling view-only resizes the card while it is open — animate it too.
         .animation(SurfaceAnimation.morph(reduceMotion: reduceMotion), value: showsControls)
-        .onChange(of: layoutKind) { _, newValue in
+        .onChange(of: contentKind) { _, newValue in
             provenance.advance(to: newValue)
         }
     }
@@ -79,9 +79,9 @@ struct CardView: View, SurfaceStyleBody {
         // to the node below them — this clamp output). It is therefore
         // provenance-aware: nil on an appearance (the geometry snaps, no ghost
         // springs past the snapped outer frame; the content is invisible under
-        // opacity 0 and fades in with the surface), the directional spring on a
-        // disappearance (the glyph fades out instead of popping) and between
-        // visible layouts (the HUD↔now-playing crossfade + morph). It wraps the
+        // opacity 0 and fades in with the surface), and the directional spring
+        // between visible layouts (the HUD↔now-playing crossfade + morph); a
+        // disappearance changes nothing under it (`drawnContent`). It wraps the
         // clamp's output, never the branch switch, so the active-branch
         // measurement is intact.
         .animation(contentAnimation, value: layoutKind)
@@ -104,6 +104,10 @@ struct CardView: View, SurfaceStyleBody {
         // overriding the content crossfade's own inner scope.
         .animation(geometryAnimation, value: surfaceCornerRadius)
         .opacity(layoutKind == .empty ? 0 : 1)
+        // Hidden, the surface still draws what it faded out with (`drawnContent`):
+        // out of reach of VoiceOver, and its loops stopped.
+        .accessibilityHidden(layoutKind == .empty)
+        .environment(\.surfaceIsShown, layoutKind != .empty)
         // The appearance/disappearance fade (`fadeAnimation`, where its reach is
         // stated): opacity keeps its spring while the geometry snaps, so a
         // surface born from hidden fades in at its final frame.
@@ -164,7 +168,7 @@ struct CardView: View, SurfaceStyleBody {
     }
 
     var adaptiveWidthKey: String? {
-        contentKind.adaptiveWidthKey
+        drawnContent.adaptiveWidthKey
     }
 
     /// The crossfading branches, each tagged with its layout as a constant
@@ -172,16 +176,11 @@ struct CardView: View, SurfaceStyleBody {
     /// with — that is what lets the clamp tell the ghost from the active
     /// branch).
     @ViewBuilder private var content: some View {
-        switch contentKind {
+        switch drawnContent {
         case .empty:
-            // Fills whatever the effective layout proposes: while hidden the
-            // surface freezes the outgoing rect, so the empty branch must adopt
-            // that size (empty-after-hud fills `CardMetrics.hudSize(for:)` on
-            // either axis) rather than pinning to the compact floor — a fixed
-            // floor here snaps the material to that floor the instant a HUD
-            // begins fading out. The adaptive states still collapse to the
-            // floor: the clamp's provenance-aware minWidth pins them, not this
-            // branch.
+            // Drawn only before anything has shown: a hidden surface draws what
+            // it last showed (`drawnContent`). It fills whatever the effective
+            // layout proposes rather than pinning a size of its own.
             Color.clear
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .layoutValue(key: SurfaceBranch.self, value: .empty)

@@ -62,7 +62,7 @@ struct NotchView: View, SurfaceStyleBody {
         // Toggling view-only resizes the band while it is open — a visible morph,
         // so it honors Reduce Motion (nil) like the geometry spring.
         .animation(SurfaceAnimation.morph(reduceMotion: reduceMotion), value: showsControls)
-        .onChange(of: layoutKind) { _, newValue in
+        .onChange(of: contentKind) { _, newValue in
             provenance.advance(to: newValue)
         }
     }
@@ -108,6 +108,10 @@ struct NotchView: View, SurfaceStyleBody {
             }
         }
         .opacity(layoutKind == .empty ? 0 : 1)
+        // Hidden, the surface still draws what it faded out with (`drawnContent`):
+        // out of reach of VoiceOver, and its loops stopped.
+        .accessibilityHidden(layoutKind == .empty)
+        .environment(\.surfaceIsShown, layoutKind != .empty)
         // The appearance/disappearance fade (`fadeAnimation`, where its reach is
         // stated): opacity keeps its spring while the geometry and flare snap, so
         // a surface born from hidden fades in at its final drop.
@@ -120,7 +124,7 @@ struct NotchView: View, SurfaceStyleBody {
     /// every branch swap.
     @ViewBuilder private var content: some View {
         ZStack {
-            switch contentKind {
+            switch drawnContent {
             case .empty:
                 Color.clear
             case .nowPlayingCompact(let track):

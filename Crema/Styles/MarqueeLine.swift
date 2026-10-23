@@ -30,6 +30,9 @@ struct MarqueeLine<Content: View>: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Nil off the panels (previews, the Settings tiles): no mirror, no veto.
     @Environment(\.lowPowerMode) private var lowPowerMode
+    /// Hidden, the surface still draws this line as it faded out with it: the
+    /// run pauses on the frame it reached rather than settling during the fade.
+    @Environment(\.surfaceIsShown) private var shown
 
     private var moves: Bool {
         MarqueeMotion.moves(
@@ -68,7 +71,7 @@ struct MarqueeLine<Content: View>: View {
     /// Two copies a gap apart sliding together, so the second one arrives where
     /// the first began and the run ends on the frame it started from.
     private var running: some View {
-        TimelineView(.animation) { context in
+        TimelineView(.animation(paused: !shown)) { context in
             let offset = MarqueeMotion.offset(
                 elapsed: context.date.timeIntervalSince(start),
                 travel: travel,
