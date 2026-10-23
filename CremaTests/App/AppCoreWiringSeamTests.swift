@@ -74,37 +74,6 @@ struct AppCoreWiringSeamTests {
         #expect(taken == Pokes(screen: 1, keyboard: 1, volume: 1))
     }
 
-    // MARK: - The press past the end
-
-    @Test func aKeyAndItsPushPastTheEndReachTheCoordinatorsBar() {
-        // The only path for them: the reading that follows says neither when the
-        // key went down nor that it pushed past the end.
-        let suppressor = RecordingOSDSuppressor()
-        let h = CoordinatorHarness()
-        AppCore.wireHUDPress(from: suppressor, to: h.coordinator)
-
-        suppressor.onKeyPressed?(.screenBrightnessDown)
-        #expect(h.coordinator.hudPress == HUDPress(kind: .screenBrightness, end: .start))
-
-        suppressor.onPushedPastEnd?(.screenBrightnessDown)
-        #expect(h.coordinator.hudPress == HUDPress(kind: .screenBrightness, end: .start, stepsPastEnd: 1))
-    }
-
-    @Test func theUpOfAKeyReachesTheCoordinatorsBar() async {
-        // Unwired, every press would hang on until its longest hold.
-        let suppressor = RecordingOSDSuppressor()
-        let h = CoordinatorHarness()
-        AppCore.wireHUDPress(from: suppressor, to: h.coordinator)
-        suppressor.onKeyPressed?(.volumeUp)
-        await h.motionClock.waitForSleep(delay: Coordinator.defaultHUDPressMinimumHold)
-        h.motionClock.advance(delay: Coordinator.defaultHUDPressMinimumHold)
-        await settle()
-
-        suppressor.onKeyReleased?(.volumeUp)
-
-        #expect(h.coordinator.hudPress == nil)
-    }
-
     // MARK: - The escalation mirror the menu reads
 
     @Test func theMenuMirrorFollowsTheSuppressorInBothDirections() {

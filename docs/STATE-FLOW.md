@@ -37,7 +37,7 @@ In the menu bar this is the difference between a line and a system probe: the st
 ## Views report, the Coordinator decides
 
 - Views read `coord.state` and return **intent** as methods (`hover(_:on:)`, play/pause, scrub, the HUD slider). A view never calls system API, never mutates domain, never keeps a copy of domain in `@State` (`@State` is for 100%-visual ephemera only).
-- Priority and timers live **only** in the Coordinator: the HUD rises over now playing and reverts ~1.5 s after the last key (the timer restarts on every keypress, like the native HUD); the appearance under it keeps taking events, and its tuck waits for the revert. The bar's answer to a key and a drag (`hudPress`, `hudIsEngaged`) has timers of its own on a separate injected clock, apart from what is presented (docs/DECISIONS.md: the-bar-answers-the-press).
+- Priority and timers live **only** in the Coordinator: the HUD rises over now playing and reverts ~1.5 s after the last key (the timer restarts on every keypress, like the native HUD); the appearance under it keeps taking events, and its tuck waits for the revert.
 
 ## Skins are a pure function of state
 
