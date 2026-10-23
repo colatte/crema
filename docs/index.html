@@ -169,6 +169,8 @@
               transition:transform .45s var(--ease),width .45s var(--ease)}
   .styles-stage{display:grid}
   .styles-stage>.frame{grid-area:1/1;transition:opacity .45s var(--ease)}
+  /* Hidden panels stay drawn for the cross-fade, which also keeps them in the
+     accessibility tree; `inert`, set with `hidden`, takes them out of it. */
   .styles-stage>.frame[hidden]{display:block;opacity:0;pointer-events:none}
   .style-copy{max-width:640px;margin:30px 0 0;min-height:88px}
   .style-copy p{margin:8px 0 0;color:var(--ink-2)}
@@ -330,8 +332,8 @@
       </div>
       <div class="styles-stage reveal">
         <div class="frame ratio-style" role="tabpanel" id="panel-notch" aria-labelledby="tab-notch"><img src="assets/site/style-notch.webp" alt="Notch style: the player grows out of the notch" loading="lazy"></div>
-        <div class="frame ratio-style" role="tabpanel" id="panel-card" aria-labelledby="tab-card" hidden><img src="assets/site/style-card.webp" alt="Card style: a translucent panel below the menu bar" loading="lazy"></div>
-        <div class="frame ratio-style" role="tabpanel" id="panel-classic" aria-labelledby="tab-classic" hidden><img src="assets/site/style-classic.webp" alt="Classic style: a quiet block near the bottom of the screen" loading="lazy"></div>
+        <div class="frame ratio-style" role="tabpanel" id="panel-card" aria-labelledby="tab-card" hidden inert><img src="assets/site/style-card.webp" alt="Card style: a translucent panel below the menu bar" loading="lazy"></div>
+        <div class="frame ratio-style" role="tabpanel" id="panel-classic" aria-labelledby="tab-classic" hidden inert><img src="assets/site/style-classic.webp" alt="Classic style: a quiet block near the bottom of the screen" loading="lazy"></div>
       </div>
       <div class="style-copy" id="style-copy" aria-live="polite">
         <h3>Blends into the notch</h3>
@@ -527,7 +529,9 @@
       const on = b.dataset.style === style;
       b.setAttribute('aria-selected', on);
       b.tabIndex = on ? 0 : -1;
-      document.getElementById('panel-' + b.dataset.style).hidden = !on;
+      const panel = document.getElementById('panel-' + b.dataset.style);
+      panel.hidden = !on;
+      panel.inert = !on;
       if (on && focus) b.focus();
     });
     styleCopy.querySelector('h3').textContent = copy[style][0];
@@ -549,10 +553,16 @@
   /* ---- copy the command ---------------------------------------------------- */
   const copyButton = document.getElementById('copy');
   copyButton.addEventListener('click', () => {
-    navigator.clipboard.writeText(document.getElementById('cmd').textContent).then(() => {
+    const command = document.getElementById('cmd');
+    const write = navigator.clipboard ? navigator.clipboard.writeText(command.textContent) : Promise.reject();
+    write.then(() => {
       copyButton.textContent = 'Copied';
       setTimeout(() => { copyButton.textContent = 'Copy'; }, 1600);
-    }, () => {});
+    }, () => {
+      /* No clipboard here (denied, or not a secure page): select the command
+         so ⌘C copies it. */
+      getSelection().selectAllChildren(command);
+    });
   });
 })();
 </script>

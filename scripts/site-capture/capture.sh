@@ -47,6 +47,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Every shot assumes the capture copy starts from the defaults, and its domain
+# outlives a run (an earlier or interrupted one left the Card's indicator in a
+# corner, out of the top shots). Through `defaults`, which cfprefsd honours; a
+# removed plist comes back from its cache.
+defaults delete com.colatte.crema.capture >/dev/null 2>&1 || true
+
 "$work/backdrop" "$root/design/icon/crema-mark.svg" &
 stage_pid=$!
 sleep 1.5
