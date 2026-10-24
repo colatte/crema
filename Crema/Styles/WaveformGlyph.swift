@@ -103,6 +103,16 @@ struct WaveformGlyph: View {
             }
         }
         .frame(height: config.peakHeight)
+        // The skin moves this glyph under springs of its own (the Card's width
+        // morphs on every track change, carrying the glyph on its trailing edge),
+        // and a spring reaching a bar's frame REPLACES the pulse running there
+        // ("each animation will be replaced by their successor",
+        // Animation.spring(response:dampingFraction:blendDuration:)), and every
+        // bar holds the peak until playback flips. A geometry group resolves
+        // the move once, for the glyph as a whole, so the bars' frames never take
+        // it (View.geometryGroup(), macOS 14). Measured by
+        // scripts/probes/waveform-pulse.swift.
+        .geometryGroup()
         // The bars take the cover's tone, styled here so all skins tint
         // identically and lifted as far as the contrast setting's background
         // needs (`ArtworkAccent.Tone.displayComponents`). No usable tone ⇒ the
