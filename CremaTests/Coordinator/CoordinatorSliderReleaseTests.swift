@@ -5,9 +5,9 @@ import Testing
 /// marks a gesture in flight, and the RELEASE is what lets a bar nothing wrote
 /// settle back to the last level with evidence behind it
 /// (docs/DECISIONS.md: the-bar-never-outruns-the-screen). The drag reports both
-/// ends; the accessibility representation reported only the first, so a
-/// VoiceOver increment left the app believing a finger was resting on a bar
-/// nobody was touching, and the correction waited for a release that could never
+/// ends; an accessibility representation that reports only the first leaves a
+/// VoiceOver increment with the app believing a finger is resting on a bar
+/// nobody is touching, and the correction waiting for a release that can never
 /// come.
 ///
 /// The slider's pure rule is pinned here, beside the Coordinator state it
@@ -71,7 +71,9 @@ struct CoordinatorSliderReleaseTests {
         h.coordinator.hudSliderChanged(to: 0.9)
 
         #expect(await eventually { h.screen.commands.count == 1 })   // both declined
-        await settle()
+        // The write task's end, fallback and correction included, is the barrier
+        // for "not corrected under the finger"; a command landing is not.
+        #expect(await eventually { h.finishedScreenWrites.count == 1 })
         #expect(h.coordinator.state == .hud(onExternalDisplay(0.9)))
     }
 }

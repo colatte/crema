@@ -1,16 +1,18 @@
 /// One step of the welcome tour, in the order they are walked. The order IS the
-/// declaration order: the permission comes before the two settings it gates, and
-/// the login-item switch comes last, where a person has already seen what they
-/// would be keeping.
-enum WelcomeTourStep: CaseIterable {
+/// declaration order: the permission comes before the key test it makes work,
+/// the style before the test that shows it, and the login-item switch comes
+/// last, where a person has already seen what they would be keeping. The raw
+/// values are the DEBUG step flag's vocabulary and nothing else's.
+enum WelcomeTourStep: String, CaseIterable {
     case welcome
     case accessibility
     case style
-    case indicators
+    case tryIt
     case finish
 }
 
-/// Where the tour can go from a step, and what its prominent button offers there.
+/// Where the tour can go from a step, what its prominent button offers there,
+/// and what the real screen does behind it.
 ///
 /// Pure and stringless — the view maps a case to its sentence, the way the menu
 /// maps a `MenuStatus` row — because these are the parts with a rule in them, and
@@ -50,10 +52,38 @@ enum WelcomeTourFlow {
     /// `next(after:)`, which never sees it.
     static func primaryAction(for step: WelcomeTourStep, accessibilityGranted: Bool) -> PrimaryAction {
         switch step {
-        case .welcome, .style, .indicators: .continue
+        case .welcome, .style, .tryIt: .continue
         case .accessibility: accessibilityGranted ? .continue : .grantAccess
         case .finish: .done
         }
+    }
+
+    /// The steps that hold the real player up while they talk about it: the
+    /// welcome shows what the app draws, and the style step redraws it in each
+    /// pick. Every other step lets it go — the key test wants a clear screen for
+    /// the HUD it asks for.
+    static func holdsThePlayer(_ step: WelcomeTourStep) -> Bool {
+        step == .welcome || step == .style
+    }
+
+    /// The step that points at the menu bar icon: the last one, where the person
+    /// learns where the app lives once the window is gone.
+    static func pointsAtTheMenuBar(_ step: WelcomeTourStep) -> Bool {
+        step == .finish
+    }
+
+    /// The display the tour offers the player on, or nil when one already shows
+    /// it. The player is born on only on the built-in panel
+    /// (`Preferences.defaultShowsNowPlaying`), so a Mac without one, or with its
+    /// lid closed, starts with it off everywhere — and a tour that shows the
+    /// player has to be able to switch it on before it has anything to show. The
+    /// one offered is the first in the roster, the primary display, which carries
+    /// the menu bar.
+    static func displayToOfferThePlayer(
+        among displays: [ScreenDescription],
+        showing shows: (ScreenDescription) -> Bool
+    ) -> ScreenDescription? {
+        displays.contains(where: shows) ? nil : displays.first
     }
 
     /// Both ends answer nil rather than wrapping: a tour that looped would have no

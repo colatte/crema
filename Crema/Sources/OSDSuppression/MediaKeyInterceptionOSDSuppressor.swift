@@ -191,8 +191,8 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     private let logger = Logger.crema("OSD")
 
     /// `screenBrightnessTarget` has no default on purpose. A default would be the
-    /// built-in panel, which is exactly the behaviour that dimmed the laptop while
-    /// the user read the monitor — and a construction that dropped the argument
+    /// built-in panel, which is exactly the behaviour that dims the laptop while
+    /// the user reads the monitor — and a construction that dropped the argument
     /// would restore that bug with the whole suite green. Making it required turns
     /// an untestable wiring risk into a compile error.
     init(
@@ -412,10 +412,10 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
     /// there is nothing malfunctioning to report and nothing for a probe to
     /// recover, so it never counts toward escalation and never reaches the menu.
     ///
-    /// What it must not do is stay swallowed. This apply wrote nothing and drew
-    /// nothing, and the tap had already eaten the press, so the user got no answer
-    /// at all — the one place this app broke its own rule that a consumed key owes
-    /// feedback. Recording the absence is what closes it: the next press reads the
+    /// What it must not do is stay swallowed. This apply writes nothing and draws
+    /// nothing, and the tap has already eaten the press, so the user gets no answer
+    /// at all — the one place this app would break its own rule that a consumed key
+    /// owes feedback. Recording the absence is what closes it: the next press reads the
     /// mark before the tap decides, the key goes to the system, and the system
     /// applies it and draws its own indicator. THIS press is the one that pays for
     /// the answer, and a key held through it is released at its next autorepeat,
@@ -445,8 +445,8 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         // is usually a lock/unlock, which is exactly when hardware comes back, and a
         // stale mark there hands away a key the app could now apply.
         //
-        // DECLARED GAP: this guard is not pinned, and a test that pretended to pin it
-        // was written and removed rather than kept. The window needs a stale apply to
+        // DECLARED GAP: this guard is not pinned, and a test that only pretends to
+        // pin it is deliberately not kept. The window needs a stale apply to
         // resume AFTER an engage flip, and nothing observable marks that moment — the
         // absent set has no test-visible snapshot, and a `.noOp` fires no callback, so
         // every probe either presses too early (both behaviours agree) or retries
@@ -462,9 +462,9 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
 
     /// What an apply actually did, which the success path must distinguish. A
     /// no-op wrote nothing, so it is proof of nothing: letting it share the
-    /// verified branch cleared the write-health axis and dropped a channel's menu
+    /// verified branch clears the write-health axis and drops a channel's menu
     /// warning without a single write — one press on an output that lost its
-    /// volume control was enough to wipe five episodes of evidence.
+    /// volume control is enough to wipe five episodes of evidence.
     private enum ApplyOutcome {
         /// A write landed and the read-back proved it moved.
         case verified
@@ -566,8 +566,8 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
             if try await readWithDeadline({ [volume] in volume.supportsMute() }) {
                 decider.clearAbsentCapability(.mute)
                 // A nil mute read is a read failure, not "not muted" — the same
-                // line `applyMute` draws. Skipping the unmute on it left the key
-                // consumed and the bar rising over a Mac that stayed muted, with
+                // line `applyMute` draws. Skipping the unmute on it leaves the key
+                // consumed and the bar rising over a Mac that stays muted, with
                 // no failure axis touched. Nil throws so the apply fails and the
                 // domain follows the ordinary suspension rules; only a real
                 // `false` (read fine, not muted) skips the unmute.
@@ -600,9 +600,9 @@ final class MediaKeyInterceptionOSDSuppressor: NativeOSDSuppressor {
         // A read-back that comes back nil is a READ failure and says nothing
         // about the write, so it is unfolded here instead of being handed to
         // `verified` (which answers false for a nil `after`). Folding it in
-        // billed a dead read to the write-health axis — the axis whose own
+        // bills a dead read to the write-health axis — the axis whose own
         // contract excludes read-side failures — and after five episodes the
-        // menu told the user Crema could not apply a change whose write was
+        // menu tells the user Crema cannot apply a change whose write is
         // fine. The pre-read above already draws this line; the read-back has
         // the same claim to it.
         guard let after = try await readWithDeadline({ [channel] in channel.read() }) else {

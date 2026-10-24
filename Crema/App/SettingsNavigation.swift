@@ -1,3 +1,4 @@
+import Foundation
 import Observation
 
 /// Where the Settings window should land when something else opens it.
@@ -28,9 +29,24 @@ final class SettingsNavigation {
 }
 
 /// The tabs, named where both the window and whoever steers it can see them.
-/// The raw values are the DEBUG initial-tab flag's vocabulary and the persisted
-/// spelling; renaming one is a user-visible change to that harness, and a name
-/// no case matches parses to nil and lands on General.
+/// The raw values are the DEBUG initial-tab flag's vocabulary and nothing else's
+/// (no tab is persisted); renaming one changes that harness, and a name no case
+/// matches parses to nil and lands on General.
 enum SettingsTab: String {
     case general, nowPlaying, indicators, permissions, about
 }
+
+#if DEBUG
+extension SettingsTab {
+    /// Screenshot/dev harness: `-CremaSettingsInitialTab about` decides the tab
+    /// the Settings window LANDS on when it opens. The app's own opens go through
+    /// `openSettings` (SwiftUI's OpenSettingsAction, macOS 14), from the menu, and
+    /// the ones that name a tab steer it with `settingsNavigation`, which wins over
+    /// this flag. An unknown name parses to nil and lands on General silently,
+    /// which is the harness's contract: it steers a screenshot run, so a stale
+    /// flag is worth a wrong tab and never a crash.
+    static var harnessInitial: SettingsTab? {
+        UserDefaults.standard.string(forKey: "CremaSettingsInitialTab").flatMap(Self.init(rawValue:))
+    }
+}
+#endif

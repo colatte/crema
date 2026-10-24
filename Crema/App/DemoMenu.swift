@@ -34,6 +34,9 @@ struct DemoMenu: View {
             Button(String(localized: "demo.hud.volume", defaultValue: "Demo: Volume HUD")) {
                 demo.hud.demoKeyPress(.volume)
             }
+            Button(String(localized: "demo.hud.nextOutputDevice", defaultValue: "Demo: Next Output Device")) {
+                demo.hud.demoNextOutputDevice()
+            }
             Button(String(localized: "demo.hud.screenBrightness", defaultValue: "Demo: Screen Brightness HUD")) {
                 demo.hud.demoKeyPress(.screenBrightness)
             }

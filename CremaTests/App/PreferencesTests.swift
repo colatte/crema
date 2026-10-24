@@ -11,6 +11,24 @@ struct PreferencesTests {
     /// One isolated, self-cleaning defaults store per test instance.
     private let store = EphemeralDefaults()
 
+    @Test func aNeighbourSwitchIsOwedUntilForgottenAndTheKeyGoesWithTheLast() {
+        let preferences = Preferences(defaults: store.defaults)
+        #expect(preferences.neighbourOSDOriginal(.showsOwnIndicator) == nil)
+
+        preferences.setNeighbourOSDOriginal(true, for: .showsOwnIndicator)
+        preferences.setNeighbourOSDOriginal(false, for: .dispatchesToOtherApps)
+        #expect(preferences.neighbourOSDOriginal(.showsOwnIndicator) == true)
+        #expect(preferences.neighbourOSDOriginal(.dispatchesToOtherApps) == false)
+
+        preferences.setNeighbourOSDOriginal(nil, for: .showsOwnIndicator)
+        #expect(preferences.neighbourOSDOriginal(.showsOwnIndicator) == nil)
+        #expect(preferences.neighbourOSDOriginal(.dispatchesToOtherApps) == false)
+
+        // Nothing owed leaves nothing behind in the user's defaults.
+        preferences.setNeighbourOSDOriginal(nil, for: .dispatchesToOtherApps)
+        #expect(store.defaults.object(forKey: "neighbourOSDOriginals") == nil)
+    }
+
     @Test func styleDefaultsToNotch() {
         let preferences = Preferences(defaults: store.defaults)
         #expect(preferences.style(for: internalDisplay) == .notch)
@@ -150,8 +168,8 @@ struct PreferencesTests {
 
     @Test func declaringAStyleEverywhereDropsEveryOverrideAndSparesOtherPreferences() {
         let preferences = Preferences(defaults: store.defaults)
-        // Overrides written the way the old all-displays writer did — one of
-        // these displays stands for a monitor not attached right now.
+        // Overrides written the way a per-display all-displays writer leaves
+        // them — one of these displays stands for a monitor not attached right now.
         preferences.setStyle(.notch, for: internalDisplay)
         preferences.setStyle(.card, for: externalDisplay)
         preferences.setShowsNowPlaying(false, on: internalDisplay)
@@ -344,6 +362,21 @@ struct PreferencesTests {
         preferences.hudIndicatorStyle = .filled
 
         #expect(Preferences(defaults: store.defaults).hudIndicatorStyle == .filled)
+    }
+
+    @Test func hudPlacementDefaultsToTheCardsOwnSpotAndPersists() {
+        let preferences = Preferences(defaults: store.defaults)
+        #expect(preferences.hudPlacement == .topCenter)
+
+        preferences.hudPlacement = .bottomRight
+
+        #expect(Preferences(defaults: store.defaults).hudPlacement == .bottomRight)
+        #expect(store.defaults.string(forKey: Preferences.hudPlacementKey) == "bottomRight")
+    }
+
+    @Test func unknownPersistedHUDPlacementDegradesToTheCardsOwnSpot() {
+        store.defaults.set("ceiling", forKey: Preferences.hudPlacementKey)
+        #expect(Preferences(defaults: store.defaults).hudPlacement == .topCenter)
     }
 
     /// A persisted rawValue of a removed indicator variant — or any garbage —

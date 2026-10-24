@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import Testing
 @testable import Crema
 
@@ -115,6 +116,53 @@ struct ArtworkAccentTests {
         if let tone {
             #expect(tone.hue > 0.02 && tone.hue < 0.18)   // orange family
         }
+    }
+
+    /// The tone's legibility, stated as the worst case over the whole hue circle:
+    /// the band's most saturated tone (the darkest a hue can draw) from a cover at
+    /// the dimmest brightness that still votes and from a full-brightness one.
+    /// Blue is where the band alone fell short — 2.1:1 on the Notch's black at
+    /// the band's floor.
+    private func worstRatio(_ contrast: ColorSchemeContrast) -> Double {
+        let background = ArtworkAccent.legibilityBackground(contrast)
+        var worst = Double.infinity
+        for step in 0..<360 {
+            for raw in [ArtworkAccent.minVoterBrightness, 1] {
+                let tone = ArtworkAccent.Tone(
+                    hue: Double(step) / 360,
+                    saturation: ArtworkAccent.displaySaturationRange.upperBound,
+                    rawBrightness: raw
+                )
+                let shown = tone.displayComponents(contrast: contrast)
+                let luminance = WCAGContrast.luminance(
+                    hue: tone.hue, saturation: shown.saturation, brightness: shown.brightness
+                )
+                worst = min(worst, WCAGContrast.ratio(luminance, background))
+            }
+        }
+        return worst
+    }
+
+    @Test func theToneReadsOnTheDarkestSurfaceAtEveryHue() {
+        #expect(worstRatio(.standard) >= WCAGContrast.minimumRatio)
+    }
+
+    @Test func increasedContrastHoldsTheToneOnTheLightestSurface() {
+        // The film guarantees white ink 4.5:1 over a white page and nothing more,
+        // so this is the background a tone has to clear for the floating skins to
+        // meet the minimum on any desktop — what the HIG asks Increase Contrast to
+        // deliver where the default cannot.
+        #expect(ArtworkAccent.legibilityBackground(.increased) > ArtworkAccent.legibilityBackground(.standard))
+        #expect(worstRatio(.increased) >= WCAGContrast.minimumRatio)
+    }
+
+    @Test func aToneThatAlreadyReadsKeepsItsBandColour() {
+        // The floor lifts only what falls short: a bright yellow is drawn as the
+        // band put it, so the cover still names the tint.
+        let tone = ArtworkAccent.Tone(hue: 1.0 / 6.0, saturation: 0.5, rawBrightness: 0.8)
+        let shown = tone.displayComponents(contrast: .standard)
+        #expect(shown.saturation == tone.saturation)
+        #expect(shown.brightness == tone.displayBrightness)
     }
 
     @Test func hsbConversionMatchesKnownAnchors() {

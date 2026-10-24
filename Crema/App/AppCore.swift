@@ -28,8 +28,9 @@ final class AppCore {
         let screenBrightnessSampler: (any ManuallySampledSource)?
         let keyboardBrightnessSampler: (any ManuallySampledSource)?
         /// Poked at a volume scale boundary, where the Core Audio write is a
-        /// no-op and emits no echo; nil on demo sources.
-        let volumeSampler: (any ManuallySampledSource)?
+        /// no-op and emits no echo, and read on demand for the Card placement
+        /// preview; nil on demo sources, which then preview nothing.
+        let volumeSampler: (any ManuallySampledSource & VolumeReading)?
         /// Read-side borders for the OSD suppressor (a consumed key needs the
         /// current value to step from); nil on demo sources.
         let screenBrightnessBackend: (any BrightnessBackend)?
@@ -39,6 +40,9 @@ final class AppCore {
         let betterDisplaySource: BetterDisplayOSDSource?
         /// Writes for bars the neighbour drew; nil on demo sources.
         let externalScreenBrightnessController: (any ScreenBrightnessController)?
+        /// The neighbour's request channel, shared by the brightness writes above
+        /// and the handoff of its own indicator; nil on demo sources.
+        let betterDisplayChannel: BetterDisplayCommandChannel?
     }
 
     let coordinator: Coordinator
@@ -47,8 +51,9 @@ final class AppCore {
     // `for await` would silently split events with the router.
     //
     // `preferences` being private does NOT mean this core is the only writer — the
-    // Settings view writes five of them straight through @AppStorage, and
-    // Preferences exposes those raw keys on purpose for exactly that. The persisted
+    // Settings window and the welcome tour write seven keys straight through
+    // @AppStorage (one of them per display), and Preferences exposes those raw
+    // keys on purpose for exactly that. The persisted
     // key is the source of truth, and it is written twice: @AppStorage writes it,
     // then the setter here writes the same value again before applying the LIVE
     // effect the @AppStorage write cannot. The second write is idempotent. Which is
@@ -88,6 +93,10 @@ final class AppCore {
     /// re-engages on return iff the preference is on. Nil alongside a nil
     /// suppressor — nothing to lock-guard.
     private let suppressionLockController: SuppressionLockController?
+    /// Takes BetterDisplay's own indicator over exactly while suppression would be
+    /// engaged, and hands it back on quit. Nil alongside a nil lock controller, or
+    /// on demo sources. (docs/DECISIONS.md: the-neighbour-indicator-is-borrowed)
+    let neighbourOSDHandoff: NeighbourOSDHandoff?
     /// Launch-at-login control (SMAppService behind a protocol).
     let loginItem: any LoginItemManaging
     #if DEBUG
@@ -156,6 +165,10 @@ final class AppCore {
     private var wakeObservations: [NSObjectProtocol] = []
     private var onboardingWindow: NSWindow?
     private var welcomeTourWindow: NSWindow?
+    private var welcomeTourClosing: NSObjectProtocol?
+    /// Built once and kept: the tour's last step shows it, every other step and
+    /// the window's close hide it.
+    private lazy var menuBarPointer = MenuBarPointerPanel()
 
     // The composition root wires every source, actuator, and observer; long by nature.
     // swiftlint:disable:next function_body_length
@@ -209,6 +222,7 @@ final class AppCore {
             screenBrightnessController: graph.screenBrightnessController,
             keyboardBrightnessController: graph.keyboardBrightnessController,
             externalScreenBrightnessController: graph.externalScreenBrightnessController,
+            volumeReading: graph.volumeSampler,
             ignoresBrowserMedia: !preferences.includesBrowserMedia,
             reactiveNowPlaying: preferences.reactiveNowPlaying
         )
@@ -245,8 +259,8 @@ final class AppCore {
         let lowPowerMirror = self.lowPowerMirror
         lowPowerConsumption = Self.wireLowPowerMode(source: self.lowPowerSource, into: lowPowerMirror)
 
-        windowManager = WindowManager(coordinator: coordinator, preferences: preferences) { screen, style, coordinator in
-            NSPanelPresentationPanel(screen: screen, style: style, coordinator: coordinator, lowPower: lowPowerMirror)
+        windowManager = WindowManager(coordinator: coordinator, preferences: preferences) { screen, surface, coordinator in
+            NSPanelPresentationPanel(screen: screen, surface: surface, coordinator: coordinator, lowPower: lowPowerMirror)
         }
 
         coordinator.start()
@@ -320,7 +334,8 @@ final class AppCore {
             osdSuppressor = suppressor
             // Surface long-suspended domains in the menu. The suppressor fires
             // this on escalation and on recovery; the monitor is pull-read by
-            // CremaApp, so a transient suspension that heals never shows.
+            // `menuStatus` on each menu build, so a transient suspension that
+            // heals never shows.
             Self.wireSuspensionMirror(from: suppressor, to: osdSuppressionMonitor)
             // Suppression is only ever engaged through the lock controller, so a
             // locked/off-console context suspends it (native OSD restored) and
@@ -346,15 +361,19 @@ final class AppCore {
             // router-without-suppressor graph.
             Self.wireUnlockReinstall(from: lockController, to: tapSource)
             suppressionLockController = lockController
+            neighbourOSDHandoff = graph.betterDisplayChannel.map {
+                Self.wireNeighbourOSDHandoff(channel: $0, following: lockController, preferences: preferences)
+            }
         } else {
             osdSuppressor = nil
             suppressionLockController = nil
+            neighbourOSDHandoff = nil
         }
 
         // The gate's write stays here, before any window; the window waits a turn
         // for the reason the panel roster above does.
         Self.presentWelcomeTourIfFirstLaunch(preferences: preferences) {
-            Task { @MainActor [weak self] in self?.presentWelcomeTour() }
+            Task { @MainActor [weak self] in self?.showWelcomeTour() }
         }
 
         // The one moment the persisted login-item intent is reconciled against
@@ -410,6 +429,8 @@ final class AppCore {
 
         #if DEBUG
         startAdapterObservationIfRequested()
+        showWelcomeTourIfRequested()
+        DemoRemote.start(core: self)
         #endif
     }
 
@@ -510,8 +531,9 @@ final class AppCore {
     /// them: a seam that lets the caller name the center pins the JOIN and says
     /// nothing about WHICH center is joined — screen parameters are posted by
     /// NSApplication on `.default`, and pointing this at NSWorkspace's center would
-    /// leave a hotplug with neither a tap reinstall nor a panel for the new screen,
-    /// with the suite green.
+    /// leave a hotplug with neither a tap reinstall nor a panel for the new screen —
+    /// a mutation only `theScreenParameterSeamListensOnTheCenterNSApplicationPostsOn`
+    /// catches.
     static func wireScreenParameterReinstall(
         center: NotificationCenter = .default,
         reinstalling source: CGEventTapMediaKeySource,
@@ -543,7 +565,7 @@ final class AppCore {
         }
     }
 
-    /// The menu's "try to reactivate now" action: forces an immediate recovery
+    /// The menu's "Try Again" action: forces an immediate recovery
     /// probe of every suspended suppression domain, ahead of the backoff.
     func retryOSDSuppression() {
         osdSuppressor?.retrySuspendedNow()
@@ -556,8 +578,8 @@ final class AppCore {
     /// declaration cannot disagree. Never a display's RESOLVED style: an override
     /// shown selected in tiles that speak for every screen claims a declaration
     /// nobody made (docs/DECISIONS.md: global-style-default). Never what any
-    /// screen draws either: no geometry enters here, which is why a style-scoped
-    /// control gates on `rendersAnywhere` instead.
+    /// screen draws either: no geometry enters here, which is why the Card-scoped
+    /// controls gate on `displaysRendering(_:)` instead.
     ///
     /// A one-line delegate to a pinned resolver: the rule is proven at
     /// `Preferences.declaredStyle(fromRawValue:)`, and this carries the same
@@ -567,14 +589,23 @@ final class AppCore {
         preferences.declaredStyle
     }
 
-    /// Whether any connected display RENDERS this style — the gate for
-    /// style-scoped Settings controls, and deliberately not `declaredStyle()`:
-    /// that reports the declaration, and on a Mac without a notch the shipped
-    /// default declares notch while every panel draws card, which left the
-    /// Card-only indicator picker gray with the HUD it governs on screen
+    /// Whether any connected display RENDERS this style — what the notch→card
+    /// fallback sentence (`Style.fallsBackToCard`) is asked of, in Settings, the
+    /// welcome tour and the menu, and deliberately not `declaredStyle()`: that
+    /// reports the declaration, and on a Mac without a notch the shipped default
+    /// declares notch while every panel draws card
     /// (docs/DECISIONS.md: rendered-style-gates-settings).
     func rendersAnywhere(_ style: Style) -> Bool {
         windowManager.renders(style)
+    }
+
+    /// The displays rendering this style — the same roster reading as
+    /// `rendersAnywhere(_:)`. Settings gates its Card-only indicator section on
+    /// this set being non-empty and names it in the sentence under that section;
+    /// gated on the declaration instead, the section is missing on a Mac without
+    /// a notch with the HUD it governs on screen.
+    func displaysRendering(_ style: Style) -> Set<DisplayUUID> {
+        windowManager.displays(rendering: style)
     }
 
     /// The picture for the style tiles, or nil for them to draw their own desk.
@@ -597,14 +628,16 @@ final class AppCore {
         Self.declareStyleEverywhere(style, in: preferences, applyingTo: windowManager)
     }
 
-    /// Extracted as a static for the reason the other five wiring statics were
+    /// Extracted as a static for the reason the other five wiring statics are
     /// (`wireActiveSourceEnded`, the three `wire*Reinstall`, `reconcileLoginItemIntent`):
     /// reaching it through an instance means constructing `AppCore`, which boots the
-    /// real system sources, so the behaviour was unreachable by any test. And this
-    /// one line IS the regression — swapping it back for the old
+    /// real system sources, so through an instance the behaviour is unreachable by
+    /// any test. And this one line IS the regression — swapping it for
     /// `for screen in describeAll() { setStyle(_:for:) }` restores a monitor plugged
     /// in later drawing the shipped default under a picker that promises "applies to
-    /// every display", and leaves the whole suite green.
+    /// every display". `theAllDisplaysEntryDeclaresGloballyAndSweepsOverrides`
+    /// (AppCoreStyleAuthorityTests) pins it through this seam, and is the one test
+    /// that catches that swap.
     ///
     /// Both collaborators are already constructible in a test without touching a
     /// system API (Preferences over ephemeral defaults; WindowManager over the fake
@@ -662,58 +695,6 @@ final class AppCore {
 
     // MARK: - Graph builders
 
-    /// The default graph: real system HUD sources + actuators, the now-playing
-    /// fallback chain, and the routing media controller (commands follow the
-    /// active backend). The screen/keyboard brightness sources are shared between
-    /// the merged HUD stream and the media-key router (same instances, so a poke
-    /// emits into the stream the Coordinator consumes).
-    private static func makeRealGraph(
-        nowPlayingSource: any NowPlayingSource,
-        nowPlayingController: any NowPlayingController
-    ) -> SystemGraph {
-        let volumeSource = CoreAudioVolumeSource()
-
-        let screenBridge = DisplayServicesBridge()
-        let screenSource = PolledBrightnessSource(kind: .screenBrightness, backend: screenBridge)
-
-        let keyboardBridge = CoreBrightnessKeyboardBridge()
-        let keyboardSource = PolledBrightnessSource(kind: .keyboardBrightness, backend: keyboardBridge)
-
-        // Wired unconditionally: with BetterDisplay absent the source never emits,
-        // and with it present it is the ONLY brightness HUD Crema can draw for the
-        // keys BetterDisplay takes first (docs/DECISIONS.md:
-        // media-key-chain-contention). `standDown` covers the one press where both
-        // could speak — suppression off, so Crema's tap observes the key and arms
-        // its poll while the neighbour is the one that applies and reports.
-        let betterDisplaySource = Self.makeNeighbourSource(standingDown: screenSource)
-        // The way back: BetterDisplay applies what a drag on ITS bar asks for, on
-        // the same scale it reported. Wired unconditionally like the source — with
-        // the app absent the command simply goes unanswered and the drag reports a
-        // failed apply, which is what an unreachable actuator is.
-        let betterDisplayBrightness = BetterDisplayScreenBrightnessController(
-            channel: BetterDisplayCommandChannel(),
-            displayID: BetterDisplayScreenBrightnessController.liveDisplayID
-        )
-
-        return SystemGraph(
-            nowPlayingSource: nowPlayingSource,
-            systemHUDSource: MergedSystemHUDSource([
-                volumeSource, screenSource, keyboardSource, betterDisplaySource,
-            ]),
-            nowPlayingController: nowPlayingController,
-            volumeController: CoreAudioVolumeController(),
-            screenBrightnessController: DisplayServicesScreenBrightnessController(backend: screenBridge),
-            keyboardBrightnessController: CoreBrightnessKeyboardBrightnessController(backend: keyboardBridge),
-            screenBrightnessSampler: screenSource,
-            keyboardBrightnessSampler: keyboardSource,
-            volumeSampler: volumeSource,
-            screenBrightnessBackend: screenBridge,
-            keyboardBrightnessBackend: keyboardBridge,
-            betterDisplaySource: betterDisplaySource,
-            externalScreenBrightnessController: betterDisplayBrightness
-        )
-    }
-
     /// The now-playing chain: adapter first (covers browsers), JXA fallback
     /// (Spotify/Music only), else off. Each candidate is a factory so the chain
     /// can rebuild a dead source on self-heal.
@@ -768,7 +749,8 @@ final class AppCore {
             screenBrightnessBackend: nil,
             keyboardBrightnessBackend: nil,
             betterDisplaySource: nil,
-            externalScreenBrightnessController: nil
+            externalScreenBrightnessController: nil,
+            betterDisplayChannel: nil
         )
     }
 
@@ -804,6 +786,39 @@ final class AppCore {
     #endif
 }
 
+// MARK: - Switch gate and activation
+
+/// An extension and not the class body, like the ones below: the body sits at
+/// the `type_body_length` ceiling.
+@MainActor
+extension AppCore {
+    /// Whether turning the replacement on would engage anything: without the
+    /// Accessibility grant there is no tap to consume a key, and without a
+    /// suppressor (demo sources, a key source that cannot consume) there is
+    /// nothing to engage — the preference would persist and do nothing. The one
+    /// gate every switch over the feature disables itself on, and the fact the
+    /// menu's status reads. Read through the permission mirror, so a body that
+    /// reads it rebuilds when the grant flips.
+    var suppressionAvailable: Bool {
+        permissionMonitor.isGranted && osdSuppressor != nil
+    }
+
+    /// Brings the app forward before it shows a window, its own or the Settings
+    /// scene's: an accessory (LSUIElement) app has no Dock tile and no app menu,
+    /// so a window that opens behind whatever is frontmost is one the user cannot
+    /// reach. The one place the app activates itself.
+    ///
+    /// `activate()`, never `activate(ignoringOtherApps:)`: the SDK marks that
+    /// selector API_DEPRECATED and names this replacement, available at this app's
+    /// own deployment target (macOS 14). Nothing warns about the old one — the
+    /// deprecation is spelled API_TO_BE_DEPRECATED, so the compiler stays quiet
+    /// while the call rots. Neither form is a guarantee under cooperative
+    /// activation, which is why the windows still order themselves front.
+    func bringForward() {
+        NSApp.activate()
+    }
+}
+
 // MARK: - The production graph
 
 /// An extension and not the class body, for the reason the others give: the
@@ -822,6 +837,60 @@ extension AppCore {
             nowPlayingController: RoutingNowPlayingController(activeChannel: { chain.activeCommandChannel() })
         )
         return (chain, graph)
+    }
+
+    /// The default graph: real system HUD sources + actuators, the now-playing
+    /// fallback chain, and the routing media controller (commands follow the
+    /// active backend). The screen/keyboard brightness sources are shared between
+    /// the merged HUD stream and the media-key router (same instances, so a poke
+    /// emits into the stream the Coordinator consumes).
+    private static func makeRealGraph(
+        nowPlayingSource: any NowPlayingSource,
+        nowPlayingController: any NowPlayingController
+    ) -> SystemGraph {
+        let volumeSource = CoreAudioVolumeSource()
+
+        let screenBridge = DisplayServicesBridge()
+        let screenSource = PolledBrightnessSource(kind: .screenBrightness, backend: screenBridge)
+
+        let keyboardBridge = CoreBrightnessKeyboardBridge()
+        let keyboardSource = PolledBrightnessSource(kind: .keyboardBrightness, backend: keyboardBridge)
+
+        // Wired unconditionally: with BetterDisplay absent the source never emits,
+        // and with it present it is the ONLY brightness HUD Crema can draw for the
+        // keys BetterDisplay takes first (docs/DECISIONS.md:
+        // media-key-chain-contention). `standDown` covers the one press where both
+        // could speak — suppression off, so Crema's tap observes the key and arms
+        // its poll while the neighbour is the one that applies and reports.
+        let betterDisplaySource = Self.makeNeighbourSource(standingDown: screenSource)
+        // The way back: BetterDisplay applies what a drag on ITS bar asks for, on
+        // the same scale it reported. Wired unconditionally like the source — with
+        // the app absent the command simply goes unanswered and the drag reports a
+        // failed apply, which is what an unreachable actuator is.
+        let betterDisplayChannel = BetterDisplayCommandChannel()
+        let betterDisplayBrightness = BetterDisplayScreenBrightnessController(
+            channel: betterDisplayChannel,
+            displayID: BetterDisplayScreenBrightnessController.liveDisplayID
+        )
+
+        return SystemGraph(
+            nowPlayingSource: nowPlayingSource,
+            systemHUDSource: MergedSystemHUDSource([
+                volumeSource, screenSource, keyboardSource, betterDisplaySource,
+            ]),
+            nowPlayingController: nowPlayingController,
+            volumeController: CoreAudioVolumeController(),
+            screenBrightnessController: DisplayServicesScreenBrightnessController(backend: screenBridge),
+            keyboardBrightnessController: CoreBrightnessKeyboardBrightnessController(backend: keyboardBridge),
+            screenBrightnessSampler: screenSource,
+            keyboardBrightnessSampler: keyboardSource,
+            volumeSampler: volumeSource,
+            screenBrightnessBackend: screenBridge,
+            keyboardBrightnessBackend: keyboardBridge,
+            betterDisplaySource: betterDisplaySource,
+            externalScreenBrightnessController: betterDisplayBrightness,
+            betterDisplayChannel: betterDisplayChannel
+        )
     }
 }
 
@@ -948,11 +1017,9 @@ extension AppCore {
     }
 
     /// The build the app is running as — the generation stamp for the intent.
-    /// Missing key is impossible in a built bundle; the empty fallback keeps the
-    /// comparison total (and reads as "changed" against any recorded build).
-    private static var currentBuild: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
-    }
+    /// The empty fallback keeps the comparison total (and reads as "changed"
+    /// against any recorded build).
+    private static var currentBuild: String { AppIdentity.build ?? "" }
 }
 
 // MARK: - Accessibility onboarding
@@ -993,7 +1060,7 @@ extension AppCore {
     func presentAccessibilityOnboarding() {
         if let onboardingWindow {
             onboardingWindow.makeKeyAndOrderFront(nil)
-            NSApp.activate()
+            bringForward()
             return
         }
 
@@ -1004,12 +1071,12 @@ extension AppCore {
         )
         let window = NSWindow(contentViewController: NSHostingController(rootView: view))
         window.styleMask = [.titled, .closable]
-        window.title = String(localized: "onboarding.title", defaultValue: "Crema needs Accessibility access")
+        window.title = String(localized: "onboarding.title", defaultValue: "Accessibility access for Crema")
         window.isReleasedWhenClosed = false
         window.center()
         onboardingWindow = window
         window.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        bringForward()
     }
 
     private func closeAccessibilityOnboarding() {
@@ -1042,45 +1109,137 @@ extension AppCore {
         present()
     }
 
-    /// Window built by the same recipe as the Accessibility onboarding above: a
-    /// plain titled window outside the Settings scene, because an accessory app
-    /// has no scene to open one into and `openSettings` is a no-op from here.
-    /// `NSApp.activate()` and never `activate(ignoringOtherApps:)` — the app has
-    /// no Dock tile, so it asks for the front the way the system offers it.
+    /// The menu's way back to the tour, and the launch gate's way in. A tour
+    /// already open is brought forward where it stands; a closed one starts over
+    /// from the first step.
     ///
-    /// The view holds this core and this core holds the window: a cycle whose far
-    /// end is the composition root, which lives for the whole app either way.
-    /// Closing by the title-bar box does not come through `closeWelcomeTour`
-    /// (there is no delegate, exactly as with the Accessibility onboarding above),
-    /// so the window stays retained — deliberately: the guard at the top then
-    /// REUSES it, and a second presentation shows the same window instead of
-    /// building a second one. `closeWelcomeTour` is the programmatic way out, for
-    /// the buttons inside the view.
-    private func presentWelcomeTour() {
+    /// Built by the same recipe as the Accessibility onboarding above: a window
+    /// outside the Settings scene, because an accessory app has no scene to open
+    /// one into and `openSettings` is a no-op from here. It follows the system
+    /// appearance, as the Settings window does: the tour hands over to that
+    /// window, and the two read as one app only in the same light. Every way
+    /// out — the buttons, Esc, the close box — ends in `welcomeTourDidClose`,
+    /// which lets go of what the tour holds on the real screen.
+    func showWelcomeTour(at step: WelcomeTourStep = .welcome) {
         if let welcomeTourWindow {
             welcomeTourWindow.makeKeyAndOrderFront(nil)
-            NSApp.activate()
+            bringForward()
             return
         }
 
-        let view = WelcomeTourView(core: self, dismiss: { [weak self] in self?.closeWelcomeTour() })
+        let view = WelcomeTourView(core: self, firstStep: step) { [weak self] in self?.closeWelcomeTour() }
         let window = NSWindow(contentViewController: NSHostingController(rootView: view))
-        window.styleMask = [.titled, .closable]
+        window.styleMask = [.titled, .closable, .fullSizeContentView]
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.isMovableByWindowBackground = true
+        // A titled window draws all three buttons; this one can only close.
+        window.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        window.standardWindowButton(.zoomButton)?.isHidden = true
+        // Hidden from the title bar but kept: it is the name VoiceOver and the
+        // window list read.
         window.title = String(localized: "tour.window.title", defaultValue: "Welcome to Crema")
         window.isReleasedWhenClosed = false
         window.center()
+        welcomeTourClosing = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.welcomeTourDidClose() }
+        }
         welcomeTourWindow = window
         window.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        bringForward()
     }
 
-    /// Leaving the tour by Skip or by the last button. The close box does not come
-    /// through here (no delegate, as with the onboarding window above) and does not
-    /// need to: nothing records a "finished", because the flag was committed before
-    /// the window existed — leaving early and reaching the end are the same act.
-    private func closeWelcomeTour() {
+    #if DEBUG
+    /// Screenshot/dev harness: `-CremaWelcomeTourStep finish` opens the tour on
+    /// that step at every launch, whatever the once-per-install flag says. An
+    /// unknown name parses to nil and opens nothing, as the Settings tab flag
+    /// does. A turn later, for the reason the launch gate waits one.
+    func showWelcomeTourIfRequested() {
+        guard let raw = UserDefaults.standard.string(forKey: "CremaWelcomeTourStep"),
+              let step = WelcomeTourStep(rawValue: raw) else { return }
+        Task { @MainActor [weak self] in self?.showWelcomeTour(at: step) }
+    }
+    #endif
+
+    /// What the real screen does behind a step: the player held up or let go,
+    /// the arrow at the menu bar icon shown or hidden (WelcomeTourFlow decides
+    /// which steps).
+    func welcomeTourEntered(_ step: WelcomeTourStep) {
+        if WelcomeTourFlow.holdsThePlayer(step) {
+            coordinator.showcase(sample: Self.tourSample())
+        } else {
+            coordinator.endShowcase()
+        }
+        if WelcomeTourFlow.pointsAtTheMenuBar(step) {
+            menuBarPointer.show()
+        } else {
+            menuBarPointer.hide()
+        }
+    }
+
+    /// Leaving the tour from inside it (its buttons, Esc), the way the close box
+    /// leaves it: the window's close runs `welcomeTourDidClose` either way.
+    func closeWelcomeTour() {
         welcomeTourWindow?.close()
+    }
+
+    /// The grant lands in System Settings, so the tour is behind it when the
+    /// person comes back for it; it comes forward on its own, the moment the
+    /// monitor sees the switch flip.
+    func bringWelcomeTourForward() {
+        welcomeTourWindow?.makeKeyAndOrderFront(nil)
+        bringForward()
+    }
+
+    /// The display the tour offers the player on, read from the roster and the
+    /// per-display flags as they stand (`WelcomeTourFlow.displayToOfferThePlayer`).
+    func welcomeTourPlayerOffer() -> ScreenDescription? {
+        WelcomeTourFlow.displayToOfferThePlayer(among: displayRoster.displays) { [preferences] screen in
+            preferences.showsNowPlaying(on: screen.id, isInternal: screen.isInternal)
+        }
+    }
+
+    private func welcomeTourDidClose() {
+        Self.releaseWhatTheTourHolds(coordinator: coordinator, hidePointer: menuBarPointer.hide)
+        if let welcomeTourClosing {
+            NotificationCenter.default.removeObserver(welcomeTourClosing)
+        }
+        welcomeTourClosing = nil
         welcomeTourWindow = nil
+    }
+
+    /// What every way out of the tour owes the real screen: the player let go —
+    /// a sample left up would stay there, no tuck ever being armed for it — and
+    /// the arrow gone. Standalone and static so a test pins it without booting
+    /// the graph, the reason the other AppCore seams are statics.
+    static func releaseWhatTheTourHolds(coordinator: Coordinator, hidePointer: () -> Void) {
+        coordinator.endShowcase()
+        hidePointer()
+    }
+
+    /// The track the tour shows when nothing is playing: named as the player's
+    /// place, with the app's own icon for the cover.
+    static func tourSample() -> NowPlaying {
+        NowPlaying(
+            title: String(localized: "tour.sample.title", defaultValue: "Your music shows up here"),
+            artist: "Crema",
+            artworkData: appIconPNG(),
+            isPlaying: true,
+            position: 0,
+            duration: nil,
+            supportsSkip: false
+        )
+    }
+
+    private static func appIconPNG() -> [UInt8]? {
+        var rect = CGRect(x: 0, y: 0, width: 256, height: 256)
+        guard let image = AppIdentity.icon.cgImage(forProposedRect: &rect, context: nil, hints: nil),
+              let data = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else { return nil }
+        return [UInt8](data)
     }
 }
 
@@ -1124,13 +1283,26 @@ extension AppCore {
     /// names who won and leaves the choice to the user, which is the only place
     /// it can be made (docs/DECISIONS.md: media-key-chain-contention).
     func mediaKeyChainNotice() -> MediaKeyChainNotice {
-        chainNoticeCache.notice(betterDisplayIsFeedingUs: betterDisplayIsReporting) { feeding in
+        let read = chainNoticeCache.notice(betterDisplayIsFeedingUs: betterDisplayIsReporting) { feeding in
             Self.mediaKeyChainNotice(
                 registry: eventTapRegistry,
                 ourPID: ProcessInfo.processInfo.processIdentifier,
                 betterDisplayIsFeedingUs: feeding
             )
         }
+        return Self.mediaKeyChainNotice(read, betterDisplayDispatches: neighbourOSDHandoff?.status == .inPlace)
+    }
+
+    /// The handoff's read-back outranks the chain's silence: once Crema has turned
+    /// the neighbour's dispatch on and read it back, "turn on Dispatch OSD
+    /// notifications" is advice already followed, and the neighbour ahead is the
+    /// arrangement working before its first report. Applied after the cache rather
+    /// than keyed into it: the flag costs nothing to read, so it is never stale.
+    static func mediaKeyChainNotice(
+        _ read: MediaKeyChainNotice,
+        betterDisplayDispatches: Bool
+    ) -> MediaKeyChainNotice {
+        read == .betterDisplayAheadAndSilent && betterDisplayDispatches ? .drawingFromBetterDisplay : read
     }
 
     /// The composition, standalone and static so a test pins it without booting
@@ -1163,6 +1335,40 @@ extension AppCore {
     }
 }
 
+// MARK: - The neighbour's own indicator
+
+@MainActor
+extension AppCore {
+    /// The Indicators tab's "Try Again", for the person who just switched the
+    /// neighbour's integration on: nothing in BetterDisplay announces that.
+    func retryNeighbourOSDHandoff() {
+        neighbourOSDHandoff?.reconcile()
+    }
+
+    /// Builds the handoff and joins it to the four edges it acts on: the
+    /// suppression decision (the switch and the lock), the neighbour becoming able
+    /// to answer, the neighbour ending, and the quit. Standalone and static so a test pins the joins
+    /// without booting the graph.
+    static func wireNeighbourOSDHandoff(
+        channel: BetterDisplayCommandChannel,
+        following lockController: SuppressionLockController,
+        preferences: Preferences,
+        isNeighbourRunning: @escaping @MainActor () -> Bool = { BetterDisplayOSDSource.isRunning() },
+        holdingTheQuit: (@escaping @MainActor () async -> Void) -> Void = { CremaAppDelegate.beforeQuitting = $0 }
+    ) -> NeighbourOSDHandoff {
+        let handoff = NeighbourOSDHandoff(
+            channel: channel,
+            preferences: preferences,
+            isNeighbourRunning: isNeighbourRunning
+        )
+        lockController.onEngagementDecided = { [weak handoff] engaged in handoff?.setWanted(engaged) }
+        channel.onNeighbourLaunched = { [weak handoff] in handoff?.reconcile() }
+        channel.onNeighbourTerminated = { [weak handoff] in handoff?.neighbourTerminated() }
+        holdingTheQuit { [weak handoff] in await handoff?.handBackBeforeQuitting() }
+        return handoff
+    }
+}
+
 // MARK: - Brightness echo
 
 @MainActor
@@ -1170,7 +1376,7 @@ extension AppCore {
     /// The neighbour's source, joined to the local screen source it must silence.
     ///
     /// A factory rather than a bare call because `onReport` carries a default of
-    /// `{}` (BetterDisplayOSDSource.swift:64), so dropping the argument — or
+    /// `{}` (on `BetterDisplayOSDSource.init`), so dropping the argument — or
     /// handing it the KEYBOARD source, the other one in scope — compiles in
     /// silence. What breaks is a whole press: with suppression off, Crema's tap
     /// merely OBSERVES the brightness key and arms its own poll while the
@@ -1207,12 +1413,15 @@ extension AppCore {
     /// without this second sample. The mirror of `wireHandbackStandDown`, which
     /// covers the press this app does NOT take.
     ///
-    /// Extracted for the reason its mirror was: deleting one arm of that switch
-    /// left the whole suite green, measured. Volume is the arm that matters most
-    /// and reads most deletable — its comment argues Core Audio echoes anyway,
-    /// which is true everywhere EXCEPT the scale boundary, where a consumed key
-    /// writes nothing and fires no echo. Folding it into `.mute` would make the
-    /// app swallow a key and draw nothing, which "Never do" forbids outright.
+    /// Extracted for the reason its mirror is: inline, no test reaches that switch
+    /// without constructing AppCore. Through this seam
+    /// `eachAppliedKeyPokesItsOwnSamplerAndNoOther` (AppCoreWiringSeamTests) pins
+    /// every arm, and is the one test that catches one deleted. Volume is the arm
+    /// that matters most and reads most deletable — its comment argues Core Audio
+    /// echoes anyway, which is true everywhere EXCEPT the scale boundary, where a
+    /// consumed key writes nothing and fires no echo. Folding it into `.mute`
+    /// would make the app swallow a key and draw nothing, which "Never do"
+    /// forbids outright.
     static func wireApplyPoke(
         from suppressor: any NativeOSDSuppressor,
         screen screenSampler: any ManuallySampledSource,
@@ -1238,7 +1447,7 @@ extension AppCore {
     }
 
     /// The only path from the suppressor's escalation to the user: the menu's
-    /// warning and its "try to reactivate now" button both hang off what the
+    /// warning and its "Try Again" button both hang off what the
     /// monitor holds. Fires on escalation AND on recovery, and both directions are
     /// load-bearing — a mirror that never fills leaves the user's keys quietly back
     /// with the system while the menu reports health, and one that never clears
@@ -1363,7 +1572,7 @@ extension AppCore {
             // What the displays DRAW, not only what the picker declared: on a Mac
             // with no slit the shipped default declares Notch while every panel
             // draws Card, and a lone "Style: Notch" beside a Card-shaped HUD is the
-            // contradiction Settings already learned to name out loud.
+            // contradiction Settings names out loud too (`Style.fallsBackToCard`).
             fallsBackToCard: Style.fallsBackToCard(
                 declared: style, rendersNotch: rendersAnywhere(.notch), rendersCard: rendersAnywhere(.card)
             ),
@@ -1371,8 +1580,8 @@ extension AppCore {
             suppressionEnabled: suppressionEnabled,
             // The wish is not the fact: with no permission, or no suppressor in the
             // graph (demo sources), the preference persists and nothing engages —
-            // the same gate the Settings toggle disables itself on.
-            suppressionAvailable: osdSuppressor != nil && permissionMonitor.isGranted,
+            // the same gate every switch for the feature disables itself on.
+            suppressionAvailable: suppressionAvailable,
             suspendedDomains: osdSuppressionMonitor.longSuspendedDomains,
             chainNotice: chain,
             // The chain reading is passed IN rather than taken again: one build of
@@ -1533,5 +1742,52 @@ extension AppCore {
     ) {
         preferences.setShowsNowPlaying(shows, on: display)
         windowManager.refreshPresentation()
+    }
+}
+
+// MARK: - Card HUD placement preview
+
+/// In this file for the reason the per-display extension gives: the preview reads
+/// `lockSource` and `windowManager`, both private.
+@MainActor
+extension AppCore {
+    /// Where the Card draws its HUD: persisted, re-applied, and shown once at the
+    /// new place, so the person sees the true margin and the bar's true direction
+    /// rather than a picture of them (docs/DECISIONS.md: card-hud-placement).
+    func chooseHUDPlacement(_ placement: HUDPlacement) {
+        Self.chooseHUDPlacement(
+            placement, preferences: preferences, lock: lockSource, windowManager: windowManager, coordinator: coordinator
+        )
+    }
+
+    /// One intent, in its order: the style refresh, not the render-context one,
+    /// builds or retires each Card display's HUD panel for the new place, and only
+    /// then is the preview asked of those panels. Static so a test drives it.
+    static func chooseHUDPlacement(
+        _ placement: HUDPlacement,
+        preferences: Preferences,
+        lock: any ScreenLockSource,
+        windowManager: WindowManager,
+        coordinator: Coordinator
+    ) {
+        preferences.hudPlacement = placement
+        windowManager.refreshStyles()
+        previewHUDPlacement(lock: lock, displays: windowManager, coordinator: coordinator)
+    }
+
+    /// Static for the reason the other wiring statics are: through an instance
+    /// the gate is unreachable by any test. Nothing is drawn while the screen is
+    /// locked or the session is off the console — no HUD goes over the shield
+    /// (docs/DECISIONS.md: the-lock-screen-was-built-and-taken-out) — and the
+    /// preview goes to every display drawing Card, the displays the placement
+    /// governs, and to no other: a Notch or Classic display has no Card HUD to
+    /// show, and the Settings window's own display is not a fact this core reads.
+    static func previewHUDPlacement(
+        lock: any ScreenLockSource,
+        displays windowManager: WindowManager,
+        coordinator: Coordinator
+    ) {
+        guard lock.isSuppressionSafe else { return }
+        coordinator.previewHUD(on: windowManager.displays(rendering: .card))
     }
 }

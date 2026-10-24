@@ -126,7 +126,9 @@ struct CGEventTapMediaKeySourceHealthTests {
     /// Revocation ALONE, with nothing wrong with the port — the case the test
     /// below cannot see, because there the invalidation reaches the same end
     /// state by the other path (heal → uninstall → install refused). A mutation
-    /// deleting the permission check from the poll left the whole suite green.
+    /// deleting the permission check from the poll is caught here and by
+    /// `pollTearsDownOnTheTapsOwnThread`, which revokes the same healthy port to
+    /// watch the thread.
     ///
     /// What it costs to skip the teardown is not the revocation itself (macOS
     /// stops delivering either way) but the RE-GRANT: `installTapIfAuthorized`

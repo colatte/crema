@@ -30,9 +30,8 @@ struct StylePreviewShapes: Equatable {
     /// about a skin's look that no frame rule produces (`contentArrangement` below
     /// is the other), and the difference a user names first: only the notch style is
     /// black, because it camouflages with the hardware cutout it covers; the card
-    /// and classic are a translucent material edged by `vibrantSurface`'s chrome
-    /// pair — dark outer rim plus top specular (docs/DECISIONS.md:
-    /// surface-border-2026).
+    /// and classic are a translucent material under a dark film, lit at the top
+    /// by `vibrantSurface`'s specular (docs/DECISIONS.md: surface-border-2026).
     let surfaceIsOpaque: Bool
 
     /// How the surface arranges what it holds: a cover with the track's two lines
@@ -128,13 +127,8 @@ enum StylePreview {
     /// mapping lives in one function and every reader asks IT
     /// (docs/DECISIONS.md: rendered-style-gates-settings).
     ///
-    /// `on:` has no caller in the app today — the per-display control is a popup of
-    /// names, not pictures — and it stays anyway: the resolution it selects is a
-    /// rule embedded in the line below, and the suite is what pins it, so the
-    /// parameter is the seam that reaches that rule rather than an unused argument
-    /// (the same standing `Preferences.setShowsNowPlaying` has). The next caller is
-    /// already named: tiles at the head of each per-display row, which would have to
-    /// picture that row's own screen.
+    /// `on:` is what each display row in Settings calls, with that row's own
+    /// screen, to head itself with what that screen draws (`DisplayStyleRow`).
     static func shapes(
         for style: Style,
         on geometry: ScreenGeometry = Self.notchedReference
@@ -159,12 +153,20 @@ enum StylePreview {
         )
     }
 
+    /// Where the Card puts its HUD at `placement`, as a fraction of the screen,
+    /// asked of the Card's own placement rule (`CardStyle.hudFrame(at:on:)`): the
+    /// Position pop-up's icon of each choice (`HUDPlacementIcon`), which therefore
+    /// cannot come to show a spot the HUD no longer goes to.
+    static func hudBar(at placement: HUDPlacement, on geometry: ScreenGeometry = Self.notchedReference) -> CGRect {
+        unit(CardStyle.hudFrame(at: placement, on: geometry), in: geometry.frame)
+    }
+
     /// The slit as a fraction of the screen, asked of the skin's own rule
     /// (`NotchStyle.slit(on:)`) rather than derived a second time here. The
     /// picture is of the cutout the surface is drawn over, so two derivations of
     /// where that cutout is would eventually disagree — and on the reference
-    /// panel's measured asymmetry (663 left, 664 right) the two the app carried
-    /// already did, by half a point (docs/DECISIONS.md:
+    /// panel's measured asymmetry (663 left, 664 right) two such derivations
+    /// disagree by half a point (docs/DECISIONS.md:
     /// the-slit-is-found-from-its-edges). Nil is the answer for a display with no
     /// slit, and the caller only asks where the notch skin renders.
     private static func slit(of geometry: ScreenGeometry, in screen: CGRect) -> CGRect? {

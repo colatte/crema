@@ -4,14 +4,13 @@ import Foundation
 /// is allowed to write — derived from the two raw preference values and that
 /// screen's geometry, so the chrome around it only draws.
 ///
-/// The refusal cannot live in the popup. Measured on macOS 26.5.2
-/// (`scripts/probes/picker-option-disabled.swift`): a SwiftUI `Picker` in `.menu`
-/// style DISCARDS `.disabled` on its options — the marked item read back
-/// `isEnabled == true` against an `NSPopUpButton` control reading `false` — so a
-/// style this screen cannot draw stays clickable there no matter what the chrome
-/// asks for. `write(for:)` is what keeps such a pick out of the store; a custom
-/// `Menu` of one item per option, where `.disabled` IS honoured, is only what
-/// keeps it out of reach.
+/// The refusal cannot live in the popup: a SwiftUI `Picker` in `.menu` style
+/// DISCARDS `.disabled` on its options, so a style this screen cannot draw stays
+/// clickable there no matter what the chrome asks for; measured, with the probe
+/// named there (docs/DECISIONS.md: the-chrome-is-not-the-guarantee).
+/// `write(for:)` is what keeps such a pick out of the store; a custom `Menu` of
+/// one item per option, where `.disabled` IS honoured, is only what keeps it out
+/// of reach.
 ///
 /// Nothing here knows a string: the view maps each case to its localized
 /// sentence, the same split `MenuStatus` lives under.
@@ -39,15 +38,21 @@ struct DisplayStyleOptions {
         case refused
     }
 
-    /// A sentence the control owes about what is actually happening on this
-    /// screen. A case rather than a string, so the wording and both its languages
-    /// stay in the view.
-    enum Footnote: Equatable {
-        /// The style in force here is the notch skin and this panel has no slit, so
-        /// what is drawn is the card. Stated as a fact in effect, never as a
-        /// hypothetical: a sentence about a fallback that is not happening reads as
-        /// a warning about the style just picked.
-        case noNotch
+    /// What this screen is drawing, said under its name. A case rather than a
+    /// string, so the wording and both its languages stay in the view.
+    ///
+    /// It names the DRAWN style, never the chosen one: naming the choice puts
+    /// "Notch" on a panel with no slit, and then a note has to correct it — the
+    /// control and the sentence under it describing the same screen two ways
+    /// (docs/DECISIONS.md: global-style-default).
+    enum Caption: Equatable {
+        /// The style in force, drawn as chosen.
+        case drawing(Style)
+        /// The style in force does not fit this panel, so what is drawn is the
+        /// fallback — named, with the reason beside it. The reason is always the
+        /// missing slit: the notch→card mapping is the only fallback
+        /// `Style.resolved(on:)` has.
+        case drawingWithoutNotch(Style)
     }
 
     /// This display's own choice, or nil when it inherits. Never resolved away and
@@ -62,9 +67,10 @@ struct DisplayStyleOptions {
     /// The style in force on this display: its own if it has one, else the
     /// declaration. Asked of the resolver the panels render by, because a second
     /// copy of that rule is how a control comes to name a style its screen does not
-    /// draw. It is the CHOSEN style, not necessarily the drawn one — `footnotes` is
-    /// where that difference is spoken.
-    private let effectiveStyle: Style
+    /// draw. It is the CHOSEN style, not necessarily the drawn one — `caption` is
+    /// where that difference is spoken, and the row's thumbnail resolves it before
+    /// drawing (`StylePreview.shapes(for:on:)`).
+    let effectiveStyle: Style
     private let geometry: ScreenGeometry
 
     init(overrideRawValue: String?, declaredRawValue: String?, geometry: ScreenGeometry) {
@@ -82,13 +88,14 @@ struct DisplayStyleOptions {
         [item(for: nil)] + Style.allCases.map { item(for: $0) }
     }
 
-    /// What this control has to say about what is on this screen, gated on the
-    /// style in FORCE rather than on there being an override. The common case is a
-    /// display inheriting a Notch declaration it cannot draw — the shipped default,
-    /// on every Mac without a slit — and a gate on the override would go silent
-    /// exactly there while speaking up where an override already says Card.
-    var footnotes: [Footnote] {
-        effectiveStyle.isHonoured(on: geometry) ? [] : [.noNotch]
+    /// What this screen is drawing, read from the style in FORCE rather than from
+    /// there being an override. The common case is a display inheriting a Notch
+    /// declaration it cannot draw — the shipped default, on every Mac without a
+    /// slit — and a reading of the override alone would name Notch exactly there.
+    var caption: Caption {
+        effectiveStyle.isHonoured(on: geometry)
+            ? .drawing(effectiveStyle)
+            : .drawingWithoutNotch(effectiveStyle.resolved(on: geometry))
     }
 
     /// Whether this screen draws that style as picked instead of the fallback

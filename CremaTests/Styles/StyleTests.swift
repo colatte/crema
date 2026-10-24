@@ -91,12 +91,12 @@ struct StyleTests {
         #expect(CardMetrics.compact == CGSize(width: 280, height: 64))
         #expect(CardMetrics.expanded == CGSize(width: 280, height: 128))
         #expect(CardMetrics.compactMinWidth == 180)
-        #expect(CardMetrics.compactMaxWidth == 280)
+        #expect(CardMetrics.compactMaxWidth == 250)
         #expect(CardMetrics.expandedMinWidth == 240)
         #expect(CardMetrics.expandedMaxWidth == 280)
         #expect(CardMetrics.cornerRadius == 20)
-        #expect(CardMetrics.hudSystemSize == CGSize(width: 210, height: 42))
-        #expect(CardMetrics.hudSystemCornerRadius == 12)
+        #expect(CardMetrics.hudSystemSize == CGSize(width: 220, height: 38))
+        #expect(CardMetrics.hudSystemCornerRadius == CGFloat(38) / 3)
     }
 
     @Test func cardAndClassicHaveDeterministicFramesForEveryState() {

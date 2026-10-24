@@ -8,10 +8,13 @@
 > borrowed from the house. This page is what is Crema's, and where the rest
 > comes from.
 >
-> Sources, from most to least normative: this file for the rules; the icon
-> masters in `design/icon/` and the tokens in `docs/index.html` for the values;
+> Sources, from most to least normative: this file for the rules; the vector
+> mark in `design/icon/` and the tokens in `docs/index.html` for the values;
 > the Colatte brand (`Workspaces/colatte/brand/`, chapter 09 and
-> `design/creditos/`) for everything inherited. Where the two disagree about
+> `design/creditos/`) for everything inherited. Every `Workspaces/colatte/…`
+> path on this page is one of the house's private sources: it is not in this
+> repository, and readers outside the house have only what this page restates
+> from it. Where the two disagree about
 > Crema, this page wins; where this page is silent, the house rule applies.
 
 ## What Crema is, in the words the product uses
@@ -50,33 +53,48 @@ shouting.
 
 ## The mark is the icon
 
-The icon is the whole visual identity: a cream pill with the wave of the
-crema line across it, set on an espresso-brown squircle, with the gloss and the
-drop shadow of a macOS object. It is generated, never hand-edited:
+The icon is the whole visual identity: a soft, uneven disc of crema seen from
+above, opened by one gesture — a dark hollow that enters from the upper right,
+rounds out at the centre and leaves along a wave, with the crema above it drawn
+out into a single fine point — on an espresso ground. One shape in two flat
+colours: the house's language, with no exception for the artwork. The glass the
+icon sits in is the system's material, not part of the drawing. It is
+generated, never hand-edited:
 
-- `design/icon/crema-final-square-master-4096.png` is the unmasked master;
-  `makeicon.swift` applies the macOS template squircle and writes the
-  appiconset; `Crema.icns` is the full set. The web export lives in
-  `docs/assets/icon.png` (512 px) and is what the README, the landing and the
-  About tab show.
-- `makemenubaricon.swift` derives the **menu bar template** — the pill with the
-  crema line, black on transparent, rendered by the system as a template so it
-  follows the menu bar's own ink in light and dark.
-- Measured on the export: ground `#32180b` → `#281107` (espresso brown, darker
-  at the base), pill from `#fde2ba` at the crest through `#f2bc74` to `#d68226`
-  at the bottom (cream to caramel).
+- `design/icon/crema-mark.svg` is the mark's single source, one filled path.
+  `makeicon.swift` writes the Icon Composer document `Crema/AppIcon.icon` from
+  it (the ground, the mark at 56% of the width, and the Liquid Glass material),
+  the only form of the icon the build ships. An Icon Composer file replaces any
+  icon asset catalog, and Xcode generates from it the images for releases older
+  than the material (Apple docs, Xcode, "Creating your app icon using Icon
+  Composer"); the About tab shows the running app's `NSApp.applicationIconImage`. The
+  document is never edited in Icon Composer, which only previews it: the next
+  run overwrites an edit made there. The same run renders the web export,
+  `docs/assets/icon.png`, through Icon Composer's own `ictool`, on the icon
+  grid's margin; it is what the README shows, and `scripts/make-web-assets.sh`
+  derives the landing's `icon.webp` and `favicon.png` from it.
+- `makemenubaricon.swift` fills the same path black on transparent as the
+  **menu bar template**, rendered by the system as a template so it follows the
+  menu bar's own ink in light and dark.
+- The colours are the landing's tokens: ground `--raise` `#1b1610`, mark
+  `--cream` `#d6bd94`. The artwork carries no gradient, gloss or baked shadow.
+  The depth is the material's (the glass, its specular, the ground's automatic
+  gradient, the shadow), set in `makeicon.swift` and drawn by the system.
 
-The icon is the only surface where the brand is glossy and three-dimensional,
-and the only one that reaches into saturated caramel. That is deliberate: a
-macOS app icon is an object on a platform, and it follows the platform's
-convention rather than the house's flat, matte language. Nowhere else in Crema
-does that gloss or that caramel appear.
+What the drawing must keep:
+
+- **The crema ends in one fine point**, above the hollow; the hollow itself is
+  rounded. One size is exempt: at 16 pt @1x the hollow reads as a notch, since
+  the document takes one artwork for every size and the system scales it down.
+- **The disc stays full around the hollow.** Thinned toward an outline, two
+  pointed ends on a heavy side read as a crescent moon.
 
 ## Colour
 
 The landing page's palette **is Colatte's espresso dialect**, value for value
 (`Workspaces/colatte/design/social-web/colatte-pecas.css`, the `--esp-*` set;
-`brand/09-digital.md`). Declared once, in `docs/index.html`:
+`brand/09-digital.md`; both private to the house, not in this repository).
+Declared once, in `docs/index.html`:
 
 | Token          | Value                      | Colatte name    | Role                                               |
 | -------------- | -------------------------- | --------------- | -------------------------------------------------- |
@@ -84,49 +102,52 @@ The landing page's palette **is Colatte's espresso dialect**, value for value
 | `--well`       | `#14100c`                  | (near `--esp-panel`) | Recessed surface                              |
 | `--raise`      | `#1b1610`                  | —               | Raised surface, code chips                          |
 | `--notch-ink`  | `#060402`                  | —               | The bezel black: darker than any page surface, the one thing pretending to be hardware |
-| `--cream`      | `#d6bd94`                  | `--esp-cream`   | **The one accent**: eyebrow, emphasis, primary button, meter fill, every hover |
+| `--cream`      | `#d6bd94`                  | `--esp-cream`   | **The one accent**: eyebrow, emphasis, primary button, links, the selected segment |
 | `--cream-hi`   | `#eedcbb`                  | `--esp-cream-hi`| Only as the accent's hover                          |
 | `--ink`        | `#efe8dd`                  | `--esp-ink`     | Text; never pure white                              |
-| `--ink-2/-3`   | ink at .72 / .55           | —               | Two lower steps; the faintest still clears 4.5:1 on the ground (measured — the previous .38 read as decoration shaped like text) |
+| `--ink-2/-3`   | ink at .72 / .55           | —               | Two lower steps; the faintest still clears 4.5:1 on the ground (measured — .38 reads as decoration shaped like text) |
 | `--line/-hi`   | cream at .12 / .28         | —               | Hairlines                                           |
 
 **One cream.** A second accent is what turns a palette into a mood board — the
 comment in the stylesheet says it and the page holds to it. There is no error
 colour, no success green, no state tint: a static landing page has nothing to
 report. And **one filled cream button per viewport**, the house's rule for the
-accent: the hero owns it on arrival, and the notch's own "Get Crema" stays
-folded until the hero's button has scrolled away. The notch itself carries
-little — the mark, three section links, that one button — because a notch is a
-small thing and the metaphor only reads while the shape stays narrow.
+accent: the hero owns it on arrival, and the navigation bar's own Download
+stays folded until the hero's button has scrolled away.
+
+Every picture of the app on the landing is a capture of the app, taken by
+`scripts/site-capture/capture.sh` on the demo sources and rerun when the app's
+look changes, never edited by hand. The stage it draws (wallpaper, menu bar,
+notch) and the made-up tracks and covers are stand-ins, like the gradients in
+Settings below, not brand colours.
 
 **The app has no palette of its own.** It draws with the system's materials
 and accent (the blue in Settings is macOS's, not ours), and the only colour
 that is Crema's inside the app is the one it borrows from the album art now
-playing — a touch of it, never a wash. The two gradients in
-`TileBackdrop.swift` and `StylePicker.swift` are stand-in wallpapers for the
-style tiles, not brand colours.
+playing — a touch of it, never a wash. The two gradients in Settings are
+stand-ins, not brand colours: `TileBackdrop.swift`'s is the fallback desk under
+the drawn previews when the real desktop cannot be read, and
+`StyleThumbnail.swift`'s is the fake album cover in them.
 
 ## Typography
 
 | Surface | Display                                  | Text                        | Labels                                  |
 | ------- | ---------------------------------------- | --------------------------- | --------------------------------------- |
-| Landing | **Raleway 700**, tracking −.035em (h1) / −.022em (h3) | Raleway 400, 16px/1.7 | **JetBrains Mono** 11px, +.2 to +.28em, uppercase |
+| Landing | **SF Pro** (the system stack) 700, tracking −.035em (h1) / −.03em (h2) | SF Pro 400, 17px/1.47 | SF Pro 600 in cream, sentence case |
 | README  | GitHub's                                 | GitHub's                    | —                                       |
 | App     | **none** — SF Pro at the system's sizes  | SF Pro                      | SF Pro                                  |
 
-Raleway and JetBrains Mono are the house's text and mono families. The house's
-display face, **Sklow, is not here and cannot be**: it is a commercial licence
-held by Colatte, and this repository is public — shipping the file would
-redistribute it. Raleway at 700 with tight tracking stands in for display, and
-the result is that the landing reads as the house's site with a lighter voice,
-which is what a house product's page should do. The two fonts load from Google
-Fonts — the landing is one self-contained HTML, self-hosted except for them,
-as docs/README.md records.
+The landing speaks the platform's type, as the app does: a Mac utility's page
+reads as a Mac's when its type is the Mac's, and the house's families —
+Raleway, JetBrains Mono, the licensed display face Sklow — read as the house's
+site instead. The stack names the system font and falls back to Helvetica, so
+the page loads no font at all and is one self-contained HTML. What stays the
+house's is the palette above and the endorsement below.
 
-The eyebrow is the house's mono kicker — small caps, wide tracking, one accent
-colour — **without the house's parentheses**. `( assim )` is the signature of
-colatte.io itself; Crema's eyebrows are plain ("three styles", "install"), so
-the page quotes the dialect without wearing the house's own mark.
+The eyebrow is a short label over a heading, in cream at a semibold weight and
+in sentence case ("Three styles", "Install"), the way Apple's product pages
+mark a section — never the house's mono kicker, and never its parentheses:
+`( assim )` is the signature of colatte.io itself.
 
 Inside the app there is no display type at all, and no custom font: a HUD that
 appears for a second and a Settings window that mirrors System Settings both
@@ -134,12 +155,12 @@ belong to the platform's type, not to a brand.
 
 ## Writing
 
-- **Sentence case** everywhere — headings, buttons, menu items, the catalog.
-  All-caps exists only in the mono eyebrows, by CSS transform, never typed.
+- **Sentence case** everywhere — headings, eyebrows, buttons, menu items, the
+  catalog. Nothing is set in all-caps.
 - **h1 and h2 on the landing end with a full stop** (or a question mark: "Ready
   for a quieter Mac?"). This is the house's "period even in titles". **h3 are
-  labels and carry no period** ("Blends into the cutout", "Grant
-  Accessibility") — the line between a sentence and a label is the line
+  labels and carry no period** ("Blends into the notch", "Follow the welcome
+  tour") — the line between a sentence and a label is the line
   between a period and none, and it is kept on purpose.
 - **No exclamation marks. No emoji, anywhere in UI** — `check-catalog.py`
   refuses a value carrying one (rule 7), and the About signature is prose:
@@ -195,12 +216,11 @@ rule 2 and the one rule of theirs Crema can break by accident.
 
 ## State in the product
 
-Everything above is applied. Two things to keep true:
+Everything above is applied. One thing to keep true:
 
-- `docs/assets/settings-about.png` is a reference capture of the Settings
-  window (unlinked; listed in docs/README.md). It predates the About signature
-  becoming prose and still shows a glyph — recapture it after the next
-  release build, or leave it knowing it is stale.
 - The icon and the menu bar template are regenerated from `design/icon/`, and
   the download badge from `design/badge/`; none is edited in place. A change
-  to the mark is a change to the master and a rerun of the scripts.
+  to the mark or the material is a change to `crema-mark.svg` or
+  `makeicon.swift` and a rerun, in order: `makeicon` (the document and
+  `docs/assets/icon.png`), `makemenubaricon`, then
+  `scripts/make-web-assets.sh`.

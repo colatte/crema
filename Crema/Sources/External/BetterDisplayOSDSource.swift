@@ -33,7 +33,16 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     /// versions old enough to send only the legacy name predate 4.2.1.
     static let notificationName = "pro.betterdisplay.BetterDisplay.osd"
 
-    static let bundleID = "pro.betterdisplay.BetterDisplay"
+    /// Nonisolated: a constant, read by the workspace observer from a `Sendable`
+    /// closure the compiler does not isolate to the main actor.
+    nonisolated static let bundleID = "pro.betterdisplay.BetterDisplay"
+
+    /// Whether BetterDisplay's process is up, matched by bundle ID and never by
+    /// the localized name. The one reading of it: this source, its command
+    /// channel's handoff and the composition root all ask here.
+    nonisolated static func isRunning() -> Bool {
+        !NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty
+    }
 
     /// Whether BetterDisplay has actually published to us. Presence of the app
     /// proves nothing — its OSD notification integration is a setting the user
@@ -44,8 +53,9 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     /// Observable because the Settings line that shows it is read from a body
     /// SwiftUI has already built: a user who switches the neighbour's integration
     /// on with that window in front of them must see the line change there, not on
-    /// the next open. Written only when it actually flips, since an unchanged write
-    /// still rebuilds every view reading it.
+    /// the next open. Written only when it actually flips — although the
+    /// @Observable setter already skips an equal value (`shouldNotifyObservers`):
+    /// the guard keeps the intent at the call site, the way the other mirrors do.
     private(set) var hasReported = false
 
     @ObservationIgnored private let continuation: AsyncStream<SystemHUD>.Continuation
@@ -84,9 +94,7 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     ) {
         self.target = target ?? Self.resolveTarget
         self.onReport = onReport
-        self.isNeighbourRunning = isNeighbourRunning ?? {
-            !NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleID).isEmpty
-        }
+        self.isNeighbourRunning = isNeighbourRunning ?? { Self.isRunning() }
 
         var cont: AsyncStream<SystemHUD>.Continuation!
         // Newest-bounded: a held brightness key emits once per step, and a
@@ -111,7 +119,7 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     /// here: the source is harmless when the app is absent, and the merged HUD
     /// source stays available through its other inputs either way.
     func isAvailable() async -> Bool {
-        !NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleID).isEmpty
+        Self.isRunning()
     }
 
     /// The payload entry point — a delivered OSD notification funnels here.
@@ -134,8 +142,8 @@ final class BetterDisplayOSDSource: SystemHUDSource {
     /// must not keep claiming an integration that has no one on the other end.
     ///
     /// A neighbour that quits having never reported — its OSD integration switched
-    /// off — is the common case, so the write is guarded: an unchanged one still
-    /// invalidates every view reading the claim.
+    /// off — is the common case, and nothing reading the claim may rebuild for it.
+    /// The setter already skips the equal write; the guard says so here.
     func noteBetterDisplayTerminated() {
         if hasReported { hasReported = false }
     }

@@ -13,9 +13,6 @@ import SwiftUI
 /// this tab starts and stops, and the read behind it is the NON-prompting
 /// question — the prompting one lives behind the button, where the user's click is
 /// what asks for it.
-///
-/// Split out of SettingsView.swift because that file is at its length ceiling; the
-/// other tabs still live there.
 struct PermissionsSettingsView: View {
     let core: AppCore
 
@@ -57,12 +54,12 @@ struct PermissionsSettingsView: View {
                     }
                 }
             } header: {
-                Text(String(localized: "settings.permissions.accessibility.header", defaultValue: "Required"))
+                Text(String(localized: "settings.permissions.accessibility.header", defaultValue: "Recommended"))
             } footer: {
                 Text(String(
                     localized: "settings.permissions.footer",
                     // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
-                    defaultValue: "Crema needs Accessibility access to capture the media keys — for its volume and brightness indicators and to replace the system’s. Without it the app still runs; it just can’t react to those keys. Granting is picked up automatically, no relaunch needed."
+                    defaultValue: "With Accessibility, Crema notices the volume and brightness keys and can show its own indicators. Without it, the app still works, but it can’t notice those keys. No need to restart after you allow it."
                 ))
                 .settingsFootnote()
             }
@@ -112,7 +109,7 @@ struct PermissionsSettingsView: View {
                     Text(String(
                         localized: "settings.permissions.automation.footer",
                         // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
-                        defaultValue: "Only Crema’s backup reader needs this — it asks \(musicApps) what is playing. The usual reader needs no permission, so Now Playing works either way."
+                        defaultValue: "Crema only uses this when its usual way of seeing what’s playing fails; then it asks \(musicApps) directly. Without it, the player keeps working."
                     ))
                     automationDetail
                 }
@@ -134,16 +131,16 @@ struct PermissionsSettingsView: View {
     ///
     /// Checked rather than assumed, because the obvious objection is that Apple
     /// localizes its own app names — `Music.app`'s `InfoPlist.loctable` really
-    /// does map `pt` → "Música". Measured on a Mac with `AppleLanguages =
-    /// ("pt-BR")` (2026-08-07): `FileManager.displayName` and the bundle's
-    /// `localizedInfoDictionary` both return **"Music"**, which is also what the
-    /// Dock shows. The table has `pt` and `pt_PT` and no `pt-BR`, and macOS does
-    /// not fall back for this.
+    /// does map `pt` → "Música". Measured with
+    /// `scripts/probes/music-display-name.swift` under `AppleLanguages =
+    /// ("pt-BR")` (macOS 27.0.1, 2026-10-18): the bundle's preferred localization
+    /// is `pt`, and still `FileManager.displayName` and `localizedInfoDictionary`
+    /// both return **"Music"**, which is also what the Dock shows.
     ///
     /// So resolving the installed bundle's name would cost a LaunchServices
-    /// lookup on every body pass and produce the same three letters. If a
-    /// future macOS starts showing "Música" here, that lookup is the fix and
-    /// this paragraph is the reason it was not done sooner.
+    /// lookup on every body pass and produce the same three letters. A run of
+    /// the probe that prints "Música" invalidates this, and that lookup is then
+    /// the fix.
     private var musicApps: String {
         JXAPlayerScript.players.map(\.name).formatted(.list(type: .or))
     }
@@ -173,12 +170,12 @@ struct PermissionsSettingsView: View {
         case .denied:
             Text(String(
                 localized: "settings.permissions.automation.denied",
-                defaultValue: "Turned off in System Settings. Now Playing still works through the usual reader."
+                defaultValue: "Turned off in System Settings. The player keeps working normally."
             ))
         case .undecided:
             Text(String(
                 localized: "settings.permissions.automation.undecided",
-                defaultValue: "macOS hasn’t asked you about this yet. Request it and macOS shows its own dialog."
+                defaultValue: "macOS hasn’t asked for this permission yet. Request access and macOS will ask you."
             ))
         case .targetNotRunning:
             Text(String(

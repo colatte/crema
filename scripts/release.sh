@@ -177,10 +177,18 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
         info "CREMA_SKIP_TESTS=1 — TEST SUITE SKIPPED. This dmg is not gated by tests."
     else
         step "Running the test suite (set CREMA_SKIP_TESTS=1 to bypass)"
-        GATE_LOG="$(mktemp "${TMPDIR:-/tmp}/crema-release-test.XXXXXX.log")"
-        # `|| true` on purpose: the target is app-hosted, so the host's teardown can
-        # hang or exit non-zero after every test has already reported. The verdict is
-        # the summary line, never the exit code.
+        # The X's end the template: macOS mktemp fills only trailing X's, so a
+        # suffix after them fixes the name, and the run after a failed gate
+        # (whose log is kept) dies here on "File exists".
+        GATE_LOG="$(mktemp "${TMPDIR:-/tmp}/crema-release-test.XXXXXX")"
+        GATE_VERDICT_RE='Test run with [0-9]+ tests? in [0-9]+ suites? (passed|failed)'
+        # The verdict is the summary line, never xcodebuild's exit: the target is
+        # app-hosted, and the host's teardown can hang AFTER every test has
+        # reported (AGENTS.md, "How to run"). In the foreground that hang is a
+        # release that never finishes. So the run goes to the background and this
+        # loop watches the log, as CI's "Build and test" step does: once the
+        # verdict is in, xcodebuild gets 20 s to exit and is then killed; an exit
+        # without a verdict, or no verdict within 20 minutes (a parked test), fails.
         xcodebuild test \
             -project "$PROJECT" \
             -scheme Crema \
@@ -188,13 +196,45 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
             -destination 'platform=macOS' \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" >"$GATE_LOG" 2>&1 || true
-        if grep -qE 'Test run with [0-9]+ tests? in [0-9]+ suites? passed' "$GATE_LOG"; then
-            info "$(grep -oE 'Test run with [0-9]+ tests? in [0-9]+ suites? passed' "$GATE_LOG" | head -1)"
+            CODE_SIGN_IDENTITY="" >"$GATE_LOG" 2>&1 &
+        GATE_PID=$!
+        GATE_VERDICT=''
+        for _ in $(seq 1 1200); do
+            GATE_VERDICT="$(grep -m1 -oE "$GATE_VERDICT_RE" "$GATE_LOG")" || true
+            [[ -n "$GATE_VERDICT" ]] && break
+            if ! kill -0 "$GATE_PID" 2>/dev/null; then
+                # The exit can land between the grep above and this check.
+                GATE_VERDICT="$(grep -m1 -oE "$GATE_VERDICT_RE" "$GATE_LOG")" || true
+                break
+            fi
+            sleep 1
+        done
+        if [[ -n "$GATE_VERDICT" ]]; then
+            for _ in $(seq 1 20); do kill -0 "$GATE_PID" 2>/dev/null || break; sleep 1; done
+        fi
+        if kill -0 "$GATE_PID" 2>/dev/null; then
+            info "xcodebuild is still running ${GATE_VERDICT:+after the verdict }— killing it."
+            kill "$GATE_PID" 2>/dev/null || true
+            sleep 2
+            kill -9 "$GATE_PID" 2>/dev/null || true
+            # A process ending is not its children's (AGENTS.md G4): the test host
+            # xcodebuild launched can outlive it, and with it the adapter the host
+            # spawned. Both are matched on this project's Debug products path,
+            # which the installed copy in /Applications never shares (a Debug
+            # copy running from Xcode does, and goes with them).
+            GATE_PRODUCTS="$(xcodebuild -project "$PROJECT" -scheme Crema -configuration Debug -showBuildSettings 2>/dev/null \
+                | awk -F' = ' '/^ *BUILT_PRODUCTS_DIR = /{print $2; exit}')" || true
+            if [[ -n "$GATE_PRODUCTS" ]]; then
+                pkill -f "$GATE_PRODUCTS/Crema.app/Contents/" 2>/dev/null || true
+            fi
+        fi
+        wait "$GATE_PID" 2>/dev/null || true
+        if [[ "$GATE_VERDICT" == *passed ]]; then
+            info "$GATE_VERDICT"
             rm -f "$GATE_LOG"
         else
-            grep -E '✘|error:' "$GATE_LOG" | grep -v 'Connection' | sort -u | head -10 | sed 's/^/    /' >&2
-            fail "The test suite did not report a passing run. Full log: $GATE_LOG"
+            grep -E '✘|error:' "$GATE_LOG" | grep -v 'Connection' | sort -u | head -10 | sed 's/^/    /' >&2 || true
+            fail "The test suite did not report a passing run (${GATE_VERDICT:-no verdict line}). Full log: $GATE_LOG"
         fi
     fi
 fi
@@ -231,8 +271,12 @@ APP_SRC="$ARCHIVE/Products/Applications/$APP_NAME"
 [[ -d "$APP_SRC" ]] || fail "Build succeeded but $APP_NAME was not found at $APP_SRC."
 
 # Version sanity-check: a mismatch means the project stopped deriving from MARKETING_VERSION.
+# Identity builds fail on it, since the version users see would not be the tag's;
+# an ad-hoc test build only warns.
 BUILT_VERSION="$(defaults read "$APP_SRC/Contents/Info" CFBundleShortVersionString 2>/dev/null || echo '?')"
 if [[ "$BUILT_VERSION" != "$VERSION" ]]; then
+    [[ -z "$SIGN_IDENTITY" ]] \
+        || fail "built app reports version $BUILT_VERSION, expected $VERSION — MARKETING_VERSION did not reach CFBundleShortVersionString."
     info "${RED}Warning:${RESET} built app reports version $BUILT_VERSION, expected $VERSION — reconcile before publishing."
 else
     info "Built $APP_NAME reports version $BUILT_VERSION."
@@ -284,8 +328,10 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
         # off because it wants a matching Team ID on every non-platform library,
         # a self-signed cert has none, and the app would abort loading its own
         # Sparkle.framework ("different Team IDs"). Measured both ways
-        # (docs/DECISIONS.md: self-signed-runtime-without-library-validation). The nested code keeps no runtime: it
-        # holds no grant, and the update path it runs stays as it shipped.
+        # (docs/DECISIONS.md: self-signed-runtime-without-library-validation).
+        # The nested code is re-signed with this identity but without the
+        # runtime: it holds no grant. The residual, helpers that honour DYLD_*
+        # variables, is recorded under AGENTS.md G14 (docs/KNOWN-GAPS.md).
         # codesign --verify never checks load policy; the launch smoke does.
         [[ -f "$SELF_SIGNED_ENTITLEMENTS" ]] || fail "Entitlements file not found: $SELF_SIGNED_ENTITLEMENTS"
         RUNTIME_FLAG=""
@@ -299,7 +345,8 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
 
     # Sparkle (SPM, Release-only) embeds Sparkle.framework, and inside it ships an XPC pair, an
     # Autoupdate helper and Updater.app that the Sparkle project pre-signs ad-hoc under its own
-    # identifier (no Team). They must carry OUR identity + hardened runtime, signed inside-out
+    # identifier (no Team). They must carry OUR identity (plus the hardened runtime on the Developer
+    # ID path; RUNTIME_FLAG is empty on the self-signed one), signed inside-out
     # BEFORE the framework bundle re-seals over them — otherwise Developer ID notarization rejects
     # the foreign/ad-hoc nested code and even --verify --strict trusts a stale seal. Paths below
     # pin Sparkle 2.9.4's layout (Versions/Current -> B); if Sparkle is upgraded, re-list them
@@ -383,6 +430,12 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     codesign -d --extract-certificates="$BUILD_DIR/signing-cert" "$APP" >/dev/null 2>&1 \
         || fail "could not extract the signing certificate from $APP_NAME"
     CERT_SHA256="$(shasum -a 256 "$BUILD_DIR/signing-cert0" | cut -d' ' -f1)"
+    # The README publishes this fingerprint as the constant a first download is checked
+    # against ("Verifying the download"); a release signed by any other certificate would
+    # make that page tell people to refuse a genuine copy, so the two match or nothing ships.
+    README_CERT_SHA256="$(grep -Eo '^[0-9a-f]{64}$' "$REPO_ROOT/README.md" | head -1 || true)"
+    [[ "$README_CERT_SHA256" == "$CERT_SHA256" ]] \
+        || fail "the signing certificate's SHA-256 ($CERT_SHA256) is not the one README.md publishes (${README_CERT_SHA256:-none}) — a new certificate means updating \"Verifying the download\" in the same release."
 
     if [[ "$SIGN_IDENTITY" == "Developer ID Application"* ]]; then
         info "Signed with Developer ID (hardened runtime + entitlements + timestamp)."
@@ -392,7 +445,9 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
 else
     info "Ad-hoc signing $APP_NAME (CREMA_SIGN_IDENTITY unset — local/testing build)."
     # --deep is fine for ad-hoc: no entitlements to mis-apply. The grant does not
-    # survive rebuilds and Gatekeeper still prompts. Hardened runtime is off (notarization-only).
+    # survive rebuilds and Gatekeeper still prompts. No hardened runtime here: an
+    # ad-hoc signature has no Team ID and this path applies no entitlements, so
+    # library validation would make dyld refuse Sparkle.framework at launch.
     codesign --force --deep --sign - "$APP" \
         || fail "codesign (ad-hoc) failed on $APP_NAME."
     codesign --verify --deep --strict "$APP" \
@@ -446,8 +501,16 @@ if [[ "$SIGN_IDENTITY" == "Developer ID Application"* ]]; then
     step "Stapling $DMG_NAME"
     xcrun stapler staple "$DMG_OUT" || fail "stapler staple failed on $DMG_NAME"
     xcrun stapler validate "$DMG_OUT" || fail "stapler validate failed on $DMG_NAME"
-    # Final Gatekeeper check — should report "accepted" / "Notarized Developer ID".
-    spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG_OUT" 2>&1 | sed 's/^/    /' || true
+    # Final Gatekeeper check, and a gate: a stapled dmg Gatekeeper denies is the
+    # one artifact this path exists to prevent. spctl(8) exits 3 on a denial and
+    # non-zero on any failure. The self-signed path never runs it: Gatekeeper does
+    # not accept a self-signed certificate (docs/RELEASE-GUIDE.md), so the answer
+    # there is a denial every time and carries no signal.
+    SPCTL_STATUS=0
+    SPCTL_OUT="$(spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG_OUT" 2>&1)" || SPCTL_STATUS=$?
+    printf '%s\n' "$SPCTL_OUT" | sed 's/^/    /'
+    [[ "$SPCTL_STATUS" == 0 ]] \
+        || fail "Gatekeeper did not accept $DMG_NAME (spctl exit $SPCTL_STATUS) — do NOT publish it. Expected \"accepted\" / \"Notarized Developer ID\"."
     info "Notarized + stapled."
 fi
 
@@ -675,6 +738,10 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     FEED_VERSION="$(grep -oE '<sparkle:version>[^<]*</sparkle:version>|sparkle:version="[^"]*"' "$STAGED_APPCAST" | head -1 | grep -oE '[0-9]+' | head -1)" || true
     [[ "$FEED_VERSION" == "$BUILD_NUMBER" ]] \
         || fail "generate_appcast wrote sparkle:version=\"$FEED_VERSION\", but this build is $BUILD_NUMBER — the CFBundleVersion stamp did not reach the feed. A feed carrying the wrong (or stale 1) version means no client sees the update; fix the stamp and re-run."
+    # The marketing string is what the update panel names; the feed must carry the tag's.
+    FEED_SHORT_VERSION="$(grep -oE '<sparkle:shortVersionString>[^<]*</sparkle:shortVersionString>|sparkle:shortVersionString="[^"]*"' "$STAGED_APPCAST" | head -1 | sed -E 's/<[^>]*>//g; s/^[^"]*"//; s/"$//')" || true
+    [[ "$FEED_SHORT_VERSION" == "$VERSION" ]] \
+        || fail "generate_appcast wrote sparkle:shortVersionString=\"$FEED_SHORT_VERSION\", but this release is $VERSION — MARKETING_VERSION did not reach the feed."
 
     cp "$STAGED_APPCAST" "$APPCAST"
     [[ -f "$APPCAST" ]] || fail "generate_appcast finished but $APPCAST is missing."
@@ -717,9 +784,10 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     info "   gh release create $TAG \"$DMG_OUT\" \"$DMG_VERSIONED\" --target main --title \"Crema $VERSION\" --notes \"…\" --latest"
     info "     · Crema.dmg          → the README's releases/latest/download/Crema.dmg link"
     info "     · Crema-$VERSION.dmg → the appcast enclosure (its URL in docs/appcast.xml)"
-    info "   and put these two lines in the Release body, for whoever checks a first download by hand:"
+    info "   and put these three lines in the Release body, for whoever checks a first download by hand:"
     info "     SHA-256 of Crema.dmg: $DMG_SHA256"
     info "     SHA-256 of the signing certificate: ${CERT_SHA256:-}"
+    info "     How to check both: https://github.com/colatte/crema#verifying-the-download"
     info "3. Publish the appcast (Pages serves /docs from main, and main takes no direct push — docs/GITHUB.md) — this script did NOT commit:"
     info "   git checkout -b release/$VERSION && git add docs/appcast.xml && git commit -m \"chore(release): appcast $VERSION\""
     info "   git push -u origin release/$VERSION && gh pr create --base main --title \"chore(release): appcast $VERSION\" --body \"…\" && gh pr checks --watch && gh pr merge --merge"

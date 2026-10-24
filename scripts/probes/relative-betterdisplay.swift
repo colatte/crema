@@ -1,16 +1,23 @@
 // Does BetterDisplay accept a RELATIVE brightness change?
 //
-// This is the one thing that would dissolve the impasse. The keys cannot follow
-// the screen you are looking at because stepping needs the display's CURRENT
-// level, and the neighbour's `get` refuses every spelling of brightness (measured:
-// docs/DECISIONS.md: external-brightness-is-write-only). But that only binds an
-// ABSOLUTE write. A relative one — "one step up" — needs no `before` at all, and
-// the whole read requirement disappears.
+// A relative write — "one step up" — needs no `before`, so it would let the keys
+// step a display without reading its CURRENT level. This probe tries verbs
+// (`increment`, `up`, ...) and a sign on the value. Neither is BetterDisplay's
+// shape, so a refusal here is not a limitation: the relative write is the
+// documented `offset` parameter (`"brightness":"-5%","offset":""` with `set`;
+// source: BetterDisplay wiki, "Integration features, CLI", a page the vendor marks
+// legacy, read Oct 2026),
+// and a signed value is read as an ABSOLUTE — `+0.0625` sets the monitor to 6.3%
+// and looks accepted as a delta. Nor is the level unreadable: `get` refuses
+// brightness only through the `identifier` metadata door, and answers when the
+// feature is asked by its own key (docs/DECISIONS.md:
+// neighbour-features-are-not-identifiers).
 //
-// Sends each candidate shape and prints what comes back. `result=true` on any of
-// them is the finding; watch the monitor to confirm it also MOVED, because a
-// neighbour that accepts a command it does not honour would be the worst outcome
-// to build on.
+// Sends each candidate shape and prints what comes back. `result=true` alone is
+// not the finding; watch the monitor to confirm it MOVED, and by how much — a
+// neighbour that accepts a command it does not honour, or honours it as something
+// else, is the worst outcome to build on. The "impasse stands" verdict this probe
+// prints covers these shapes only.
 //
 // Run:  swift scripts/probes/relative-betterdisplay.swift <displayID>
 //       e.g. swift scripts/probes/relative-betterdisplay.swift 2
@@ -93,8 +100,9 @@ print("=== OSD notifications during the run: \(reports)")
 if answered["CONTROL absolute set"] != true {
     print("The control failed, so this probe proves nothing — fix it before reading the rest.")
 } else if accepted.isEmpty {
-    print("No relative shape accepted. Stepping an external display needs its current")
-    print("level, the neighbour will not give it, and the impasse stands.")
+    print("None of THESE relative shapes was accepted. That covers only the shapes")
+    print("asked: the relative write is the documented `offset` parameter, and the")
+    print("level is readable by feature key (read-betterdisplay.swift).")
 } else {
     print("ACCEPTED: \(accepted.joined(separator: ", "))")
     print("If the monitor also MOVED for one of these, the keys can follow the screen")

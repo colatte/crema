@@ -28,7 +28,7 @@ struct BetterDisplayScreenBrightnessControllerTests {
             displayID: { $0 == nil ? 1 : 2 }
         )
 
-        try await controller.setBrightness(0.4, on: nil)
+        _ = try await controller.setBrightness(0.4, on: nil)
 
         // #expect does not halt the test, so the subscript needs its own guard —
         // a trap here would kill the host and every in-flight sibling.
@@ -45,7 +45,7 @@ struct BetterDisplayScreenBrightnessControllerTests {
             displayID: { [external] display in display == external ? 7 : nil }
         )
 
-        try await controller.setBrightness(0.9, on: external)
+        _ = try await controller.setBrightness(0.9, on: external)
 
         let first = try #require(channel.written.first)
         #expect(first.displayID == 7)
@@ -109,12 +109,12 @@ struct BetterDisplayScreenBrightnessControllerTests {
 
         // Three more frames of the same gesture, while the first is in flight.
         for value in [0.4, 0.6, 0.8] {
-            try? await controller.setBrightness(value, on: nil)
+            _ = try? await controller.setBrightness(value, on: nil)
         }
         #expect(channel.callCount == 1)      // none of them reached the channel
 
         channel.letGo()
-        await first.value
+        _ = await first.value
 
         #expect(await eventuallyOffActor { channel.written == [0.2, 0.8] })
     }
@@ -200,7 +200,7 @@ struct BetterDisplayScreenBrightnessControllerTests {
             #expect(orphan.display == external)
             #expect(failure.underlying as? BetterDisplayCommandChannel.CommandError == .unanswered)
         }
-        // 0.3 reached the wire whole; 0.5 is the failed attempt. Its echo had
+        // 0.3 reached the wire whole; 0.5 is the failed attempt. Its echo has
         // already promised it, which is exactly why it may not vanish with the
         // error.
         #expect(coalesced.values == [0.5])
@@ -209,14 +209,14 @@ struct BetterDisplayScreenBrightnessControllerTests {
 
     @Test func aFrameArrivingAsTheDriveWindsDownIsNeverDropped() async {
         // The exit race: with the drain's "queue is empty" check and the inFlight
-        // reset in separate critical sections, a frame slipping between them saw
-        // inFlight still true, echoed as coalesced, and was drained by nobody —
-        // the gesture's last level died in the queue while both calls reported
+        // reset in separate critical sections, a frame slipping between them sees
+        // inFlight still true, echoes as coalesced, and is drained by nobody —
+        // the gesture's last level dies in the queue while both calls report
         // success. The window is a few instructions wide and sits between two lock
         // acquisitions on the driver's path, so no fake can hook inside it; this
         // pins the invariant by racing a frame against many drives ending, which
-        // is deterministic-green on the single-critical-section drain and reached
-        // the window probabilistically on the split one.
+        // is deterministic-green on the single-critical-section drain and reaches
+        // the window probabilistically on a split one.
         for round in 0..<200 {
             let channel = YieldingChannel()
             let racing = BetterDisplayScreenBrightnessController(channel: channel, displayID: { _ in 1 })

@@ -1,15 +1,15 @@
 import SwiftUI
 
 /// The declared style, as the submenu of checked items an NSMenu uses to say
-/// exactly that. It replaces the status row that spelled the declaration out in a
-/// sentence: a checkmark is the platform's word for "this is the one", and unlike
-/// the sentence it also lets the user change it from here
-/// (docs/DECISIONS.md: menu-status-before-warnings).
+/// exactly that: a checkmark is the platform's word for "this is the one", and it
+/// lets the user change it from here. What the checkmark cannot say — that no
+/// connected display draws the declared style — is the note under the submenu's
+/// own item (docs/DECISIONS.md: menu-status-before-warnings).
 ///
 /// A view of its own, not a branch of CremaMenu's ViewBuilder, for the reason
 /// NowPlayingMenuSection is one: SwiftUI tracks observation per BODY, so the
 /// declaration read below invalidates this submenu and nothing else. CremaMenu
-/// observes the same key on purpose — the fallback row is derived from it — but
+/// observes the same key on purpose — the fallback note is derived from it — but
 /// everything this view adds (the picker's binding, the footnote) stays local.
 ///
 /// No icons on the items. A menu-item icon stands for an OBJECT; a style is a
@@ -18,6 +18,8 @@ import SwiftUI
 @MainActor
 struct StyleMenu: View {
     let core: AppCore
+    /// The fact written under this item, decided by MenuStatus.
+    let note: String?
 
     /// The key the Settings picker declares into, resolved through Preferences' own
     /// resolver so the shipped default and the degradation of a retired rawValue are
@@ -26,7 +28,7 @@ struct StyleMenu: View {
     @AppStorage(Preferences.declaredStyleKey) private var declaredStyle = Preferences.defaultDeclaredStyle.rawValue
 
     private var title: String {
-        String(localized: "menu.style", defaultValue: "Style")
+        String(localized: "menu.style", defaultValue: "Style for All Displays")
     }
 
     /// Reads the declaration and writes it back through the app's one all-displays
@@ -42,25 +44,37 @@ struct StyleMenu: View {
     }
 
     var body: some View {
-        Menu(title) {
-            // Inline, so the three options are items of THIS submenu rather than a
-            // second one nested inside it: the menu style "presents the options as a
-            // menu when the user presses a button, or as a submenu when nested
-            // within a larger menu" (SwiftUI, PickerStyle), which is one level too
-            // deep for three shapes — and the footnote below has to share the menu
-            // the options are in, or it explains nothing.
-            Picker(title, selection: selection) {
-                ForEach(Style.allCases, id: \.self) { style in
-                    Text(style.displayName).tag(style)
-                }
+        if MenuItemNote.isSubtitle {
+            Menu {
+                choices
+            } label: {
+                Text(title)
+                if let note { Text(note) }
             }
-            .pickerStyle(.inline)
-            Divider()
-            // The one consequence the checkmarks cannot show: this declares for every
-            // display and sweeps the per-display overrides. Same sentence the
-            // Settings footer opens with, word for word — one name per concept, in
-            // each language.
-            Text(String(localized: "menu.style.appliesEverywhere", defaultValue: "Applies to every display."))
+        } else {
+            Menu(title) { choices }
+            if let note { Text(note) }
         }
+    }
+
+    @ViewBuilder private var choices: some View {
+        // Inline, so the three options are items of THIS submenu rather than a
+        // second one nested inside it: the menu style "presents the options as a
+        // menu when the user presses a button, or as a submenu when nested
+        // within a larger menu" (SwiftUI, PickerStyle), which is one level too
+        // deep for three shapes — and the footnote below has to share the menu
+        // the options are in, or it explains nothing.
+        Picker(title, selection: selection) {
+            ForEach(Style.allCases, id: \.self) { style in
+                Text(style.displayName).tag(style)
+            }
+        }
+        .pickerStyle(.inline)
+        Divider()
+        // The one consequence the checkmarks cannot show: this declares for every
+        // display and sweeps the per-display overrides. Same sentence the
+        // Settings footer opens with, word for word — one name per concept, in
+        // each language.
+        Text(String(localized: "menu.style.appliesEverywhere", defaultValue: "Changes every display at once"))
     }
 }

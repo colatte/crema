@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Notch skin. Same discipline as CardView: shape/content derive
-/// from `coordinator.state`, live scrubber position from `coordinator.nowPlaying`
-/// (position never comes from the state payload), intents go
+/// Notch skin. Same discipline as CardView: shape/content derive from the
+/// Coordinator's layers (through the display policy, which names the ones this
+/// panel draws: `presentedState`), the live scrubber position is read by the
+/// row's own view (`LiveScrubberRow`), intents go
 /// back as Coordinator method calls, no domain copies in @State. Hover detection
 /// is not here: the panel's SurfaceHoverMonitor drives it against stable
 /// regions, so the view never reacts to the animating frame.
@@ -61,7 +62,7 @@ struct NotchView: View, SurfaceStyleBody {
         // Toggling view-only resizes the band while it is open — a visible morph,
         // so it honors Reduce Motion (nil) like the geometry spring.
         .animation(SurfaceAnimation.morph(reduceMotion: reduceMotion), value: showsControls)
-        .onChange(of: layoutKind) { _, newValue in
+        .onChange(of: contentKind) { _, newValue in
             provenance.advance(to: newValue)
         }
     }
@@ -72,6 +73,11 @@ struct NotchView: View, SurfaceStyleBody {
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        // The content crossfade (`contentAnimation`), the scope Card and Classic
+        // carry too, closest to the branches so the black and the clip below size
+        // off it: an appearance moves nothing and leaves the fade below to carry
+        // it, and under Reduce Motion the layouts land dry.
+        .animation(contentAnimation, value: layoutKind)
         // Uniform opaque black, no material and no stroke: the notch style
         // camouflages with the physical cutout (Dynamic Island), so any gray or
         // highlight would read as a seam against the hardware. The vibrancy
@@ -102,20 +108,23 @@ struct NotchView: View, SurfaceStyleBody {
             }
         }
         .opacity(layoutKind == .empty ? 0 : 1)
-        // The appearance/disappearance fade: opacity keeps its spring even when the
-        // geometry and flare snap, so a surface born from hidden fades in at its
-        // final drop. A fade is Reduce-Motion-safe, so it is NOT gated. Only fires
-        // on empty↔visible (opacity is 1 across every visible transition), so its
-        // choice never touches a visible→visible morph.
-        .animation(isExpanded ? SurfaceAnimation.open : SurfaceAnimation.close, value: layoutKind)
+        // Hidden, the surface still draws what it faded out with (`drawnContent`):
+        // out of reach of VoiceOver, and its loops stopped.
+        .accessibilityHidden(layoutKind == .empty)
+        .environment(\.surfaceIsShown, layoutKind != .empty)
+        // The appearance/disappearance fade (`fadeAnimation`, where its reach is
+        // stated): opacity keeps its spring while the geometry and flare snap, so
+        // a surface born from hidden fades in at its final drop.
+        .animation(fadeAnimation, value: layoutKind)
     }
 
     /// The inner content, crossfading between layouts (text/controls fade rather
-    /// than jumping) while the surface outline morphs around it. The accent
-    /// rides above the branches so its state survives compact↔expanded.
+    /// than jumping) while the surface outline morphs around it. The decoded
+    /// cover and the accent ride above the branches so their state survives
+    /// every branch swap.
     @ViewBuilder private var content: some View {
         ZStack {
-            switch contentKind {
+            switch drawnContent {
             case .empty:
                 Color.clear
             case .nowPlayingCompact(let track):
@@ -126,7 +135,8 @@ struct NotchView: View, SurfaceStyleBody {
                 hudContent(hud).transition(.opacity)
             }
         }
-        .artworkAccent(from: accentArtwork)
+        .artworkImage(from: coverArtwork)
+        .artworkAccent(from: coverArtwork)
     }
 
     /// The morphing outline: bottom corners flare more than the top, and the
@@ -191,7 +201,6 @@ struct NotchView: View, SurfaceStyleBody {
     private func compactContent(_ track: NowPlaying) -> some View {
         HStack(spacing: NotchMetrics.compactGap) {
             ArtworkView(
-                data: track.artworkData,
                 side: NotchMetrics.compactArtworkSide,
                 cornerRadius: NotchMetrics.compactArtworkRadius
             )
@@ -217,14 +226,13 @@ struct NotchView: View, SurfaceStyleBody {
         VStack(spacing: NotchMetrics.expandedSectionGap) {
             HStack(spacing: NotchMetrics.expandedGap) {
                 ArtworkView(
-                    data: track.artworkData,
                     side: NotchMetrics.expandedArtworkSide,
                     cornerRadius: NotchMetrics.expandedArtworkRadius
                 )
                 // Flexible role on the text again, never a trailing Spacer: the
                 // Spacer is a subview like any other, so the row pays its gap to
                 // reach it — 8 pt of title column for nothing (see compactContent).
-                TrackTextStack(title: track.title, artist: track.artist)
+                TrackTextStack(title: track.title, artist: track.artist, scrolls: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(height: NotchMetrics.expandedArtworkSide)
@@ -252,9 +260,8 @@ struct NotchView: View, SurfaceStyleBody {
     }
 
     private var scrubber: some View {
-        ScrubberRow(
-            position: scrubberPosition,
-            duration: scrubberDuration,
+        LiveScrubberRow(
+            coordinator: coordinator,
             enabled: controlsEnabled,
             onScrub: { scrubbed(to: $0) }
         )

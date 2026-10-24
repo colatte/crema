@@ -27,24 +27,15 @@ struct ClassicStyle: PresentationStyle {
         )
     }
 
-    /// Bottom-anchored, so the headroom goes sideways and up — the default
-    /// (top-pinned) would let the open spring's overshoot clip at the top edge
-    /// and would shift the anchor line. The anchor is the ONLY thing this
-    /// overrides: the size still comes from the union of every state, exactly as
-    /// the shared default builds it, because no single state is guaranteed
-    /// largest on both axes. Sizing off the expanded block alone contained the
-    /// 200² HUD by arithmetic coincidence (230 × 224 happens to cover it), and a
-    /// coincidence is not a rule — the first state resize past it would clip the
-    /// morph at the window edge, the artifact the fixed window exists to remove.
+    /// Bottom-anchored, so the headroom goes sideways and up — the top-anchored
+    /// default would let the open spring's overshoot clip at the top edge and
+    /// would shift the anchor line. The anchor is the ONLY thing that differs:
+    /// the size is the shared union of every state, because sizing off the
+    /// expanded block alone contained the 200² HUD by arithmetic coincidence
+    /// (230 × 224 happens to cover it), and the first state resize past it would
+    /// clip the morph at the window edge.
     func windowFrame(on geometry: ScreenGeometry) -> CGRect {
-        let track = NowPlaying(title: "", isPlaying: true, position: 0)
-        var rect = frame(for: .nowPlaying(track, expanded: true), on: geometry)
-            .union(frame(for: .nowPlaying(track, expanded: false), on: geometry))
-            .union(frame(for: .hud(SystemHUD(kind: .volume, value: 0)), on: geometry))
-        rect.origin.x -= SurfaceAnimation.overshootHeadroom
-        rect.size.width += 2 * SurfaceAnimation.overshootHeadroom
-        rect.size.height += SurfaceAnimation.overshootHeadroom
-        return rect
+        fixedWindowFrame(on: geometry, anchor: .bottom)
     }
 
     @MainActor
@@ -100,8 +91,8 @@ enum ClassicMetrics {
     /// stack with slack in it. The padded height is 170 − 2 × 16 = 138, and the
     /// stack is artwork 80 + gap + the two-line text + gap + the 12 pt waveform:
     /// measured at 137 with an 8 pt gap, which is one point from collapsing the
-    /// vertical padding the way a 96 pt artwork once did. 7 buys back two, and
-    /// the point it replaces was inside a line height's rounding — luck, not a
+    /// vertical padding the way a 96 pt artwork does. 7 buys back two, and
+    /// the point it replaces sits inside a line height's rounding — luck, not a
     /// margin. Re-do this sum before growing anything in the compact stack.
     static let compactGap: CGFloat = 7
     /// The HUD breathes wider than the media states: a lone glyph over the

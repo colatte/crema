@@ -1,7 +1,10 @@
+import AppKit
 import SwiftUI
 
 /// One display's own settings: the style it draws instead of the declaration, and
-/// whether the now-playing surface appears on it.
+/// whether the now-playing surface appears on it — headed by a picture of what that
+/// screen is drawing and a line saying it, so no sentence has to correct the
+/// control.
 ///
 /// A View of its own rather than a block built inside the list: SwiftUI tracks
 /// observation and storage per BODY, so folded into the parent every row's keys
@@ -21,10 +24,22 @@ struct DisplayStyleRow: View {
     /// row shows: a declaration made in the section above sweeps every override, and
     /// a row that missed it would keep naming a style this display no longer draws.
     @AppStorage(Preferences.declaredStyleKey) private var declaredStyleRaw: String?
+    /// The desk under the picture — the one the style tiles above stand on.
+    let wallpaper: NSImage?
+    /// Told after every write this row makes, so the pane can re-read what the
+    /// panels draw: the Card indicator and its list of displays are gated on that
+    /// reading, and a pick made here can start or stop a display drawing Card.
+    let didWriteStyle: () -> Void
 
-    init(screen: ScreenDescription, core: AppCore) {
+    /// Narrow enough to head a Form row without crowding its label; the bar, slit
+    /// and gap keep their point floors (`Thumbnail`), so the picture stays readable.
+    private static let thumbnailWidth: CGFloat = 60
+
+    init(screen: ScreenDescription, core: AppCore, wallpaper: NSImage?, didWriteStyle: @escaping () -> Void) {
         self.screen = screen
         self.core = core
+        self.wallpaper = wallpaper
+        self.didWriteStyle = didWriteStyle
         _styleRaw = AppStorage(Preferences.styleKey(for: screen.id))
         _showsNowPlaying = AppStorage(
             wrappedValue: Preferences.defaultShowsNowPlaying(isInternal: screen.isInternal),
@@ -48,15 +63,23 @@ struct DisplayStyleRow: View {
             LabeledContent {
                 stylePopup
             } label: {
-                Text(verbatim: title)
-            }
-
-            // Kept directly under the popup it qualifies, ahead of the toggle: the
-            // sentence is about the STYLE this screen draws, and moving it below the
-            // switch would leave a note about the popup nearer to a control it says
-            // nothing about.
-            ForEach(footnotes, id: \.self) { footnote in
-                Text(footnote).settingsFootnote()
+                HStack(spacing: 10) {
+                    // The style in force, resolved before it is drawn
+                    // (`StylePreview.shapes(for:on:)`): on a panel with no slit a
+                    // Notch choice is pictured as the card that screen really shows.
+                    StyleThumbnail(
+                        shapes: StylePreview.shapes(for: options.effectiveStyle, on: screen.geometry),
+                        wallpaper: wallpaper,
+                        width: Self.thumbnailWidth
+                    )
+                    .thumbnailHairline()
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(verbatim: title)
+                        Text(caption)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
 
             Toggle(isOn: $showsNowPlaying) {
@@ -84,14 +107,13 @@ struct DisplayStyleRow: View {
         )
     }
 
-    /// A custom `Menu` of one item per option, and deliberately not a `Picker`.
-    /// Measured on macOS 26.5.2 (`scripts/probes/picker-option-disabled.swift`): a
-    /// `.menu` Picker DISCARDS `.disabled` on its options — the marked item read
-    /// back `isEnabled == true` against an `NSPopUpButton` control reading `false` —
-    /// so a style this screen cannot draw would stay clickable there whatever the
-    /// chrome asked for. Here `.disabled` is honoured, but that is only what keeps
-    /// such a pick out of REACH; what keeps it out of the store is
-    /// `DisplayStyleOptions.write(for:)`, which answers `refused` and writes nothing.
+    /// A custom `Menu` of one item per option, and deliberately not a `Picker`: a
+    /// `.menu` Picker DISCARDS `.disabled` on its options, so a style this screen
+    /// cannot draw stays clickable there whatever the chrome asks for; measured,
+    /// with the probe named there (docs/DECISIONS.md: the-chrome-is-not-the-guarantee).
+    /// Here `.disabled` is honoured, but that is only what keeps such a pick out of
+    /// REACH; what keeps it out of the store is `DisplayStyleOptions.write(for:)`,
+    /// which answers `refused` and writes nothing.
     private var stylePopup: some View {
         Menu {
             ForEach(options.items, id: \.choice) { item in
@@ -139,39 +161,33 @@ struct DisplayStyleRow: View {
         case .override(let style):
             core.setStyle(style, for: screen.id)
         case .refused:
-            break
+            return
         }
+        didWriteStyle()
     }
 
-    /// One option's words. Inheriting NAMES the declaration it returns to: "follow
-    /// all displays" alone would make the closed control the one place in the pane
-    /// that describes a style without saying which, and the section above is where
-    /// the reader would have to go to find out.
+    /// One option's words. Inheriting names no style: what this screen draws is
+    /// the caption beside the control, and naming the declaration here would put
+    /// "Notch" on a screen drawing Card.
     private func label(for choice: Style?) -> String {
         guard let choice else {
-            return String(
-                localized: "settings.general.style.inherit",
-                defaultValue: "Follow all displays (\(options.declaration.displayName))"
-            )
+            return String(localized: "settings.general.style.inherit", defaultValue: "Same as the others")
         }
         return choice.displayName
     }
 
-    /// The sentences this row owes about what is actually on this screen.
-    private var footnotes: [String] {
-        options.footnotes.map { sentence(for: $0) }
-    }
-
-    /// One footnote in words. A `switch` rather than a lookup, so a case added to
+    /// The caption in words. A `switch` rather than a lookup, so a case added to
     /// the options cannot ship without a sentence: the wording and both its
     /// languages stay in the view, which is the split `DisplayStyleOptions` is
     /// written under.
-    private func sentence(for footnote: DisplayStyleOptions.Footnote) -> String {
-        switch footnote {
-        case .noNotch:
+    private var caption: String {
+        switch options.caption {
+        case .drawing(let style):
+            String(localized: "settings.displays.drawing", defaultValue: "Using \(style.displayName)")
+        case .drawingWithoutNotch(let style):
             String(
-                localized: "settings.displays.style.footer.noNotch",
-                defaultValue: "This display has no notch, so Notch draws as Card here."
+                localized: "settings.displays.drawing.noNotch",
+                defaultValue: "Using \(style.displayName), since this display has no notch"
             )
         }
     }
@@ -183,12 +199,19 @@ struct DisplayStyleRow: View {
     /// can match against the thing on their desk; the border hands that name over
     /// verbatim and never invents one, so an empty string falls to the generic noun
     /// rather than to an untitled row.
-    private var title: String {
+    ///
+    /// Static, because the Card indicator's sentence names displays too, and a
+    /// display has to be called the same thing in both places.
+    static func title(for screen: ScreenDescription) -> String {
         if screen.isInternal {
             return String(localized: "settings.displays.builtIn", defaultValue: "Built-in display")
         }
         return screen.name.isEmpty
             ? String(localized: "settings.displays.unnamed", defaultValue: "Display")
             : screen.name
+    }
+
+    private var title: String {
+        Self.title(for: screen)
     }
 }

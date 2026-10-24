@@ -42,10 +42,7 @@ struct ScrubGrace: Sendable {
     /// end the grace here.
     mutating func heldPosition(update: NowPlaying, previous: NowPlaying?) -> Double? {
         guard let target else { return nil }
-        let identityChanged = previous == nil
-            || previous?.title != update.title
-            || previous?.artist != update.artist
-        if identityChanged || abs(update.position - target) <= confirmTolerance {
+        if update.isAnotherTrack(than: previous) || abs(update.position - target) <= confirmTolerance {
             end()
             return nil
         }

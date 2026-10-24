@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Card skin view. Shape/content derive from `coordinator.state` (through the
-/// display policy), live scrubber position from `coordinator.nowPlaying`,
+/// Card skin view. Shape/content derive from the Coordinator's layers (through
+/// the display policy, which names the ones this panel draws: `presentedState`),
+/// the live scrubber position is read by the row's own view (`LiveScrubberRow`),
 /// intents go back as Coordinator method calls, no domain copies in @State.
 /// The surface is sized per state and top-anchored inside the fixed window;
 /// growth is vertical under one rounded-rectangle outline, and
@@ -56,7 +57,7 @@ struct CardView: View, SurfaceStyleBody {
         .animation(SurfaceAnimation.morph(reduceMotion: reduceMotion), value: adaptiveWidthKey)
         // Toggling view-only resizes the card while it is open — animate it too.
         .animation(SurfaceAnimation.morph(reduceMotion: reduceMotion), value: showsControls)
-        .onChange(of: layoutKind) { _, newValue in
+        .onChange(of: contentKind) { _, newValue in
             provenance.advance(to: newValue)
         }
     }
@@ -69,29 +70,33 @@ struct CardView: View, SurfaceStyleBody {
         // the width, unanimated, when its removal completes. Each branch
         // carries its own sizing: hug states stay intrinsic, the HUD fills
         // its fixed rule size.
-        HuggingWidthClamp(minWidth: adaptiveMinWidth, maxWidth: adaptiveMaxWidth, activeBranch: activeBranch) {
+        HuggingWidthClamp(minWidth: adaptiveMinWidth, maxWidth: adaptiveMaxWidth, activeBranch: layoutKind) {
             content
         }
         // The content crossfade. This scope is closest to the branches, so it
-        // wins over the radius snap above AND governs the bounds the material,
-        // clip and stroke are sized off (vibrantSurface's `.background`/clip size
+        // wins over the radius snap above AND governs the bounds the surface,
+        // clip and stroke are sized off (cardSurface's `.background`/clip size
         // to the node below them — this clamp output). It is therefore
         // provenance-aware: nil on an appearance (the geometry snaps, no ghost
         // springs past the snapped outer frame; the content is invisible under
-        // opacity 0 and fades in with the surface), the directional spring on a
-        // disappearance (the glyph fades out instead of popping) and between
-        // visible layouts (the HUD↔now-playing crossfade + morph). It wraps the
+        // opacity 0 and fades in with the surface), and the directional spring
+        // between visible layouts (the HUD↔now-playing crossfade + morph); a
+        // disappearance changes nothing under it (`drawnContent`). It wraps the
         // clamp's output, never the branch switch, so the active-branch
         // measurement is intact.
         .animation(contentAnimation, value: layoutKind)
         // Outside the clamp: wrapping the branch switch would collapse the
         // branches into one subview and break the active-branch measurement;
-        // riding above them also keeps the accent state across
-        // compact↔expanded.
-        .artworkAccent(from: accentArtwork)
+        // riding above them also keeps the decoded cover and the accent across
+        // every branch swap.
+        .artworkImage(from: coverArtwork)
+        .artworkAccent(from: coverArtwork)
         // One morphing outline for every state: the radius is state-dependent
         // (the short HUD would read as a capsule at the now-playing radius).
-        .vibrantSurface(in: RoundedRectangle(cornerRadius: surfaceCornerRadius, style: .continuous))
+        .cardSurface(
+            in: RoundedRectangle(cornerRadius: surfaceCornerRadius, style: .continuous),
+            carriesText: Self.surfaceCarriesText(for: effectiveLayoutKind)
+        )
         // Radius is geometry: it morphs HUD↔now-playing but SNAPS on an
         // appearance from or disappearance to hidden. Keyed on the radius VALUE so
         // it fires only when the corner actually changes (never on a same-radius
@@ -99,28 +104,40 @@ struct CardView: View, SurfaceStyleBody {
         // overriding the content crossfade's own inner scope.
         .animation(geometryAnimation, value: surfaceCornerRadius)
         .opacity(layoutKind == .empty ? 0 : 1)
-        // The appearance/disappearance fade: opacity keeps its spring even when
-        // the geometry snaps, so a surface born from hidden fades in at its final
-        // frame instead of gliding in. Only fires on empty↔visible (opacity is 1
-        // across every visible transition), so its animation choice never touches
-        // a visible→visible morph.
-        .animation(isExpanded ? SurfaceAnimation.open : SurfaceAnimation.close, value: layoutKind)
-        // Pinned dark ENCLOSING vibrantSurface (the environment reaches the
-        // AppKit-backed material): per-branch scoping would flip the palette
-        // mid HUD↔now-playing morph (docs/DECISIONS.md: hud-fixed-dark-palette).
+        // Hidden, the surface still draws what it faded out with (`drawnContent`):
+        // out of reach of VoiceOver, and its loops stopped.
+        .accessibilityHidden(layoutKind == .empty)
+        .environment(\.surfaceIsShown, layoutKind != .empty)
+        // The appearance/disappearance fade (`fadeAnimation`, where its reach is
+        // stated): opacity keeps its spring while the geometry snaps, so a
+        // surface born from hidden fades in at its final frame.
+        .animation(fadeAnimation, value: layoutKind)
+        // Pinned dark ENCLOSING the surface (the environment reaches the
+        // AppKit-backed material of the pre-glass path, and the ink is drawn for
+        // it): per-branch scoping would flip the palette mid HUD↔now-playing
+        // morph (docs/DECISIONS.md: hud-fixed-dark-palette).
         .environment(\.colorScheme, .dark)
     }
 
     /// The HUD gets its own smaller radius (rounded rectangle, not capsule); every
     /// now-playing state keeps the generous card radius. Animatable, so the change
     /// morphs under the surface spring. Keyed on the EFFECTIVE layout, so a hidden
-    /// surface keeps the radius it faded out with (empty-after-hud stays 12).
+    /// surface keeps the radius it faded out with (empty-after-hud keeps the HUD's).
     private var surfaceCornerRadius: CGFloat {
         Self.surfaceCornerRadius(for: effectiveLayoutKind)
     }
 
     nonisolated static func surfaceCornerRadius(for kind: LayoutKind) -> CGFloat {
         kind == .hud ? CardMetrics.hudSystemCornerRadius : CardMetrics.cornerRadius
+    }
+
+    /// Whether the surface carries text, which the glass must dim for
+    /// (`cardSurface`): every now-playing state does, the HUD does not. Keyed on
+    /// the EFFECTIVE layout like the radius, so a surface fading out keeps the
+    /// dimming it had, and the change morphs with the radius between the HUD and
+    /// the player.
+    nonisolated static func surfaceCarriesText(for kind: LayoutKind) -> Bool {
+        kind != .hud
     }
 
     private var adaptiveMinWidth: CGFloat? {
@@ -150,50 +167,38 @@ struct CardView: View, SurfaceStyleBody {
         }
     }
 
-    private var activeBranch: String {
-        switch layoutKind {
-        case .empty: "empty"
-        case .compact: "compact"
-        case .expanded: "expanded"
-        case .hud: "hud"
-        }
-    }
-
     var adaptiveWidthKey: String? {
-        contentKind.adaptiveWidthKey
+        drawnContent.adaptiveWidthKey
     }
 
-    /// The crossfading branches, each carrying a constant SurfaceBranch tag
-    /// (a removal-frozen ghost keeps the tag it was built with — that is what
-    /// lets the clamp tell the ghost from the active branch).
+    /// The crossfading branches, each tagged with its layout as a constant
+    /// SurfaceBranch value (a removal-frozen ghost keeps the tag it was built
+    /// with — that is what lets the clamp tell the ghost from the active
+    /// branch).
     @ViewBuilder private var content: some View {
-        switch contentKind {
+        switch drawnContent {
         case .empty:
-            // Fills whatever the effective layout proposes: while hidden the
-            // surface freezes the outgoing rect, so the empty branch must adopt
-            // that width (empty-after-hud fills the 210 rule width) rather than
-            // pinning to the compact floor — a fixed floor here snapped the
-            // material narrower the instant a HUD began fading out. The adaptive
-            // states still collapse to the floor: the clamp's provenance-aware
-            // minWidth pins them, not this branch.
+            // Drawn only before anything has shown: a hidden surface draws what
+            // it last showed (`drawnContent`). It fills whatever the effective
+            // layout proposes rather than pinning a size of its own.
             Color.clear
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .layoutValue(key: SurfaceBranch.self, value: "empty")
+                .layoutValue(key: SurfaceBranch.self, value: .empty)
         case .nowPlayingCompact(let track):
             compactContent(track)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .transition(.opacity)
-                .layoutValue(key: SurfaceBranch.self, value: "compact")
+                .layoutValue(key: SurfaceBranch.self, value: .compact)
         case .nowPlayingExpanded(let track):
             expandedContent(track)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .transition(.opacity)
-                .layoutValue(key: SurfaceBranch.self, value: "expanded")
+                .layoutValue(key: SurfaceBranch.self, value: .expanded)
         case .hud(let hud):
             hudContent(hud)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .transition(.opacity)
-                .layoutValue(key: SurfaceBranch.self, value: "hud")
+                .layoutValue(key: SurfaceBranch.self, value: .hud)
         }
     }
 
@@ -236,7 +241,6 @@ struct CardView: View, SurfaceStyleBody {
     private func compactContent(_ track: NowPlaying) -> some View {
         HStack(spacing: CardMetrics.contentGap) {
             ArtworkView(
-                data: track.artworkData,
                 side: CardMetrics.compactArtworkSide,
                 cornerRadius: CardMetrics.compactArtworkRadius
             )
@@ -271,11 +275,10 @@ struct CardView: View, SurfaceStyleBody {
         // hug; the width floor they need is CardMetrics.expandedMinWidth.
         HStack(spacing: CardMetrics.contentGap) {
             ArtworkView(
-                data: track.artworkData,
                 side: CardMetrics.expandedArtworkSide,
                 cornerRadius: CardMetrics.expandedArtworkRadius
             )
-            TrackTextStack(title: track.title, artist: track.artist)
+            TrackTextStack(title: track.title, artist: track.artist, scrolls: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: CardMetrics.expandedArtworkSide)
@@ -321,9 +324,8 @@ struct CardView: View, SurfaceStyleBody {
     }
 
     private var scrubber: some View {
-        ScrubberRow(
-            position: scrubberPosition,
-            duration: scrubberDuration,
+        LiveScrubberRow(
+            coordinator: coordinator,
             enabled: controlsEnabled,
             showsDuration: true,
             onScrub: { scrubbed(to: $0) }
@@ -342,7 +344,8 @@ struct CardView: View, SurfaceStyleBody {
             indicatorStyle: displayPolicy.hudIndicatorStyle,
             isHovered: displayPolicy.pointerInside,
             onChange: { hudSliderMoved(to: $0) },
-            onRelease: { hudSliderReleased() }
+            onRelease: { hudSliderReleased() },
+            axis: displayPolicy.hudAxis
         )
     }
 }

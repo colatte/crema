@@ -8,7 +8,7 @@
 
 Crema is distributed as a `Crema.dmg` — a direct download from the
 [Releases](https://github.com/colatte/crema/releases) page, outside the Mac App
-Store. Since Sparkle was integrated, every release also **regenerates the
+Store. Every release also **regenerates the
 appcast** (`docs/appcast.xml`), served by GitHub Pages, so that anyone who
 already has the app installed is updated in place. `scripts/release.sh` builds,
 stamps the version, signs (including the nested Sparkle), notarizes when the
@@ -121,7 +121,10 @@ Developer ID (section 3).
 - Tick **"Let me override defaults"** and set the validity to **3650 days**: the
   365-day default means a new certificate (a new identity!) every year — and a
   new certificate means users **re-grant** Accessibility **and** Sparkle refuses
-  the swap (different signer). One certificate, reused for every release.
+  the swap (different signer). One certificate, reused for every release. Its
+  SHA-256 is published in the README ("Verifying the download"), and
+  `release.sh` refuses to ship under any other, so a new certificate means
+  updating that line in the same release.
 - On the first `codesign`, macOS asks for access to the private key — click
   **Always Allow**.
 - Confirm it shows up:
@@ -239,6 +242,7 @@ The script then: builds Release (stamping the version) → signs inside out
 (nested Sparkle → the adapter's two vendored Mach-Os → the app) with **hardened
 runtime + `Crema.entitlements` + timestamp** and your Developer ID → packages
 `Crema.dmg` → **notarizes** the dmg (`notarytool submit --wait`) → **staples** it
+→ asks Gatekeeper (`spctl --assess`) and **aborts** unless it accepts the dmg
 → runs the **launch smoke** (installs from the dmg into a temp dir and launches,
 as in every mode) → regenerates the appcast **over the already-stapled dmg** (the
 EdDSA signature has to cover the final bytes). Out comes a notarized `Crema.dmg`
@@ -286,7 +290,10 @@ Context for the ritual in §5, and for diagnosing problems.
    reports that `CFBundleVersion` (an **advisory** — a code comment in the
    script calls it that; the output on a mismatch prints
    `Warning: built app reports build X, expected Y`, §5.1) **and** re-reads `sparkle:version`
-   from the generated feed — that one does **abort** on a mismatch.
+   from the generated feed — that one does **abort** on a mismatch. The marketing
+   version is held to the tag the same way, and on an identity build both of its
+   checks abort: the built app's `CFBundleShortVersionString` and the feed's
+   `sparkle:shortVersionString`.
    > **Corollary:** re-releasing the **same** marketing version reuses the
    > **same** build number → Sparkle sees **no** update. A re-release requires a
    > patch bump (1.1.1 → 1.1.2). There is no "fix it and republish 1.1.1".
@@ -342,7 +349,9 @@ The run opens with the **release gate**, before anything is built: the tree must
 be a git repo and **clean**, the tag `v1.1.1` must not already exist, and then
 `swiftlint --strict`, `swiftformat --lint`, the catalog self-test plus checker,
 and the **full test suite** run in that order — the suite's verdict is the
-`Test run with N tests … passed` line, and the gate takes several minutes. Any
+`Test run with N tests … passed` line, read from the log while `xcodebuild` runs
+in the background (a test host hung after the verdict is killed, and no verdict
+within 20 minutes fails), and the gate takes several minutes. Any
 gate tripping aborts with its own message before a single artifact exists.
 `CREMA_SKIP_TESTS=1` skips only the suite (the script's own escape hatch for
 scratch builds like §6's — never for a real release).
@@ -442,6 +451,15 @@ gh release create v1.1.1 Crema.dmg Crema-1.1.1.dmg \
   in §8). The **same file** feeds the Sparkle panel — GitHub
   renders the HTML subset it uses, so one file serves both. Or use
   `--notes "..."`, or omit it to open the editor.
+- **The Release body ends with the download's fingerprints**, the three lines
+  `release.sh`'s closing checklist prints under step 2: the SHA-256 of
+  `Crema.dmg`, the SHA-256 of the signing certificate, and the link to the
+  README's "Verifying the download". The README promises them to whoever checks a
+  first download by hand. The script prints them only at its end, after it has
+  copied the notes into the appcast, so they go into the Release body alone:
+  append them to the notes file before `gh release create` (the Sparkle panel,
+  already generated, goes without them) or paste them at the end in option B.
+  They never belong in the versioned `release-notes/` file.
 
 Check with `gh release view v1.1.1`.
 
@@ -760,6 +778,10 @@ launch</a> in the README.</p>
 <p>Free and open source under GPL-3.0.</p>
 ```
 
+The fingerprints are not part of this file: `release.sh` copies it into the
+appcast as it stands, and the three lines it prints at the end go into the
+Release body only (§5.3).
+
 ---
 
 ## 9. The ritual, summarized
@@ -769,7 +791,8 @@ export CREMA_SIGN_IDENTITY="Crema Code Signing"
 ./scripts/release.sh X.Y.Z                       # build, stamp, sign (Sparkle incl.), package, regenerate appcast
 open Crema.dmg                                    # local test (§5.2)
 gh release create vX.Y.Z Crema.dmg Crema-X.Y.Z.dmg \
-  --target main --title "Crema X.Y.Z" --notes "…" --latest     # BOTH assets
+  --target main --title "Crema X.Y.Z" --notes "…" --latest     # BOTH assets; notes end with
+                                                # the SHA-256 lines release.sh printed (§5.3)
 git checkout -b release/X.Y.Z && git add docs/appcast.xml && git commit -m "chore(release): appcast X.Y.Z"
 git push -u origin release/X.Y.Z && gh pr create --base main --title "chore(release): appcast X.Y.Z" --body "…"
 gh pr checks --watch && gh pr merge --merge     # publishing = that commit reaching MAIN (Pages serves /docs);

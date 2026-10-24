@@ -34,7 +34,9 @@ struct CardFrameRuleTests {
 
     @Test func adaptiveBoundsAreOrderedAndContainedByTheRule() {
         #expect(CardMetrics.compactMinWidth < CardMetrics.compactMaxWidth)
-        #expect(CardMetrics.compactMaxWidth == CardMetrics.compact.width)
+        // The strip hugs under its rule: a strip wider than the rule would draw
+        // outside the frame its hover and clicks are measured from.
+        #expect(CardMetrics.compactMaxWidth <= CardMetrics.compact.width)
         #expect(CardMetrics.expandedMinWidth < CardMetrics.expandedMaxWidth)
         #expect(CardMetrics.expandedMaxWidth == CardMetrics.expanded.width)
     }

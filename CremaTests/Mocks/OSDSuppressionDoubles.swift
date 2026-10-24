@@ -20,7 +20,7 @@ final class OSDSuppressorHarness {
     private(set) var suspensionChanges = 0
     /// Where the brightness keys aim. Mutable so a suite can move the pointer to
     /// another display; `.builtIn` by default because that is what every suite
-    /// written before the pointer rule assumes — one Mac, the key applies here.
+    /// not about the pointer rule assumes — one Mac, the key applies here.
     /// The suppressor's own parameter has NO default on purpose (a default would
     /// be the reported bug), so the choice is made here, once, in the open.
     ///
@@ -150,13 +150,17 @@ final class MockOSDChannel: OSDChannel, @unchecked Sendable {
     ///
     /// Apple documents this as the general case, not an exotic device
     /// (`AudioObjectSetPropertyData`, AudioHardware.h:302). It is the shape that
-    /// used to suspend a healthy domain — nothing moved, so the verify called it
-    /// a failed write and handed the keys back with a menu warning.
+    /// suspends a healthy domain under a single read-back — nothing moved, so the
+    /// verify calls it a failed write and hands the keys back with a menu warning.
     var publishesWriteLate = false
     private var lateValue: Double?
 
     private let hangLock = NSLock()
     private var readsSeen = 0
+    private var readsDone = 0
+    /// Reads that came back to their caller, a hung one only after its release:
+    /// the positive signal that an orphaned read has landed.
+    var readsReturned: Int { hangLock.withLock { readsDone } }
     private var swallowNextRead = false
     private let readGate = DispatchSemaphore(value: 0)
 
@@ -179,6 +183,7 @@ final class MockOSDChannel: OSDChannel, @unchecked Sendable {
             return true
         }
         if shouldHang { readGate.wait() }
+        defer { hangLock.withLock { readsDone += 1 } }
         let swallow = hangLock.withLock {
             let pending = swallowNextRead
             swallowNextRead = false

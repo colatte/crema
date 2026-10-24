@@ -6,14 +6,14 @@ import Testing
 ///
 /// Stability: DisplayServices Get/SetBrightness take a CGDisplayID, and those IDs
 /// are not stable across display sleep/wake and reconfiguration. A bridge that
-/// froze the ID at init rots the whole brightness path the first time displays
-/// are re-enumerated (a restart cured it, a toggle did not), so the ID is
+/// freezes the ID at init rots the whole brightness path the first time displays
+/// are re-enumerated (a restart cures it, a toggle does not), so the ID is
 /// re-resolved per operation.
 ///
 /// Identity: what it re-resolves has to be the BUILT-IN panel. Resolving the
-/// *main* display instead pointed the whole path at whichever screen held the
+/// *main* display instead points the whole path at whichever screen holds the
 /// menu bar; on an external, DisplayServices answers 1000 and every read and
-/// write failed in silence.
+/// write fails in silence.
 ///
 /// Known gap: that the default provider names the built-in panel and not the main
 /// display is NOT pinned here, and cannot be — reading it means calling
@@ -49,7 +49,7 @@ struct DisplayServicesBridgeDisplayIDTests {
     }
 
     @Test func aFrozenDisplayIDReproducesTheStaleIDDeath() {
-        // The pre-fix behavior, modeled by a constant provider: once the valid
+        // A launch-frozen ID, modeled by a constant provider: once the valid
         // ID moves, every read and write fails and the brightness path is dead
         // until relaunch. This is the released-v1.1.0 bug in one assertion.
         fakeDisplay.reset(validID: 2, currentID: 2, brightness: 0.4)
@@ -126,7 +126,7 @@ private final class FakeDisplayState: @unchecked Sendable {
     }
 }
 
-private nonisolated(unsafe) let fakeDisplay = FakeDisplayState()
+private let fakeDisplay = FakeDisplayState()
 
 private func fakeGet(_ display: UInt32, _ out: UnsafeMutablePointer<Float>) -> Int32 {
     fakeDisplay.get(display, into: out)

@@ -6,7 +6,7 @@ import Testing
 /// The loop-catcher. These assert the hover behavior at the boundary, not
 /// just static geometry: a cursor idling in the hysteresis band (or the resize
 /// animation sweeping the frame under it) must not oscillate. A single-threshold
-/// detector — the old `.onHover` bound to the animating frame — fails every one.
+/// detector — an `.onHover` bound to the animating frame — fails every one.
 @MainActor
 struct SurfaceHoverModelTests {
 
@@ -21,7 +21,7 @@ struct SurfaceHoverModelTests {
     // MARK: - Pure hysteresis behavior
 
     /// A cursor parked in the band (inside exit, outside enter) — the exact spot
-    /// the animating frame edge used to sweep under — holds whatever state it was
+    /// an animating frame edge sweeps under — holds whatever state it was
     /// in, across any number of samples. No flip ⇒ no loop.
     @Test func aCursorInTheHysteresisBandNeverOscillates() {
         let regions = SurfaceHoverRegions(
@@ -122,8 +122,8 @@ struct SurfaceHoverModelTests {
     }
 
     /// The stuck-hover bug itself, pinned dead: a cursor resting 50 pt below
-    /// the visible compact/HUD bottom used to be inside the union-derived exit
-    /// (100 pt band) and held the surface forever. With state-derived regions
+    /// the visible compact/HUD bottom is inside a union-derived exit
+    /// (100 pt band), which holds the surface forever. With state-derived regions
     /// it is out — the exit reaches at most comfort+bottom past the visible.
     @Test func aCursorRestingBelowTheVisibleSurfaceIsOutside() {
         let style = NotchStyle()
@@ -182,12 +182,12 @@ struct SurfaceHoverModelTests {
     /// its overshoot, or the sweeping edge re-creates the flicker the regions
     /// exist to kill.
     ///
-    /// Which direction it protects is worth stating, because the monitor's own doc
-    /// used to get it backwards. The region is retargeted from the frame as DRAWN,
+    /// Which direction it protects is worth stating, because it is easy to read
+    /// backwards. The region is retargeted from the frame as DRAWN,
     /// every layout pass, so the overshoot is inside the region while it happens —
     /// the band is what holds an engagement through the RETREAT, when the edge
-    /// sweeps back under a cursor that had legitimately entered. Same numeric
-    /// relation either way, which is why this assertion never needed to change:
+    /// sweeps back under a cursor that has legitimately entered. Same numeric
+    /// relation either way, which is why this assertion holds under both readings:
     /// a band narrower than the overshoot means the moving edge can cross the
     /// cursor and drop it.
     ///
@@ -334,8 +334,8 @@ struct SurfaceHoverModelTests {
 
     /// The bug itself: a hugged compact card (180 wide) inside the 280-wide rule
     /// ceiling leaves 50 pt of dead air per side. A point in that dead air is
-    /// inside the old rule-derived enter but outside the rendered-surface enter —
-    /// so hover no longer arms before the cursor reaches the visible edge.
+    /// inside a rule-derived enter but outside the rendered-surface enter —
+    /// so hover must not arm before the cursor reaches the visible edge.
     @Test func cardEnterExcludesTheDeadAirBesideAHuggedCard() throws {
         let hugged = CGSize(width: CardMetrics.compactMinWidth, height: CardMetrics.compact.height)
         let visible = cardVisibleRect(hugged)

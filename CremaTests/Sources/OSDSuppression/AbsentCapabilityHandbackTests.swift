@@ -3,8 +3,8 @@ import Testing
 
 /// A consumed key always owes feedback. A channel that reports no such control is
 /// not a failure — nothing is broken and there is nothing for a probe to recover —
-/// but swallowing its key drew nothing AND let nothing through, so the press simply
-/// vanished: no bar of ours, no native OSD, one log line as the only trace. The fix
+/// but swallowing its key draws nothing AND lets nothing through, so the press simply
+/// vanishes: no bar of ours, no native OSD, one log line as the only trace. The answer
 /// is the shape the pointer rule already uses: hand the key back whole and let the
 /// system apply it and draw its own indicator (docs/DECISIONS.md:
 /// absent-capability-hands-the-key-back).
@@ -99,7 +99,7 @@ struct AbsentCapabilityHandbackTests {
         // one after the apply answers must reach the system.
         #expect(await eventually { !h.keys.pressDown(.volumeDown) })
 
-        // And the up must go the SAME way the downs now go. This is the half the
+        // And the up must go the SAME way the downs go. This is the half the
         // migration exists for and the half a partial fix silently loses: leaving the
         // key latched while also marking it passed lets the downs through and keeps
         // swallowing the up, so the system collects downs that never close. Measured
@@ -120,15 +120,21 @@ struct AbsentCapabilityHandbackTests {
         //
         // Dropping at the mark would let this up through with no down before it: the
         // system collects a key-up for a press it never saw. Migrating keeps both
-        // phases swallowed, so the system sees a whole press or none. The mutation
-        // that survives without this test is not hypothetical — it stood in this
-        // repository's working tree during the round that shipped the feature.
+        // phases swallowed, so the system sees a whole press or none. Without this
+        // test, dropping at the mark survives every other one.
         let h = OSDSuppressorHarness()
+        let applies = CounterBox()
+        h.suppressor.onApplied = { [applies] _ in applies.count += 1 }
         h.volume.available = false
         h.suppressor.setEngaged(true)
 
         #expect(h.keys.pressDown(.volumeDown))
-        await settle()   // the absence lands while the key is still down
+        // The absence lands while the key is still down, and the proof is a
+        // brightness press queued behind it on the one apply chain: its verified
+        // apply reports only after the volume apply that records the absence.
+        h.keys.press(.screenBrightnessUp)
+        #expect(await eventually { applies.count == 1 }, "the apply chain never drained")
+        #expect(h.screen.applied == [0.5 + OSDTest.step])
         #expect(h.keys.pressUp(.volumeDown))
     }
 
@@ -270,15 +276,19 @@ struct AbsentCapabilityHandbackTests {
         // handback does not change that.
         let h = OSDSuppressorHarness()
         let handedBack = CounterBox()
+        let applies = CounterBox()
         h.suppressor.onHandedBackToTheSystem = { [handedBack] _ in handedBack.count += 1 }
+        h.suppressor.onApplied = { [applies] _ in applies.count += 1 }
         h.keyboard.available = false
         h.suppressor.setEngaged(true)
 
         // The press that buys the answer is ours: we draw nothing, but nobody else
-        // does either, so there is no window to spend. Negative wait, which is what
-        // settle() is for.
+        // does either, so there is no window to spend. Its apply learns the absence
+        // off the actor, so the barrier for the negative is a volume press queued
+        // behind it on the one apply chain, reporting applied only after it.
         h.keys.press(.keyboardBrightnessUp)
-        await settle()
+        h.keys.press(.volumeUp)
+        #expect(await eventually { applies.count == 1 }, "the apply chain never drained")
         // swiftlint:disable:next empty_count
         #expect(handedBack.count == 0)
 

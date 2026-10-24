@@ -6,8 +6,8 @@ import SwiftUI
 /// second label there comes straight out of the drag range — its content is
 /// ~101 pt wide at the narrowest scale mode (NotchWidthBudgetTests). The card and
 /// the classic block are several times that wide and show both. Position and
-/// duration come from the caller's live `nowPlaying` read; the scrub intent flows
-/// back through the caller into the Coordinator.
+/// duration come from `LiveScrubberRow`'s live `nowPlaying` read; the scrub intent
+/// flows back through the caller into the Coordinator.
 ///
 /// The drag owns the shown position: while editing, the row reads and writes
 /// `draft` (ephemeral, purely visual — the gesture's in-flight value), so the
@@ -42,14 +42,14 @@ struct ScrubberRow: View {
     /// shoving the bar beside it. The cost is honest and bounded — a stream past
     /// an hour reads 60:00 and keeps counting minutes — and it buys a number that
     /// never moves under the eye.
-    static func showsHours(duration: Double?) -> Bool {
+    nonisolated static func showsHours(duration: Double?) -> Bool {
         guard let duration else { return false }
         return TimeLabel.reachesAnHour(duration)
     }
 
     /// The bar's 0…1 fill. A fraction needs a denominator, and live content
     /// reports none: with no duration the bar is BARE, the same "zero stays
-    /// empty" rule `CapsuleTrack.capsuleFillWidth` draws. No stand-in
+    /// empty" rule `CapsuleTrack.capsuleFillLength` draws. No stand-in
     /// denominator: a `max(position, 1)` span pins the fraction at 1 from the
     /// first second onward, drawing a radio stream as a permanently finished
     /// track. Nothing interactive is lost: the row is not a control without a
@@ -93,10 +93,9 @@ struct ScrubberRow: View {
             CapsuleTrack(
                 value: Self.fill(position: shown, duration: duration),
                 showsKnob: (isHovered || isEditing) && interactive,
-                reduceMotion: reduceMotion,
-                layoutDirection: layoutDirection
+                reduceMotion: reduceMotion
             )
-            // The whole row is the target, as the stock slider's track was: a
+            // The whole row is the target, as the stock slider's track is: a
             // drag anywhere scrubs, and a tap (minimumDistance 0) seeks at the
             // touch point.
             .contentShape(Rectangle())
@@ -124,6 +123,20 @@ struct ScrubberRow: View {
         .accessibilityLabel(Text(String(
             localized: "scrubber.position", defaultValue: "Playback position"
         )))
+        .accessibilityValue(Text(Self.accessibilityValue(
+            shown: shown, duration: duration, showsDuration: showsDuration
+        )))
+    }
+
+    /// What VoiceOver reads as the bar's value: the times the row draws, where the
+    /// Slider standing in for it would announce a percentage of a span the
+    /// listener never sees. The track's length joins only where the row draws it.
+    nonisolated static func accessibilityValue(shown: Double, duration: Double?, showsDuration: Bool) -> String {
+        let hours = showsHours(duration: duration)
+        let elapsed = timeLabel(shown, showsHours: hours)
+        guard showsDuration, let duration else { return elapsed }
+        let length = timeLabel(duration, showsHours: hours)
+        return String(localized: "scrubber.position.value", defaultValue: "\(elapsed) of \(length)")
     }
 
     private var interactive: Bool { duration != nil && enabled }
@@ -157,15 +170,18 @@ struct ScrubberRow: View {
             }
     }
 
-    /// Pointer → seconds, over the FULL width: the ends of the row must reach 0
-    /// and the duration, which is why this is not inset by the knob's half-width
-    /// the way the knob's own travel is (`CapsuleTrack.knobCenterX`).
+    /// Pointer → seconds: the track's own pointer mapping (`CapsuleTrack.fraction`,
+    /// over the FULL width, so the row's ends reach 0 and the duration) scaled by
+    /// the span. The scrubber is always horizontal.
     static func position(
         atX x: CGFloat, width: CGFloat, span: Double, layoutDirection: LayoutDirection
     ) -> Double {
-        guard width > 0, span > 0 else { return 0 }
-        let physical = layoutDirection == .rightToLeft ? width - x : x
-        return min(max(Double(physical / width), 0), 1) * span
+        guard span > 0, let fraction = CapsuleTrack.fraction(
+            at: x,
+            trackLength: width,
+            reversed: CapsuleTrack.runsReversed(axis: .horizontal, layoutDirection: layoutDirection)
+        ) else { return 0 }
+        return fraction * span
     }
 
     /// Locale-aware via FormatStyle — never hand-assembled digits.
@@ -180,6 +196,35 @@ struct ScrubberRow: View {
         return showsHours
             ? value.formatted(.time(pattern: .hourMinuteSecond))
             : value.formatted(.time(pattern: .minuteSecond))
+    }
+}
+
+/// The scrubber as a skin places it. The live position is read in THIS body, so
+/// the once-a-second tick re-evaluates the row and never the skin around it
+/// (docs/STATE-FLOW.md: an expensive consumer goes in its own View); position and
+/// duration come from `nowPlaying`, never from the state payload.
+struct LiveScrubberRow: View {
+    let coordinator: Coordinator
+    let enabled: Bool
+    var showsDuration = false
+    let onScrub: (Double) -> Void
+
+    var position: Double {
+        coordinator.nowPlaying?.position ?? 0
+    }
+
+    var duration: Double? {
+        coordinator.nowPlaying?.duration
+    }
+
+    var body: some View {
+        ScrubberRow(
+            position: position,
+            duration: duration,
+            enabled: enabled,
+            showsDuration: showsDuration,
+            onScrub: onScrub
+        )
     }
 }
 

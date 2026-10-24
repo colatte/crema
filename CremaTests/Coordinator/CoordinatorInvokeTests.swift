@@ -14,10 +14,10 @@ struct CoordinatorInvokeTests {
     /// Drives the appearance to tucked (reactive linger elapsed).
     private func tucked(_ h: CoordinatorHarness) async {
         h.nowPlayingSource.emit(track)
-        _ = await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) })
         await h.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
         h.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
-        _ = await eventually { h.coordinator.state == .hidden }
+        #expect(await eventually { h.coordinator.state == .hidden })
     }
 
     @Test func invokeOpensTheExpandedPlayerWithTheLongerLinger() async {
@@ -49,16 +49,16 @@ struct CoordinatorInvokeTests {
     @Test func invokeWithPausedMediaDoesNothing() async {
         let h = CoordinatorHarness()
         h.nowPlayingSource.emit(track)
-        _ = await eventually { h.coordinator.state != .hidden }
+        #expect(await eventually { h.coordinator.state != .hidden })
         let paused = CoordinatorHarness.playingTrack(isPlaying: false)
         h.nowPlayingSource.emit(paused)
-        _ = await eventually { h.coordinator.state == .nowPlaying(paused, expanded: false) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(paused, expanded: false) })
         await h.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
         h.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
-        _ = await eventually { h.coordinator.state == .hidden }
+        #expect(await eventually { h.coordinator.state == .hidden })
 
-        // Paused media is not click-invokable — the same decision as the old
-        // paused-resurface rule: only a media event re-earns an appearance.
+        // Paused media is not click-invokable: only a media event re-earns an
+        // appearance.
         h.coordinator.invoke()
         await settle()
 
@@ -68,7 +68,7 @@ struct CoordinatorInvokeTests {
     @Test func invokeWhileASurfaceIsVisibleIsANoOp() async {
         let h = CoordinatorHarness()
         h.nowPlayingSource.emit(track)
-        _ = await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) })
         await h.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
 
         h.coordinator.invoke()
@@ -91,11 +91,11 @@ struct CoordinatorInvokeTests {
         // keeps its longer duration through hover cycles — in production the
         // click lands with the pointer already on the fresh surface, so the
         // initial timer is always replaced by a hover cycle.
-        h.coordinator.hover(true)
+        h.coordinator.hover(true, on: .both)
         #expect(h.coordinator.state == .nowPlaying(track, expanded: true))
         #expect(await eventually { h.clock.pendingSleeps == 0 })   // pointer holds the tuck
 
-        h.coordinator.hover(false)
+        h.coordinator.hover(false, on: .both)
         #expect(h.coordinator.state == .nowPlaying(track, expanded: false))
         await h.clock.waitForSleep(delay: Coordinator.defaultInvokedLinger)
         h.clock.advance(delay: Coordinator.defaultInvokedLinger)
@@ -115,7 +115,7 @@ struct CoordinatorInvokeTests {
         h.coordinator.onPresentationChange = { [coordinator = h.coordinator] in
             if !reentered, case .nowPlaying = coordinator.state {
                 reentered = true
-                coordinator.hover(true)   // the monitor's arming sample
+                coordinator.hover(true, on: .both)   // the monitor's arming sample
             }
         }
         h.coordinator.invoke()
@@ -125,10 +125,10 @@ struct CoordinatorInvokeTests {
         // commits the hold.
         #expect(h.coordinator.state == .nowPlaying(track, expanded: true))
 
-        // Pointer leaves: the tuck must run on the invoked linger — the
-        // hardcoded-reactive restart was exactly the bug that made the 5 s
+        // Pointer leaves: the tuck must run on the invoked linger — a
+        // hardcoded-reactive restart is exactly the bug that makes the 5 s
         // unreachable in production.
-        h.coordinator.hover(false)
+        h.coordinator.hover(false, on: .both)
         #expect(h.coordinator.state == .nowPlaying(track, expanded: false))
         await h.clock.waitForSleep(delay: Coordinator.defaultInvokedLinger)
         h.clock.advance(delay: Coordinator.defaultInvokedLinger)
@@ -190,6 +190,27 @@ struct CoordinatorInvokeTests {
         await h.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
         h.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
         #expect(await eventually { h.coordinator.state == .hidden })
+    }
+
+    @Test func canInvokeIsExactlyWhenInvokeActs() async {
+        // The WindowManager arms the click zone on this predicate, so a click the
+        // zone captures is one `invoke()` takes, and none other.
+        let h = CoordinatorHarness(reactiveNowPlaying: false)
+        #expect(!h.coordinator.canInvoke)            // nothing playing
+
+        let paused = CoordinatorHarness.playingTrack(isPlaying: false)
+        h.nowPlayingSource.emit(paused)
+        #expect(await eventually { h.coordinator.nowPlaying == paused })
+        #expect(!h.coordinator.canInvoke)            // paused media
+        h.coordinator.invoke()
+        #expect(h.coordinator.state == .hidden)
+
+        let track = CoordinatorHarness.playingTrack()
+        h.nowPlayingSource.emit(track)
+        #expect(await eventually { h.coordinator.canInvoke })
+        h.coordinator.invoke()
+        #expect(h.coordinator.state == .nowPlaying(track, expanded: true))
+        #expect(!h.coordinator.canInvoke)            // something visible
     }
 
     @Test func exposesTheDefaultInvokedLinger() {

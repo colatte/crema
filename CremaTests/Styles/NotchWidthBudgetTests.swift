@@ -27,7 +27,7 @@ struct NotchWidthBudgetTests {
         #expect(transport <= content)
     }
 
-    /// The other budget on the same row, and the one nobody was watching: what is
+    /// The other budget on the same row, and the one nothing else watches: what is
     /// LEFT for the title once the cover and the gaps are paid.
     ///
     /// The arithmetic, at the narrowest mode: the 125.3 pt slit is snapped inward

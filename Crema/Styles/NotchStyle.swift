@@ -175,7 +175,13 @@ enum NotchMetrics {
     /// sites, not three rhythms — moving one alone is how the drift comes back.
     static let compactGap: CGFloat = 8
     static let compactArtworkSide: CGFloat = 26
-    static let compactArtworkRadius: CGFloat = 6
+    /// Concentric with the band's base corner, by the rule the card's artwork
+    /// follows (CardMetrics.compactArtworkRadius): the parent's radius minus the
+    /// tighter inset. The cover sits (44 − 26) / 2 = 9 above the base and 12 in
+    /// from the side, under the 14 pt bottom radius: 14 − 9 = 5. The top corners
+    /// stay out of it — they sit behind the slit, far above the cover
+    /// (docs/DECISIONS.md: inner-corners-are-concentric).
+    static let compactArtworkRadius: CGFloat = compactBottomRadius - (compactDrop - compactArtworkSide) / 2
     /// The HUD row's gap (glyph | slider) — the exception to the rhythm above, and
     /// the same 10 the card's slider row uses: this row has two elements and no
     /// title column to protect, so the air costs nothing that is scarce.
@@ -184,7 +190,7 @@ enum NotchMetrics {
     /// from it rather than re-declared: both skins draw the same icon-beside-bar
     /// row, and the column is what holds the bar still while the volume family
     /// steps through four symbols of different widths (HUDPresentation).
-    static let hudIconColumnWidth: CGFloat = CardHUDIndicator.hudIconColumnWidth
+    static let hudIconColumnWidth: CGFloat = CardHUDIndicator.hudIconSlot
     /// Expanded: the cutout stretching down (Dynamic Island). The width never
     /// changes (see the frame rule); the drop is derived from the reference
     /// layout's stacked sections (header, thin scrubber, transport) — like the

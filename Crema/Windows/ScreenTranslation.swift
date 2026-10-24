@@ -134,14 +134,25 @@ enum ScreenTranslation {
     /// without a notch these are nil and safeAreaInsets.top is 0, so all three
     /// stay zero and the geometry reads as "no notch" (WindowManager then
     /// resolves any orphan notch preference to the card).
+    ///
+    /// The Dock's room is read off the visible frame on each edge but the top,
+    /// where the gap is the menu bar's. It is read fresh here on every topology
+    /// pass: `didChangeScreenParameters` fires when the Dock is shown or hidden,
+    /// moved to a side or resized, with the visible frame already updated
+    /// (measured 2026-10-15, scripts/probes/dock-visible-frame.swift). A Dock
+    /// moving between displays is unmeasured.
     @MainActor
     private static func geometry(of screen: NSScreen) -> ScreenGeometry {
-        ScreenGeometry(
+        let dock = ScreenGeometry.dockRoom(frame: screen.frame, visible: screen.visibleFrame)
+        return ScreenGeometry(
             frame: screen.frame,
             safeTop: screen.safeAreaInsets.top,
             auxLeft: screen.auxiliaryTopLeftArea?.width ?? 0,
             auxRight: screen.auxiliaryTopRightArea?.width ?? 0,
-            scale: screen.backingScaleFactor
+            scale: screen.backingScaleFactor,
+            dockBottom: dock.bottom,
+            dockLeft: dock.left,
+            dockRight: dock.right
         )
     }
 }

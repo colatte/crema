@@ -2,12 +2,12 @@ import CoreGraphics
 import Testing
 @testable import Crema
 
-/// The monitor's own arm/disarm behaviour, which nothing in the suite could see:
+/// The monitor's own arm/disarm behaviour, which nothing else in the suite sees:
 /// the region math is pinned in SurfaceHoverModelTests and the panel's retarget
 /// in NSPanelPresentationPanelTests, while the pending exit that disarming
-/// reports lives only here — a mutation deleting it left every test green. That
-/// report is what keeps the Coordinator's pointer mirror true when a display
-/// stops being armed: a silent reset leaves the mirror holding a pointer that is
+/// reports lives only here — a mutation deleting it leaves every other test green. That
+/// report is what keeps the Coordinator's pointer record true when a display
+/// stops being armed: a silent reset leaves the record holding a pointer that is
 /// not on any surface, and the timers keyed on it (the HUD waits for the pointer
 /// to leave before reverting) then never fire again
 /// (docs/DECISIONS.md: hover-follows-the-eye).
@@ -27,10 +27,15 @@ struct SurfaceHoverMonitorTests {
     private final class Pointer {
         var location: CGPoint
         private(set) var reports: [Bool] = []
+        /// Whether each report came from a mouse event, in step with `reports`.
+        private(set) var byMovement: [Bool] = []
 
         init(_ location: CGPoint) { self.location = location }
 
-        func report(_ inside: Bool) { reports.append(inside) }
+        func report(_ inside: Bool, _ moved: Bool) {
+            reports.append(inside)
+            byMovement.append(moved)
+        }
     }
 
     private let regions = SurfaceHoverRegions.around(CGRect(x: 100, y: 100, width: 200, height: 60))
@@ -42,7 +47,7 @@ struct SurfaceHoverMonitorTests {
         let monitor = SurfaceHoverMonitor(
             regions: regions,
             cursorLocation: { pointer.location },
-            report: { pointer.report($0) }
+            report: { pointer.report($0, $1) }
         )
         return (monitor, pointer)
     }
@@ -71,7 +76,7 @@ struct SurfaceHoverMonitorTests {
         monitor.setActive(false)
 
         // The exit is PENDING, never unconditional: this display never held the
-        // pointer, so reporting its departure would move the global mirror on
+        // pointer, so reporting its departure would move the global record on
         // behalf of a hover that no panel ever had.
         #expect(pointer.reports.isEmpty)
     }
@@ -105,6 +110,60 @@ struct SurfaceHoverMonitorTests {
         monitor.setActive(true)
 
         #expect(pointer.reports == [true, false])
+        monitor.stop()
+    }
+
+    @Test func theArmingSampleIsNoMovement() {
+        // A surface armed under a resting cursor learns where the cursor is, and
+        // that is all it learns: nobody moved it, so the arrival holds no HUD
+        // (docs/DECISIONS.md: hud-capsule-track).
+        let (monitor, pointer) = self.monitor(at: insideSurface)
+        monitor.setActive(true)
+
+        #expect(pointer.reports == [true])
+        #expect(pointer.byMovement == [false])
+        monitor.stop()
+    }
+
+    @Test func aMouseEventConfirmsAStillPointerOnce() throws {
+        let (monitor, pointer) = self.monitor(at: insideSurface)
+        monitor.setActive(true)
+        try #require(pointer.byMovement == [false])
+
+        // The first mouse event with the pointer still inside is the movement the
+        // arming sample lacked; the ones after it change nothing.
+        monitor.pointerMoved()
+        monitor.pointerMoved()
+
+        #expect(pointer.reports == [true, true])
+        #expect(pointer.byMovement == [false, true])
+        monitor.stop()
+    }
+
+    @Test func aPointerThatMovesInArrivesByMovement() throws {
+        let (monitor, pointer) = self.monitor(at: farOutside)
+        monitor.setActive(true)
+        try #require(pointer.reports.isEmpty)
+
+        pointer.location = insideSurface
+        monitor.pointerMoved()
+        monitor.pointerMoved()
+
+        #expect(pointer.reports == [true])
+        #expect(pointer.byMovement == [true])
+        monitor.stop()
+    }
+
+    @Test func aRegionGrowingUnderAStillPointerIsNoMovement() throws {
+        let (monitor, pointer) = self.monitor(at: CGPoint(x: 500, y: 130))
+        monitor.setActive(true)
+        try #require(pointer.reports.isEmpty)
+
+        // The surface came to the cursor, not the cursor to the surface.
+        monitor.updateRegions(.around(CGRect(x: 100, y: 100, width: 600, height: 60)))
+
+        #expect(pointer.reports == [true])
+        #expect(pointer.byMovement == [false])
         monitor.stop()
     }
 }

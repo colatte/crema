@@ -1,9 +1,10 @@
 import SwiftUI
 
 /// Classic skin view. Same discipline as CardView: shape/content derive from
-/// `coordinator.state` (through the display policy), live scrubber position
-/// from `coordinator.nowPlaying`, intents go back as Coordinator method calls,
-/// no domain copies in @State. The surface is sized per state and
+/// the Coordinator's layers (through the display policy, which names the ones
+/// this panel draws: `presentedState`), the live scrubber position is read by
+/// the row's own view (`LiveScrubberRow`), intents go back as Coordinator method
+/// calls, no domain copies in @State. The surface is sized per state and
 /// bottom-anchored inside the fixed window — the block sits on the native
 /// OSD's line and grows upward.
 @MainActor
@@ -49,7 +50,7 @@ struct ClassicView: View, SurfaceStyleBody {
         // Toggling view-only resizes the block while it is open — animate it too,
         // dry under Reduce Motion like the geometry spring.
         .animation(SurfaceAnimation.morph(reduceMotion: reduceMotion), value: showsControls)
-        .onChange(of: layoutKind) { _, newValue in
+        .onChange(of: contentKind) { _, newValue in
             provenance.advance(to: newValue)
         }
     }
@@ -62,28 +63,30 @@ struct ClassicView: View, SurfaceStyleBody {
             // `.background`/clip size to the node below them). Provenance-aware:
             // nil on an appearance snaps that geometry to the destination (no
             // material springing past the snapped outer frame — the ghost behind
-            // the HUD), the directional spring on a disappearance fades the
-            // content out, and between visible layouts it is the crossfade+morph.
+            // the HUD), and between visible layouts it is the crossfade+morph; a
+            // disappearance changes nothing under it (`drawnContent`).
             .animation(contentAnimation, value: layoutKind)
             .vibrantSurface(in: RoundedRectangle(cornerRadius: ClassicMetrics.cornerRadius, style: .continuous))
             .opacity(layoutKind == .empty ? 0 : 1)
-            // The appearance/disappearance fade: opacity keeps its spring even
-            // when the geometry snaps, so a block born from hidden fades in at
-            // its final rect. Only fires on empty↔visible — opacity is 1 across
-            // every visible transition — so its choice never touches a
-            // visible→visible morph.
-            .animation(isExpanded ? SurfaceAnimation.open : SurfaceAnimation.close, value: layoutKind)
+            // Hidden, the surface still draws what it faded out with (`drawnContent`):
+            // out of reach of VoiceOver, and its loops stopped.
+            .accessibilityHidden(layoutKind == .empty)
+            .environment(\.surfaceIsShown, layoutKind != .empty)
+            // The appearance/disappearance fade (`fadeAnimation`, where its reach
+            // is stated): opacity keeps its spring while the geometry snaps, so a
+            // block born from hidden fades in at its final rect.
+            .animation(fadeAnimation, value: layoutKind)
             // Pinned dark ENCLOSING vibrantSurface — same contract and same
             // placement rationale as CardView (docs/DECISIONS.md:
             // hud-fixed-dark-palette).
             .environment(\.colorScheme, .dark)
     }
 
-    /// The accent rides above the branches so its state survives
-    /// compact↔expanded.
+    /// The decoded cover and the accent ride above the branches so their state
+    /// survives every branch swap.
     @ViewBuilder private var content: some View {
         ZStack {
-            switch contentKind {
+            switch drawnContent {
             case .empty:
                 Color.clear
             case .nowPlayingCompact(let track):
@@ -94,7 +97,8 @@ struct ClassicView: View, SurfaceStyleBody {
                 hudContent(hud).transition(.opacity)
             }
         }
-        .artworkAccent(from: accentArtwork)
+        .artworkImage(from: coverArtwork)
+        .artworkAccent(from: coverArtwork)
     }
 
     private var surfaceSize: CGSize? {
@@ -131,7 +135,6 @@ struct ClassicView: View, SurfaceStyleBody {
     private func compactContent(_ track: NowPlaying) -> some View {
         VStack(spacing: ClassicMetrics.compactGap) {
             ArtworkView(
-                data: track.artworkData,
                 side: ClassicMetrics.compactArtworkSide,
                 cornerRadius: ClassicMetrics.compactArtworkRadius
             )
@@ -150,11 +153,10 @@ struct ClassicView: View, SurfaceStyleBody {
     private func expandedContent(_ track: NowPlaying) -> some View {
         VStack(spacing: ClassicMetrics.contentGap) {
             ArtworkView(
-                data: track.artworkData,
                 side: ClassicMetrics.expandedArtworkSide,
                 cornerRadius: ClassicMetrics.expandedArtworkRadius
             )
-            TrackTextStack(title: track.title, artist: track.artist, alignment: .center)
+            TrackTextStack(title: track.title, artist: track.artist, alignment: .center, scrolls: true)
                 .frame(height: ClassicMetrics.textStackHeight)
             scrubber
                 .frame(height: ClassicMetrics.scrubberRowHeight)
@@ -180,9 +182,8 @@ struct ClassicView: View, SurfaceStyleBody {
         // Both times, like the card: only the notch band is narrow enough that the
         // trailing label would eat its drag range (see ScrubberRow). This block is
         // 230 pt wide and shows the reference layout in full.
-        ScrubberRow(
-            position: scrubberPosition,
-            duration: scrubberDuration,
+        LiveScrubberRow(
+            coordinator: coordinator,
             enabled: controlsEnabled,
             showsDuration: true,
             onScrub: { scrubbed(to: $0) }

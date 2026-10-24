@@ -1,14 +1,29 @@
 import Observation
+import SwiftUI
 
-/// Per-display presentation policy the panel injects into its view — rendering
+/// Per-panel presentation policy the panel injects into its view (a display
+/// whose Card HUD sits apart has two panels, so two policies) — rendering
 /// context, like the slit inset, not domain state. With the window fixed and
-/// never ordered out, hiding can no longer happen at the window level: a
+/// never ordered out, hiding cannot happen at the window level: a
 /// display whose "show now playing here" is off must suppress the now-playing
 /// content while still rendering HUDs. A reference box because the panel builds
 /// its root view once; the flag is updated on every frame pass.
 @Observable
 @MainActor
 final class SurfaceDisplayPolicy {
+    /// Which layers this panel draws: both on a skin's own panel; one of them
+    /// where the Card's HUD sits on a panel of its own (docs/DECISIONS.md:
+    /// card-hud-placement). Fixed for the panel's life, like the slit inset.
+    let surface: PresentationLayers.Surface
+    /// The direction this panel's HUD bar runs (`HUDPlacement.axis`); fixed for
+    /// the panel's life, since a new placement builds a new panel.
+    let hudAxis: Axis
+
+    init(surface: PresentationLayers.Surface = .both, hudAxis: Axis = .horizontal) {
+        self.surface = surface
+        self.hudAxis = hudAxis
+    }
+
     var showsNowPlaying = true
     /// Whether THIS display draws the current HUD. False on every panel but the
     /// one the HUD's target speaks for — the built-in panel, a named display, or
@@ -25,7 +40,7 @@ final class SurfaceDisplayPolicy {
     var hudIndicatorStyle: HUDIndicatorStyle = .shippedDefault
     /// This panel's raw pointer signal, set by its own SurfaceHoverMonitor
     /// dispatch: the capsule knob reads it, so hovering one display's surface
-    /// reveals the knob only there. The Coordinator's `pointerInside` stays
-    /// the global mirror the timers key on.
+    /// reveals the knob only there. The Coordinator keeps its own global record
+    /// of the pointer, the one the timers key on.
     var pointerInside = false
 }

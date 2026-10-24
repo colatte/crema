@@ -31,17 +31,17 @@ struct TimeLabelTests {
         #expect(TimeLabel.reachesAnHour(86_000))
     }
 
-    /// The formatted output, in a fixed locale, because the bug was visible in
+    /// The formatted output, in a fixed locale, because the bug shows in
     /// the STRING rather than in the predicate — and because pt-BR is where the
-    /// grouping separator turned a time into a number.
+    /// grouping separator turns a time into a number.
     @Test func theHourPatternPrintsAnHourInsteadOfSixtyMinutes() {
         var brazilian = Duration.TimeFormatStyle(pattern: .hourMinuteSecond)
         brazilian.locale = Locale(identifier: "pt_BR")
         #expect(Duration.seconds(3600).formatted(brazilian) == "1:00:00")
         #expect(Duration.seconds(86_000).formatted(brazilian) == "23:53:20")
 
-        // And the pattern the code used to use unconditionally, kept here as the
-        // record of what it printed for the same inputs.
+        // And the minutes-only pattern applied unconditionally, kept here as the
+        // record of what it prints for the same inputs.
         var minutesOnly = Duration.TimeFormatStyle(pattern: .minuteSecond)
         minutesOnly.locale = Locale(identifier: "pt_BR")
         #expect(Duration.seconds(3600).formatted(minutesOnly) == "60:00")

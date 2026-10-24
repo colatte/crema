@@ -28,16 +28,7 @@ struct AdapterPayloadTranslationTests {
         #expect(np.position == 42.5)
         #expect(np.duration == 169.0)
         #expect(np.artworkData == nil)
-        #expect(np.album == "The Dark Side of the Moon")
         #expect(np.sourceBundleID == "com.spotify.client")
-    }
-
-    @Test func aMissingOrEmptyAlbumIsNilRatherThanABlankSearchTerm() throws {
-        // An empty string in a search term is not a narrower search, it is a worse one.
-        let missing = #"{"type":"data","diff":false,"payload":{"title":"Solo","playing":true,"elapsedTime":0,"duration":100}}"#
-        let blank = #"{"type":"data","diff":false,"payload":{"title":"Solo","album":"","playing":true,"elapsedTime":0,"duration":100}}"#
-        #expect(try #require(translate(missing)).album == nil)
-        #expect(try #require(translate(blank)).album == nil)
     }
 
     @Test func parentBundleIdentifierWinsOverTheHelperProcess() throws {
@@ -86,10 +77,10 @@ struct AdapterPayloadTranslationTests {
 
     /// The line is verbatim from the wire: a Twitch live in Firefox, captured
     /// from the vendored adapter. Live content does not omit the duration — it
-    /// reports LLONG_MAX microseconds, which the old `> 0` test waved through as
-    /// 292 thousand years. Letting it through gave the scrubber a fake range to
-    /// drag over, and dragging to the end scaled it back up to exactly 2^63,
-    /// where `Int(Double)` traps: the app died on a normal gesture.
+    /// reports LLONG_MAX microseconds, which a `> 0` test waves through as
+    /// 292 thousand years. Letting it through gives the scrubber a fake range to
+    /// drag over, and dragging to the end scales it back up to exactly 2^63,
+    /// where `Int(Double)` traps: the app dies on a normal gesture.
     @Test func theLiveSentinelDurationIsNotADuration() throws {
         let line = #"{"type":"data","diff":false,"payload":{"title":"Live","playing":true,"elapsedTimeMicros":2741906069,"durationMicros":9.2233720368547758e+18}}"#
         let np = try #require(translate(line))

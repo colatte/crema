@@ -7,9 +7,9 @@ import Testing
 /// Every other login-item test drives `MockLoginItem`, which proves the app's
 /// DECISIONS are right and says nothing about whether the type that talks to
 /// macOS maps them correctly. A mutation swapping the two service calls (so
-/// turning "open at login" ON unregisters the app) left the whole suite green:
-/// exactly the failure the author hit in the wild, and nothing would have caught
-/// it. These are the tests that would.
+/// turning "open at login" ON unregisters the app) leaves every other test
+/// green: exactly the failure the author hit in the wild. These are the tests
+/// that catch it.
 @MainActor
 struct SMAppServiceLoginItemTests {
 
@@ -60,12 +60,13 @@ struct SMAppServiceLoginItemTests {
         #expect(item(calls, status: .requiresApproval).isEnabled == false)
     }
 
-    @Test func everyOtherServiceStateIsNoRegistration() {
-        // "No record" and "a record we cannot see" drive the same decisions, so
-        // they collapse — but `.enabled` must never collapse with them.
+    @Test func eachServiceStateKeepsItsOwnMeaning() {
+        // `.notFound` is the framework failing to find the service, not the user
+        // removing it: read as "no registration", it would let the launch-time
+        // reconciliation forget an intent nobody revoked.
         let calls = Calls()
         #expect(item(calls, status: .enabled).status == .enabled)
-        #expect(item(calls, status: .notFound).status == .notRegistered)
         #expect(item(calls, status: .notRegistered).status == .notRegistered)
+        #expect(item(calls, status: .notFound).status == .unknown)
     }
 }

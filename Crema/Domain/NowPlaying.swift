@@ -6,12 +6,6 @@ struct NowPlaying: Equatable, Sendable {
     var artist: String?
     /// Raw encoded image bytes (PNG/JPEG); decoded by the view layer.
     var artworkData: [UInt8]?
-    /// The album, when the source reports one. Unread by any view — the
-    /// surfaces show title and artist, and a third line would crowd them — and
-    /// kept as the seed of the cover upgrade, where album turns a fuzzy
-    /// two-term search into an accurate three-term one (docs/DECISIONS.md:
-    /// the-click-was-the-last-thing-holding-the-lookup-up).
-    var album: String?
     var isPlaying: Bool
     /// Playback position in seconds (drives scrubbing).
     var position: Double
@@ -42,5 +36,14 @@ extension NowPlaying {
     static func bounded(position: Double, duration: Double?) -> Double {
         guard !position.isNaN else { return 0 }
         return min(max(position, 0), duration ?? maximumPosition)
+    }
+
+    /// Whether this snapshot names another track than `previous`, or the first
+    /// one: title and artist are the identity, so a play/pause flip, a position
+    /// or artwork arriving later is the same track. One rule for every reader —
+    /// what surfaces an appearance and what ends a seek's grace must agree on it.
+    func isAnotherTrack(than previous: NowPlaying?) -> Bool {
+        guard let previous else { return true }
+        return previous.title != title || previous.artist != artist
     }
 }

@@ -17,8 +17,8 @@ struct BrightnessControllerTests {
         let backend = FakeBrightnessBackend(available: true)
         let controller = DisplayServicesScreenBrightnessController(backend: backend)
 
-        try await controller.setBrightness(0.3, on: nil)
-        try await controller.setBrightness(1.5, on: nil)
+        _ = try await controller.setBrightness(0.3, on: nil)
+        _ = try await controller.setBrightness(1.5, on: nil)
 
         #expect(backend.writes == [BrightnessConversion.denormalize(0.3), 1.0])
     }
@@ -39,17 +39,18 @@ struct BrightnessControllerTests {
 
     @Test func screenControllerAcceptsItsOwnDisplayNamedExplicitly() async throws {
         // nil and the built-in's own UUID name the same screen. Rejecting every
-        // non-nil display read as correct while nil was the only way to say "the
-        // built-in" — then the neighbour integration began naming displays, and this
-        // controller would have thrown externalDisplayUnsupported for the panel it
-        // exists to drive, swallowing a drag on its own bar with only a log line.
+        // non-nil display reads as correct only while nil is the only way to say
+        // "the built-in" — the neighbour integration names displays, and a
+        // controller that rejects them throws externalDisplayUnsupported for the
+        // panel it exists to drive, swallowing a drag on its own bar with only a
+        // log line.
         let backend = FakeBrightnessBackend(available: true)
         let controller = DisplayServicesScreenBrightnessController(
             backend: backend, builtInDisplay: { [builtIn] in builtIn }
         )
 
-        try await controller.setBrightness(0.5, on: builtIn)
-        try await controller.setBrightness(0.25, on: nil)
+        _ = try await controller.setBrightness(0.5, on: builtIn)
+        _ = try await controller.setBrightness(0.25, on: nil)
 
         #expect(backend.writes == [
             BrightnessConversion.denormalize(0.5),

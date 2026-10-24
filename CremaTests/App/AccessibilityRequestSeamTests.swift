@@ -5,8 +5,8 @@ import Testing
 ///
 /// The system prompt is what REGISTERS the app in the Accessibility list; the
 /// deep link only takes the user to the pane. Ask first and they find Crema
-/// waiting there with a switch. Skip the ask — a mutation deleting it left the
-/// whole suite green — and they land on a list the app is not in, with nothing
+/// waiting there with a switch. Skip the ask — a mutation deleting it leaves
+/// every other test green — and they land on a list the app is not in, with nothing
 /// to turn on and no hint why, which is a dead end the app itself created.
 @MainActor
 struct AccessibilityRequestSeamTests {

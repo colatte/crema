@@ -107,8 +107,8 @@ struct AppCorePerDisplayWritersTests {
     // MARK: - Show now playing here
 
     @Test func theShowNowPlayingWriterReachesThePanelsWithoutRecreatingThem() {
-        // The pref was live-honoured with no writer for a whole release (the
-        // pinned-latent fence P5); this is the writer side of it. Both directions,
+        // The pref is live-honoured, so it needs a writer (the pinned-latent
+        // fence P5); this is the writer side of it. Both directions,
         // because a writer that only ever turns the surface OFF is half a control:
         // the internal display defaults on, an external one defaults off, and each
         // has to be able to cross its own default.

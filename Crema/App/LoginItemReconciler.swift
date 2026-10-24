@@ -6,8 +6,8 @@
 /// a reinstall, and — the one that will hit every installed user at once — the
 /// eventual move to Developer ID). The app can't see that happen: the status
 /// simply reads `.notRegistered` afterwards, and without a persisted intent the
-/// user's choice disappears in silence, which is exactly what was diagnosed on
-/// hardware (docs/DECISIONS.md: login-item-intent, the J7 class).
+/// user's choice disappears in silence — a loss confirmed on hardware
+/// (docs/DECISIONS.md: login-item-intent, the J7 class).
 ///
 /// The intent alone is not enough to warn honestly, because "gone" has two very
 /// different authors: macOS revoking it (the user should hear about it) and the
@@ -18,7 +18,8 @@
 /// only honored while its generation is still current.
 enum LoginItemReconciler {
     enum Outcome: Equatable {
-        /// Nothing to say: either the user never asked, or reality matches.
+        /// Nothing to say: the user never asked, reality matches, or the
+        /// framework could not read the status.
         case quiet
         /// Registered but parked by macOS awaiting approval.
         case needsApproval
@@ -48,6 +49,12 @@ enum LoginItemReconciler {
             return .needsApproval
         case .notRegistered:
             return recordedBuild == currentBuild ? .userRemoved : .revokedByUpdate
+        case .unknown:
+            // A lookup that failed tells a revocation from a removal no better
+            // than it tells either from a registration still in place, and
+            // `.userRemoved` is the verdict that erases the intent: quiet, and
+            // the intent waits for a status the framework can read.
+            return .quiet
         }
     }
 }

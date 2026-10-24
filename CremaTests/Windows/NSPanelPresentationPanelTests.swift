@@ -5,9 +5,10 @@ import Testing
 /// The real panel, instantiated.
 ///
 /// Everything above it (reconciliation, frame math, style resolution) is well
-/// pinned, and everything this class *binds* was invisible: two mutations, one
-/// handing SwiftUI the power to size the window and one dropping the fixed frame
-/// altogether, both left all 729 tests green. Those are the same two invariants
+/// pinned, and everything this class *binds* is invisible from there: two
+/// mutations, one handing SwiftUI the power to size the window and one dropping
+/// the fixed frame altogether, both leave every other test green (measured
+/// across 729 tests). Those are the same two invariants
 /// AGENTS.md names in "Never do" as the cure for a whole family of
 /// intermittent blinks, so they get a witness here.
 @MainActor
@@ -22,12 +23,35 @@ struct NSPanelPresentationPanelTests {
         )
     }
 
+    /// A screen with a real slit, where the Notch's window is as narrow as it
+    /// gets: the slit's width plus the overshoot headroom.
+    private func notchedScreen() -> ScreenDescription {
+        ScreenDescription(
+            id: DisplayUUID(rawValue: "PANEL-TEST-NOTCHED"),
+            name: "Built-in Retina Display",
+            geometry: ScreenGeometry(
+                frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+                safeTop: 32,
+                auxLeft: 663.5,
+                auxRight: 663.5
+            ),
+            isInternal: true
+        )
+    }
+
     private func panel(_ style: Style = .card) -> (NSPanelPresentationPanel, ScreenDescription, CoordinatorHarness) {
+        panel(surface: .skin(style))
+    }
+
+    private func panel(
+        surface: PanelSurface,
+        on screen: ScreenDescription? = nil
+    ) -> (NSPanelPresentationPanel, ScreenDescription, CoordinatorHarness) {
         let harness = CoordinatorHarness()
-        let screen = screen()
+        let screen = screen ?? self.screen()
         return (
             NSPanelPresentationPanel(
-                screen: screen, style: style, coordinator: harness.coordinator, lowPower: nil
+                screen: screen, surface: surface, coordinator: harness.coordinator, lowPower: nil
             ),
             screen, harness
         )
@@ -46,13 +70,61 @@ struct NSPanelPresentationPanelTests {
     }
 
     @Test func swiftUINeverGetsToSizeTheWindow() {
-        // `.standardBounds` (the default) installs constraints that let the view
-        // resize the panel from its own layout — the window-vs-render race.
-        for style in [Style.card, .classic, .notch] {
-            let (panel, _, harness) = self.panel(style)
-            #expect(panel.contentIsBarredFromSizingTheWindow)
+        // The window's own layout pass is where a hosting view in charge of the
+        // window grants its content's minimum — the window-vs-render race. The
+        // upright HUD's window is narrower than the card view's floor, so it is
+        // the panel that shows it: widened, its HUD drawn off the screen's edge.
+        // The Notch is built on a screen with a slit, the only place its window
+        // is narrow; on a slitless screen its window spans the whole width.
+        let surfaces: [(PanelSurface, ScreenDescription?)] =
+            [(.skin(.card), nil), (.skin(.classic), nil), (.skin(.notch), notchedScreen()), (.cardNowPlaying, nil)]
+                + HUDPlacement.allCases.filter { $0 != .topCenter }.map { (.cardHUD($0), nil) }
+        for (surface, onScreen) in surfaces {
+            let (panel, screen, harness) = self.panel(surface: surface, on: onScreen)
+            // Born where the rule asks, to the point: a rule frame on a half point
+            // would be placed rounded by AppKit (placeableAsWindow).
+            #expect(panel.currentWindowFrame == surface.windowFrame(on: screen.geometry), "\(surface)")
+            panel.layOutWindowNow()
+            #expect(panel.currentWindowFrame == surface.windowFrame(on: screen.geometry), "\(surface)")
+            // The window holding still is half of it: the content must also fill
+            // it, or the surface draws nowhere inside a correctly placed window.
+            #expect(panel.hostedContentFillsTheWindow, "\(surface)")
             withExtendedLifetime(harness) {}
         }
+    }
+
+    @Test func theNotchSurfaceSitsOnTheSlitToThePoint() throws {
+        // A slit 663.5 pt from each side centres on a whole point with an odd
+        // window width, so the rule's window starts on a half point. Placed by
+        // AppKit, the surface the view centres in that window must still centre on
+        // the slit: half a point off, its edge sits on the live menu bar.
+        let screen = notchedScreen()
+        let (panel, _, harness) = panel(surface: .skin(.notch), on: screen)
+        let hud = Style.notch.frame(for: .hud(SystemHUD(kind: .volume, value: 0.5)), on: screen.geometry)
+        let drawn = SurfaceClickThrough.surfaceRect(size: hud.size, window: panel.currentWindowFrame, anchor: .top)
+        let slit = try #require(NotchStyle.slit(on: screen.geometry))
+        #expect(drawn.midX == slit.midX)
+        #expect(drawn.maxY == hud.maxY)
+        withExtendedLifetime(harness) {}
+    }
+
+    @Test func aSplitCardPanelDrawsItsOwnLayerInItsOwnWindow() {
+        // Built from its surface: the HUD's panel reads the HUD alone, runs the bar
+        // the way its placement does, and sits in a window around that spot — the
+        // card's view in the card's window would be clipped there, and a flat bar
+        // would lie across an upright surface.
+        let (hudPanel, screen, _) = panel(surface: .cardHUD(.middleLeft))
+        #expect(hudPanel.drawnLayers == .hud)
+        #expect(hudPanel.hudAxis == .vertical)
+        #expect(hudPanel.currentWindowFrame == PanelSurface.cardHUD(.middleLeft).windowFrame(on: screen.geometry))
+
+        let (cardPanel, _, _) = panel(surface: .cardNowPlaying)
+        #expect(cardPanel.drawnLayers == .nowPlaying)
+        #expect(cardPanel.hudAxis == .horizontal)
+        #expect(cardPanel.currentWindowFrame == Style.card.windowFrame(on: screen.geometry))
+
+        let (shared, _, _) = panel(.card)
+        #expect(shared.drawnLayers == .both)
     }
 
     @Test func theWindowIsPlacedOnceAndNeverMovesWithTheState() {
@@ -78,9 +150,9 @@ struct NSPanelPresentationPanelTests {
     }
 
     @Test func everyApplyRetargetsHoverAtTheStateItJustDrew() {
-        // The region math is pinned in SurfaceHoverModelTests; what was invisible
-        // is whether the panel PUSHES it. A mutation dropping the retarget left
-        // the suite green while the previous state's silhouette stayed live —
+        // The region math is pinned in SurfaceHoverModelTests; what is invisible
+        // there is whether the panel PUSHES it. A mutation dropping the retarget
+        // leaves every other test green while the previous state's silhouette stays live —
         // an invisible band that keeps holding the surface open where nothing is
         // drawn any more (docs/DECISIONS.md: hover-follows-the-eye).
         let (panel, screen, harness) = self.panel()
@@ -98,6 +170,34 @@ struct NSPanelPresentationPanelTests {
         // and the next apply retargets before arming again.
         apply(panel, Style.card.frame(for: .hidden, on: screen.geometry))
         #expect(panel.hoverRetargetRequests == atBirth + 2)
+
+        withExtendedLifetime(harness) {}
+    }
+
+    @Test func aSizeReportRetargetsHoverToTheRenderedSurface() {
+        // The other push the regions depend on: the apply's retarget errs tight on
+        // a report that predates the state, so a surface growing into its new state
+        // is under-armed until the view reports what it drew. Without the report's
+        // retarget the band stays at the apply's guess, short of the pixels the
+        // pointer is over (docs/DECISIONS.md: hover-follows-the-eye).
+        let (panel, screen, harness) = self.panel()
+        let track = CoordinatorHarness.playingTrack()
+        let compact = Style.card.frame(for: .nowPlaying(track, expanded: false), on: screen.geometry)
+        let expanded = Style.card.frame(for: .nowPlaying(track, expanded: true), on: screen.geometry)
+        apply(panel, compact)
+        panel.surfaceSizeChanged(compact.size)
+        apply(panel, expanded)
+
+        let rendered = SurfaceClickThrough.surfaceRect(
+            size: expanded.size,
+            window: Style.card.windowFrame(on: screen.geometry),
+            anchor: Style.card.surfaceVerticalAnchor
+        )
+        let widened = SurfaceHoverRegions.around(rendered, margins: Style.card.hoverExitMargins)
+        #expect(panel.currentHoverRegions != widened, "the apply alone reached the rendered surface")
+
+        panel.surfaceSizeChanged(expanded.size)
+        #expect(panel.currentHoverRegions == widened)
 
         withExtendedLifetime(harness) {}
     }
@@ -164,22 +264,14 @@ struct NSPanelPresentationPanelTests {
     @Test func theStaleReportClickRuleIsTheIntersectionNormalizedToZero() {
         // The pure half of the clamp above: intersection where the rects
         // agree, .zero (never CGRect.null) when they do not.
-        let rule = CGRect(x: 100, y: 100, width: 210, height: 42)
+        let rule = CGRect(x: 100, y: 100, width: 210, height: 36)
         let stale = CGRect(x: 65, y: 30, width: 280, height: 154)
         #expect(
             NSPanelPresentationPanel.staleReportClickRect(rendered: stale, ruleFrame: rule)
-                == CGRect(x: 100, y: 100, width: 210, height: 42)
+                == CGRect(x: 100, y: 100, width: 210, height: 36)
         )
         let disjoint = CGRect(x: 900, y: 900, width: 10, height: 10)
         #expect(NSPanelPresentationPanel.staleReportClickRect(rendered: disjoint, ruleFrame: rule) == .zero)
         #expect(NSPanelPresentationPanel.staleReportClickRect(rendered: stale, ruleFrame: .zero) == .zero)
-    }
-
-    @Test func theFixedWindowIsTheStylesOwnMaximum() {
-        // It is the style's rule that decides, not the panel: a window smaller
-        // than the largest state would crop the surface it is supposed to hold.
-        let (panel, screen, harness) = self.panel()
-        #expect(panel.currentWindowFrame == Style.card.windowFrame(on: screen.geometry))
-        withExtendedLifetime(harness) {}
     }
 }

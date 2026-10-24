@@ -21,7 +21,7 @@ enum BetterDisplayCommandTranslation {
     }
 
     /// The verdict BetterDisplay returned for one request.
-    struct Verdict: Equatable {
+    struct Verdict: Equatable, Sendable {
         let uuid: String
         let succeeded: Bool
         let payload: String?
@@ -52,6 +52,44 @@ enum BetterDisplayCommandTranslation {
             commands: ["set"],
             parameters: ["displayID": String(displayID), "brightness": String(clamped)]
         ))
+    }
+
+    /// A read of one of the neighbour's feedback switches. A feature is asked for
+    /// by its own name as the parameter key, with no value (docs/DECISIONS.md:
+    /// neighbour-features-are-not-identifiers).
+    static func getRequest(uuid: String, setting: NeighbourOSDSetting) -> String? {
+        encode(Request(uuid: uuid, commands: ["get"], parameters: [parameter(for: setting): ""]))
+    }
+
+    /// A write of one of the neighbour's feedback switches.
+    static func setRequest(uuid: String, setting: NeighbourOSDSetting, value: Bool) -> String? {
+        encode(Request(uuid: uuid, commands: ["set"], parameters: [parameter(for: setting): value ? "on" : "off"]))
+    }
+
+    /// The switch a `get` answered with, or nil for anything that is not the
+    /// documented `on` or `off`: a guess here would decide what to hand back.
+    static func switchValue(fromPayload payload: String?) -> Bool? {
+        switch payload {
+        case "on": true
+        case "off": false
+        default: nil
+        }
+    }
+
+    /// BetterDisplay's names for the switches (BetterDisplay Guide, read
+    /// 2026-10-18). The names and what each turns on and off come from "CLI
+    /// reference": `osdIntegrationNotification` is the third-party OSD
+    /// notifications, `osdShowBasic` the basic OSD for brightness and volume. The
+    /// switches they are in BetterDisplay's window come from the pages describing
+    /// that window: "App Integration" names "Dispatch OSD notifications", and
+    /// "OSD" (Settings → Keyboard) names "Show brightness, volume, mute OSD" as the
+    /// basic feedback beside the custom one. `osdShowCustom` stays the user's: it
+    /// covers shortcuts Crema draws nothing for.
+    private static func parameter(for setting: NeighbourOSDSetting) -> String {
+        switch setting {
+        case .dispatchesToOtherApps: "osdIntegrationNotification"
+        case .showsOwnIndicator: "osdShowBasic"
+        }
     }
 
     /// Nil for anything that is not a verdict we can act on — a malformed body, or

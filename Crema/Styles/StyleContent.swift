@@ -1,17 +1,17 @@
 /// Which surface a skin should render for a given state. Shared pure mapping
 /// so every style derives its content from `PresentationState` the same way.
-/// `showsNowPlaying` and `showsHUD` are the per-display policy: with either off
-/// the matching content maps to empty — content-level suppression, because the
-/// fixed window can no longer hide a display by ordering out. They are separate
-/// because their reasons are: one is the user's preference, the other is which
-/// display a reading belongs to.
+/// `showsNowPlaying` is the per-display preference: with it off the appearance
+/// maps to empty — content-level suppression, because the fixed window never
+/// hides a display by ordering out. Which display a HUD belongs to is settled
+/// before the state gets here: a display the HUD is not for is handed the
+/// appearance under it (`PresentationLayers.state(on:showsHUD:)`).
 enum StyleContent: Equatable {
     case empty
     case nowPlayingCompact(NowPlaying)
     case nowPlayingExpanded(NowPlaying)
     case hud(SystemHUD)
 
-    init(state: PresentationState, showsNowPlaying: Bool = true, showsHUD: Bool = true) {
+    init(state: PresentationState, showsNowPlaying: Bool = true) {
         switch state {
         case .hidden:
             self = .empty
@@ -20,7 +20,7 @@ enum StyleContent: Equatable {
                 ? (expanded ? .nowPlayingExpanded(track) : .nowPlayingCompact(track))
                 : .empty
         case .hud(let hud):
-            self = showsHUD ? .hud(hud) : .empty
+            self = .hud(hud)
         }
     }
 

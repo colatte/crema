@@ -17,15 +17,16 @@ import SwiftUI
 @MainActor
 final class NSPanelPresentationPanel: PresentationPanel {
     private let panel: NSPanel
-    private let style: Style
+    private let surface: PanelSurface
     /// Cursor-vs-stable-region hover detection; nil for styles without a
     /// distinct expanded surface.
     private let hoverMonitor: SurfaceHoverMonitor?
     /// Every skin animates its sized surface inside this window, which never
     /// resizes.
     private let fixedWindowFrame: CGRect
-    /// Per-display now-playing suppression, forwarded into the view.
-    private let displayPolicy = SurfaceDisplayPolicy()
+    /// Render context forwarded into the view: the layers this panel draws, and
+    /// per-display now-playing suppression.
+    private let displayPolicy: SurfaceDisplayPolicy
     /// Bridges the view's rendered-size reports (environment closure, baked at
     /// init before `self` is available) to the panel.
     private let sizeRelay = SurfaceSizeRelay()
@@ -42,7 +43,7 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// capture clicks).
     private var currentFrame: CGRect = .zero
     /// Click-invoke region (empty ⇒ none): with media playing and nothing
-    /// visible, a click here surfaces the compact appearance. It is exactly
+    /// visible, a click here opens the expanded appearance. It is exactly
     /// the compact rule frame — for the notch, the slit band — so the menus
     /// flanking it keep falling through untouched.
     private var invokeZone: CGRect = .zero
@@ -55,9 +56,9 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// Window facts for the tests that pin the fixed-window model. This class is
     /// opaque by design — reconciliation, frame math and style resolution live
     /// above it — but these two are invariants a one-line change breaks in
-    /// silence, and until these existed no test could see them at all: mutations
-    /// handing SwiftUI the power to size the window, and dropping the fixed
-    /// frame entirely, both left the whole suite green.
+    /// silence, and without them no test can see either: mutations handing
+    /// SwiftUI the power to size the window, and dropping the fixed frame
+    /// entirely, both leave every other test green.
     /// (AGENTS.md "Never do".)
     var currentWindowFrame: CGRect { panel.frame }
 
@@ -65,6 +66,13 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// with no distinct expanded surface. Read-only, for the tests that pin the
     /// retarget — see `SurfaceHoverMonitor.currentRegions`.
     var currentHoverRegions: SurfaceHoverRegions? { hoverMonitor?.currentRegions }
+
+    /// The layers this panel's view reads and the direction its HUD bar runs.
+    /// Read-only, for the tests that pin which panel draws what: a panel built
+    /// for the Card's HUD alone that read both layers would draw the card in a
+    /// window sized for the HUD.
+    var drawnLayers: PresentationLayers.Surface { displayPolicy.surface }
+    var hudAxis: Axis { displayPolicy.hudAxis }
 
     /// The click-interactive rect. Read-only, and it exists to pin where this rect
     /// comes from: the rendered surface, from the first apply onward.
@@ -74,18 +82,27 @@ final class NSPanelPresentationPanel: PresentationPanel {
     /// purpose on SurfaceHoverMonitor.
     var hoverRetargetRequests: Int { hoverMonitor?.retargetRequests ?? 0 }
 
-    /// Read back from the real hosting view at construction, where its concrete
-    /// (modifier-chained) type is still known. False means the content view can
-    /// drive the window's size — the window-vs-render race the fixed window
-    /// exists to kill.
-    private(set) var contentIsBarredFromSizingTheWindow = false
+    /// Runs the window's own layout pass now, the pass in which a hosting view in
+    /// charge of the window resizes it, so a test reads the frame after it rather
+    /// than a run-loop turn before.
+    func layOutWindowNow() {
+        panel.layoutIfNeeded()
+    }
+
+    /// Whether the hosted SwiftUI content spans the whole fixed window: it sits
+    /// in a plain content view, so nothing but its autoresizing keeps it there.
+    var hostedContentFillsTheWindow: Bool {
+        guard let content = panel.contentView, let hosted = content.subviews.first else { return false }
+        return hosted.frame == content.bounds && content.bounds.size == panel.frame.size
+    }
 
     /// `lowPower` carries no default on purpose: forgetting it at the factory then
     /// fails to compile instead of shipping panels whose waveform never stops
     /// (the lesson the `wire*` seams were extracted for).
-    init(screen: ScreenDescription, style: Style, coordinator: Coordinator, lowPower: LowPowerModeMirror?) {
-        self.style = style
+    init(screen: ScreenDescription, surface: PanelSurface, coordinator: Coordinator, lowPower: LowPowerModeMirror?) {
+        self.surface = surface
         self.coordinator = coordinator
+        displayPolicy = SurfaceDisplayPolicy(surface: surface.layers, hudAxis: surface.hudAxis)
         panel = NSPanel(
             contentRect: .zero,
             styleMask: [.borderless, .nonactivatingPanel],
@@ -122,29 +139,26 @@ final class NSPanelPresentationPanel: PresentationPanel {
         // mirror rides along, but as a REFERENCE the composition root keeps
         // reporting into: an engage/disengage reaches a surface built long before
         // it, with no panel rebuild — the two captured values above cannot.
-        let stateSizes = style.stateSizes(on: screen.geometry)
-        let root = style.makeView(coordinator: coordinator, displayPolicy: displayPolicy)
+        let stateSizes = surface.stateSizes(on: screen.geometry)
+        let root = surface.makeView(coordinator: coordinator, displayPolicy: displayPolicy)
             .environment(\.notchSlitInset, screen.geometry.safeTop)
             .environment(\.surfaceStateSizes, stateSizes)
             .environment(\.lowPowerMode, lowPower)
             .environment(\.surfaceSizeReporter, { [sizeRelay] size in sizeRelay.onChange?(size) })
 
-        fixedWindowFrame = style.windowFrame(on: screen.geometry)
+        fixedWindowFrame = surface.windowFrame(on: screen.geometry)
 
         // Hover detection decoupled from the animating surface: sample
         // the real cursor against this style's stable regions and forward to the
-        // Coordinator. The notch debounces (top edge); the others commit at once.
-        if let regions = style.hoverRegions(on: screen.geometry) {
-            let commit = style.hoverCommit
-            hoverMonitor = SurfaceHoverMonitor(regions: regions) { [weak coordinator, displayPolicy] inside in
+        // Coordinator, naming the layers this panel draws. The notch debounces (top
+        // edge); the others commit at once.
+        if let regions = surface.hoverRegions(on: screen.geometry) {
+            hoverMonitor = SurfaceHoverMonitor(regions: regions) { [weak coordinator, displayPolicy] inside, byMovement in
                 // Panel-local first: the capsule knob is per-display, so only
                 // the hovered surface reveals it; the Coordinator keeps the
-                // global mirror its timers key on.
+                // global record its timers key on.
                 displayPolicy.pointerInside = inside
-                switch commit {
-                case .immediate: coordinator?.hover(inside)
-                case .debounced: coordinator?.hoverIntent(inside)
-                }
+                Self.forwardHover(inside, byMovement: byMovement, from: surface, to: coordinator)
             }
             // Activated per-display by apply(frame:hoverArmed:).
         } else {
@@ -158,12 +172,22 @@ final class NSPanelPresentationPanel: PresentationPanel {
             self?.surfaceSizeChanged(size)
         }
 
+        // SwiftUI must never drive the window frame, and a hosting view has two
+        // ways to. The default sizingOptions (.standardBounds) install
+        // min/intrinsic/max constraints; and as the window's content view it
+        // updates the window's contentMinSize and contentMaxSize from its content
+        // (Apple docs, NSHostingView.sizingOptions). Measured: with the constraints
+        // off, the second still widens the upright HUD's window, narrower than the
+        // card view's 180 pt floor, to that floor on the window's first layout, and
+        // that HUD lands off the screen's right edge. So the hosting view sits inside a plain view
+        // that fills the window; given a frame smaller than its content, it
+        // centres the content (same doc), which is where every surface draws.
         let hostingView = NSHostingView(rootView: root)
-        // SwiftUI must never drive the window frame: the default
-        // sizingOptions (.standardBounds) install min/intrinsic/max constraints
-        // that can resize the panel from the view's layout.
-        contentIsBarredFromSizingTheWindow = Self.barContentFromSizingTheWindow(hostingView)
-        panel.contentView = hostingView
+        hostingView.sizingOptions = []
+        hostingView.autoresizingMask = [.width, .height]
+        let content = NSView()
+        content.addSubview(hostingView)
+        panel.contentView = content
 
         // The window exists once, front once, never resized or ordered out
         // again: an invisible (clear, click-through) window while the surface
@@ -174,11 +198,28 @@ final class NSPanelPresentationPanel: PresentationPanel {
         installMouseRouting()
     }
 
+    /// A hover on this panel, as the Coordinator takes it: naming the layers the
+    /// panel draws, so a pointer on the Card's HUD alone holds the HUD and nothing
+    /// else, and whether a mouse event caused the report, since a pointer the
+    /// arming sample found holds no HUD. Static and internal so the tests reach the dispatch the monitor's
+    /// callback runs — the monitor itself samples the real cursor.
+    static func forwardHover(
+        _ inside: Bool,
+        byMovement: Bool,
+        from surface: PanelSurface,
+        to coordinator: Coordinator?
+    ) {
+        switch surface.hoverCommit {
+        case .immediate: coordinator?.hover(inside, on: surface.layers, byMovement: byMovement)
+        case .debounced: coordinator?.hoverIntent(inside, byMovement: byMovement)
+        }
+    }
+
     // swiftlint:disable function_parameter_count - one parameter per contract note, as PresentationPanel declares
     /// `frame` arrives in AppKit global screen coordinates (ScreenTranslation
     /// convention) and is the state's tight rule frame. It never touches the
-    /// window: it becomes the click-interactive region (the view animates the
-    /// matching surface on its own).
+    /// window: it bounds the click and hover regions, which follow the rendered
+    /// surface (the view animates that surface on its own).
     func apply(
         frame: CGRect,
         hoverArmed: Bool,
@@ -208,10 +249,10 @@ final class NSPanelPresentationPanel: PresentationPanel {
         // hover-follows-the-eye).
         if !frame.isEmpty {
             let rendered = reportedSurfaceSize.map { size in
-                SurfaceClickThrough.surfaceRect(size: size, window: fixedWindowFrame, anchor: style.surfaceVerticalAnchor)
+                SurfaceClickThrough.surfaceRect(size: size, window: fixedWindowFrame, anchor: surface.surfaceVerticalAnchor)
             }
             if let regions = SurfaceHoverRegions.forApply(
-                ruleFrame: frame, lastRendered: rendered, margins: style.hoverExitMargins
+                ruleFrame: frame, lastRendered: rendered, margins: surface.hoverExitMargins
             ) {
                 hoverMonitor?.updateRegions(regions)
             }
@@ -232,12 +273,11 @@ final class NSPanelPresentationPanel: PresentationPanel {
             return
         }
         // Reached only before the hosting view has reported a size, and measured:
-        // it reports during construction, so no apply has ever landed here. What
-        // used to live in this spot was a union-then-tighten settle over a
-        // calibrated constant, for the shrink case — machinery that cannot run,
-        // documented as live behaviour, with the constant asserted only against
-        // another constant. Anyone calibrating click-during-close would have
-        // turned a dial connected to nothing.
+        // it reports during construction, so no apply has ever landed here. No
+        // settle belongs in this spot: a union-then-tighten settle over a
+        // calibrated constant, for the shrink case, is machinery that cannot run,
+        // with the constant asserted only against another constant. Anyone
+        // calibrating click-during-close would turn a dial connected to nothing.
         //
         // The one line stays as a net: should a report ever be late, clicks land on
         // the rule frame rather than on nothing.
@@ -265,7 +305,7 @@ final class NSPanelPresentationPanel: PresentationPanel {
         guard let size = reportedSurfaceSize else { return }
         var visible: CGRect = currentFrame.isEmpty
             ? .zero
-            : SurfaceClickThrough.surfaceRect(size: size, window: fixedWindowFrame, anchor: style.surfaceVerticalAnchor)
+            : SurfaceClickThrough.surfaceRect(size: size, window: fixedWindowFrame, anchor: surface.surfaceVerticalAnchor)
         if tightensToRuleFrame {
             // Apply path only: the reported size predates the state, so the
             // click region may not exceed the state's tight rule frame — the
@@ -281,7 +321,7 @@ final class NSPanelPresentationPanel: PresentationPanel {
         // next apply retargets before arming) and never adopts the empty
         // branch's window-tall report.
         if pushesHoverRegions, !visible.isEmpty {
-            hoverMonitor?.updateRegions(.around(visible, margins: style.hoverExitMargins))
+            hoverMonitor?.updateRegions(.around(visible, margins: surface.hoverExitMargins))
         }
         routeClicks(at: NSEvent.mouseLocation)
     }
@@ -298,9 +338,10 @@ final class NSPanelPresentationPanel: PresentationPanel {
     }
 
     /// Render context into the view's policy box. Each flag is written only when
-    /// it changes — belt-and-braces, since the @Observable setter short-circuits
-    /// an equal value (Swift 6.2+); the guard keeps the intent at the call site
-    /// for the cost of a comparison.
+    /// it changes — belt-and-braces: an equal write through the generated setter
+    /// is measured to fire nothing (`Coordinator.publishTrackNames` states where),
+    /// but no Apple document promises it, and the guard keeps the intent at the
+    /// call site for the cost of a comparison.
     private func updateDisplayPolicy(
         showsNowPlaying: Bool,
         showsHUD: Bool,
@@ -319,17 +360,6 @@ final class NSPanelPresentationPanel: PresentationPanel {
         if displayPolicy.hudIndicatorStyle != hudIndicatorStyle {
             displayPolicy.hudIndicatorStyle = hudIndicatorStyle
         }
-    }
-
-    /// SwiftUI must never drive the window frame: the default sizingOptions
-    /// (.standardBounds) install min/intrinsic/max constraints that can resize
-    /// the panel from the view's layout — the window-vs-render race the fixed
-    /// window model exists to kill.
-    /// Returns whether the bar took, read back from the view itself — the only
-    /// place its concrete (modifier-chained) type is still known.
-    private static func barContentFromSizingTheWindow(_ hostingView: NSHostingView<some View>) -> Bool {
-        hostingView.sizingOptions = []
-        return hostingView.sizingOptions.isEmpty
     }
 
     func close() {
@@ -384,7 +414,7 @@ final class NSPanelPresentationPanel: PresentationPanel {
         // does — that is what keeps a click from falling through to whatever
         // sits below while also letting everything outside both rects through.
         // Right/other buttons inside the zone are captured but not acted on:
-        // the zone is the notch's dead slit, where they had nothing to hit
+        // the zone is the notch's dead slit, where they have nothing to hit
         // anyway (ignoresMouseEvents cannot be scoped per button).
         let interactive = SurfaceClickThrough.isInteractive(point, surface: interactiveRect)
             || SurfaceClickThrough.isInteractive(point, surface: invokeZone)

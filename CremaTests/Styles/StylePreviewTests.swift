@@ -60,15 +60,15 @@ struct StylePreviewTests {
         // Compared by their TOP edges, not their middles: the open notch surface is
         // the taller of the two, so its centre sits below the card's while its edge
         // is still the one welded to the top of the screen. Comparing midpoints
-        // asserted the opposite of the truth and passed only while both were shut.
+        // asserts the opposite of the truth and passes only while both are shut.
         #expect(card.minY > notch.minY, "the card floats below the edge the notch hangs from")
     }
 
     @Test func onlyTheNotchTileDrawsASlitAndOnlyItsSurfaceIsOpaque() {
-        // All three are illustrated on the SAME panel now, because the card's rule
+        // All three are illustrated on the SAME panel, because the card's rule
         // reads the safe area and a slitless reference reports zero for it — drawn
-        // there the card lands 8 pt down, under the menu bar, and the picture said
-        // it was welded to the bezel. What still belongs to the notch alone is the
+        // there the card lands 8 pt down, under the menu bar, and the picture says
+        // it is welded to the bezel. What still belongs to the notch alone is the
         // slit (drawing one under Card would promise hardware that style ignores)
         // and the opaque fill: only the notch is black, because it camouflages with
         // the cutout it covers.
@@ -109,7 +109,7 @@ struct StylePreviewTests {
 
     // The tests above ask about the canonical panel — the default argument, and
     // what the picker calls. The ones below name a display: the same question with
-    // the answer no longer fixed to one Mac.
+    // the answer not fixed to one Mac.
 
     @Test func onASlitlessPanelTheNotchTileDrawsWhatThatDisplayWouldDraw() {
         // A tile is a picture OF a display, so on a display with no slit the notch
@@ -186,5 +186,22 @@ struct StylePreviewTests {
                 #expect(surface.width > 0 && surface.height > 0, "\(style) draws nothing on \(screen.name)")
             }
         }
+    }
+
+    @Test func theHUDBarIsThePlacementRuleInTheScreensOwnFractions() {
+        // Measured DOWN from the top, like every preview fraction: a bar along the
+        // bottom edge lands near 1, never near 0.
+        let reference = StylePreview.notchedReference
+        let screen = reference.frame
+        for placement in HUDPlacement.allCases {
+            let rule = CardStyle.hudFrame(at: placement, on: reference)
+            let bar = StylePreview.hudBar(at: placement)
+            #expect(abs(bar.minX - rule.minX / screen.width) < 0.0001, "\(placement)")
+            #expect(abs(bar.minY - (screen.maxY - rule.maxY) / screen.height) < 0.0001, "\(placement)")
+            #expect(abs(bar.width - rule.width / screen.width) < 0.0001, "\(placement)")
+            #expect(abs(bar.height - rule.height / screen.height) < 0.0001, "\(placement)")
+        }
+        #expect(StylePreview.hudBar(at: .bottomCenter).maxY > 0.8)
+        #expect(StylePreview.hudBar(at: .topCenter).minY < 0.1)
     }
 }

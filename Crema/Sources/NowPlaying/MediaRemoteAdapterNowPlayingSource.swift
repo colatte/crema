@@ -291,7 +291,7 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
         guard let anchor else { lock.unlock(); return }
         // Aged on the SUSPENDING stopwatch (`systemUptime`, which stops while the
         // machine sleeps), never the wall clock. Sampling means the
-        // bar follows whatever clock it reads, so reading the wall clock let an NTP
+        // bar follows whatever clock it reads, so reading the wall clock lets an NTP
         // step correction or a manual time change move the bar with it — backward,
         // undoing playback already shown, and forward, throwing it ahead to be
         // clamped at the duration. Neither is playback; both are the clock. Every
@@ -300,10 +300,10 @@ final class MediaRemoteAdapterNowPlayingSource: NowPlayingSource, StoppableSourc
         // position by then), so the wall clock is not part of this arithmetic at all
         // and the bar is immune to it in both directions.
         //
-        // This is what a monotonic floor would have approximated: a floor could only
-        // stop the backward half, left the forward half untouched, and needed a
-        // rate > 0 exception so a rewind scan could still walk the bar back. One
-        // clock that cannot lie replaces all of it.
+        // A monotonic floor is the discarded approximation: it stops only the
+        // backward half, leaves the forward half untouched, and needs a rate > 0
+        // exception so a rewind scan can still walk the bar back. One clock that
+        // cannot lie does all of it.
         //
         // `max(0, …)` is cheap defence, not a mechanism: this stopwatch does not go
         // backward, and if one ever did, aging by a negative span would move the bar

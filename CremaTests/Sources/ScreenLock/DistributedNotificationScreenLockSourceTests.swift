@@ -14,7 +14,7 @@ import Testing
 /// (Crema HUD) but never swallows (native OSD too), permanently, across all
 /// domains, until a clean lock cycle or relaunch.
 ///
-/// The fix: `handleEdge` reconciles the edge immediately AND schedules a short
+/// The rule: `handleEdge` reconciles the edge immediately AND schedules a short
 /// backoff of extra authoritative re-reads. A re-read that sees the settled
 /// truth emits the transition the stale edge missed; a re-read that confirms the
 /// current truth is deduped (silent). These tests inject an edge by calling
@@ -59,7 +59,7 @@ struct DistributedNotificationScreenLockSourceTests {
         )
     }
 
-    // MARK: - The fix, in isolation
+    // MARK: - The rule, in isolation
 
     /// An edge puts the SHORT backoff in front of the slow tail, and that is the
     /// whole difference between an unlock the user feels instantly and one that
@@ -68,7 +68,7 @@ struct DistributedNotificationScreenLockSourceTests {
     /// Every other test here drives the chain with bare `advance()`, which
     /// completes the oldest parked sleep whatever its delay — so the 30 s tail
     /// answers each advance in the backoff's place and the two are
-    /// indistinguishable. A mutation dropping the backoff entirely left them all
+    /// indistinguishable. A mutation dropping the backoff entirely leaves them all
     /// green. The delays themselves are the only thing that tells them apart.
     @Test func anEdgeArmsTheShortBackoffAheadOfTheSlowTail() async {
         let box = SessionBox(locked: false, onConsole: true)
@@ -155,9 +155,13 @@ struct DistributedNotificationScreenLockSourceTests {
         // latched at unsafe — precisely the residual latch the tail must break.
         source.handleEdge()
         for _ in 0..<8 {
+            await clock.waitForSleep()
             clock.advance()
-            await settle()
         }
+        // The chain re-parks after each re-read, so a parked sleep proves the last
+        // one ran; the drain then covers its emission reaching the collector.
+        await clock.waitForSleep()
+        await settle()
         #expect(emit.values == [false])          // backoff exhausted, still no recovery
         #expect(!source.isSuppressionSafe)
 
@@ -186,9 +190,11 @@ struct DistributedNotificationScreenLockSourceTests {
 
         source.handleEdge()                       // a redundant safe edge
         for _ in 0..<6 {                          // drain the whole settle chain
+            await clock.waitForSleep()
             clock.advance()
-            await settle()
         }
+        await clock.waitForSleep()                // the last re-read ran and re-parked
+        await settle()
         #expect(emit.values.isEmpty)
         #expect(source.isSuppressionSafe)
 
@@ -222,8 +228,8 @@ struct DistributedNotificationScreenLockSourceTests {
     /// The whole seam, the way the composition root joins it: a real tap source
     /// over an injectable tap border, the real suppressor, the real lock
     /// controller over the REAL lock source (injected reader/clock), and
-    /// `AppCore.wireUnlockReinstall`. A stale unlock read that used to strand the
-    /// consumer nil forever now recovers: the source's settle re-read emits the
+    /// `AppCore.wireUnlockReinstall`. A stale unlock read that would strand the
+    /// consumer nil forever recovers: the source's settle re-read emits the
     /// return-to-safe, the controller reinstalls + re-engages, and the tap
     /// swallows again. This is the pin that the orphan-consumer path is closed.
     @Test func staleUnlockReadRecoversTheConsumerEndToEnd() async {
@@ -278,7 +284,7 @@ struct DistributedNotificationScreenLockSourceTests {
         source.reinstallTap()
 
         // Unlock, but the session dict is STALE (still locked): the edge dedups,
-        // nothing re-engages yet — this is exactly where the bug latched forever.
+        // nothing re-engages yet — this is exactly where the bug latches forever.
         lockSource.handleEdge()
         await settle()
         #expect(!suppressor.isEngaged)

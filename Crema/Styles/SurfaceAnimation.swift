@@ -29,8 +29,9 @@ enum SurfaceAnimation {
 
     /// Surface morph springs, chosen by direction: the destination state selects
     /// the spring (see the views). The appearance/disappearance opacity fade uses
-    /// the same pair, picked inline by each view from the destination state (open
-    /// when expanding, close otherwise) — and that fade is the one animation
+    /// the same pair, picked from the destination state by
+    /// `SurfaceStyleBody.fadeAnimation` (open when expanding, close otherwise) —
+    /// and that fade is the one animation
     /// Reduce Motion does NOT suppress: a cross-fade IS what the preference asks
     /// for in place of motion, so gating it would swap the fade for a
     /// single-frame pop, the thing the preference exists to avoid.
@@ -44,8 +45,8 @@ enum SurfaceAnimation {
     /// is a fade at the FINAL frame — no geometry travel. So when either side is
     /// the hidden/empty layout this returns nil: the frame and radius SNAP to the
     /// destination while the opacity (animated separately in each view) fades. Nil
-    /// on the geometry alone is why a HUD born from hidden lands at 210×42 instead
-    /// of gliding down from the last now-playing rect.
+    /// on the geometry alone is why a HUD born from hidden lands at its own rule
+    /// frame instead of gliding down from the last now-playing rect.
     ///
     /// Expressed over `fromEmpty`/`toEmpty` booleans rather than the shared
     /// SurfaceLayoutKind (SurfaceStyleCore): the motion gate depends on exactly
@@ -57,7 +58,8 @@ enum SurfaceAnimation {
     /// geometry/content/width morph resolves to nil so layouts land dry and only
     /// the opacity fades survive (a cross-fade is the accessibility-preferred
     /// substitution). The leaves' own value animations ask `respecting` below,
-    /// and the one perpetual animation asks `allowsPerpetualMotion`.
+    /// and the perpetual animations (the waveform, the title marquee) ask
+    /// `allowsPerpetualMotion`.
     static func geometryAnimation(fromEmpty: Bool, toEmpty: Bool, expanding: Bool, reduceMotion: Bool) -> Animation? {
         guard !reduceMotion else { return nil }
         guard !fromEmpty, !toEmpty else { return nil }
@@ -68,19 +70,18 @@ enum SurfaceAnimation {
     /// to the surface's branches, which also governs the bounds the material,
     /// clips and stroke are sized off (a `.background`/clip sized to the node
     /// below the modifier). It must therefore SNAP that geometry on an
-    /// APPEARANCE from hidden: with a spring here the material sprang from the
-    /// invisible compact/empty rect to the destination and drew OUTSIDE the
-    /// snapped outer frame — the ghost the author saw grow-and-shrink behind the
-    /// HUD (the fixed window is larger than every state, so there was room to
+    /// APPEARANCE from hidden: with a spring here the material springs from the
+    /// invisible compact/empty rect to the destination and draws OUTSIDE the
+    /// snapped outer frame — a ghost that grows and shrinks behind the
+    /// HUD (the fixed window is larger than every state, so there is room to
     /// show it). On appearance the surface is invisible anyway (opacity 0, faded
     /// in separately), so the branch swap needs no motion — nil.
     ///
-    /// On a DISAPPEARANCE it stays the directional spring so the outgoing glyph
-    /// FADES with the surface instead of popping out a frame before the opacity
-    /// fade catches up; the disappearance geometry does not travel because the
-    /// hidden layout freezes the outgoing rect (each view's effective-layout
-    /// geometry), so a non-nil spring here has no size delta to animate. Between
-    /// visible layouts it is the same crossfade+morph as the geometry spring.
+    /// On a DISAPPEARANCE nothing under it changes: a hidden surface draws the
+    /// content it is leaving (`SurfaceLayout.drawnContent`) on the rect it is
+    /// leaving (each view's effective-layout geometry), so the opacity fade alone
+    /// carries it out. Between visible layouts it is the same crossfade+morph as
+    /// the geometry spring.
     static func contentAnimation(fromEmpty: Bool, expanding: Bool, reduceMotion: Bool) -> Animation? {
         guard !reduceMotion else { return nil }
         return fromEmpty ? nil : (expanding ? open : close)
@@ -137,8 +138,8 @@ enum SurfaceAnimation {
     private static let hudLevelDamping: Double = 0.86
     static let hudLevel: Animation = .spring(response: hudLevelResponse, dampingFraction: hudLevelDamping)
 
-    /// Headroom the fixed window keeps past the expanded frame (sideways and
-    /// down; the top anchor stays pinned): the open spring's overshoot carries
+    /// Headroom the fixed window keeps past the expanded frame (sideways and away
+    /// from the anchored edge, which stays pinned): the open spring's overshoot carries
     /// the surface a few points past its target, and without headroom the
     /// window edge would crop the peak.
     static let overshootHeadroom: CGFloat = 12

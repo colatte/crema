@@ -16,14 +16,14 @@ import Testing
 struct AppCoreStyleAuthorityTests {
 
     @Test func theAllDisplaysEntryDeclaresGloballyAndSweepsOverrides() {
-        // The regression itself, at the only seam that can see it. The old body
+        // The regression itself, at the only seam that can see it. A body of
         //
         //     for screen in ScreenTranslation.describeAll() { setStyle(_:for:) }
         //
-        // wrote the ATTACHED displays and nothing else, so a monitor plugged in
-        // afterwards resolved to the shipped default under a picker that promises
-        // "applies to every display" — and it left an override behind on a display
-        // that had been detached, which then outranked the declaration when it came
+        // writes the ATTACHED displays and nothing else, so a monitor plugged in
+        // afterwards resolves to the shipped default under a picker that promises
+        // "changes every display at once" — and it leaves an override behind on a
+        // detached display, which then outranks the declaration when it comes
         // back (docs/DECISIONS.md: global-style-default).
         //
         // Both assertions are what that loop cannot satisfy: it never writes the

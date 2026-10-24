@@ -18,10 +18,10 @@ and go on *existing* while delivering nothing — a live handle wired to a dead
 tap, silent.
 Decision: a health-check re-enables the tap on every delivered disable event and
 polls its state every 2 s, so a silent disable self-heals instead of killing key
-capture for the session. (Covers *disabled* and — since the A8 fix — the
-*invalidated* port too: both are port state, locally readable, and the
-health-check reinstalls on invalidation; the *enabled-but-deaf* death, which
-no local read can see, is J7.)
+capture for the session. (Covers *disabled* and the *invalidated* port too:
+both are port state, locally readable, and the health-check reinstalls on
+invalidation; the *enabled-but-deaf* death, which no local read can see, is
+J7.)
 
 ### J2-display-id-stale
 A system-resource identifier captured once at init (a `displayID`, a keyboard
@@ -29,9 +29,8 @@ backlight ID) goes stale when the hardware topology changes — the frozen ID
 addresses a resource that no longer exists.
 Decision: resolve the resource **per operation**, never freeze it at init.
 Read/write re-resolve the ID each time (the screen-brightness bridge is the
-reference; the keyboard bridge, once the latent sibling, was brought to parity
-in the v1.2 seal round — both bridges re-resolve per operation, with the
-frozen-ID death pinned by each bridge's own test pair).
+reference and the keyboard bridge is held to parity — both bridges re-resolve
+per operation, with the frozen-ID death pinned by each bridge's own test pair).
 
 ### J3-deadline-cooperativo
 A deadline is only real if the timer that fires it is not strangled by the same
@@ -55,13 +54,13 @@ intended per-channel behavior by test — never assume shared code means shared
 behavior.
 
 ### J5-raio-global
-An apply failure in one suppression channel disengaged consumption for **all
-three** domains and persisted the preference off — an over-broad blast radius
-that survived relaunch with no signal, leaving the user's own choice silently
+An apply failure in one suppression channel that disengages consumption for **all
+three** domains and persists the preference off is an over-broad blast radius:
+it survives relaunch with no signal, leaving the user's own choice silently
 overwritten.
 Decision: scope failure handling to the channel that failed, never globally, and
 treat a transient failure as a non-persisted suspension with a menu signal — the
-molds now known as per-domain-suspension and pref-sacred.
+molds named per-domain-suspension and pref-sacred.
 
 ### J6-latch-do-edge
 A single notification edge + read-at-the-moment + dedup with no decoupled
@@ -86,18 +85,23 @@ hardware-proven; the decision holds because the failure is otherwise
 undetectable.
 
 ### J8-a-guard-that-cannot-read
-A guard that cannot read its evidence must fail, never pass. Three of them were
-written the other way and all three were measured: CI's ad-hoc/hardened-runtime
-check greps `codesign` output into FLAGS and, with a missing .app or an unsigned
-bundle, compares an EMPTY string against both patterns — "no flags found" reads
-as "no bad flags" and the step goes green; the test watchdog took xcodebuild's own
-exit code when no verdict line was printed, so a run that reported nothing passed
-through the one rule this repository states about test results; and release.sh's
-`set -e` aborts AT an assignment whose command substitution fails, so four checks
-that each carry a written explanation (generate_appcast missing, no
-sparkle:edSignature, sparkle:version absent, sign_update missing) died one line
+A guard that cannot read its evidence must fail, never pass. The class takes
+three measured shapes, each what breaks when a guard is written the passing way.
+An ad-hoc/hardened-runtime check that greps `codesign` output into FLAGS
+compares, with a missing .app or an unsigned bundle, an EMPTY string against both
+patterns — "no flags found" reads as "no bad flags" and the step goes green. A
+test watchdog that takes xcodebuild's own exit code when no verdict line is
+printed lets a run that reported nothing pass through the one rule this
+repository states about test results. And under `set -e` a script aborts AT an
+assignment whose command substitution fails, so a check that carries a written
+explanation (release.sh has four: generate_appcast missing, no
+sparkle:edSignature, sparkle:version absent, sign_update missing) dies one line
 before the sentence that says what happened — the optional one becoming a mute
-hard abort.
+hard abort. The repository's guards are written the failing way: CI's signature
+check ends the step on a missing .app, a refused `codesign` or no `flags=` field;
+the CI watchdog and release.sh's test gate take only the verdict line, and no
+verdict is a failure; release.sh splits each of its four assignments from the
+check that owns the message.
 Decision: evidence that was never read is not clean evidence. Every guard names
 the three states apart — read and good, read and bad, not read — and the third
 joins the second. In shell that means the assignment is split from its test
@@ -125,7 +129,7 @@ the chain again. A per-domain chain would be the honest shape (the stated reason
 for the global order is per domain to begin with: volume and brightness never
 share a base value), and is not worth tripling the pending/generation state for a
 bounded 2 s worst case that already ends in a suspension the menu names.
-Amended (2026-08-08): a suspended domain is the THIRD reason this app hands a
+A suspended domain is the THIRD reason this app hands a
 key back, and it carries the same feedback duty the other two
 (`brightness-key-follows-the-pointer`, `absent-capability-hands-the-key-back`)
 already pay — one press, one indicator, whoever drew it. The handback fires the
@@ -139,7 +143,7 @@ never who owes the feedback.
 ### pref-sacred
 The only writer of the persisted `suppressesNativeOSD` preference is explicit
 user action. No failure path — and no lock-aware suspension — ever writes it.
-Rationale: the durable harm of J5 was the auto-disengage persisting the pref off,
+Rationale: the durable harm of J5 is an auto-disengage persisting the pref off,
 surviving relaunch, with no signal. Suspension is runtime state; the preference
 is the user's intent, and only the user changes it (pinned by test).
 
@@ -231,15 +235,15 @@ rule an operation falls on is decided by its BODY, not its signature — see
 async-signature-is-not-a-suspension-point.)
 
 ### async-signature-is-not-a-suspension-point
-The rule above was written for reads and quietly broken for writes, because the
-three actuators *looked* async: `func setVolume(…) async throws` whose body is a
+The rule above is stated for reads and breaks quietly for writes, because the
+three actuators *look* async: `func setVolume(…) async throws` whose body is a
 straight-line Core Audio or dlsym'd C call, with no `await` anywhere in it. Such
 a function never suspends — it runs to completion on the thread that picked it
 up — and since a nonisolated `async` function hops off its caller's actor onto
 the global concurrent executor, that thread is a cooperative-pool thread whether
-the call came from `Task.detached` or from `Task { @MainActor in … }`. So the
-write path was the exact pool-starving orphan the read rule exists to prevent,
-and the file stating the rule was the file breaking it. All three legs measured
+the call came from `Task.detached` or from `Task { @MainActor in … }`. So a write
+path of that shape is the exact pool-starving orphan the read rule exists to
+prevent, even in the file that states the rule. All three legs measured
 on a 12-core machine: an `async` body with no `await` called from a `@MainActor`
 task reports `pthread_main_np() == 0` on another thread id (it hops); 12 blocked
 orphans leave a fresh `Task` never scheduled AND the deadline's own
@@ -267,49 +271,50 @@ continuation-plus-`DispatchQueue` shape is not a workaround for a missing idiom,
 is the one available spelling. What bounds the residual GCD's growing pool costs is
 not a count of call sites but their shape: every one is single-flight (one apply per
 key, one read in flight per channel, one decode per panel).
-Mechanical backing was tried and measured out (2026-07-31): SwiftLint's
-`async_without_await` was enabled under the strict gate and produced 31 hits —
-every one a conformance whose protocol forces the `async` keyword (`isAvailable()`,
+Mechanical backing is refused on a measurement (2026-07-31): SwiftLint's
+`async_without_await`, enabled under the strict gate, produced 31 hits — every
+one a conformance whose protocol forces the `async` keyword (`isAvailable()`,
 actuator commands, and their mocks), zero real findings. The rule cannot tell a
 forced signature from a chosen one, and 31 scattered disables would teach readers
-to ignore the marker, so it was removed with this measurement recorded beside the
+to ignore the marker, so it stays off, with this measurement recorded beside the
 opt-in list in .swiftlint.yml. Reviewing "is this async?" stays a reading of the
 body, and this entry is where the shape to look for is written.
-The AVAILABILITY guards of the brightness sources fall under the same rule, and one
-of them was breaking it: `PolledBrightnessSource.isAvailable()` was a straight-line
-border call behind an `async` signature — on the keyboard channel, an enumeration of
-the backlight IDs over the private client's connection, IPC that can hang. It hops
-through `blockingCall` now, and onto the GLOBAL pool rather than that channel's
+The AVAILABILITY guards of the brightness sources fall under the same rule:
+`PolledBrightnessSource.isAvailable()` is a straight-line border call behind an
+`async` signature — on the keyboard channel, an enumeration of the backlight IDs
+over the private client's connection, IPC that can hang. It hops through
+`blockingCall`, and onto the GLOBAL pool rather than that channel's
 serial queue: availability records no value, so it needs no ordering against the
 readings and must not park behind a stalled read.
 
 ### child-process-deadline
 Every one-shot subprocess interaction is time-bounded: waiting on a
-`terminationHandler` with no deadline is waiting forever, and one hung child once
-stalled the entire now-playing chain selection. The pattern is a pure, testable
+`terminationHandler` with no deadline is waiting forever: without the deadline,
+one hung child stalls the entire now-playing chain selection. The pattern is a pure, testable
 race (a deadline over `SleepClock` + single-resume) plus a thin edge that on
 expiry `terminate()`s and escalates to SIGKILL — the child is abandoned and
 killed, never awaited.
 
 ### promotion-quiet-boundary
-The now-playing chain fails over adapter→JXA on outage, but failover was
-one-way: JXA became a sticky terminal state for the whole session even after the
-adapter recovered. Decision: while a lower-priority source is active, a periodic
+The now-playing chain fails over adapter→JXA on outage, and a one-way failover
+makes JXA a sticky terminal state for the whole session even after the adapter
+recovers. Decision: while a lower-priority source is active, a periodic
 read-only probe (30 s) re-checks the higher-priority candidate and preempts it —
 promoting at the next quiet boundary (a silent source is forced to a boundary so
 the swap never strands a live snapshot).
 
-**Amendment: an answer that outlives its own forwarding arms nothing.** The
+**An answer that outlives its own forwarding arms nothing.** The
 promotion probe asks about availability through a call that can take its time — in
 production, spawning a child process under a deadline — and the answer can come back
 AFTER the forwarding that created it has ended. The `cancel()` on the forwarding's
 way out does not cover that: it reaches a task already past the point where
-cancellation is observed. Under the old guard (`activeSource != nil`) such an answer
-armed a promotion on whatever source had been selected next — and if that source was
+cancellation is observed. A presence guard (`activeSource != nil`) lets such an answer
+arm a promotion on whatever source has been selected next — and if that source is
 priority 0 (nothing above it to promote to) and still silent since selection, the
-"boundary c" path STOPPED it: a fresh source killed the beat it was chosen, ghost
-discard fired, one spawn/kill cycle wasted and the re-selection backoff on top.
-Every selection now bumps a `selectionGeneration`, each probe carries the generation
+"boundary c" path STOPS it: a fresh source is killed the beat it is chosen, ghost
+discard fires, one spawn/kill cycle is wasted and the re-selection backoff comes on
+top.
+Every selection bumps a `selectionGeneration`, each probe carries the generation
 of the forwarding that started it, and `armPromotion(generation:)` arms only while
 that generation is still current. The general rule, which is the jurisprudence: an
 answer returning from outside arrives in a world that may have changed — whoever acts
@@ -323,21 +328,16 @@ the Coordinator discards the snapshot and disarms click-invoke, never leaving
 armed controls that would resurrect a dead expanded player no live source can
 represent.
 
-Everything armed on the snapshot goes with it, the HUD's resume promise
-included. That promise is a bool ("the HUD interrupted a visible appearance")
-while the revert resurfaces whatever `nowPlaying` holds *then*, so a promise
-outliving its snapshot is spent on the next one. A discard under a HUD is the
-case with no other guard: the state is `.hud`, so the discard's `hide()` never
-runs, and the usual sequel to a discard — a browser stealing the focus, a chain
-failover, the browser filter being switched back on — is now-playing landing on
-a paused app, which arms no resume of its own yet gets surfaced by the stale
-one: a card opening by itself about a second after a volume key, over media the
-user never played. Same rule as the surface: a discard means the appearance
-would be hidden, and a hidden surface owes no resume. The REPLACEMENT case is
-deliberately not the same — a snapshot that merely changes identity while the
-promise stands keeps it, because outside the HUD a visible appearance would have
-refreshed to the new content: that is parity with the no-HUD path, not a stale
-promise.
+Everything armed on the snapshot goes with it, the appearance under a HUD
+included: the revert brings back whatever appearance the layers hold
+(card-hud-placement), so one kept past its snapshot would come back showing the
+next. The usual sequel to a discard — a browser stealing the focus, a chain
+failover, the browser filter being switched back on — is now-playing landing on a
+paused app, which earns no appearance of its own; a kept one would open a card by
+itself about a second after a volume key, over media the user never played. The
+REPLACEMENT case is deliberately not the same — a snapshot that merely changes
+identity under the HUD updates the appearance in place, as it would with no HUD
+up: that is parity with the no-HUD path, not a stale appearance.
 
 ### observer-model-rejected
 Evaluated migrating away from consuming the media keys to the SlimHUD model:
@@ -355,51 +355,52 @@ The HUD level indicator is drawn by Crema, not by the stock `Slider`
 (2026-07-27, live pixel measurement of the Tahoe OSD/Control Center on
 hardware). Crema replaces the system's HUD, so it must track the system's
 *HUD* look — a thumbless 4 pt capsule whose fill ends flat inside the clip
-(the flat end has since been deliberately deviated from — see the amendment
-below) — not the system's *control*, whose pill thumb was exactly the
-misalignment reported; owning the drawing also removes the exposure that produced the bug
+(the flat end is a deliberate deviation — see the curved fill below) — not the
+system's *control*, whose pill thumb is exactly the misalignment this entry
+answers; owning the drawing also removes the exposure behind it
 (Apple restyling the stock control underneath us). The capsule sits centered in
 a 16 pt hit row (the stock Slider's measured height): the drag target does not
 regress and no surrounding layout moves. A knob (17.5×14 pt, the measured
-native size) appears **only under the pointer** — this supersedes the earlier
-"no knob" deviation: the original refusal assumed a transient HUD, so the hold
-was introduced with the knob to make its premise real — the pointer's arrival
+native size) appears **only under the pointer**. A "no knob" deviation rests on
+a transient HUD; the knob's premise is a HUD that stays while hovered, so the
+hold comes with the knob to make the knob's premise real — the pointer's arrival
 cancels the HUD revert timer and its exit restarts the full delay
 (`Coordinator.publishPointer`), so a hovered HUD is genuinely not transient —
 precisely when the affordance matters, and exactly the Control Center's own
-affordance-on-demand. The knob signal is per display
+affordance-on-demand. Only a mouse event is that arrival: the sample a surface
+takes when it is armed or retargeted under a still cursor records the pointer
+and holds the appearance, never the HUD, or a HUD rising under a resting cursor
+stays up until the mouse moves; the first mouse event that finds the pointer
+there hands it the hold (`SurfaceHoverMonitor`, `movedPointerSurfaces`). The knob signal is per display
 (`SurfaceDisplayPolicy.pointerInside`): only the hovered surface reveals it,
 and an active drag keeps it. Scope: the knob belongs to the capsule
-(Notch/Card); Classic renders the pre-Tahoe bezel's
-16-segment bar filled by width (its reverse-engineered identity — measured in design-reference.md, deleted 2026-08-08, in the git history)
-and stays bare; the now-playing scrubber kept the stock Slider
-(precision gesture, wants a permanent grab handle) — **retired 2026-08-07, see
-the third amendment below**.
-Two amendments from the hardware follow-up (2026-07-28): (1) the fill's end is
-now CURVED — a capsule, not the native flat cut — a deliberate deviation by
-author taste (the iOS Music/players language); the fill width floors at the
+(Notch/Card) and to the now-playing scrubber drawn on the same track (below);
+Classic renders the pre-Tahoe bezel's 16-segment bar filled by width (its
+reverse-engineered identity — measured in design-reference.md, which lives in
+the git history) and stays bare.
+Two rules fix the fill and the knob: (1) the fill's end is
+CURVED — a capsule, not the native flat cut — a deliberate deviation by
+author taste (the iOS Music/players language); the fill length floors at the
 4 pt thickness so a low value reads as a circle-capped nub, never a squashed
-vertical oval, and exactly 0% stays empty. (2) The knob no longer clamps to
-the fill boundary: the boundary-clamp mapping froze it for the last ~half-knob
-of travel at each extreme while the value and the fill kept following the
-pointer — the jam reported from hardware at 0/100%. It now travels the inset
-track [halfKnob, width − halfKnob] linearly with the value (the native thumb
+oval across the track, and exactly 0% stays empty. (2) The knob does not clamp to
+the fill boundary: a boundary-clamp mapping freezes it for the last ~half-knob
+of travel at each extreme while the value and the fill keep following the
+pointer — the jam seen on hardware at 0/100%. It travels the inset
+track [halfKnob, length − halfKnob] linearly with the value (the native thumb
 mapping); the fill boundary never escapes the knob's own body
 (|boundary − center| ≤ halfKnob), so the capsule still reads as one piece.
 
-Third amendment (2026-08-07): **the now-playing scrubber joins the capsule.**
-The earlier scope line kept it on the stock `Slider`, reasoning that a precision
-gesture wants a permanent grab handle. Two rows apart in the lock card, the two
-bars read as a mistake rather than as two decisions: the HUD thumbless and
-white, the scrubber carrying a always-visible thumb and a fill tinted with the
-artwork accent. The author spotted it from the lock screen and described the
-right behaviour unprompted — no tip at rest, one on hover, white — which is this
-entry's own rule.
+**The now-playing scrubber is drawn on the capsule too.** The stock `Slider`,
+on the reasoning that a precision gesture wants a permanent grab handle, is
+refused: beside the HUD the two bars read as a mistake rather than as two
+decisions — the HUD thumbless and white, the scrubber carrying an always-visible
+thumb and a fill tinted with the artwork accent. The author's rule for it is
+this entry's own — no tip at rest, one on hover, white.
 
-So the drawing moved to `CapsuleTrack`, shared by both, and the reasoning
+So the drawing lives in `CapsuleTrack`, shared by both, and the reasoning
 inverts rather than disappears: the grab handle is still wanted *during the
 gesture*, and hover plus drag is exactly when it is there. What the scrubber
-gives up is a handle at REST, which was never precision — it was clutter on a
+gives up is a handle at REST, which is not precision — it is clutter on a
 surface that spends its life not being dragged.
 
 One difference stays, and it is not drift. The HUD's knob follows the
@@ -409,9 +410,110 @@ The scrubber's is LOCAL to the row: it sits inside a bigger card that hover does
 not hold, so the honest question there is whether the pointer is on the BAR —
 which is also what Control Center does.
 
+### card-hud-placement
+Where the Card's HUD sits is a rule of its own: the top centre it shares with the
+now-playing card, where it morphs from that card, or one of seven places on the
+screen's edges (`HUDPlacement`). One rule places all eight
+(`CardStyle.hudFrame(at:on:)`), and the top centre IS the card's `.hud` frame — the
+frame rule asks the placement rule rather than keeping a second description of
+that spot. Along the top edge the HUD hangs from the card's own top anchor, below
+the safe area; along the bottom and on a side it keeps `hudEdgeMargin` from
+where the Dock ends. The Dock's room on each edge is the gap between the screen's
+frame and its visible frame (`ScreenGeometry.dockRoom`), read at the border on
+every topology pass, which `didChangeScreenParameters` starts when the Dock is
+shown or hidden, moved to a side or resized (measured,
+scripts/probes/dock-visible-frame.swift); a Dock moving between displays is
+unmeasured. A change to the Dock's room alone rebuilds only the panel that reads
+it (`PanelSurface.readsTheDock`). With the Dock hidden the bar rests that margin
+from the bottom edge, and the Dock revealed on hover passes over it as over any
+window. The bottom margin is the sides' own, not the native OSD's height that
+Classic keeps (`ClassicMetrics.bottomMargin`): that height suits Classic's
+square, and leaves a thin bar floating over the apps.
+Placements are places on the glass — left and right do not swap under a
+right-to-left interface.
+
+**The place is chosen in a native pop-up, and the real HUD previews it.** Settings
+offers the eight places as a labelled "Position" pop-up (`HUDPlacementPicker`), the
+control every verified OSD-position setting uses (BetterDisplay, Windows 11,
+PowerToys), in three groups split by dividers: the top edge, the middle of the
+sides, the bottom edge. Each item wears a template icon drawn in code
+(`HUDPlacementIcon`): a screen outline with the bar where the Card's own rule puts
+it on the reference panel (`StylePreview.hudBar`), magnified only in size and
+keeping its share of the room around it, so a corner stays a corner and a side's
+bar stands upright. The icon is a hint; the truth is the HUD itself. On a choice,
+the real volume HUD shows once at the new place (`AppCore.previewHUDPlacement` →
+`Coordinator.previewHUD(on:)`) and reverts on the HUD's own timer, so the margin
+and the bar's direction are seen rather than pictured. The level is the output's,
+read at that moment (`VolumeReading`) and never written. It goes to every display
+drawing Card and to no other (`PresentationLayers.hudDisplays`): those are the
+displays the placement governs, and the Settings window's own display is not a
+fact the core reads. Nothing is shown while the screen is locked or the session
+is off the console. A reported HUD arriving over the preview — a drag on its bar
+included — is drawn wherever its target puts it, like any other.
+
+**The bar runs along the edge it sits on.** Flat along the top and bottom edges,
+corners included; upright in the middle of a side (`HUDPlacement.axis`). Upright,
+it is the same strip transposed (`CardMetrics.hudSize(for:)`), never a second
+declared size, and it fills from the BOTTOM in every language: a level rises, it is
+not read. So the track has an axis rather than a rotation (`CapsuleTrack.axis`,
+threaded through `HUDLevelSlider` and `CardHUDIndicator`): rotated, the knob's
+shadow would point sideways and the drag would depend on rotated coordinates; with
+an axis, the shadow stays light-from-above and the drag reads the y it means.
+Every axis-dependent choice is asked of the track, once: the bar's start as
+coordinates (`CapsuleTrack.runsReversed` — the far end of the view's own axis,
+the leading edge under right-to-left, the bottom of an upright bar) and as layout
+(`startAlignment`, `startEdge`), which side of a size or a pointer is the length
+(`length(of:)`, `coordinate(of:)`), and the knob's transposition (`knobFrame`).
+The pointer→value mapping lives once on the track too (`CapsuleTrack.fraction`),
+and both bars drawn on it, the HUD level and the scrubber, map their pointer
+there. Upright, the glyph sits under the bar in a row
+of the same fixed slot (`CardHUDIndicator.hudIconSlot`), centred across it; the
+filled bar's glyph keeps the same inset from the bar's start, equal to the
+corner radius, which clears the corner curve in both orientations because the bar
+is equally thick either way (`inner-corners-are-concentric`). Classic's segmented
+bar has no upright form: it runs horizontal whatever axis it is handed.
+
+**The HUD and the now-playing appearance are two layers.** A HUD placed off the
+top centre is drawn on a surface of its own while the card stays where it is, so
+the Coordinator holds the two apart (`PresentationLayers`), and `state` is what a
+surface drawing both shows: the HUD over the appearance. A HUD rises over the
+appearance without taking it down; the appearance keeps taking events under it
+exactly as it would with no HUD up, the linger it owes included, and only its tuck
+waits: no linger runs while a HUD is up, wherever the HUD is drawn, so the
+appearance has one lifetime whether or not something covers it, and the revert
+arms the tuck again. A transition that moves both layers is one write, because the
+WindowManager's frame pass runs inside it. A pointer event names the surface it
+came from (`PresentationLayers.Surface`) and reaches only the layers that surface
+draws: on a surface drawing the HUD alone it holds the HUD and expands nothing; on
+one drawing the appearance alone it never holds the HUD. The pointer is a set of
+surfaces, because two panels report their exit and entry in either order, and a
+surface a dismissal leaves empty lets go of its pointer, since ordering a panel out
+reports no exit. The notch's debounced hover names no surface: the notch draws
+both layers on one.
+
+**A panel per surface.** A display drawing Card with the HUD off the top centre
+gets two panels, the card's reading the appearance alone and the HUD's reading the
+HUD alone (`PanelSurface`); every other display keeps one panel drawing both. The
+HUD's panel draws the Card's own view, so the HUD is the Card's drawing and only
+where it sits is a rule of its own (`CardHUDStyle`): its fixed window hangs the HUD
+from its top edge exactly onto the placement, with the overshoot headroom every
+skin has. Each panel's hover names its layers, so a pointer on the HUD holds the
+HUD and a pointer on the card never does. Moving the HUD between two places off the
+top centre rebuilds only the HUD's panel; moving it to or from the top centre swaps
+one panel for two or two for one, and a geometry change rebuilds both, since each
+panel captures geometry at creation.
+A click on the card's empty spot invokes nothing on any Card panel (the floating
+skins have no invoke zone), so a HUD up elsewhere changes nothing there. The card
+shown beside a HUD keeps the one lifetime above: it does not tuck while the HUD is
+up, a HUD held under the pointer included. Letting it tuck on its own schedule
+would make the Coordinator's timers depend on how each display arranges its
+panels — on a display drawing both layers on one panel, the tuck would take the
+appearance the revert brings back — and the rule's cost is a card that stays while
+the user adjusts a level beside it.
+
 ### hud-fixed-dark-palette
-Every skin surface commits to one fixed dark palette, in every state and under
-either system appearance: Card and Classic pin `.colorScheme = .dark`
+Every skin commits to one fixed dark palette, its ink drawn for a dark surface in
+every state and under either system appearance: Card and Classic pin `.colorScheme = .dark`
 **enclosing** `vibrantSurface` (the environment reaches the AppKit-backed
 material; one level lower it would darken only the ink over light glass), with
 the `NSVisualEffectView` appearance also pinned as belt-and-braces — the same
@@ -421,21 +523,125 @@ aqua), so a system-following surface renders per-style inconsistency (Notch
 dark, the rest light) and inactive-gray control chrome in a never-key panel;
 and an appearance scoped per branch would flip the palette mid HUD↔now-playing
 morph — one appearance per surface, always. Consequence: the artwork accent
-needs a single brightness band (the light band was deleted with it).
+needs a single brightness band (there is no light band). The Card's surface on
+macOS 26 and later is the one exception to the DARK body, not to the palette:
+its indicator's glass turns pale over a pale page while the ink stays white
+(the-card-is-glass).
+
+The material alone does not hold that commitment over a bright desktop: it takes
+on what is behind it, and over a white page it turns light grey, leaving the
+white ink under the 3:1 a UI element needs. So Card and Classic lay a black film
+over the material (`SurfaceChrome.scrimOpacity`), set so that worst case keeps
+the ink at 4.5:1 or better; over a dark desktop the material is already near
+black and the film changes almost nothing. Liquid Glass was measured as the
+alternative on macOS 27 and does not replace it: in a never-key panel it draws no
+specular edge and is as light as the material over white, and with semantic ink
+it follows the system appearance rather than the backdrop, faint over white and
+black alike. The numbers live in scripts/probes/hud-surface-contrast.swift, which
+a retune re-runs. The film path stays for Classic and for the Card before macOS
+26; the Card on 26 and later took the glass by the author's choice, with the
+rim drawn by hand and white ink kept, measured in the-card-is-glass.
+Reopening gate for Classic: never-key glass drawing its edge, or semantic ink
+reaching 4.5:1 over both a white and a black backdrop on that probe.
+
+### the-card-is-glass
+Beside the system's own volume OSD on macOS 27, the Card read as a different
+object: over a white page its film-darkened material sat at a middle grey (#6e)
+where the system's glass turns pale (#d1–#d9), and its filled HUD stacked three
+darks into a slab. Measured side by side over a white and a black page with
+scripts/probes/native-osd-edge.swift (the system's OSD and the Card, each read off
+a capture) and scripts/probes/hud-surface-contrast.swift (the Card's candidates,
+in a never-key panel like the app's).
+Decision: on macOS 26 and later the whole Card draws on Liquid Glass
+(`cardSurface`), the slider HUD, the filled HUD and the player alike, and the
+author accepts the system's trade where the system makes it.
+- The vivid glass the system draws is out of reach. Every public door renders
+  flat in a panel that is not key: `glassEffect` plain, `.interactive()`, inside a
+  `GlassEffectContainer`, under `controlActiveState` forced to `.key` or
+  `.active`; a panel overriding `isKeyWindow`; `NSGlassEffectView`, with
+  `effectIsInteractive` too. Only a window that is really key draws it, and a HUD
+  that took the key would take the keyboard from whoever is typing. The private
+  `set_variant:` stays out. So the Card's polish is the glass's body plus a rim
+  drawn by hand to the system's measurements.
+- The body is `.clear`: #d8 over white and #21 over black against the system's
+  #d1–#d9 and #1a–#21, where `.regular` reads #c1, a grey slab over a pale page.
+- The indicator's glass is bare: white ink over a pale page at 1.42:1
+  (`SurfaceChrome.glassBareInkRatioOverWhitePage`), as the system's reads about
+  1.5:1, recorded as an exception to the minimum and held to nothing. A glyph
+  and a bar read by their shape.
+- Text is not read by its shape. Bare, the player's title read about 1.7:1 over
+  a white page and its artist less, so the player's glass is always dimmed by a
+  black layer of 0.55 (`SurfaceChrome.glassDimming`): 4.94:1 over white, 19.6:1
+  over black, inside the band every ink test holds against. Over a pale page the
+  player is smoked glass, still blurring the page, not the system's pale body.
+  Under Increase Contrast the indicator takes the same layer, the minimum the
+  HIG asks that setting to deliver. A layer, not the glass's tint, which darkens
+  `.clear` but lightens `.regular`. The player's rim is the indicator's at 0.6
+  (`glassPlayerRimScale`), the author's taste against the outline the full rim
+  draws round a body darker than the system's. Turning the text dark over a
+  pale page, as
+  Apple's own glass does, needs the backdrop's luminance, which a never-key
+  panel's glass does not adapt to and reading the screen would need Screen
+  Recording for.
+- The filled HUD's remainder is the glass itself; the glyph keeps its difference
+  blend. Under Increase Contrast it takes the film path's remainder again.
+- Every surface's glass reaches the outline but for its own outermost pixel,
+  which it draws far darker than its body over a pale page (#8a against #cf
+  down the sides, where the system's edge darkens only to #ba): that pixel is
+  cut, half a point (`glassEdgeCut`), and what is drawn on the glass with it, so
+  a filled bar and the glass beside it share one edge. Cut further in, the band
+  left showed the page: a gap round the body over a pale page, a frame round a
+  full filled bar over a dark one.
+- The rim is light alone, three strokes, each a vertical ramp held dark through
+  the middle of the height (`glassRim`). Read across the middle of each edge
+  over black (macOS 27.0.1, 2026-10-23), the Card's edge is #80 #54 #2e down the
+  top, none down the sides and #61 #59 at the bottom, against the system's #83
+  #58 #33, none and #63 #5d; the system's is brighter at its specular spots and
+  dimmer toward its ends. A wider ring of even brightness read as a drawn,
+  heavy outline over a coloured page, where the system's edge stays a thin line.
+- No shadow: the system's OSD casts none over a white page (the page reads 254
+  to 255 right under its edge). One cast by what is drawn ran darker under the
+  fill and the cover than under bare glass.
+Classic keeps the film path by identity: it is the pre-Tahoe bezel, dark and
+translucent. Systems before macOS 26 have no glass and keep it too. The Settings
+tiles draw every floating surface dark, the film path's look: a tile is a
+pictogram of where and what shape, and glass at that size reads as a milky blot
+with a bright ring beside two dark shapes.
+Reopening gate: a public way to draw never-key glass active, the system's OSD
+leaving glass, or a run of either probe moving the numbers above.
+### ink-meets-the-minimum
+Two inks were calibrated by eye and called legible: the accent's brightness
+band (a saturated blue at its floor drew 2.1:1 on the Notch's black) and the
+filled HUD's grey glyph (0.5 white comes out near 3:1 on both the fill and the
+remainder it rides over). Decision: ink on the surfaces is held to the
+Accessibility HIG's 4.5:1 for text and icons up to 17 pt, computed with WCAG
+2.2's formulas (`WCAGContrast`) against the background it actually lands on,
+and pinned as a worst case in tests rather than a tuning. The accent keeps its
+band as character and is lifted, brightness first and then saturation toward
+white, only as far as the darkest surface needs; the filled HUD's glyph is
+white under a difference blend, inverting whatever the bar lays beneath it,
+because no single ink reads on both of its backgrounds. Over a bright desktop
+the floating surface guarantees white ink and nothing darker
+(hud-fixed-dark-palette), so no tone meets the minimum there by default; Increase
+Contrast resolves the accent against that lightest surface, which leaves it
+near white, and pushes the filled bar's fill and remainder apart — the higher
+contrast scheme the HIG asks that setting to provide where the default does not.
+The Card indicator's bare glass is the recorded exception (the-card-is-glass):
+white ink over a pale page below the minimum, as the system's own OSD draws it,
+and lifted to the minimum under Increase Contrast. The player's glass is always
+dimmed to the minimum: text gets no exception.
 
 ### scrub-grace
-The now-playing scrubber's release once fought its own stream: every drag
-delta fired a real seek (one subprocess per pixel), the 1 Hz ticker kept
-counting from the pre-seek anchor and pulled the thumb back until the
-player's echo landed, and PositionReconciliation ate deliberate
+A scrubber whose drag does not own the gesture fights its own stream: every
+drag delta fires a real seek (one subprocess per pixel), the 1 Hz ticker keeps
+counting from the pre-seek anchor and pulls the thumb back until the
+player's echo lands, and PositionReconciliation eats deliberate
 sub-tolerance backward seeks as anchor jitter (J4 — the brightness drag's
-cousin). Decision (2026-07-28): the drag owns the gesture — a view-local
+cousin). Decision: the drag owns the gesture — a view-local
 draft shows under the finger, ONE seek fires on release, and a tap seeks
-immediately. (Until 2026-08-07 that last part was phrased against the stock
-Slider's callback order; the row now draws its own `CapsuleTrack` and a tap is
-simply a drag with no movement, so `onEnded` carries it and there is no
-callback order left to be independent of — see hud-capsule-track's third
-amendment.) On release the user's value takes
+immediately. (The row draws its own `CapsuleTrack` and a tap is simply a drag
+with no movement, so `onEnded` carries it and there is no callback order to be
+independent of — see hud-capsule-track.) On release the user's value takes
 authority: optimistic position write (S7-safe, position-only), the source
 re-anchors its ticker (`noteSeek`, a no-op default for sources with no
 local extrapolation), and a grace window holds stale echoes off until the
@@ -445,64 +651,62 @@ failed command (`noteSeekFailed` restores the pre-seek line), and a
 timeout/anchor budget — so neither can ever be left stuck.
 
 ### shared-skin-skeleton
-The three skin views each carried a private copy of the non-visual skeleton
+A private copy of the non-visual skeleton in each of the three skin views
 (~120 identical lines: the layout enum, the empty-freeze rule, per-state
-sizes, content derivation and intent passthroughs). Copies are how the
-empty-boundary freeze once landed on two skins and missed the Notch — and the
-mirrored test suites had already diverged the same way (Classic was missing
-two pins its siblings had). Decision (2026-07-28): the skeleton lives once in
+sizes, content derivation and intent passthroughs) lets a fix like the
+empty-boundary freeze land on two skins and miss the Notch — and lets the
+mirrored test suites diverge the same way (one suite missing two pins its
+siblings carry). Decision: the skeleton lives once in
 SurfaceStyleCore (`SurfaceLayoutKind` + `SurfaceLayout` + `SurfaceStyleBody`);
 each view keeps only its visual body, the provenance @State the freeze
 contract binds to, and one-line statics that pin the per-skin Metrics
-parameter (which the per-view tests still exercise). This supersedes the
-earlier "each skin's private LayoutKind stays private" choice once recorded at
-SurfaceAnimation.geometryAnimation — whose boolean interface stays for its own
-reason: the motion gate reads exactly two provenance facts, never the enum.
+parameter (which the per-view tests still exercise). A private LayoutKind per
+skin is refused; SurfaceAnimation.geometryAnimation keeps its boolean interface
+for its own reason: the motion gate reads exactly two provenance facts, never
+the enum.
 
-Amendment: the residue this entry licensed shrank again. The two provenance
-@States became one `SurfaceProvenance` value in SurfaceStyleCore, carrying the
+The provenance is one `SurfaceProvenance` value in SurfaceStyleCore, carrying the
 advance rule — `previous` follows every kind (an appearance is not a morph),
 `lastVisible` skips `.empty` so the fade-out sits on the rect it is leaving — and
-the motion gates that read it (`geometryAnimation`, `contentAnimation`) moved into
-`SurfaceStyleBody`, which now requires the provenance and the Reduce Motion
-environment read as members. Byte-identical copies were the whole exposure: the
-geometry gate existed three times and the content crossfade twice, so a provenance
-fix could still land on two skins and miss the third — the exact failure this entry
-was opened for. What stays per view is unchanged in kind: the visual body, the
+the motion gates that read it (`geometryAnimation`, `contentAnimation`) live in
+`SurfaceStyleBody`, which requires the provenance and the Reduce Motion
+environment read as members. Byte-identical copies are the whole exposure: a
+geometry gate held three times and a content crossfade held twice let a provenance
+fix land on two skins and miss the third — the exact failure this entry
+exists for. What stays per view: the visual body, the
 @State storage SwiftUI has to own, and the one-line statics that fix the Metrics
 parameter (`surfaceSize`, `effectiveLayoutKind`, the Card's radius, the Notch's
 shape), which the per-view tests still exercise.
 
-Amendment (2026-08-07): the exposure this entry names had a second half nobody
-was watching — the PROSE. Swift cannot hoist a stored property or a property
+The exposure this entry names has a second half that is easy to miss — the
+PROSE. Swift cannot hoist a stored property or a property
 wrapper through a protocol, so every conforming view must redeclare
 `coordinator`, `displayPolicy`, its environment reads and the provenance
-`@State`; those declarations repeat by construction and are not residue. What
-was residue is that each of the three carried a five-line paraphrase of the
-provenance rule and a byte-identical three-line paraphrase of the Reduce Motion
-gate, both of which already live once (in `SurfaceProvenance` and in
-`SurfaceStyleBody`'s member docs) and both of which each view ALSO documents
-concretely at its own `.animation` call site. Three copies, and they had already
-drifted into three different claims about the same rule — the hidden surface
-"freezes to", "freezes its drop AND its shape flare to", and a third that called
-the surface a block. One of them was wrong and the code was the only way to tell
-which. The paraphrases are gone; each view now points at the rule in one line.
+`@State`; those declarations repeat by construction and are not residue. A
+per-view paraphrase is residue — five lines of the provenance rule, three
+byte-identical lines of the Reduce Motion gate — because both rules live once
+(in `SurfaceProvenance` and in `SurfaceStyleBody`'s member docs) and each view
+ALSO documents them concretely at its own `.animation` call site. Three copies
+drift into three different claims about the same rule — the hidden surface
+"freezes to", "freezes its drop AND its shape flare to", and a third that calls
+the surface a block — one of them wrong, with the code the only way to tell
+which. So each view points at the rule in one line.
 The lesson generalises past this file: a shared rule restated beside every
 implementation is the same divergence risk as copied code, minus the compiler.
 
 ### hover-follows-the-eye
-Hover and clicks derive from the same rendered truth, on every skin. The hover
-exit region used to be a state-blind union of the compact and expanded frames
-+24 pt, never retargeted outside the Card: with the notch compact or showing a
-HUD, a 233×100 pt invisible sticky band hung below the visible surface — and
-because the monitor reports only transitions, a cursor RESTING there emitted
-no exit, so no dismissal timer ran: the surface (and a held HUD) stayed
-forever. Measured live, then fixed: regions retarget on every panel apply and size
+Hover and clicks derive from the same rendered truth, on every skin. A
+state-blind hover exit region — the union of the compact and expanded frames
++24 pt, never retargeted — leaves, with the notch compact or showing a HUD, a
+233×100 pt invisible sticky band below the visible surface (measured live) —
+and because the monitor reports only transitions, a cursor RESTING there emits
+no exit, so no dismissal timer runs: the surface (and a held HUD) stays
+forever. So regions retarget on every panel apply and size
 report (exit = enter plus a per-edge band) — the apply-time retarget errs
 TIGHT, rule frame ∩ last rendered, because the reported size predates the
-state change (either stale rect alone re-created a closed bug: the previous
-silhouette held the stuck band, the bare ceiling re-armed the card's dead
-air) — the monitor's event mask gained the mouse-ups (the release re-syncs a
+state change (either stale rect alone re-creates a closed bug: the previous
+silhouette holds the stuck band, the bare ceiling re-arms the card's dead
+air) — the monitor's event mask includes the mouse-ups (the release re-syncs a
 drag-exit, closing the unbounded wait; drags themselves are deliberately NOT
 sampled — a live drag on the surface's own control overshoots the edge and
 must not release the hold mid-gesture), and arming runs last in every apply
@@ -517,20 +721,20 @@ headroom — which is what admits the 5). Calibration-in-test: any finished hove
 REACTIVE linger at 1.5 s instead of a fresh 3 s (the invoked appearance keeps
 its full tail, provenance-flagged rather than value-compared — its pointer is
 born on the surface from the click, so a cap would make the invoked linger
-unreachable again, a production bug already pinned), and the close spring
+unreachable, a production bug pinned by test), and the close spring
 tightened 0.45→0.35. Two
 hypotheses stay deliberately unimplemented pending a hardware probe: the
-multi-display pointer mirror and mouseMoved delivery to an inactive accessory.
+multi-display pointer record and mouseMoved delivery to an inactive accessory.
 
-Amended 2026-08-08: the CLICKABLE region now shares the apply-time rule. It
-used to take the frozen silhouette bare, so a hidden→HUD apply routed clicks
-across the dead margin of the last visible surface for about a frame —
-captured and swallowed where the contract promises pass-through. At apply time
+The CLICKABLE region shares the apply-time rule. Taking the frozen silhouette
+bare would route a hidden→HUD apply's clicks across the dead margin of the last
+visible surface for about a frame — captured and swallowed where the contract
+promises pass-through. At apply time
 both hover and clicks err tight (silhouette ∩ the state's rule frame); a
 fresh size report still retargets both to the rendered truth. Pinned in
 `NSPanelPresentationPanelTests`.
 
-A last contract of the monitor itself, invisible until it had a suite of its own:
+A last contract of the monitor itself, invisible without a suite of its own:
 disarming reports a PENDING exit. The Coordinator mirrors the pointer from these
 reports, so a display that stops being armed with the cursor on it must say so once
 — a silent reset leaves the mirror holding a pointer that is on no surface, and the
@@ -540,11 +744,11 @@ re-samples where the cursor is NOW (the event monitors exist only while armed),
 which is why the disarm clears the inside flag as it reports it. The monitor's
 cursor read is a constructor parameter defaulting to NSEvent.mouseLocation for
 exactly this: with the real pointer as the only input, a mutation deleting the
-pending exit passed the whole suite. The border is otherwise untouched — the NSEvent
+pending exit passes the whole suite. The border is otherwise untouched — the NSEvent
 monitors stay real (SurfaceHoverMonitorTests).
 
 ### signed-without-hardened-runtime
-Superseded for the app's own executable by `self-signed-runtime-without-library-validation`: the self-signed app now carries the runtime with library validation off. What follows stays the record of why validation cannot stay on.
+Superseded for the app's own executable by `self-signed-runtime-without-library-validation`: the self-signed app carries the runtime with library validation off. What follows is the record of why validation cannot stay on.
 Self-signed distribution must NOT enable the hardened runtime. `--options
 runtime` turns on dyld library validation, which demands a real matching Team
 ID between the process and every non-platform library it maps — a self-signed
@@ -559,22 +763,22 @@ path, compares authority + Team across the nested Mach-Os, and boots the
 installed app from the final dmg requiring it to survive 5 s. CI rejects the
 pairing statically: `adhoc` and `runtime` together in the code directory is
 enough to condemn a build, and unlike the load failure itself that pairing is
-plainly readable from `codesign -d`. That CI check now fails closed as well: a
+plainly readable from `codesign -d`. That CI check fails closed as well: a
 missing .app, a `codesign` that refuses (what an unsigned bundle answers), or output
 carrying no `flags=` field each end the step with their own message instead of
 passing on an empty match — measured, both an absent path and an unsigned bundle
-left the flags string empty and the step went green, which is a guard reporting
-"nothing read" as "nothing wrong" (docs/DECISIONS.md: J8-a-guard-that-cannot-read).
-And the project pins
-`ENABLE_HARDENED_RUNTIME = NO` in both configurations — flipped from the YES
-that made Xcode's own Product → Archive produce the unlaunchable app while
-release.sh escaped by archiving unsigned. The key stays explicit: `= NO` is the
+leave the flags string empty, and a check that passes on that goes green, which is
+a guard reporting "nothing read" as "nothing wrong"
+(docs/DECISIONS.md: J8-a-guard-that-cannot-read). And the project pins
+`ENABLE_HARDENED_RUNTIME = NO` in both configurations — YES makes Xcode's own
+Product → Archive produce the unlaunchable app, which release.sh escapes only by
+archiving unsigned. The key stays explicit: `= NO` is the
 exact remedy the CI gate's error names.
-Shipped broken exactly once — the v1.2 E2E caught the crash before publish, which
-is why the smoke exists; reproduced again on 2026-07-29 straight from the project
-settings (`flags=0x10002(adhoc,runtime)`, `TeamIdentifier=not set`, dyld:
-"mapping process and mapped file (non-platform) have different Team IDs",
-SIGABRT), which is why the static gate now exists too.
+The smoke exists because the crash reaches a release build: the v1.2 E2E caught
+it before publish. The static gate exists because it reproduces straight from the
+project settings (2026-07-29: `flags=0x10002(adhoc,runtime)`,
+`TeamIdentifier=not set`, dyld: "mapping process and mapped file (non-platform)
+have different Team IDs", SIGABRT).
 
 ### key-origin-brightness-gate
 The brightness HUDs show only for changes the USER made. Brightness has no
@@ -593,13 +797,13 @@ value read is a blocking private-API call (a dlsym'd DisplayServices entry
 point; a round trip to the keyboard-backlight client, which re-enumerates the
 keyboard IDs on every call), and `sample()` is called on the MainActor by the
 suppressor's post-apply poke and by the slider echo — once per drag frame — as
-well as on the cooperative pool by the router and the poll. So the reading moved
-to the channel's own serial queue (read-deadline-pool-rule; the volume sibling
-had already paid for that lesson) and the window stayed on the caller's thread
+well as on the cooperative pool by the router and the poll. So the reading runs
+on the channel's own serial queue (read-deadline-pool-rule; the volume sibling
+follows the same lesson) and the window stays on the caller's thread
 as `armKeyWindow()`. Splitting them is not tidiness: the window has to carry the
-key's own instant rather than whenever the read returned. And because a
+key's own instant rather than whenever the read returns. And because a
 key-driven reading emits on any change whether the window is open or not, a
-reading in flight is no longer protected by ordering — so `standDown()` now
+reading in flight is not protected by ordering — so `standDown()`
 speaks for the readings the key already asked for, and one that comes back
 spoken for degrades to a plain reading (see betterdisplay-osd-source: without
 that, a neighbour reporting the same press gets our hardware-scale bar drawn on
@@ -609,30 +813,30 @@ harder building the backend.
 
 ### login-item-intent
 The launch-at-login registration lives beyond the Background Task Management
-boundary, and macOS revoked it when the bundle's code identity changed —
+boundary, and macOS revokes it when the bundle's code identity changes —
 observed on hardware; Apple does not document the rule — a rebuild, a
-reinstall, and, in one stroke for every installed user, the eventual
-move to Developer ID. Diagnosed on hardware: a boot where the app simply never
-launched, the system logged nothing at all, and a ghost record lingered until
-System Settings pruned it. With the system status as the ONLY source of truth,
+reinstall, and, in one stroke for every installed user, a
+move to Developer ID. Observed on hardware, the loss is a boot where the app
+simply never launches, the system logs nothing at all, and a ghost record lingers
+until System Settings prunes it. With the system status as the ONLY source of truth,
 the user's choice vanishes silently — the toggle reads off and no one is any
 wiser. Decision: persist the user's INTENT (and the build it was made under),
 never to act on it, only to notice the loss. The build is what tells the two
 authors of "gone" apart — a registration lost across a build change was revoked
 by macOS (warn, and offer one click); one lost under the same build was removed
-by the user in System Settings (forget the intent, say nothing). Auto-repair was
+by the user in System Settings (forget the intent, say nothing). Auto-repair is
 deliberately rejected: the invalidation is a security signal ("this binary is
 not the one you approved"), and re-registering behind the user would contradict
 the app's own rule of never adding a login item uninvited. Measured and ruled
-out along the way: the DMG's quarantine attribute does not block registration.
+out: the DMG's quarantine attribute does not block registration.
 
-Two corollaries the first implementation got wrong, and the reason the write is
-now split from the read. First, the intent is recorded only by an attempt that
+Two corollaries, and the reason the write is split from the read. First, the
+intent is recorded only by an attempt that
 did NOT fail: the build stamp is the discriminator, so stamping a failed enable
 with the current build makes the next reading say "gone under the same build" and
-file the user's own request away as their own removal — the failed one-click
-repair of a revoked registration erased its own warning, and the app went back to
-not launching with nothing left to say. A failed disable keeps the intent for the
+file the user's own request away as their own removal — a failed one-click
+repair of a revoked registration would erase its own warning, and the app would go
+back to not launching with nothing left to say. A failed disable keeps the intent for the
 mirror reason: the registration it could not remove is still there. Second,
 forgetting a user-side removal is a WRITE, so it belongs to a lifecycle edge
 (once at launch) and not to the menu's verdict: that verdict is read inside a
@@ -653,7 +857,7 @@ signature — `media key observed: volumeUp/volumeDown` flowing, not one
 Crema's HUD; reopening it broke it again; relaunching Crema cured it (a fresh
 tap goes back to the head). Note what this class is NOT: the tap was healthy and
 delivering the whole time, so the J7 deafness cure — preventive reinstall — is a
-placebo here, and an earlier broken instance did reinstall three times without
+placebo here, and another broken instance reinstalled three times without
 curing, consistent with the neighbour re-inserting on the same physical edge that
 triggered our own reinstall. Before suspecting our own port, ask who is in front
 of it. `CGGetEventTapList` is the only view of that from outside the process;
@@ -674,7 +878,7 @@ silence: listen-only taps, disabled taps, taps with a disjoint mask, a chain we
 have no tap in, and a contender macOS has no display name for all produce no
 warning — a missed line costs a diagnostic, a false one accuses a neighbour.
 Naming it is only half the answer; the other half — cooperating instead of
-contending — shipped alongside it, see `betterdisplay-osd-source`.
+contending — ships alongside it, see `betterdisplay-osd-source`.
 
 ### betterdisplay-osd-source
 The way out of the key contention above is not to win the key but to stop needing
@@ -704,12 +908,11 @@ source exists. **Every reported display is named, the built-in included**:
 `displayID` resolves at the border to `SystemHUD.Target.display(uuid)` through
 the same translation the panel roster uses, and the only drop is a UUID that
 will not resolve — a screen the app cannot name is one it can neither place a
-bar on nor send a drag back to. (This bullet once read "other displays are
-dropped", over a `display == nil` that meant the built-in: `hud-target-is-a-role`
-split that flattened `DisplayUUID?` into three roles, `hud-belongs-to-its-display`
-confined a named bar to its own screen, and the way back below gave the drag
-somewhere to go — together, what retired the drop.) No preference gates any of
-this: with
+bar on nor send a drag back to. (Dropping other displays is refused on three
+grounds: `hud-target-is-a-role` splits a flattened `DisplayUUID?` into three
+roles, so nil never stands in for the built-in; `hud-belongs-to-its-display`
+confines a named bar to its own screen; and the way back below gives the drag
+somewhere to go.) No preference gates any of this: with
 BetterDisplay absent nothing ever arrives, so there is no state to turn off.
 
 Two payload rules follow from one fact: once the neighbour's own OSD is off, the
@@ -732,8 +935,8 @@ a reported level spends that window (`ManuallySampledSource`, default no-op for
 sources with no origin gate) AND speaks for the readings the key already asked
 for: those come back from the source's own serial queue (a blocking private-API
 read must never run on the caller's thread), and a key-driven reading emits on
-any change whether the window is open or not — so ordering alone stopped being
-enough the moment the read left the caller's thread. One press, one bar, whoever
+any change whether the window is open or not — so ordering alone is not enough
+once the read leaves the caller's thread. One press, one bar, whoever
 applied it.
 
 **The way back.** Drawing a neighbour's level and then writing through the
@@ -748,12 +951,12 @@ so the level is published BEFORE the write leaves, or the fill freezes under a
 moving finger while a round-trip is in flight; the write's echo then confirms or
 corrects it. A drag fires per frame, so writes coalesce latest-wins with at most
 one in flight — nobody wants the levels a finger passed through, only the one it
-stopped at. Those two together set a trap, sprung on hardware: the correcting
+stopped at. Those two together set a trap, seen on hardware: the correcting
 echo has to carry what the actuator WROTE, never what the caller asked for. The
 call that drives the write stays inside the drain loop putting newer values on
 the wire while its own argument goes stale, so echoing the argument re-draws the
-bar at a level the finger already left — a fast drag flicked backwards for an
-instant before the next frame pulled it forward again. Coalescing is what makes
+bar at a level the finger already left — a fast drag flicks backwards for an
+instant before the next frame pulls it forward again. Coalescing is what makes
 the two numbers differ, so any actuator that coalesces owes its caller the
 written value as its return; the argument is only what was asked. And a refusal
 is not fatal: the neighbour's command channel is a
@@ -762,8 +965,8 @@ configuration — a failed command falls back to the system actuator in the same
 drag (a smaller lie than a dead control), stops being asked until the neighbour's
 next report proves it is answering again, and never retries mid-gesture.
 
-External displays were held back one round for a presentation reason, not an
-actuation one, and `hud-belongs-to-its-display` is what unblocked them.
+External displays hinge on a presentation rule, not an actuation one:
+`hud-belongs-to-its-display` is what lets their bar be drawn at all.
 
 The menu says which of the two is happening, because the user cannot see the tap
 chain: a **confirmation** once BetterDisplay has actually reported, and an
@@ -773,39 +976,99 @@ that the integration is on; only a delivered payload is, and that claim is
 dropped when the app terminates. The neighbour is matched by bundle ID, never by
 the localized name shown to the user.
 
-**Amendment: the claim is observable.** Evidence-not-presence has a corollary about
+**The claim is observable.** Evidence-not-presence has a corollary about
 WHEN the claim is read. The Settings line reporting it is a body SwiftUI has already
 built, and the person reading that line is usually the one about to switch the
 neighbour's integration on in the other app — so a claim that only refreshes on the
 next open answers "no" to someone who just made it true. `hasReported` is therefore
-observable and the line flips with the window open; the write is guarded in both
-directions, since BetterDisplay quitting with its integration off is the ordinary
-case and an unchanged write still rebuilds every view reading the claim. It stays a
+observable and the line flips with the window open. BetterDisplay quitting with its
+integration off is the ordinary case and must rebuild nothing; the @Observable setter
+already skips an equal write (`shouldNotifyObservers`), and the write is guarded in
+both directions anyway, to keep that intent at the call site. It stays a
 plain forwarding read on the way up (`AppCore.betterDisplayIsReporting` is a computed
 property over the source): caching it into a stored field anywhere on that path puts
 the staleness back.
 
-**Amendment (2026-08-15): the neighbour is heard the way the lock edges are, and
-the stand-down works from either side of the race.** Two things the probing did
-not settle. First, both registrations on the neighbour's names (the OSD payload
-and the command channel's answer) used the block-based cover, whose suspension
-behaviour defaults to Coalesce — held and collapsed by the server while the
-centre is suspended, which AppKit does whenever the app is not active, and an
-LSUIElement accessory essentially never is (`NSDistributedNotificationCenter.h`).
-The lock edges had already moved to selector registration with
-`.deliverImmediately` for exactly this; the neighbour's did not, and the
-asymmetry was ours: the request went out `deliverImmediately: true` while the
-answer came into a registration that could be held — a held answer being
-indistinguishable from silence at the deadline. Both now register through
-`DistributedPayloadRelay` with `.deliverImmediately`, so the integration no
-longer depends on how the neighbour chooses to post. Second, "stand the local key
-source down when the neighbour reports" assumed an order between the report and
-the local sample that does not exist: they arrive on different executors. A
-stand-down that finds no reading in flight now BANKS the announcement, and the
+**The neighbour is heard the way the lock edges are, and the stand-down works
+from either side of the race.** First, both registrations on the neighbour's
+names (the OSD payload and the command channel's answer) avoid the block-based
+cover, whose suspension behaviour defaults to Coalesce — held and collapsed by
+the server while the centre is suspended, which AppKit does whenever the app is
+not active, and an LSUIElement accessory essentially never is
+(`NSDistributedNotificationCenter.h`). The lock edges use selector registration
+with `.deliverImmediately` for exactly this, and so does the neighbour: a request
+sent `deliverImmediately: true` into an answer registration that can be held is
+an asymmetry of our own — a held answer is indistinguishable from silence at the
+deadline. Both register through `DistributedPayloadRelay` with
+`.deliverImmediately`, so the integration does not depend on how the neighbour
+chooses to post. Second, "stand the local key source down when the neighbour
+reports" cannot assume an order between the report and the local sample: they
+arrive on different executors. A
+stand-down that finds no reading in flight BANKS the announcement, and the
 next sample inside the key window consumes it (armed then disarmed under one
 lock) — stamped rather than counted, because an announcement with no key of ours
 behind it is the ordinary case, and an immortal credit would silence an
 unrelated later key. Pinned in `BetterDisplayOSDSourceTests`, both orderings.
+
+### the-neighbour-indicator-is-borrowed
+BetterDisplay draws its own brightness, volume and mute indicator, and Crema draws
+one from BetterDisplay's dispatch, so with both on every press BetterDisplay
+handles shows two. Telling the user to switch BetterDisplay's off cures the double
+and breaks the other half: with Crema not running nothing draws at all, and the
+switch stays off in a window the user may never open again.
+Decision: while suppression would be engaged — opted in and the screen unlocked,
+the decision `SuppressionLockController` makes — Crema turns BetterDisplay's
+dispatch on and its basic indicator off over the request channel, and hands back
+exactly what it changed when it stops: the switch off, the lock, the quit
+(`NeighbourOSDHandoff`). It is the procedure BetterDisplay's Guide gives a
+receiving app ("Third-party app integration", "Coordinate feedback settings
+through requests", read 2026-10-18): read and save `osdShowBasic`, `osdShowCustom`
+and `osdIntegrationNotification`, enable dispatch, disable the overlays replaced,
+restore the saved values on shutdown, and "Do not blindly turn all settings on or
+off."
+- `osdShowCustom` stays the user's: it carries shortcuts Crema draws nothing for.
+- A switch already as needed is neither written nor owed, and one the user flips
+  back while Crema holds it is theirs: the hand-back writes only a switch that
+  still reads as Crema left it. Every write is read back, since an accepted
+  request is not a landed value (the Guide says so too).
+- The original reaches Crema's preferences BEFORE the write leaves, because
+  BetterDisplay persists the write. Measured with
+  `scripts/probes/osd-settings-betterdisplay.swift` 2026-10-18 on BetterDisplay
+  5.1.1: `get` and `set` answer in 1–7 ms, and a `set` of `osdShowBasic` lands in
+  its preferences on disk. A Crema killed while holding finds the debt at its next
+  launch and pays it (measured: `kill -9`, then a launch with the switch off
+  restored the indicator).
+- The quit is held with `applicationShouldTerminate` → `.terminateLater`
+  (`CremaAppDelegate`), under which AppKit runs the main run loop in
+  `NSModalPanelRunLoopMode` until the reply. The neighbour's answers arrive in that
+  mode — measured the same day: an `osascript` quit returned in 0.15 s, and the
+  process logged the hand-back, read back, before it ended.
+  Invalidating signal: a quit whose log says "did not answer a read of …" while
+  BetterDisplay is running.
+- Silence ends the pass and keeps the debt; the next edge retries: Crema's launch,
+  BetterDisplay's `.launched` (posted once it can answer, which its workspace launch
+  is not), a lock change, the switch. No timer, which would keep asking a neighbour
+  that is not there.
+- With the screen locked the indicator goes back, as suppression is suspended:
+  nothing of Crema's draws over the shield, and BetterDisplay's "Traditional OSD"
+  style is the system's own indicator. Cost: two writes to BetterDisplay's
+  preferences per lock cycle.
+- The menu's "turn on Dispatch OSD notifications" yields once the handoff has read
+  dispatch back on, since that advice is already followed.
+
+Accepted cost: BetterDisplay's basic indicator also carries the volume of monitor
+speakers it drives over DDC, which Core Audio cannot see and Crema does not draw.
+The manual instruction carried the same cost; it reopens with external-display
+volume (PLAN.md, Phase 2). And a Crema deleted after a crash, before the launch
+that pays the debt, leaves BetterDisplay's indicator off with nobody drawing in
+its place: the switch is BetterDisplay's and persists by its design, and the
+request channel offers no change scoped to the caller's life. An orderly quit,
+the usual way an app is closed before it is deleted, restores everything. Reopens
+if BetterDisplay offers a setting scoped to the requesting app's life, or a user
+is reported left without the indicator this way.
+Discarded: writing BetterDisplay's preferences database directly (the Guide: the
+running app and macOS cache it); a fire-and-forget restore in `willTerminate`,
+which can neither read back nor tell the user's own flip from Crema's.
 
 ### the-bar-never-outruns-the-screen
 The bar has no local value: it draws the last reading, and a drag publishes the
@@ -849,10 +1112,10 @@ comes and goes is jumpier than one that consistently springs back. The
 spring-back already says "not taken" in the language macOS uses for a rejected
 drag, and it says it on the first try.
 
-**Amendment: a queued level carries its screen.** The coalescing outlives the call
+**A queued level carries its screen.** The coalescing outlives the call
 that resolved the display — one drive drains the frames that arrived after it — so
-while the queue held a bare number, a frame queued for one screen went out under the
-DRIVING call's display id. The neighbour was told to dim a display nobody was
+a queue holding a bare number sends a frame queued for one screen out under the
+DRIVING call's display id. The neighbour is told to dim a display nobody is
 dragging on, and in silence, because the bar that asked for the change is on another
 panel. Rule: a queued level travels with the display it was meant for, and a call
 echoes only what reached the wire FOR THE DISPLAY IT NAMED — the last frame out of a
@@ -863,28 +1126,28 @@ put it on the wire after the gesture moved on, which is the out-of-order flood t
 coalescing exists to prevent (there is one pointer, so there is one gesture). Pinned
 in `BetterDisplayScreenBrightnessControllerTests`: a frame queued for the external
 screen while the built-in's write is in flight must reach the wire under the
-external's id, and the driving call must not echo it. The display-blind
-`lastWrittenValue` accessor went with the fix — nothing read it, and a "last written"
-with no screen attached is the same blindness under a friendlier name; the flick it
-documented lives on in the comment over the return value.
+external's id, and the driving call must not echo it. A display-blind
+"last written" accessor is refused: a "last written" with no screen attached is
+the same blindness under a friendlier name; the flick lives in the comment over
+the return value.
 
-**Amendment: the echo is not evidence, and an orphaned frame travels with the
-error.** Adversarial tracing found three ways the coalescing writer could break
-the "every level put on screen will be honoured" promise, all closed in one
-round. First, the drain's exit check and the in-flight reset were separate
-critical sections, so a frame slipping between them was queued, echoed as
-success, and drained by nobody — the decision to stop draining and the release
-of the in-flight flag now share ONE critical section, so no frame can sit queued
-without a driver and without an error. Second, a coalesced call echoed its value
-as a bare success BEFORE anything reached the wire, and the Coordinator recorded
-that echo as a confirmed write — so a failed gesture could roll the bar back to a
+**The echo is not evidence, and an orphaned frame travels with the
+error.** A coalescing writer can break the "every level put on screen will be
+honoured" promise in three ways, and each is closed.
+First, with the drain's exit check and the in-flight reset in separate
+critical sections, a frame slipping between them is queued, echoed as
+success, and drained by nobody — so the decision to stop draining and the release
+of the in-flight flag share ONE critical section, and no frame can sit queued
+without a driver and without an error. Second, a coalesced call echoes its value
+as a bare success BEFORE anything reaches the wire, and a Coordinator recording
+that echo as a confirmed write lets a failed gesture roll the bar back to a
 level no display ever went to. The echo stays (contract 1: publish before the
-write, or the bar freezes under the finger) but is now marked for what it is
+write, or the bar freezes under the finger) but is marked for what it is
 (`BrightnessWriteEcho.coalesced` against `.written`), and only a level that
 actually reached the wire becomes rollback evidence. Third, when the channel
-threw, the newest queued frame died silently and the fallback wrote the DRIVING
-call's stale argument — the level a finger passed through, not the one it
-stopped at. Now the failure extracts that frame under the same lock that
+throws, a newest queued frame that dies silently leaves the fallback writing the
+DRIVING call's stale argument — the level a finger passed through, not the one it
+stopped at. So the failure extracts that frame under the same lock that
 releases the drain and carries it out (`BrightnessWriteFailure.orphan`, value
 and display together), and the Coordinator's fallback writes THAT level on the
 display it was aimed at; if the fallback also refuses, the bar is marked
@@ -894,59 +1157,61 @@ honours the promise the happy path made. Pinned in
 error) and `CoordinatorNeighbourBrightnessTests` (the fallback writes the
 orphan; a coalesced echo alone never decides the settle).
 
-**Amendment (2026-08-15): the echo is not evidence on the way back either.** The
-guard above held at the write site and leaked one hop later. The app's own echo
+**The echo is not evidence on the way back either.** A guard held only at the
+write site leaks one hop later. The app's own echo
 is delivered to the bar by yielding it into the neighbour's HUD stream (that
-source never reports what third parties set), and it came back into
-`handleHUDUpdate` on the same path as a spontaneous reading — where it was
-recorded as one: `confirmedScreenBrightness` took the coalesced 0.9, and a
-coalesced echo still in the pipe when a failure landed revived
-`externalBrightnessReachable`, so the next frame hit the neighbour's deadline
-again. So a `SystemHUD` now carries its provenance (`.reading` or `.echo`): the
+source never reports what third parties set), and it comes back into
+`handleHUDUpdate` on the same path as a spontaneous reading — where, unmarked, it
+is recorded as one: `confirmedScreenBrightness` takes the coalesced 0.9, and a
+coalesced echo still in the pipe when a failure lands revives
+`externalBrightnessReachable`, so the next frame hits the neighbour's deadline
+again. So a `SystemHUD` carries its provenance (`.reading` or `.echo`): the
 Coordinator marks everything it hands to `onBrightnessApplied` for the neighbour
 as an echo, and only a reading becomes evidence or recovers a channel — an echo
 moves the bar and nothing else. Pinned by the loop test
-(`aCoalescedEchoStaysNoEvidenceAfterTheRoundTripThroughTheHUDStream`), which is
-the seam-and-recorder pair that existed before with the loop actually closed
+(`aCoalescedEchoStaysNoEvidenceAfterTheRoundTripThroughTheHUDStream`): the
+seam-and-recorder pair with the loop actually closed
 through `AppCore.wireBrightnessEcho` and a real neighbour source.
 
 ### hud-belongs-to-its-display
-The app has ONE state and one panel per screen, so every panel drew every HUD.
-Harmless while nothing named a display — and wrong the moment something did: a
+The app has ONE state, drawn by every display's panels, so unscoped every panel draws every HUD.
+Harmless while nothing names a display — and wrong the moment something does: a
 brightness bar for the external monitor, drawn on the laptop, is a control for a
 screen the user is not looking at, and its drag would dim the neighbour in
 silence. Rule: a HUD that NAMES a display is shown only on that display; every
-other panel treats the state as `.hidden`, which also disarms hover there, so an
-empty region never reacts to the pointer. A HUD that NO screen owns keeps
+other panel draws what lies under it, the now-playing appearance or nothing, as
+the Card's own panel does while its HUD sits on a panel apart. Hover stays
+disarmed on such a panel: the pointer record names surfaces, not displays, so a
+pointer on that appearance would hold the HUD another display shows. A HUD that NO screen owns keeps
 appearing everywhere, deliberately: volume belongs to the output device and the
 keyboard backlight to the one keyboard, so scoping either would move feedback
-nobody asked to move. That exemption was originally written wider than this, and
-wrongly: it covered the built-in brightness too, because the field then said only
-`display: DisplayUUID?` and `nil` was overloaded between "nothing owns this" and
-"the built-in owns this". The ambiguity is gone — `hud-target-is-a-role` split the
-field into three and the local brightness bar now names the built-in panel as a
-role — so the exemption survives only for the two channels no display can own.
+nobody asked to move. The exemption covers those two channels and nothing wider:
+a bare `display: DisplayUUID?` would overload `nil` between "nothing owns this"
+and "the built-in owns this" and stretch it over the built-in brightness by
+mistake, so `hud-target-is-a-role` splits the field into three and the local
+brightness bar names the built-in panel as a role.
 A HUD naming a
 display that is no longer attached shows nowhere, which is what an unplug between
 the report and the frame pass should look like. The decision lives in
-`WindowManager.effectiveState`, already the per-display policy seam (the
-"show now playing here" preference is its other rule), so presentation scoping
+`WindowManager.hudIsShown`, beside `effectiveState` and its "show now playing
+here" preference in the per-display pass, and reaches the view as
+`SurfaceDisplayPolicy.showsHUD`, which `PresentationLayers.state(on:showsHUD:)`
+reads for frame and view alike, so presentation scoping
 never leaks into the Coordinator: the app's state stays whole and a drag on the
 panel that shows the bar still acts on the display the bar names.
 
 ### global-style-default
-The Settings picker footer says "Applies to every display", but the writer looped
-over the displays attached at that instant and wrote one key per display UUID
-(`style.<uuid>`). A monitor plugged in afterwards had no key, so it fell to the
-shipped default — Notch, resolved to Card on a slitless screen — and the picker
-offered no way out: it acts on CHANGE, so re-picking the value already shown is a
-no-op.
+The Settings picker footer says "Changes every display at once", and a writer that
+loops over the displays attached at that instant, writing one key per display
+UUID (`style.<uuid>`), breaks the promise: a monitor plugged in afterwards has no
+key, so it falls to the shipped default — Notch, resolved to Card on a slitless
+screen — and the picker offers no way out: it acts on CHANGE, so re-picking the
+value already shown is a no-op.
 Decision: the picker DECLARES one global style (`declaredStyle`), which is the
 fallback of `style(for:)`; per-display keys stay as OVERRIDES on top, and the
 declaration drops them, because an override left behind would hold its display on
-the style the user just replaced with no UI to clear it (the per-display picker is
-roadmap; resolution is already override-aware, so shipping it is a UI change
-only). Two details are load bearing: the global key is NOT under the `style.`
+the style the user just replaced, and a display not attached right now has no UI
+to clear it (the sweep, below). Two details are load bearing: the global key is NOT under the `style.`
 prefix the sweep walks, or the declaration would delete itself; and an unknown
 override rawValue (a style removed since) falls through to the declaration rather
 than to the shipped default, since it is not a choice the user made.
@@ -962,25 +1227,24 @@ fallen to the shipped default while another carried the user's choice adopts tha
 choice on the next launch. An install with no override writes no key at all, so
 the shipped default stays a decision the app can still change.
 
-**Amendment: the per-display picker shipped, and one clause above went with it.**
-The Displays tab gives every connected display a section of its own — a style
-picker, a button that returns that display to the declaration, and the
-"show now playing here" toggle. Four things it settled.
+**The per-display picker.** Settings gives every connected display a row of its
+own — a style popup whose first item returns that display to the declaration,
+and the "show now playing here" toggle. Four rules hold it.
 
 Inheriting IS the absence of the key. The reset REMOVES the override
 (`clearStyle`) instead of writing today's declaration into it: a copy would look
 identical this afternoon and then shadow the next declaration forever, which is
-the bug the declaration was introduced to fix. Clearing a display that already
+the bug the declaration exists to fix. Clearing a display that already
 inherits writes nothing at all — not the key, not the declaration.
 
-The clause "with no UI to clear it" is now false for a display in front of the
-user, and the sweep survives on the other half of its reason: an override belongs
+A display in front of the user has a row to clear its override, so the sweep
+stands on the other half of its reason: an override belongs
 to a display UUID, and a display not attached right now is one no per-display
 control can reach — `clearStyle(for:)` needs a row, and a row needs a display. So
-declaring for all displays still drops every override, and the consequence stopped
-being invisible: that footer NAMES the sweep ("This also replaces the per-display
-styles in the Displays tab"), and says it only when a per-display style actually
-exists, since a warning about nothing teaches the reader to skip footers.
+declaring for all displays drops every override, and the consequence is visible:
+that footer NAMES the sweep (the deictic wording below), and says it only when a
+per-display style actually exists, since a warning about nothing teaches the
+reader to skip footers.
 
 The row asks the SAME resolver the panels render by (override else declaration,
 `Preferences.style(overrideRawValue:declaredRawValue:)`) rather than reading its
@@ -990,40 +1254,29 @@ screen does not draw.
 Two mechanics are load bearing. A display's NAME is not an identity: two identical
 monitors report the same `localizedName`, so a row is LABELLED by the name and
 KEYED by the UUID (and the built-in panel is labelled in the app's own vocabulary
-instead of AppKit's). And the panel rebuild predicate is style + geometry, never
-the whole description — a display renamed under a live panel keeps that panel and
-its hover regions, since neither derives from the name (pinned by
-`WindowManagerTests.aRenamedDisplayKeepsItsPanelAndItsHoverRegions`); rebuilding
-on the description would tear a live surface down for a string.
+instead of AppKit's). And the panel rebuild predicate never takes the whole
+description (the predicate itself: docs/CONTRACTS.md, W4) — a display renamed
+under a live panel keeps that panel and its hover regions, since neither derives
+from the name; rebuilding on the description would tear a live surface down for
+a string.
 
-**Amendment (2026-07-31): the declaration moved house — it is the first section of
-the Displays tab.** Style was asked in two tabs (General declared it, Displays
-overrode it), and in the field that read as two settings instead of one asked at two
-scopes. The declaration now leads the Displays tab as an "All displays" section,
-above the per-display sections it sweeps, so the sweep its footer warns about is
-visible in the same pane as the thing swept. Semantics untouched: same
-`declaredStyle` key, same `setStyleEverywhere`, same sweep, same resolver — this is
-a change of address, not of rule. The menu bar's Style submenu stays what it was,
-the global shortcut, and the welcome tour keeps its own copy of the declaration.
-What travelled with it: the Card indicator picker went to the Indicators tab, its
-thematic home, carrying its rendered-style gate intact
-(`rendered-style-gates-settings`); General keeps what is left, which is opening at
-login.
+**Both scopes are asked in one pane.** Style asked in two tabs (one declaring
+it, another overriding it) reads in the field as two settings instead of one
+asked at two scopes. So General leads with the declaration as a "Style" section
+(its one row reads "All displays") and puts the per-display list as an "Each display" section immediately under
+it — the pane a person opens first is the pane where style is asked at both of
+its scopes, and the sweep its footer warns about is visible in the same pane as
+the thing swept. Where it is asked is address, not rule: the same
+`declaredStyle` key, `setStyleEverywhere`, sweep and resolver. The menu bar's
+Style submenu is the global shortcut, and the welcome tour keeps its own copy of
+the declaration.
 
-**Amendment (2026-08-01, third): the tab went away, the two scopes stayed
-together.** The Displays tab lasted one round. Style came back to General — the
-declaration as its leading "All displays" section, the per-display list as a
-"Displays" section immediately under it — so the pane a person opens first is the
-pane where style is asked at both of its scopes. Semantics untouched once more:
-same `declaredStyle` key, same sweep, same resolver.
-
-What travelled with the address change is the control itself. The per-display
-style stopped being a row of thumbnails and became a POPUP of names whose first
-item is "Follow all displays (<declaration>)"; the separate "Use the all-displays
-style" button died with it, because inheriting is now one of the options instead
-of a button beside them (the write is still `clearStyle` — inheriting IS the
-absence of the key). Three pieces of provenance chose that shape, and they are
-recorded so a later round does not undo it by taste: the platform asks this kind
+The per-display style is a POPUP of names whose first item is "Follow all
+displays", not a row of thumbnails, and there is no separate "Use the
+all-displays style" button: inheriting is one of the options instead of a button
+beside them (the write is `clearStyle` — inheriting IS the absence of the key).
+Three pieces of provenance choose that shape, recorded so taste does not undo
+it: the platform asks this kind
 of choice with an inline pop-up button in the row (System Settings' Sound pane is
 full of them, and the HIG's pop-up button guidance is written for exactly that
 position) and reserves pictures for the choice a pane is ABOUT; a list of rows is
@@ -1034,7 +1287,7 @@ Nielsen Norman Group's line on dropdowns has not moved in twenty years) is a cos
 where the choice is primary and exactly the right demotion where it is not. The
 declaration keeps the pictures; the override gets names.
 
-The reset became STRUCTURAL rather than conventional. `write(for: nil)` is
+The reset is STRUCTURAL rather than conventional. `write(for: nil)` is
 `.clear` unconditionally — never `.override(declaration)`, not even when the
 declaration names the style this display already carries, which is precisely the
 case where writing it back looks identical this afternoon and then shadows the
@@ -1052,11 +1305,12 @@ And the list is gated by `DisplayStyleOptions.listIsOffered` — a rule of its
 own, because the question is not a count of screens but "is there an answer per
 display that the section above cannot give?". The answer is yes for every
 non-empty roster: the row is the app's ONLY switch for the now-playing surface,
-and the switch's default is a function of the display (the amendment below says
-why that strands a lone display of either kind). An empty roster answers false
+and the switch's default is a function of the display
+(`rendered-style-gates-settings` says why that strands a lone display of either
+kind). An empty roster answers false
 rather than subscripting.
 
-The sweep footer became deictic — "This also replaces the per-display styles
+The sweep footer is deictic — "This also replaces the per-display styles
 below" — and it may point down, because whenever there is a display to carry an
 override there is a list under the footer to show it: wherever that sentence is
 drawn, the section it names is drawn under it — an implication, not a
@@ -1067,61 +1321,65 @@ therefore carries its own wording (`tour.step.style.replacesPerDisplay`) rather
 than sharing a string that would have to lose the pointer to be true in both
 windows.
 
-The step deliberately left for later, with the gate that reopens it: a thumbnail
-at the head of each row, so a per-display choice can show its shape the way the
-declaration does. It already has its resolver — `StylePreview.shapes(for:on:)`,
-kept as a seam for it (see `rendered-style-gates-settings`) — and it reopens the
-moment a row can hold a picture without turning a two-monitor pane into a scroll.
+Each row is headed by what that display DRAWS: a thumbnail
+(`StylePreview.shapes(for:on:)`, which resolves before drawing — see
+`rendered-style-gates-settings`) and a caption in words
+(`DisplayStyleOptions.caption`), "Using Card, since this display has no notch" where the style in
+force does not fit the panel. The popup names the CHOICE and the row says what is
+on screen beside it, never in a note correcting the control; that is why the
+inherit item names no style — naming the declaration puts "Notch" over a screen
+drawing Card. The thumbnail is 60 pt wide, the tiles' picture with the same point
+floors, and its condition is the pane's height: a two-monitor General tab stays
+unscrolled.
 
-**Amendment (2026-08-01, fourth): the Card's indicator came home too, and it came
-back as pictures.** The third amendment sent that picker to the Indicators tab,
-"its thematic home". The clause is spent: with style asked in General again, the
-indicator belongs directly under the tiles that declare the style it is an
-indicator FOR. It sits in the same Section, one row below them, drawn as two
+**The Card's indicator sits beside the style, as pictures.** With style asked in
+General, the indicator belongs next to the displays drawing the style it is an
+indicator FOR, not in an Indicators tab as its "thematic home".
+It has a Section of its own after the display rows (`CardIndicatorSection`), and
+its footer names those displays in the rows' own words
+(`WindowManager.displays(rendering:)`): under the declaration's tiles, a mixed
+setup puts it beneath a selected Notch with nothing saying which display it
+serves. It is drawn as two
 mini-tiles instead of a popup of two nouns — "Line" and "Filled" name bodies the
 reader has not seen, and the whole difference between them is visual, which is the
 argument the style tiles above are already made of. The tiles render the REAL HUD
-body (`CardHUDIndicator`, extracted from `CardView` and shared with it), frozen at
+body (`CardHUDIndicator`, shared with `CardView`), frozen at
 one reading and at the SAME reading in both: a hand-drawn likeness would be a
 second description of the indicator, and two levels would let the eye read the
 difference between the bodies as a difference in loudness.
 
-The cross-tab footer died with the distance it was paying for. "Applies to the
-Card style, which is chosen in the General tab" existed because a control and the
-picker governing it were a tab apart and a sentence was the only thing that could
-carry a reader between them. Under that picker there is nothing left for it to
-say, so the string was deleted rather than reworded — the same rule the sweep
-footer follows in the other direction: a footer that restates its neighbour
-teaches the reader to skip footers. Adjacency says it again, which is what
-adjacency is for.
+No cross-tab footer: "Applies to the Card style, which is chosen in the General
+tab" pays only for distance — a control and the picker governing it a tab apart,
+with a sentence as the only thing carrying a reader between them — and in the
+picker's own pane there is none to pay for. Same rule as the sweep footer in the
+other direction: a footer that restates its neighbour teaches the reader to skip
+footers. Adjacency says it again, which is what adjacency is for.
 
-Nothing about the choice itself moved: the same `hudIndicatorStyleKey` the panels
-read, the same `setHUDIndicatorStyle` applying it live, now held by the pane that
-draws the tiles. A change of address once more. What DID change is the gate's
-shape — the row's existence, not its enabledness
+The choice itself is the same `hudIndicatorStyleKey` the panels read and the
+same `setHUDIndicatorStyle` applying it live, held by the pane that draws the
+tiles. The gate's shape is the row's existence, not its enabledness
 (`rendered-style-gates-settings`).
 
-**Amendment (2026-08-01, fifth): the picker's seed reads the declaration key,
-never the leading display's answer.** `currentStyle()` seeded the all-displays
-tiles (and the tour's) with the leading display's RESOLVED style, which let that
-display's own override show up selected in the control that speaks for every
-screen — the tiles claimed a declaration nobody had made, one row above the row
-already reporting the override as that display's own, while the menu's Style
-submenu, bound to the raw key, said the truth. The rule that closes it: every
+**The picker's seed reads the declaration key, never the leading display's
+answer.** Seeding the all-displays tiles (and the tour's) with the leading
+display's RESOLVED style lets that display's own override show up selected in the
+control that speaks for every screen — the tiles claim a declaration nobody made,
+one row above the row already reporting the override as that display's own,
+while the menu's Style submenu, bound to the raw key, says the truth. Rule: every
 surface of ONE declaration reads the ONE key (`Preferences.declaredStyle`); the
-reader was renamed `declaredStyle()` so the name stops promising a "current"
-that geometry or overrides could bend. The authority order survives with its one
-remaining reader, the upgrade adoption above.
+reader is named `declaredStyle()`, never a "current" that geometry or overrides
+could bend. The authority order has one reader, the upgrade adoption above.
 
 ### rendered-style-gates-settings
-Settings gated the Card-only indicator picker on `.disabled(style != .card)`,
-where `style` is the DECLARATION the all-displays picker holds. But what a display
+A Settings gate on the DECLARATION — the Card-only indicator picker under
+`.disabled(style != .card)`, where `style` is what the all-displays picker
+holds — misreads the screen. What a display
 draws is that declaration put through one fallback — the notch skin needs a
 physical slit, so notch renders as card wherever `safeTop <= 0` — and the shipped
 default declares notch. So on every Mac without a notch (mini, Studio, iMac, older
-Air) and on any external-only or clamshell setup, the app drew the Card HUD on
-every display in the DEFAULT state while the one control over that HUD's
-appearance sat gray, the only escape being to pick "Card" explicitly: the style
+Air) and on any external-only or clamshell setup, the app draws the Card HUD on
+every display in the DEFAULT state while such a gate grays the one control over
+that HUD's appearance, the only escape being to pick "Card" explicitly: the style
 already on screen. Not an edge case — a class of hardware, out of the box.
 Decision: the declared→drawn mapping lives once, in `Style.resolved(on:)`, and
 every reader asks IT. `WindowManager.resolvedStyle` builds each panel through it,
@@ -1138,28 +1396,24 @@ re-resolving from Preferences, so "what the user declared" and "what is on scree
 cannot drift apart by construction; Settings re-reads it immediately after writing
 the declaration, since the panels are re-resolved synchronously there. And the
 declaration reader keeps its own name (`declaredStyle()` — what the picker seeds
-from; `global-style-default`'s fifth amendment records why the earlier
-`currentStyle()` died), so the two questions stay impossible to confuse at the
+from; `global-style-default` records why the seed never reads a resolved
+"current" style), so the two questions stay impossible to confuse at the
 call site.
 
-**Amendment: the third reader is the picture.** `StylePreview.shapes(for:on:)`
+**The third reader is the picture.** `StylePreview.shapes(for:on:)`
 resolves before it draws, so a tile asked about a named display shows what that
 display would really put on screen: the Notch tile on a slitless panel draws the
 card — floating, no slit, not opaque — instead of promising hardware the Mac does
 not have. A notch promised in a thumbnail is the same lie it would be on the
 panel. It also means the notch rule's own `safeTop > 0` guard is never reached
 through this path, which is exactly the shape this entry asks for: one mapping,
-every reader asking IT. The disabled tile reads that same resolver as a yes/no —
-`Style.isHonoured(on:)` is `resolved(on:) == self` — so a tile cannot be offered
-enabled for a style its screen would silently swap out. (Amended 2026-08-01:
-there is no disabled tile any more — the per-display control is a popup, and the
-yes/no it reads is `DisplayStyleOptions.isEnabled`, still `Style.isHonoured(on:)`,
-still the same resolver. `StylePreview.shapes(for:on:)` therefore has no caller in
-the app today and stays as a SEAM rather than dead code: the resolve-before-drawing
-rule lives in that function and the suite is what pins it, the same standing
-`Preferences.setShowsNowPlaying` has. The named next caller is a thumbnail at the
-head of each per-display row.)
-Drawing per display produced one measured number worth keeping: a slitless
+every reader asking IT. The per-display popup reads that same resolver as a
+yes/no — `DisplayStyleOptions.isEnabled` is `Style.isHonoured(on:)`, which is
+`resolved(on:) == self` — so a style cannot be offered enabled on a screen that
+would silently swap it out. `StylePreview.shapes(for:on:)` is what each
+per-display row draws, with that row's own screen, so the resolve-before-drawing
+rule reaches Settings through it.
+Drawing per display yields one measured number worth keeping: a slitless
 display's menu bar is 24 pt, against the 32 pt safe area a notched panel reports
 (that panel's real bar is 37). The preview needs a bar for the surfaces to have a
 top edge to sit under, and a slitless screen reports no safe area at all, so that
@@ -1167,39 +1421,39 @@ top edge to sit under, and a slitless screen reports no safe area at all, so tha
 without a notch loses the top edge where the whole difference between these skins
 lives.
 
-**Amendment (2026-08-01): the same gate, the opposite chrome — the indicator row
-is now ABSENT where nothing renders Card.** The predicate did not move:
-`AppCore.rendersAnywhere(.card)`, still an ANY over the panel roster, still
-re-read immediately after the declaration is written. What changed is what its
-"no" looks like. The row used to be kept visible and disabled — the macOS
-dependent-setting pattern — and the reason was DISTANCE: from the Indicators tab
-the control that could turn the gate true was a tab away, so a row that simply
-vanished would have left nothing to reason about, and a greyed row named for what
-it governs plus a footer pointing at General was the cheapest honest report. The
-row now sits in the same Section as that declaration, immediately under it
-(`global-style-default`), so the answer to "why is there no indicator row?" is
-drawn above the space where it would be, and declaring Card makes the row appear
-at once — live, off the mirror this pane already re-reads on every write.
+**The same gate, the opposite chrome — the indicator row is ABSENT where nothing
+renders Card.** The predicate is the one above: `AppCore.rendersAnywhere(.card)`,
+an ANY over the panel roster, re-read immediately after the declaration is
+written. Its "no" is absence, not a disabled row. Visible-and-disabled — the
+macOS dependent-setting pattern — pays for DISTANCE: when the control that could
+turn the gate true is a tab away, a row that simply vanishes leaves nothing to
+reason about, and a greyed row named for what it governs plus a footer pointing
+at the other tab is the cheapest honest report. The
+row sits in the same pane as that declaration, after the display rows whose
+thumbnails show what each display draws (`global-style-default`), so the answer to
+"why is there no indicator row?" is drawn above the space where it would be, and a
+pick that starts a display drawing Card makes the row appear at once — live, off
+the mirror this pane re-reads after every style write.
 Visible-but-disabled buys nothing once that distance is gone; it spends a row on a
 control nobody can use.
 
-The residual is the seed-once deal this mirror has always taken (S4, the tradeoff
+The residual is the seed-once deal of S4 (the tradeoff
 `one-screen-reading-per-edge` names when it explains why the per-display list does
-NOT take it): the mirror is seeded when the pane is built, so a per-display
-override — or a monitor plugged in — with the window open leaves the row on the
-previous answer until Settings is reopened. The list next to it is reactive
-because its rows ARE displays; this row is not a display, so it keeps the cheaper
-deal.
+NOT take it): the mirror is seeded when the pane is built and re-read after every
+style write in the pane and every roster change, so a style picked from the menu
+bar's Style submenu with the window open leaves the row on the previous answer
+until Settings is reopened. The list next to it is reactive because its rows ARE
+displays; this row is not a display, so it keeps the cheaper deal.
 
-**Amendment (2026-08-15): the per-display list is offered for every roster that
-is not empty.** It used to be gated — two displays, or a sole external, or an
-override somewhere — on the reasoning that a lone built-in panel's row would only
-repeat the declaration above it. That reasoning saw the style popup and missed
-the switch beside it: the row is the app's ONLY control for the now-playing
-surface, born from `defaultShowsNowPlaying(isInternal:)`, which is literally
-`isInternal`. The gate had a clause for the sole external (born OFF, nothing else
-turns it on) and none for its mirror — a sole internal panel, the most common
-Mac there is, born ON with nothing in the app able to turn it off. Both
+**The per-display list is offered for every roster that is not empty.** A
+narrower gate — two displays, or a sole external, or an override somewhere — on
+the reasoning that a lone built-in panel's row would only repeat the declaration
+above it, sees the style popup and misses the switch beside it: the row is the
+app's ONLY control for the now-playing surface, born from
+`defaultShowsNowPlaying(isInternal:)`, which is literally `isInternal`. Such a
+gate covers the sole external (born OFF, nothing else turns it on) and not its
+mirror — a sole internal panel, the most common Mac there is, born ON with
+nothing in the app able to turn it off. Both
 directions strand the user without a row, so the only roster that answers no is
 the empty one, which is a real state (Settings open across the last display
 going away), not a corner to trap on (`DisplayStyleOptions.listIsOffered`, pinned
@@ -1207,12 +1461,12 @@ in `DisplayStyleOptionsTests`).
 
 ### sample-dont-integrate
 A UI ticker that adds a fixed step per tick is a clock that runs slow. Timers are
-not real time — they fire late under load, App Nap, battery coalescing — and the
-adapter source's 1 Hz tick used to do `position += 1` per delivered tick, so
-every late or dropped tick was playback time permanently lost from the bar.
+not real time — they fire late under load, App Nap, battery coalescing — so a
+1 Hz tick doing `position += 1` per delivered tick permanently loses every late or
+dropped tick's playback time from the bar.
 Measured: with music playing, the adapter emitted ONE payload in 20 s (players
 register elapsed+timestamp on state changes and never re-report during steady
-playback), so nothing re-anchored the display and the error accumulated for the
+playback), so nothing re-anchors the display and the error accumulates for the
 whole track — always in the same direction, since a `sleep(1s)`-then-work loop
 never runs faster than its interval. Decision: the tick SAMPLES, never
 accumulates — the source keeps an anchor (position, instant, rate) and every
@@ -1228,25 +1482,25 @@ it re-polls the player's real position every 2 s.
 
 Which clock it samples is part of the decision. The tick ages on a MONOTONIC
 stopwatch (`ProcessInfo.systemUptime`), never the wall clock: sampling means the
-bar follows whatever clock it reads, so reading the wall clock let an NTP step
+bar follows whatever clock it reads, so reading the wall clock lets an NTP step
 correction or a manual time change move the bar with it — backward, undoing
 playback already shown, and forward, throwing it to the duration clamp until the
 next payload (which this adapter only sends on a state change). Every anchor is
 stamped with our own reading of that stopwatch when it is installed; the payload's
 own timestamp is folded into the position before then, so the wall clock is not
 part of the tick's arithmetic at all.
-A FLOOR at the position already shown was tried first and REMOVED — history now,
-and kept because the reasoning is what makes the current answer legible rather
-than lucky. It could only stop the backward half of a wall-clock step, and it
-needed a `rate > 0` exception so a rewind scan could still walk the bar back. Two
-things it got right, and any future floor has to get right again: it floored the
-SHOWN line and never a high-water mark (a remembered maximum strands the bar above
-the truth after a legitimate backward re-anchor — an accepted payload, a seek, a
-failed seek's rollback), and it kept the origin fixed instead of re-anchoring on
-the backward edge, because moving the origin is exactly what makes a tick
-accumulate again and lets a noisy clock ratchet the bar forward. What replaced it
-is smaller and covers both directions: read a clock that cannot lie. The `max(0, …)`
-still in the source is a clamp, not that mechanism, and its comment says so.
+A FLOOR at the position already shown is the refused alternative, recorded
+because its reasoning is what makes the current answer legible rather than
+lucky. It can only stop the backward half of a wall-clock step, and it needs a
+`rate > 0` exception so a rewind scan can still walk the bar back. Any floor has
+to get two things right: floor the SHOWN line and never a high-water mark (a
+remembered maximum strands the bar above the truth after a legitimate backward
+re-anchor — an accepted payload, a seek, a failed seek's rollback), and keep the
+origin fixed instead of re-anchoring on the backward edge, because moving the
+origin is exactly what makes a tick accumulate again and lets a noisy clock
+ratchet the bar forward. The monotonic stopwatch is smaller and covers both
+directions: read a clock that cannot lie. The `max(0, …)` in the source is a
+clamp, not that mechanism, and its comment says so.
 
 Sleep is the second half of that choice, and the word "monotonic" hides it.
 `systemUptime` is `CLOCK_UPTIME_RAW`, which "does not increment while the system is
@@ -1281,32 +1535,34 @@ METADATA is asked for through `identifier`: `{"commands":["get"],"parameters":
 productName. A FEATURE is asked for by its own name as the parameter KEY, with no
 value: `{"commands":["get"],"parameters":{"displayID":"2","brightness":""}}` →
 `result=true, payload=0.063`. Same for `combinedBrightness` and
-`hardwareBrightness`. And a relative write is the documented `offset` parameter —
+`hardwareBrightness`. And a relative write is the documented `offset` parameter
+(BetterDisplay wiki, "Integration features, CLI", a page the vendor marks legacy,
+read Oct 2026; it also documents the feature-as-parameter-key syntax) —
 `{"set", {"brightness":"-5%","offset":""}}` → `result=true` — not a sign on the
 value, which is read as an absolute (a probe sending `+0.0625` set the monitor to
 6.3% and looked like it had been accepted as a delta).
 
-This entry replaces one that claimed the opposite. Five spellings of brightness
-were measured through `identifier` — the metadata door — all refused, and that
-became an anchor, a public ROADMAP item and a code comment asserting the neighbour
-could be written but never read. The consequence was not a wrong sentence: it
-retired a feature. "Brightness keys follow the screen you are working on" was
-declined as impossible, because stepping needs a `before` and there appeared to be
-none. There is one, so the apply-verify cycle runs against an external display like
-any other.
+This entry rules over an earlier reading that claimed the opposite. Asked through
+`identifier` — the metadata door — five measured spellings of brightness are all
+refused, and reading that as "the neighbour can be written but never read" costs
+more than a wrong sentence in an anchor, a public roadmap item or a code comment:
+it retires a feature. "Brightness keys follow the screen you
+are working on" looks impossible on that reading, because stepping needs a
+`before`. There is one, so the apply-verify cycle can run against an external
+display like any other; building it is the open work.
 Decision: an integration's own documentation is a primary source and gets read
 BEFORE a refusal becomes a limitation. Five failures in one category are evidence
-about that category, never about the platform — and a vendor wiki was one search
-away the whole time. When a measurement says a neighbouring app cannot do something
+about that category, never about the platform — and a vendor wiki is one search
+away. When a measurement says a neighbouring app cannot do something
 its docs describe, the null hypothesis is that we are asking wrong.
 
 ### automation-is-fallback-only
-The app required a permission it never named. The now-playing chain is adapter →
-JXA → off, and the JXA elbow spawns `osascript` against Spotify/Music, which needs
-Automation (Apple Events) consent — nothing in the app read that state, mentioned
-it, or offered a way to it. The Permissions tab covered Accessibility only, so a
-user whose adapter had died read "Accessibility: Granted", saw "Now Playing
-unavailable", and had nowhere to go.
+A permission the app requires and never names strands the user. The now-playing
+chain is adapter → JXA → off, and the JXA elbow spawns `osascript` against
+Spotify/Music, which needs Automation (Apple Events) consent — with nothing in the
+app reading that state, mentioning it, or offering a way to it, and a Permissions
+tab covering Accessibility only, a user whose adapter has died reads
+"Accessibility: Granted", sees "Now Playing unavailable", and has nowhere to go.
 Decision: Automation gets a row, and the row is allowed to say "I don't know".
 State is read with `AEDeterminePermissionToAutomateTarget(askUserIfNeeded: false)`,
 which answers from the consent database and CANNOT prompt. Measured, not assumed: a
@@ -1332,13 +1588,13 @@ the Accessibility path avoids by prompting before it opens its pane.
 Two scoping rules are load bearing. First, tone: a missing grant here costs the
 BACKUP reader, not Now Playing, so the row states a fact in the neutral style and
 never the warning orange — the escalation lives in the menu's existing
-"unavailable" warning, which now carries the trail to this tab and names the same
+"unavailable" warning, which carries the trail to this tab and names the same
 concept ("backup reader") the tab does. Second, cost: the read is a blocking round
 trip to the consent daemon per player, so it is polled only from the Permissions
 tab's lifecycle edges — and the observable it writes is read ONLY by that row, never
 the menu, whose body also reads `CGGetEventTapList` (which zeroes the min/max
 latency counters of every tap in the system), so a state changing on a 2 s poll
-would have re-run that read on someone else's dime. Scoping to a tab is as strong as
+would re-run that read on someone else's dime. Scoping to a tab is as strong as
 SwiftUI's tab lifecycle: both ends are idempotent, so the worst case a missed edge
 buys is one poll while the Settings window is open in front of the user, and the
 menu's cost is unchanged either way.
@@ -1352,34 +1608,35 @@ requirement that does not exist and could never leave "unknown".
 The subject of the question is worth recording: the events are sent by a spawned
 `osascript`, and macOS attributes them to the RESPONSIBLE process (Crema), which is
 what this check asks about. Probed from the other side — a child process asking this
-question gets its parent's grant back. If that attribution ever changed, the row
-would report a state unrelated to the fallback's real luck.
+question gets its parent's grant back. If that attribution ever changes, the row
+reports a state unrelated to the fallback's real luck.
 
 **The badge column belongs to the permission the app requires.** The tone rule
-above — a fact in the neutral style, never the warning orange — was being applied
-to the words while a symbol beside them said something else, and said it wrong in
-both directions: a REFUSAL of the optional permission drew a harsher mark (a
+above — a fact in the neutral style, never the warning orange — binds the symbol
+as much as the words, and a symbol beside the optional row says it wrong in
+both directions: a REFUSAL of the optional permission draws a harsher mark (a
 cross) than the REQUIRED permission's warning triangle, and the resting state of
-a Mac with no music app open drew a question mark against a machine where nothing
+a Mac with no music app open draws a question mark against a machine where nothing
 is wrong. So the optional row states its fact in words and carries no glyph at
-all, the way the other optional integration already reports "Receiving" one tab
-over. With the glyph gone, nothing ranked the two sections, so the ranking moved
-into a word — the section headers say Required and Optional — which survives a
+all, the way the other optional integration reports "Receiving" one tab
+over. Without the glyph nothing ranks the two sections, so the ranking lives
+in a word — the section headers say Required and Optional — which survives a
 screenshot, greyscale, and colour blindness, none of which an orange-versus-grey
-ranking does. The one badge left in the window sits on the required permission,
+ranking does. The one badge in the window sits on the required permission,
 always above a button that fixes it. And where a symbol does stay, the colour
-lives on the SYMBOL and never on the word: tinting a whole Label put the line
-people open the tab to read at roughly 2.2:1 on a light grouped row, which passed
-review only because it looks fine in the dark appearance.
+lives on the SYMBOL and never on the word: tinting a whole Label puts the line
+people open the tab to read at roughly 2.2:1 on a light grouped row, which passes
+a review done only in the dark appearance, where it looks fine.
 
-**Amendment: a guard checked before an await says nothing about the world after
-it.** "The read stands down while the dialog is up" was enforced at the entry of
-`refresh()`, and the blocking read hops off the actor: a pass already in flight when
-the user clicked is past that guard, and it resumes into a last-writer-wins merge
-carrying the answer it took before the decision existed — putting `undecided` back
-over the grant the user just gave. Re-checking `isAsking` on the way back does not
-close it either, because the ask clears the flag before recording its own answer, so
-the resumption sees a quiet monitor. The fix is a generation counter bumped when an
+**A guard checked before an await says nothing about the world after
+it.** "The read stands down while the dialog is up", enforced only at the entry of
+`refresh()`, does not hold, because the blocking read hops off the actor: a pass
+already in flight when the user clicks is past that guard, and it resumes into a
+last-writer-wins merge carrying the answer it took before the decision existed —
+putting `undecided` back over the grant the user just gave. Re-checking `isAsking`
+on the way back does not close it either, because the ask clears the flag before
+recording its own answer, so the resumption sees a quiet monitor. The rule is a
+generation counter bumped when an
 ask BEGINS — every read already in flight was taken of a world where nobody had
 decided — and compared when the read returns; a read from before an ask is dropped,
 and the poll re-reads within its interval. Pinned by
@@ -1387,215 +1644,146 @@ and the poll re-reads within its interval. Pinned by
 across an ask that starts and finishes.
 
 ### menu-status-before-warnings
-The menu bar was six conditional warning blocks stacked above three actions, each
-followed by its own separator, and the only positive line in it — the one saying
-the BetterDisplay integration was working — sat among them behind a "✓". With two
-conditions firing at once it read as a wall of warning glyphs; with none firing it
-said nothing at all about what the app was doing.
-Decision: the menu is **status first, warnings only when they exist, actions
-last**, and the whole split is decided in one pure place (`MenuStatus`) so the
-order and the gating are pinned by tests rather than resting on the shape of a view
-body.
-Five rules that type enforces:
-- **A status row is a fact, never a wish.** Every row is gated on the feature being
-  in effect: the brightness-target row speaks only while Crema is the one applying
-  the key — preference AND suppressor AND permission AND no suspended domain, the
-  `cremaApplies` gate — and where Crema does not apply, the row says nothing rather
-  than aiming a sentence at someone else's work. The claim about replacing the
-  system indicators was this rule's first example; see the amendment.
-- **The style row reports what the displays DRAW, not only what the picker
-  declared.** On any Mac without a slit the shipped default declares Notch while
-  every panel draws Card, so "Style: Notch" alone is false there — the same
-  contradiction `rendered-style-gates-settings` was written about. The fallback gets
-  its own row, in the very sentence the Settings footer already uses.
-- **The neighbour reporting is status, not a warning.** Same reading, moved: it is
-  the arrangement the app asked the user to make, not a fault.
-- **The brightness target is status too** — see `brightness-key-target-in-the-menu`.
-- **Warnings are ordered by urgency, and the order is the contract**: Accessibility
-  first (without it no media key arrives at all, and the chain reading cannot even
-  see us), launch-at-login last (it is about the next launch, not this session). A
-  warning that offers a repair is fenced by separators from its neighbours, stated
-  as one rule over the PAIR so two adjacent actionable warnings produce one
-  separator instead of two. One warning carries no button but a second sentence
-  instead — the dead Now Playing, whose trail out is the Automation access its
-  backup reader needs.
-Emoji are out, in both directions. "⚠️" carried the meaning the sentence has to
-carry anyway, VoiceOver reads it mid-sentence as noise, and six of them stacked is
-what made the menu unreadable. "✓" was worse than decorative: a checkmark in an
-NSMenu means a CHECKED item, so a title starting with one reads as a toggle that is
-on — which is exactly why the app's only good news read as noise. AppKit's own
-status menus (Wi-Fi, Bluetooth, Time Machine) carry no glyph on an informational
-row; they use plain disabled sentences, and that is what ships. SF Symbols via
-`Label` were considered and dropped: menu-item icons are for items that stand for
-an object, and a symbol that silently fails to render on an informational row
-leaves the sentence unmarked anyway.
-Cost, faced rather than inherited: the block reads two things that live outside the
-process, and one of them — `CGGetEventTapList`, behind `mediaKeyChainNotice()` —
-resets the min/max latency counters of every tap in the system, neighbouring apps'
-included. A view body is rebuilt whenever SwiftUI invalidates it, which is NOT the
-same as the user opening the menu, so a status block with more inputs means more
-rebuilds and, unbounded, more of those reads. `MediaKeyChainNotice.Cache` bounds
-them with a one-second **coalescing window**: a burst of rebuilds costs one
-reading, and the answer is never more than a window old. A window and not a set of
-invalidation edges, deliberately — **and the reason recorded here until 2026-08-07
-was false.** It claimed the edges are not enumerable from in here, that a
-neighbour installing or dropping a tap has no notification behind it. It does:
-CoreGraphics posts `kCGNotifyEventTapAdded` and `kCGNotifyEventTapRemoved`
-through notify(3) (`CGEventTypes.h`). The design is unchanged and the corrected
-reason is stronger: the cost is in the READ, not in the trigger. `CGGetEventTapList`
-zeroes the min/max latencies of every tap in the system on each call, so the
-reading must stay rare and tied to someone actually looking — subscribing to the
-edges would invert that, making a neighbour's toggle force a re-read (and reset
-every other app's counters) while nobody has the menu open. The window keeps the
-read where the question is asked and bounds staleness at one window; the stale
+The menu bar extra is a native menu (`MenuBarExtra`, menu style): the HIG asks a
+menu bar extra for "a menu — not a popover" unless the function is too complex for
+a menu, and this one carries a switch, a choice, a few facts and the app's
+commands. Its order and gating are decided in one pure place, `MenuStatus`, and
+pinned by tests rather than resting on the shape of a view body.
+
+**The shape is sections, in a fixed order**, each ABSENT rather than empty when it
+has nothing to say — an empty section still draws its separator, over nothing:
+- **Indicators**, titled with the Indicators tab's own name: the replacement
+  switch, then the `Style` submenu. Always present. The feature is opt-in and ships
+  OFF, so without the switch a fresh install's menu never names the headline
+  feature; and a real `Toggle` is the one place a checkmark belongs, the way Wi-Fi,
+  Bluetooth and Sound lead with theirs. The declared style is the checked item of
+  an inline Picker in the submenu, which says it AND lets the user change it there.
+- **Warnings**, untitled — each one names itself, and a heading over them would be
+  a second alarm.
+- **Now Playing**, titled with the Now Playing tab's name, only while a track is
+  named.
+- The app's own commands — Settings and updates, then Quit — untitled, like every
+  app's commands at the foot of a menu. They stay outside `MenuStatus`: nothing
+  gates them, and the update items exist only in Release, so a case for them there
+  is one the Debug-hosted suite can never reach.
+Separators come from the sections, never from a `Divider`: beside a section's own
+separator a `Divider` doubles it. Section titles reach AppKit's
+`NSMenuItem.sectionHeader(title:)` (macOS 14) through a SwiftUI `Section`
+(measured on macOS 27: `scripts/probes/menu-sections-and-subtitles.swift`).
+
+**A fact is the subtitle of the control it qualifies.** A fact on a line of its own
+reads as a disabled item — grey in a menu means unavailable — and sits apart from
+the control it explains. So every `Row` has a `Host`: what the replacement covers
+goes under the switch, the style fallback under the Style submenu, at most one per
+host. The rows' own rules:
+- **A row is a fact, never a wish.** It is gated on the feature being in effect: the
+  brightness rows speak only while Crema is the one applying the key — preference
+  AND suppressor AND permission AND no suspended domain, the `cremaApplies` gate —
+  and where Crema does not apply, the row says nothing rather than aiming a line at
+  someone else's work.
+- **A fact another surface already states is not news here.** What the user reads
+  on a control (General's "Open Crema at login" checkbox) or in a sentence Settings
+  states unconditionally (the pointer scope under the Indicators tab's switch) gets
+  no row: a permanent note on a healthy Mac teaches the reader that these lines are
+  decoration. On a healthy Mac `rows` is empty — the common shape.
+- **The style note reports what the displays DRAW.** On any Mac without a slit the
+  shipped default declares Notch while every panel draws Card; a checkmark states
+  the declaration and cannot say that nothing honours it
+  (`rendered-style-gates-settings`).
+- **The neighbour reporting is status, not a warning**: it is the arrangement the
+  app asked the user to make. The brightness target is status too
+  (`brightness-key-target-in-the-menu`), and `.builtInAmongOthers` maps to NO row —
+  telling a Mac that HAS a built-in display that Crema cannot control screen
+  brightness is false, not merely redundant.
+
+**A warning with a repair IS the repair.** The button is the item and the fact is
+its subtitle, so no sentence sits apart from the button that answers it; a warning
+with no repair is a disabled item whose subtitle is what it costs. The menu builds
+every warning from `Warning.item` — an exhaustive mapping to a repair or a fact —
+so a repair cannot end up under a fact it does not fix. `.nowPlayingUnavailable`
+walks to the Permissions tab (`.openPermissionsTab`): not a repair, since nothing
+in this app revives a dead media source, and its line states the requirement — the
+backup reader needs Automation — never a verdict. **Warnings are ordered by
+urgency, and the order is the contract**: Accessibility first (without it no media
+key arrives at all, and the chain reading cannot even see us), launch-at-login
+last (it is about the next launch, not this session).
+
+**Subtitles where the platform shows them.** A second `Text` in an item's label
+reaches `NSMenuItem.subtitle` (macOS 14.4) — measured for a toggle, a button, a
+submenu and a disabled item on macOS 27 (same probe). Apple's documentation for that
+property shows the subtitle from macOS 15 and not on 14 for an attributed title, so
+on 14 the note is a line of its own (`MenuItemNote`): the same words, a line
+longer, a repair's fact before its button.
+
+**No glyphs, in either direction.** "⚠️" carries the meaning the line has to carry
+anyway, VoiceOver reads it mid-sentence as noise, and stacked it makes a menu
+unreadable. "✓" is worse than decorative: a checkmark in an NSMenu means a CHECKED
+item, so a title starting with one reads as a toggle that is on. SF Symbols via
+`Label` are out too: a menu-item icon stands for an OBJECT, and a symbol that
+silently fails to render leaves the line unmarked anyway.
+
+**Every line has a width ceiling.** An NSMenu is exactly as wide as its widest
+item: one 116-character line opens it at roughly 1500 pt (measured in the field).
+Every menu line — a title, a subtitle, a fallback line — stays within 72
+characters, and `MenuLineWidthTests` holds that against the compiled string tables.
+Nothing is centred, and chrome is never truncated: a hole filled from a CLOSED set
+is measured at its widest member, never at the empty string — the suspension note
+with all three domains named is 70 characters in English and 63 in Portuguese. A
+hole filled with EXTERNAL content has no worst case to measure. The track's line is
+cut at the ceiling with an ellipsis (`NowPlayingMenuSection.fitted`, held by
+`MenuLineWidthTests.aPublishedTitleIsCutAtTheCeiling`); a neighbour app's name
+stays data rather than chrome.
+
+**The media section exists only while there is media.** Its gate is the line that
+names it (`NowPlayingMenuLine` other than `.nothing`), so neither a title nor a
+transport can be built over nothing; a command the player REFUSED greys its item in
+place, so the section does not flinch as availability moves (the rule
+`TransportControls` follows). That gate stays in `NowPlayingMenuSection`'s body
+instead of rising into `MenuStatus`: the type is built in `CremaMenu`'s body, whose
+every rebuild pull-reads the event-tap chain, and the media state is rewritten once
+a second (`menu-reads-mirrors`). What `MenuStatus` does gate is the chain: with no
+source reporting there is no media section at all, on the SAME value
+`.nowPlayingUnavailable` comes from, so a transport never sits under the line
+saying nothing is reporting.
+
+**Cost.** The status reading touches two things outside the process, and one of
+them — `CGGetEventTapList`, behind `mediaKeyChainNotice()` — resets the min/max
+latency counters of every tap in the system, neighbouring apps' included. A view
+body is rebuilt whenever SwiftUI invalidates it, which is NOT the same as the user
+opening the menu, so more inputs mean more rebuilds and, unbounded, more of those
+reads. `MediaKeyChainNotice.Cache` bounds them with a one-second **coalescing
+window**: a burst of rebuilds costs one reading, and the answer is never more than
+a window old. A window and not a set of invalidation edges, though the edges exist
+— CoreGraphics posts `kCGNotifyEventTapAdded` and `kCGNotifyEventTapRemoved`
+through notify(3) (`CGEventTypes.h`): the cost is in the READ, not in the trigger,
+so the reading stays rare and tied to someone actually looking, and subscribing to
+the edges would make a neighbour's toggle reset every other app's counters while
+nobody has the menu open. The window bounds staleness at one window, and a stale
 line here is an ACCUSATION against a named neighbour — the direction
-`media-key-chain-contention` says to err away from. Reopening gate: if the read
-ever stops being destructive, the edges exist and are named. The neighbour's delivered
-payload is a different kind of input, a free local flag that can flip with no
-notification at all, so it is part of the memo KEY rather than of its age.
-Two things the window deliberately does not buy: freshness within the window, and
-any claim about `loginItem.status`, which still crosses into Background Task
-Management once per rebuild — one reading, not two, which is why the instance-level
-`loginItemOutcome()` was removed in favour of `menuStatus`.
-
-**Amendment (2026-07-31): the menu now leads with the switch — the rule finished,
-not breached.** "✓" is banned inside a sentence because a checkmark in an NSMenu
-means a CHECKED ITEM; a real `Toggle` is that meaning used on purpose, and the
-menus this entry cites lead with theirs. A status row is a fact, so it could only
-speak once the feature was already in effect — and the feature is opt-in and ships
-OFF, so a fresh install's menu never named the headline feature at all. The
-suppression row went with the switch: over a checked item its only extra claim was
-"no domain suspended", and a suspension already speaks as the warning below. Cost
-unchanged — the switch reads the same two values the Settings toggle gates on and
-this body already receives, and the write stays behind a click.
-
-
-**Amendment (2026-07-31, second): the menu is four blocks, and the style row
-became the checked item that states it.** The rule finishing here is the one the
-first amendment started — a checkmark in an NSMenu means a CHECKED ITEM, so the
-two facts that ARE a checked item ship as controls rather than as sentences. The
-suppression row went with the Toggle; the style row goes with an inline Picker in
-a `Style` submenu, which says what the sentence said AND lets the user change it
-where they read it. What a checkmark cannot say stays a row: `styleFallsBackToCard`
-is a fact of FALLBACK, not of choice — a Notch tick beside a Card-shaped HUD is
-the contradiction `rendered-style-gates-settings` was written about — so it
-survives its neighbour and now opens the status block. One consequence, faced
-rather than inherited: with no row anchoring it, `rows` can be empty, so a block
-with nothing to say is ABSENT rather than empty (an empty group still draws the
-separator that opens it), and the menu's anchor is the Toggle, which never goes
-away.
-The split into `Block` (controls / status / warnings / media) is the second half,
-and it exists because the shape was already decided in two places: status and
-warnings in `MenuStatus`, the media group in the scene's ViewBuilder behind
-`nowPlayingMonitor.isActive` — the same fact `.nowPlayingUnavailable` is derived
-from, read twice, with no test able to see the second reading. A transport under
-the line that says nothing is reporting is the contradiction that costs; one gate
-in the pure type is the fix. The separator rule is stated over the block INDEX
-(`separatesBlock(at:)`, total at both borders) and not over which block it is,
-because what leads changes with what the app has to say. Deliberately still
-outside the type: the app's own actions (Settings, updates, quit) — nothing gates
-them, and the update item exists only in Release, so a case for it here is one
-the Debug-hosted suite can never reach.
-Third piece, one rule: **every button in the warning block comes from
-`Warning.action`.** The Accessibility warning carried a second, hardcoded button
-beside the one its action produced — which is how a repair ends up under a
-sentence it does not fix while the exhaustive switch still compiles.
-`.nowPlayingUnavailable` gains `.openPermissionsTab`: not a repair, since nothing
-in this app revives a dead media source, but the walk to where the backup
-reader's Automation requirement is granted — and its advice line drops the tail
-that named the tab, because the button under it IS the walk.
-Menu-item icons were reconsidered for the style submenu and rejected again, for
-the reason already stated: an icon stands for an OBJECT, and a symbol that
-silently fails to render leaves the row unmarked anyway.
-
-**Amendment (2026-07-31, third): menu lines have a width ceiling, and the catalog
-is what holds it.** An NSMenu is exactly as wide as its widest item, so one
-116-character status row — the brightness-target sentence — opened the whole menu
-at roughly 1500 pt (measured in the field). Decision: every status row, warning and
-advice is rendered as one plain item PER LINE (`CremaMenu.sentence`), and the breaks
-live beside the text in `Localizable.xcstrings` — about 72 characters a line, broken
-at a clause each translation picks for itself, since a break decided in code would
-cut English's clauses out of Portuguese. Nothing is centred and nothing is
-truncated: menu items are leading-aligned on this platform, and a clipped sentence
-is a fact the user cannot read. The width vector left is data rather than chrome — a
-long track title in the media block — and it stays as it is.
-
-**Amendment (2026-08-01, fourth): a row that restates another surface is not a
-fact.** "A status row is a fact, never a wish" had a second half it never stated:
-a fact the user already reads on a CONTROL, or in a sentence Settings states
-UNCONDITIONALLY, is not news in the menu. Two rows went by that half.
-`opensAtLogin` was the mirror of General's "Open Crema at login" checkbox — which
-is also where the fact is CHANGED, so the mirror was strictly the poorer surface,
-and the two warnings about a revoked or unapproved registration already cover
-every case where the checkbox and reality disagree. `brightnessFollowsPointer`
-was the menu's copy of `settings.hud.suppress.footer.brightnessScope`, the
-sentence the Indicators tab states under the switch that turns the replacement
-on, with no gate at all. Both were GATED redundancy, and a gate does not make a
-copy news: between them they kept the status block permanent on a healthy Mac,
-which is what teaches a reader that these lines are decoration rather than the
-app's own report.
-What survives is `brightnessNoBuiltIn` — no built-in panel in use, so Crema
-applies no brightness key at all — because nothing else in the app says it, and
-the `cremaApplies` gate survives with it, since that row makes the same promise
-about who applies. One trap named so it is never re-opened: `.builtInAmongOthers`
-maps to NO row, never to the surviving one — telling a Mac that HAS a built-in
-display that Crema cannot control screen brightness is false, not merely
-redundant (`brightness-key-target-in-the-menu`). `styleFallsBackToCard` survives
-for the reason the second amendment already gave: it is a fact of FALLBACK rather
-than of choice, and no checked item can state it.
-Consequence, faced rather than inherited: on a healthy Mac `blocks` is
-`[.controls, .media]` — the status block is ABSENT, which is exactly what making
-the block conditional was for, and the menu's anchor is still the Toggle, which
-never goes away. The empty-`rows` case the second amendment introduced is now the
-COMMON shape rather than the corner one.
-The media block learned the same distinction from the other side: the three
-transport items EXIST only while there is a track. A command the player REFUSED
-greys its item in place — the rule `TransportControls` follows, so the block does
-not flinch as availability moves — while a verb with no OBJECT is removed,
-because three permanently dead items under "Nothing playing" are the one part of
-this menu nobody can ever use. The gate comes off `NowPlayingMenuLine.namesMedia`,
-the SAME value the row above is drawn from, and it deliberately stays in
-`NowPlayingMenuSection`'s body instead of rising into `MenuStatus` with the rest
-of the menu's gating: `MenuStatus` is built in `CremaMenu`'s body, whose every
-rebuild pull-reads the event-tap chain, so a gate over the media state would hang
-that system-wide probe off a value rewritten once a second — the whole thesis of
-`menu-reads-mirrors`.
-
-**Amendment (2026-08-15, fifth): the width ceiling counts what the hole fills
-with.** The third amendment put every menu line under about 72 characters and
-moved the breaks into the catalog; it measured the STATIC text and stopped there.
-The suspension warning interpolates a list of domains, and the line was written as
-if `%@` were worth nothing: with all three domains suspended, "volume, screen
-brightness, and keyboard brightness" is 50 characters on its own and the single
-line reached 85 — the wide menu the ceiling exists to prevent, reachable by
-turning the app on and having three channels fail. The rule the ceiling was
-missing: **a hole whose content comes from a CLOSED set is measured at its widest
-member, never at the empty string.** Where the content is closed the worst case is
-a fact, and the break goes wherever that fact needs it — here BEFORE the list, so
-the interpolation owns a line of its own and the ceiling holds at 52 (en) and 44
-(pt-BR) instead of 85 and 86. Both languages keep the same number of breaks, as
-the third amendment already required.
-The complement is stated so it is not read as a licence: a hole filled with
-EXTERNAL content — a track title, a neighbour app's name — has no worst case to
-measure, which is why the third amendment left the media block as data rather than
-chrome. What changes here is only the chrome whose holes the app itself fills.
+`media-key-chain-contention` says to err away from. Reopening gate: if the read ever
+stops being destructive, the edges are named. The neighbour's delivered payload is
+a different kind of input, a free local flag that can flip with no notification,
+so it is part of the memo KEY rather than of its age. What the window does not buy:
+freshness within the window, and any claim about `loginItem.status`, which crosses
+into Background Task Management once per rebuild — one reading, through
+`menuStatus`, never a second.
 
 ### brightness-key-target-in-the-menu
 Correct behavior nobody can see reads as a bug: with an external monitor as the
 main display, the brightness key dims the laptop panel the user is not looking at.
-Crema's screen brightness drives the built-in panel because that is what it has
-been taught to drive, and no surface said so. (The first version of this entry
-justified it as a limit of the integration — the neighbour readable only for
-writing — which was our own probe asking through the metadata door; see
-`neighbour-features-are-not-identifiers`. The row is right; the reason was not.)
-Decision: the menu names the target, in one row of the status block, and only where
+Crema's screen brightness drives the built-in panel because that is what it is
+taught to drive, and nothing shows it unless a surface says so. (The reason is not
+a limit of the integration — "the neighbour readable only for writing" is a probe
+asking through the metadata door; see `neighbour-features-are-not-identifiers`.)
+Decision: the menu names the target, as the note under the replacement switch, and only where
 the row is both true and informative. Three states, from the display census: a lone
 built-in panel says nothing (there is no other screen to confuse it with); a
-built-in panel alongside another display gets the naming row; no built-in panel in
+built-in panel alongside another display gets the naming sentence (where it is
+said: below); no built-in panel in
 use — clamshell, or a Mac that has none — gets a row about what Crema cannot do,
 because the brightness write degrades to false there instead of reaching for
 whatever display happens to be main.
-Four constraints shaped it.
+Four constraints shape it.
 The subject of the sentence is CREMA, never "the brightness keys". Suppression is
 opt-in and off by default, so on most installs the key is applied by macOS and not
 by us; a line claiming what the KEY does would assert someone else's behavior, and
@@ -1618,7 +1806,7 @@ neighbour that reports without being ahead: the keys are ours and we say nothing
 the same asymmetry the chain lines already accept, where a lost line costs a
 diagnostic and a false one misinforms (`media-key-chain-contention`).
 It is a pull-read, not a mirrored value. An @Observable mirror recomputed at the
-display-topology edge was designed first and rejected: it would add an invalidation
+display-topology edge is rejected: it would add an invalidation
 source to a body whose every rebuild costs a `CGGetEventTapList`. The census is the
 cheap kind — `CGGetActiveDisplayList`, local and side-effect free — so reading it
 where the menu is built adds zero expensive reads, is as fresh as the build, and
@@ -1626,38 +1814,38 @@ needs no edge to stay correct. The census is consulted only after the gate, so a
 silenced menu asks the system nothing.
 No warning glyph on either row. An arrangement is not a fault, and a ⚠️ on correct
 behavior trains the user past the lines that do ask for action.
-The row's SENTENCE was replaced when the keys learned to follow the pointer
-(`brightness-key-follows-the-pointer`). The three states, the census they come from
-and every gate above still hold; what changed is that the line describes an AIM
-instead of a limit, and stops short of saying what happens on the other display —
+The row's SENTENCE describes an AIM instead of a limit, because the keys follow
+the pointer (`brightness-key-follows-the-pointer`); the three states, the census
+they come from and every gate above hold. The line stops short of saying what
+happens on the other display —
 this row appears only where no neighbour is ahead or reporting, which is exactly
 where nobody may be managing that display, so "left to the system" is the last true
 word available.
 
-**Amendment (2026-08-01): three states, two of them silent.** The row for a
-built-in panel among others left the menu — not because the sentence was wrong,
-but because the Indicators tab states it UNCONDITIONALLY, under the switch that
-turns the replacement on, so the menu was carrying a gated copy of an ungated
-sentence (`menu-status-before-warnings`, fourth amendment). `.noBuiltInDisplay`
+**Three states, two of them silent.** The sentence for a built-in panel among
+others is not a menu row — not because the sentence is wrong, but because the
+Indicators tab states it UNCONDITIONALLY, under the switch that turns the
+replacement on, so the menu would carry a gated copy of an ungated
+sentence (`menu-status-before-warnings`). `.noBuiltInDisplay`
 keeps its row: it is the one arrangement no other surface in the app names.
-`.quiet` is unchanged, and so is every gate above — the `cremaApplies` gate, the
+`.quiet` says nothing, and every gate above holds — the `cremaApplies` gate, the
 three causes of silence, the ACTIVE-display census the line is read from and the
-pull-read (never a mirror) it is taken by. The census is still consulted only
+pull-read (never a mirror) it is taken by. The census is consulted only
 after the gate, so a silenced menu asks the system nothing.
 
 ### menu-reads-mirrors
 A menu that names the track reads MIRRORS of title and artist, never the live
 snapshot.
 `Coordinator.nowPlaying` is rewritten once per second by the position tick — which
-is exactly why the tick stays out of `state` (CLAUDE.md, State flow) — and
-Observation invalidates per PROPERTY, not per value: any read of that property,
-`nowPlaying?.title` included, subscribes the reader to a 1 Hz rebuild. The reader
-here is a `MenuBarExtra` content body, which SwiftUI re-evaluates whenever it likes
-and not when the user opens the menu, and the block beside it pull-reads the
-event-tap chain (`AppCore.mediaKeyChainNotice()`, whose every call resets the
-min/max latencies of every tap on the machine, third-party taps included). So the
-naive line does not cost a menu line: it costs a system-wide diagnostic probe once
-per second, forever, invisible from inside the app.
+is exactly why the tick stays out of `state` (docs/STATE-FLOW.md, "The position
+tick") — and Observation invalidates per PROPERTY, not per value: any read of that
+property, `nowPlaying?.title` included, subscribes the reader to a 1 Hz rebuild.
+The reader here is a `MenuBarExtra` content body, which SwiftUI re-evaluates
+whenever it likes and not when the user opens the menu, and the block beside it
+pull-reads the event-tap chain (`AppCore.mediaKeyChainNotice()`, whose every call
+resets the min/max latencies of every tap on the machine, third-party taps
+included). So the naive line does not cost a menu line: it costs a system-wide
+diagnostic probe once per second, forever, invisible from inside the app.
 Decision, three parts. (1) The Coordinator publishes `nowPlayingTitle` and
 `nowPlayingArtist` as GUARDED mirrors — written only when the value actually
 changes, exactly like `skipSupportedByTrack` — and clears them with the snapshot in
@@ -1671,19 +1859,25 @@ Half a contract is worse than none here: a guard that compares is one keystroke
 from a muzzle that never writes, so both directions are pinned — a tick fires no
 observation, a track change does (`CoordinatorMenuMirrorTests`).
 The menu's transport RENDERS the Coordinator's existing verdicts
-(`commandsAvailable`, `skipControlsEnabled` — the same two the surface binds to)
+(`controlsEnabled`, `skipControlsEnabled` — the same two the surface binds to)
 and adds only "is there media at all", which the surface never needs because it
 exists only when media does. One decision, two renderers: a menu that decided
 availability for itself would drift from the surface the first time a source
-accepted play/pause and rejected a skip. That one added predicate comes off the
-SAME value the status row is drawn from (`NowPlayingMenuLine.namesMedia`) — a
-separate `title != nil` test is how a row saying "Nothing playing" ends up over an
-enabled Pause.
+accepted play/pause and rejected a skip. That one added predicate decides
+EXISTENCE and is the line itself: the media section exists exactly when
+`NowPlayingMenuLine` names media, so neither a title nor a transport is built over
+nothing — a separate `title != nil` test is how a transport ends up under a line
+naming nothing. It stays in `NowPlayingMenuSection`'s own body, where observation of
+the mirrors is tracked, so a track change repaints that section without touching
+the body that pull-reads the tap chain; raised into `MenuStatus` it would give that
+body a 1 Hz dependency, the cost this entry exists to refuse. What `MenuStatus`
+gates instead is the chain: no media section while no source reports, off the SAME
+value `.nowPlayingUnavailable` comes from (`menu-status-before-warnings`).
 Corollary for anything else the menu wants to show: the question is never "is this
 value cheap to read" but "how often is the property I subscribe to written". A
 per-second property is a per-second menu.
-One correction to part (1), because a comment beside that guard used to justify it
-with the opposite of what the runtime does. "Invalidates per property, not per
+One precision to part (1), because the guard is easy to justify with the opposite
+of what the runtime does. "Invalidates per property, not per
 value" is about the property you SUBSCRIBE to — reading `nowPlaying?.title` binds
 you to `nowPlaying`, whose value genuinely changes every second because the position
 moves — and it is true. What is NOT true is the narrower claim that writing an equal
@@ -1695,33 +1889,12 @@ optimization inside Observation that no Apple document promises — the same rea
 this codebase never leans on behaviour it cannot see the other side of.
 
 
-Note (2026-07-31): the media lines moved from the scene's ViewBuilder into
-`CremaMenu`'s `.media` block. What makes the move safe is exactly what part (2)
-says — observation is tracked per BODY — so `NowPlayingMenuSection` still reads
-its own mirrors in its own body, and a track change repaints it without touching
-the block that pull-reads the tap chain. The gate that used to wrap it
-(`nowPlayingMonitor.isActive`, read in the scene) is now `MenuStatus.blocks`, off
-the SAME value `.nowPlayingUnavailable` is derived from: two readings of one fact
-is how a transport ends up under a line saying nothing is playing — the
-menu-level form of the `namesMedia` rule this entry already states.
-
-Note (2026-08-01): the added predicate now decides EXISTENCE. "Is there media at
-all" no longer greys the three transport items — it removes them, so a stopped
-player leaves the media block as its row alone. The two questions stay separate
-on purpose: a command the player REFUSED greys its item in place, so the block
-does not flinch as availability moves, while a verb with no object goes away. The
-identity this entry already demanded is unchanged and is load-bearing in a second
-way now — the gate IS `NowPlayingMenuLine.namesMedia`, the same value the row is
-drawn from — and it stays in the media view's own body: raising it into
-`MenuStatus` would give the block that pull-reads the tap chain a 1 Hz
-dependency, which is the cost this entry exists to refuse.
-
 ### brightness-key-follows-the-pointer
-The brightness key always acted on the built-in panel, whatever the user was
-looking at. With a monitor as the main display that is a key which dims the laptop
-while the person reads the monitor — reported from the field — and it was correct
-by the old design: `DisplayServicesBridge` resolves the BUILT-IN display for every
-read and write, deliberately, because the framework governs no other panel.
+A brightness key that always acts on the built-in panel, whatever the user is
+looking at, is — with a monitor as the main display — a key which dims the laptop
+while the person reads the monitor (reported from the field), even though it is
+correct for the bridge: `DisplayServicesBridge` resolves the BUILT-IN display for
+every read and write, deliberately, because the framework governs no other panel.
 Decision: **a brightness key acts on the display under the POINTER** — the rule the
 display utilities that own these keys already use, and the one a person reading a
 screen expects. It lives in `BrightnessKeyTargeting`, pure over the cursor and the
@@ -1737,19 +1910,19 @@ a key consumed to change a screen the user is not looking at pays that debt in t
 wrong currency. The two other alternatives die on the same rule — swallowing and
 drawing nothing, or drawing a bar that refuses to move, which
 `betterdisplay-osd-source` already rejected for the neighbour's `lock` payload.
-Passing it back is also what makes the neighbour arrangement whole for the first
-time: with suppression on, Crema used to swallow the very key BetterDisplay was
-waiting for, so the monitor stopped responding at all. Now the neighbour receives
+Passing it back is also what makes the neighbour arrangement whole: with
+suppression on, swallowing it would take the very key BetterDisplay is waiting
+for, and the monitor would stop responding at all. The neighbour receives
 it, applies it on its own display and reports the level back, which Crema draws on
 that display (`hud-belongs-to-its-display`).
 **A handed-back key stands the local bar down.** The tap keeps OBSERVING the key it
 declines, so `MediaKeyHUDRouter` arms the brightness poll, the poll reads the panel
 macOS just moved, and the app would draw a second bar over the system's own
-indicator — every press, in the exact arrangement this change targets. So the
+indicator — every press, in the exact arrangement this rule targets. So the
 suppressor fires `onHandedBackToTheSystem` and AppCore spends the source's key
 window with `standDown()`, the same seam the neighbour's report already uses. One
 press, one indicator, whoever drew it. The seam is named for the consequence and
-not for this rule, because a second reason to hand a key back arrived later — a
+not for this rule, because there is another reason to hand a key back — a
 control the route does not have (`absent-capability-hands-the-key-back`) — and it
 wants the identical standing-down. The suppressor still DERIVES the handback from
 its own state rather than carrying a reason down from the tap: an autorepeat that
@@ -1759,8 +1932,8 @@ Five properties of the rule, each one a case that cost a decision.
 **No fallback to the built-in panel**: that fallback IS the bug. Clamshell needs no
 branch of its own — with no built-in among the bounds the rule never answers
 `.builtIn` — and a pointer nobody can place answers nothing rather than picking a
-screen. A quiet consequence: in clamshell Crema no longer swallows a brightness key
-it cannot apply, so the escalation that used to end in "Crema couldn't apply the
+screen. A quiet consequence: in clamshell Crema never swallows a brightness key
+it cannot apply, so the escalation that ends in "Crema couldn't apply the
 change" — five failed applies against a panel that is not there — cannot start.
 **A single display answers itself, pointer or no pointer**: with one screen
 attached the pointer disambiguates nothing, so a failed reading must not disable
@@ -1769,8 +1942,8 @@ clamshell the single display is the external one and is answered as such.
 **One coordinate space, chosen so there is no conversion to get wrong.** The
 pointer is read with `CGEvent(source: nil)?.location` and the bounds with
 `CGDisplayBounds`: both are CoreGraphics' global display space, origin at the
-top-left of the main display, y growing DOWN. An earlier draft took the bounds from
-the AppKit panel roster and flipped y inside the rule; the flip's sign is the
+top-left of the main display, y growing DOWN. Bounds from the AppKit panel roster
+would need y flipped inside the rule; the flip's sign is the
 difference between the display above and the display below, and it is a line of
 arithmetic that exists only because the wrong list was chosen. Bounds are half-open
 on both axes, the way CoreGraphics tiles them, so a seam belongs to exactly one
@@ -1779,7 +1952,7 @@ with a monitor placed ABOVE the laptop, is the laptop's menu bar sitting on the
 laptop's own `minY`, which the laptop owns for free.
 **The list is the ACTIVE display list, not the panel roster** — the same list the
 brightness write resolves its target from and the menu reads its census from, for
-the reason `brightness-key-target-in-the-menu` already wrote down: the roster drops
+the reason `brightness-key-target-in-the-menu` gives: the roster drops
 displays with no NSScreenNumber or no resolvable UUID and collapses a mirror set to
 one NSScreen, so a key aiming by the roster while the menu speaks from the census
 is how a true sentence ends up over the opposite behavior. It is read fresh at each
@@ -1799,17 +1972,17 @@ The verdict is latched for the whole press, in BOTH directions
 passed press into a swallowed one, which would leave the system downs with no up —
 half a press with no closing event. (Not the autorepeat: that one is generated
 upstream of every CGEventTap, armed and cancelled by the physical key edges, so no
-tap can strand it.) Same latch that already kept a swallowed press swallowed, now
-stated as one rule.
+tap can strand it.) The same latch keeps a swallowed press swallowed: both
+directions are one rule.
 What is NOT here: applying on the external display, and any identity for it. The
 write half exists (`BetterDisplayScreenBrightnessController`, used by drags), but a
-stepped key also needs a LEVEL to step from and verify against, and the neighbour's
-brightness read has none: the seam built for it never gained a caller and was
-removed in the 2026-08-08 pruning round. What the probing measured stays in
+stepped key also needs a LEVEL to step from and verify against, and the app has
+no seam for reading the neighbour's brightness: the one built for it never gained
+a caller and is not in the tree. What the probing measured stays in
 `neighbour-features-are-not-identifiers` — identifier is the metadata door only; a
 feature is asked for by its own name as a valueless key — and whoever rebuilds the
-seam recovers its shape from the git history. Until then, `.anotherDisplay` carries
-no UUID — a field nobody reads is a field that goes stale, and adding it back is
+seam recovers its shape from the git history. Until it has a caller,
+`.anotherDisplay` carries no UUID — a field nobody reads is a field that goes stale, and adding it back is
 one stored property.
 What this does NOT fix, stated plainly so nobody reads more into it: with no
 neighbour behind us, the key handed back goes to macOS, which dims the built-in
@@ -1819,21 +1992,21 @@ wrong screen; it cannot stop the system from doing so. That is the same contract
 and never an outcome on the other display.
 
 ### hud-target-is-a-role
-`SystemHUD.display` was one `DisplayUUID?` carrying two different facts, and the
-field found the seam: with a monitor attached and the pointer on the laptop, a
-brightness key moved the laptop's panel correctly and drew the bar on BOTH
-screens, while the neighbour's path — which names a display — correctly drew only
-on the monitor. The type itself documented `nil` as "the internal display" while
-the presentation layer read the same `nil` as "nobody said which screen, so draw
-everywhere". Both sentences were load-bearing and they contradicted each other.
+A `SystemHUD.display` that is one `DisplayUUID?` carries two different facts, and
+the seam shows in the field: with a monitor attached and the pointer on the laptop, a
+brightness key moves the laptop's panel correctly and draws the bar on BOTH
+screens, while the neighbour's path — which names a display — correctly draws only
+on the monitor. A type documenting `nil` as "the internal display" while the
+presentation layer reads the same `nil` as "nobody said which screen, so draw
+everywhere" holds two load-bearing sentences that contradict each other.
 
-Why that stopped being untidy and became a defect: the extra bar is not spare
+Why that is a defect and not untidiness: the extra bar is not spare
 feedback, it is a live CONTROL. Every panel is handed the `.hud` state and draws a
-slider, and a drag on the monitor's copy wrote the BUILT-IN panel — so the second
-bar was a control for a screen the user is not looking at that dims a different
-one in silence, word for word the harm `hud-belongs-to-its-display` was written to
-prevent, in the direction nobody had checked. The app had also already committed
-to the premise: since `brightness-key-follows-the-pointer` it BETS that the pointer
+slider, and a drag on the monitor's copy writes the BUILT-IN panel — so the second
+bar is a control for a screen the user is not looking at that dims a different
+one in silence, word for word the harm `hud-belongs-to-its-display` exists to
+prevent, in the direction easiest to leave unchecked. The app is also committed
+to the premise: by `brightness-key-follows-the-pointer` it BETS that the pointer
 marks attention when choosing which panel to dim. It cannot know where the user is
 looking for actuation and not know it for presentation, in the same gesture.
 
@@ -1853,7 +2026,7 @@ screen with no `NSScreenNumber` or no resolvable UUID and AppKit collapses a mir
 set to one `NSScreen`, while `CGGetActiveDisplayList` keeps them. A UUID resolved
 at the border is a key cut from the other lock — every disagreement resolves to a
 HUD naming a display no panel carries, which shows on NO screen: worse than the
-reported bug, and with the key already swallowed. `WindowManager` instead asks the
+double bar, and with the key already swallowed. `WindowManager` instead asks the
 roster which of ITS panels is internal (`isInternal`, taken in the same snapshot
 that created the panel), so role and panel cannot drift apart. It also costs
 nothing on the hot path: resolving a UUID at emit time would put a display
@@ -1861,7 +2034,7 @@ enumeration inside the serial queue that already serializes this channel's
 blocking reads.
 
 The built-in role falls OPEN, not shut. With no internal panel in the roster a
-`.builtIn` HUD shows on every display — today's behaviour — instead of none. That
+`.builtIn` HUD shows on every display — the unscoped behaviour — instead of none. That
 case is reachable with the key already swallowed (`BrightnessKeyTargeting` gives a
 mirror set's tie to the built-in on purpose), and a consumed key owes feedback, so
 too much of it beats silence. The fall-open is narrow and decided BEFORE there is
@@ -1879,7 +2052,7 @@ of them inside the gesture. Second, actuation reads `commandDisplay`, where
 "my own panel" (the system brightness one accepts nil or the built-in's own UUID;
 the neighbour's resolves nil to the built-in ID) and the volume actuator rejects a
 named display outright, so the roles have to arrive as nil or a drag on the local
-bar would throw where it used to write.
+bar would throw instead of writing.
 
 Known gaps, stated rather than sold as fixed. A mirror set is a coin flip: the one
 `NSScreen` AppKit reports may or may not be the internal one, and when it is not,
@@ -1918,25 +2091,26 @@ is the reordering these call sites exist to avoid (`settle-rereads` depends on t
 ordering). Graceful degradation has nothing to degrade to: `sample()`,
 `routeClicks()` and the Coordinator are all MainActor, so off-main delivery is
 already corruption, and a trap beats corrupting quietly.
-What changed is the evidence, not the code. Measured on macOS 26.5.2 / Swift 6.3.3,
-posting from a background thread: all five mechanisms (local monitor, GLOBAL
-monitor, NotificationCenter, DistributedNotificationCenter, NSWorkspace center)
-delivered on the main thread — which is the predicate the runtime checks, so the
-assumption holds by construction. The global monitor is the one no live document
-covers at all, and it was the one never measured.
+The second footing is a measurement, not the code. Measured on macOS 26.5.2 /
+Swift 6.3.3, posting from a background thread: all five mechanisms (local monitor,
+GLOBAL monitor, NotificationCenter, DistributedNotificationCenter, NSWorkspace
+center) deliver on the main thread — which is the predicate the runtime checks, so
+the assumption holds by construction. The global monitor is the one no live
+document covers at all, and this measurement is the first to cover it — beside
+the archived guide's sentence, not in place of it.
 
 ### absent-capability-hands-the-key-back
-With suppression on, a key consumed for a control that does not exist produced
-nothing at all. Not our bar — the apply returned a no-op, and `applyVerified` had
-no branch for a no-op, so no HUD poke and no echo — and not the native OSD either,
-because the tap had already eaten the press. An HDMI output with no volume control,
-a device with volume and no mute plane, a Mac whose keyboard backlight had not
+With suppression on, a key consumed for a control that does not exist produces
+nothing at all. Not our bar — the apply is a no-op, and an `applyVerified` with no
+branch for a no-op gives no HUD poke and no echo — and not the native OSD either,
+because the tap has already eaten the press. An HDMI output with no volume control,
+a device with volume and no mute plane, a Mac whose keyboard backlight has not
 enumerated yet: press, silence. On screen brightness with the private symbols
-unresolved it was worse than silence, since every brightness key was swallowed
-forever and the panel simply stopped responding, with one `logger.notice` as the
-only trace. That breaks the rule this project already wrote down in
-`brightness-key-follows-the-pointer`: **a consumed key owes feedback**, and
-swallowing while drawing nothing is the alternative that rule already killed.
+unresolved it is worse than silence, since every brightness key is swallowed
+forever and the panel simply stops responding, with one `logger.notice` as the
+only trace. That breaks the rule
+`brightness-key-follows-the-pointer` states: **a consumed key owes feedback**, and
+swallowing while drawing nothing is the alternative that rule already kills.
 Decision: **an absent capability hands that key back to the system, which applies
 it and draws its own indicator.** It is not a new state and not a new machine. It
 is the answer the app already knows how to give — "this key is not mine to take" —
@@ -1981,8 +2155,8 @@ it for the rest of the press, so a key HELD while the apply discovers the absenc
 would stay swallowed until the user let go — press, nothing, for the length of the
 hold. That is verbatim the dead gesture per-domain suspension already releases the
 latch to avoid, and holding volume-down to zero on an output with no volume control
-is how a person meets it. Releasing the latch AT THE MARK was the first answer and
-was refused: it leaks the pending up, and where suspension's own rationale accepts
+is how a person meets it. Releasing the latch AT THE MARK is refused: it leaks
+the pending up, and where suspension's own rationale accepts
 that leak because its window is rare — a failure has to land inside one press — an
 absence is discovered BY the press that judges it, so the leak would be the modal
 outcome of every first tap. The latch is MIGRATED instead, at the next down, inside
@@ -1995,10 +2169,10 @@ can discover the absence, because the apply is what asks. A held key costs the d
 plus the few autorepeats until the apply answers. This is not "by construction" for
 every capability — the default output device changes are pushed to this app already,
 and a sweep at engage would cover the facts that are process constants — and both
-were left out deliberately: the hang doubles share one semaphore per channel, so an
+are left out deliberately: the hang doubles share one semaphore per channel, so an
 extra availability read at engage would consume the release a deadline test arms for
 its key press, and doing it properly means reworking those doubles. Written here so
-the next round knows it is a deferred improvement and not an impossibility.
+it reads as a deferred improvement and not an impossibility.
 **Invalidation is the user's next press, never a timer and never a probe.** The tap
 keeps OBSERVING a key it hands back, so the press itself is the evidence, and it
 also proves an active user is there to notice the recovery. The re-check runs off
@@ -2013,11 +2187,11 @@ the whole set, like every other axis: a re-engagement is born healthy.
 control is not a defect and has no repair, so it is not a `Warning` — the retry
 button would have nothing to retry. The flat "Crema replaces the system indicators"
 line does become partly false for that one key, which is the same partiality that
-made a suspended domain take the line away entirely; the difference is what the user
+makes a suspended domain take the line away entirely; the difference is what the user
 sees instead. On the dominant case, an output with no volume control, macOS draws
 its "prohibited" HUD, and that explains the hardware better than any line in a menu
 would. Adding a `Row` in the `brightnessNoBuiltIn` mould stays the honest option if
-the field says otherwise; it was not taken because it costs four catalog keys for a
+the field says otherwise; it is not taken because it costs four catalog keys for a
 fact already on screen.
 **Two known overlaps, both degrading toward the system.** Volume's availability
 fuses "no default output device right now" with "this device has no volume control",
@@ -2033,33 +2207,37 @@ there is a failure, not an absence. The fourth case is kept for totality of the 
 not because it fixes a scenario anyone can reproduce twice.
 
 ### external-brightness-is-write-only
-The neighbour's channel writes an external display's brightness and will not read
-it. Measured, not assumed: a `get` over the same request/response channel the app
-already writes on was sent for five brightness spellings (`brightness`,
-`combinedBrightness`, `hardwareBrightness`, `softwareBrightness`, `ddcBrightness`)
-and every one was refused — with six metadata spellings (UUID, name, serial,
-vendor, model, productName) in the same run as the SHAPE control, because a
-request that answers nothing at all proves the request is wrong rather than that
-brightness is ungettable. The metadata answered; brightness did not.
-The consequence is not cosmetic, and it is why one rule stops at the built-in
-panel. `brightness-key-follows-the-pointer` hands an external display's key back
-to whoever can move that screen, and the obvious next step — Crema applying the
-key there itself — needs the apply+verify cycle, which needs a `before`: stepping
-is read → step → write → verify, and the read is the half that does not exist.
-The one thing that would dissolve the impasse is a RELATIVE command, which needs
-no `before` at all, so nine relative shapes were tried with the absolute `set` as
-the control (increment/decrement, signed values, a `relative` parameter,
-up/down/increase/decrease). The control answered; none of the nine did.
-So: external brightness is **write-only from our border**, the drag on a bar the
-neighbour drew keeps working (it carries an absolute level, which is exactly what
-the channel accepts — `the-bar-never-outruns-the-screen`), and the key aimed at an
-external screen stays handed back. The instruments are kept rather than described:
-`scripts/probes/read-betterdisplay.swift` and
-`scripts/probes/relative-betterdisplay.swift`, each with the shape control that
-makes a negative result mean something. Reopening needs one of them to come back
-positive against a newer BetterDisplay — a released `get`, or a relative command
-the monitor is observed to actually honour, since a neighbour that accepts a
-command it does not perform would be the worst thing to build on.
+External displays belong to BetterDisplay. Crema writes no DDC of its own and
+reaches an external display's brightness only through the neighbour's
+request/response channel: the bar the neighbour drew is dragged through it (an
+absolute level, which the channel accepts — `the-bar-never-outruns-the-screen`),
+and the key aimed at an external screen is handed back whole
+(`brightness-key-follows-the-pointer`). That border, not the anchor's name, is
+what the contract cites this entry for.
+The "write-only" reading in the name is superseded by
+`neighbour-features-are-not-identifiers`. Through `identifier`, the metadata
+door, five brightness spellings (`brightness`, `combinedBrightness`,
+`hardwareBrightness`, `softwareBrightness`, `ddcBrightness`) are refused while
+six metadata spellings answer as the shape control; asked by its own key, the
+feature answers. `scripts/probes/read-betterdisplay.swift` asks through both
+doors and gives its verdict on the key alone;
+`scripts/probes/relative-betterdisplay.swift` tries nine relative
+shapes with the sign on the value, which the neighbour reads as an absolute,
+against the absolute `set` as control. Both refusals are about the door, not
+the platform: a feature is read with its name as the parameter key, and a
+relative write is the documented `offset` parameter.
+Confirmed with `read-betterdisplay.swift` 2026-10-14 on BetterDisplay 5.1.1
+against the built-in display: `get` with `"identifier":"brightness"` →
+`result=false`; with `"brightness":""` → `result=true`, payload 0.671
+(`combinedBrightness` 0.671, `hardwareBrightness` 0.561, `softwareBrightness`
+1.0; `ddcBrightness` refused, as a built-in panel has no DDC); every metadata
+spelling answered. The external-display read
+(displayID 2 → 0.063) is the one recorded under
+`neighbour-features-are-not-identifiers`.
+So a `before` exists, and a brightness key Crema applies to an external display
+is unbuilt work, not a measured impossibility: the apply+verify cycle over the
+neighbour's channel, with the deadline it already has. Until it is built the key
+stays handed back.
 
 ### adapter-stale-nowplaying-latch
 A confirmed, OPEN fragility, written down because the obvious fix is measurably
@@ -2105,13 +2283,13 @@ construction. The profile itself is appVersion, osVersion, model, cputype, ncpu,
 cpuFreqMHz, ramMB, lang.
 **The blocker is the hosting.** The appcast is served by GitHub Pages, which exposes
 no access log, and the profile travels as a query string on the feed request. Turning
-it on today would mean asking for data, the user consenting, and nobody ever reading
-it — a cost in trust for a return of zero. It unblocks by moving the appcast to a host
+it on with that host means asking for data, the user consenting, and nobody ever
+reading it — a cost in trust for a return of zero. It unblocks by moving the appcast to a host
 with logs (or putting a logged redirect in front of it), and the trap that comes with
 that move is written down here so it is not rediscovered: **the old URL has to keep
 answering**, or every installation carrying the current `SUFeedURL` never receives an
-update again. Until then the free metric is the release download count from GitHub's
-API — zero code in the app.
+update again. Without the logged host, the free metric is the release download
+count from GitHub's API — zero code in the app.
 **Explicitly discarded: a third-party analytics SDK.** The app uses private API and
 holds the Accessibility permission; it is the exact profile of an app whose user runs
 Little Snitch, and one unexpected connection costs more than the metric is worth.
@@ -2119,13 +2297,14 @@ Reopening requires the logged host to exist first, and the answer to be Sparkle'
 profile — never an SDK.
 
 ### the-feed-signs-itself
-Two Sparkle plist keys were off, and both defaults are the wrong end of a trade this
-app is on the paying side of. `SUVerifyUpdateBeforeExtraction` was absent, and
-Crema ships a DMG: measured in Sparkle 2.9.4's own sources, `SUDiskImageUnarchiver`
-returns NO from `mustValidateBeforeExtraction`, so the downloaded image was handed to
-hdiutil BEFORE its EdDSA signature was checked — mounting bytes nobody had vouched
-for, on the one path where the app runs code it did not build. `SURequireSignedFeed`
-was absent too, which leaves the appcast itself unauthenticated: an attacker who
+Two Sparkle plist keys default off, and both defaults are the wrong end of a trade
+this app is on the paying side of. Without `SUVerifyUpdateBeforeExtraction`, and
+with Crema shipping a DMG — measured in Sparkle 2.9.4's own sources,
+`SUDiskImageUnarchiver` returns NO from `mustValidateBeforeExtraction` — the
+downloaded image is handed to hdiutil BEFORE its EdDSA signature is checked:
+mounting bytes nobody has vouched for, on the one path where the app runs code it
+did not build. Without `SURequireSignedFeed` the appcast itself is
+unauthenticated: an attacker who
 controls the served feed still cannot forge a download (the enclosure signature holds)
 but can lie about which version is newest and freeze clients where they are; a
 downgrade Sparkle refuses on its own (2.9.4's installer rejects an older version).
@@ -2142,9 +2321,8 @@ block and prepending its own warning comment. `release.sh` regenerates into a FR
 file every release, so the feed's signedness follows the newest archive's plist and
 nothing else — which also means the day that key leaves Info.plist, the feed silently
 stops being signed while every client that already shipped it rejects the appcast.
-The consequence that outlives this entry: docs/appcast.xml authenticates itself, and every feed since 1.5.0 carries the signature block (1.2.0 and 1.4.0, before the keys, did not).
-It was already "regenerated, never hand-edited"; from here a hand edit is not untidy,
-it is an outage — clients carrying the key fail every check for 20 days, Sparkle's
+The consequence: docs/appcast.xml authenticates itself, and every feed from 1.5.0 on carries the signature block (1.2.0 and 1.4.0 ship without the keys and carry none).
+So "regenerated, never hand-edited" is not tidiness: a hand edit is an outage — clients carrying the key fail every check for 20 days, Sparkle's
 default `SUSignedFeedFailureExpirationInterval`, before falling back to unsigned
 operation for key rotation. Clients in the field that ever saw a feed (1.2.0, 1.4.0 — anything older predates SUFeedURL entirely) carry neither
 key and are unaffected either way; the keys only bind the binaries that ship them.
@@ -2158,10 +2336,10 @@ Sparkle schedules its own checks, and for a background (LSUIElement) app it show
 resulting alert BEHIND every other running app when Crema is not frontmost — Sparkle's
 own log says so, warning once that a background app schedules checks without gentle
 reminders. An app with no Dock tile then has nothing that can bring that window
-forward: the update was announced by a window the user never sees.
+forward: the update is announced by a window the user never sees.
 Decision: Crema declares `supportsGentleScheduledUpdateReminders` and implements
 `standardUserDriverWillHandleShowingUpdate:` only — Sparkle keeps presenting its alert
-(so the path never depends on our UI being right), and the menu bar gains the signpost
+(so the path never depends on our UI being right), and the menu bar carries the signpost
 that leads to it: a plain disabled sentence with its button directly under it, the
 same shape `menu-status-before-warnings` gives every fact that has a repair. The
 button does not start a new check; `checkForUpdates()` on an already-presented update
@@ -2190,34 +2368,36 @@ Release, where the suite cannot reach it. A mirror that flips twice per session 
 afford the reordering the hop risks; the sites that assume are the ones that cannot.
 
 ### teardown-seam-that-cannot-be-honoured
-Two long-lived consumers grew a `stop()` that nobody called: the Coordinator's
-(removed earlier) and `MediaKeyHUDRouter`'s. Both were worse than unused. The sources
+A `stop()` that nobody calls on a long-lived consumer — the Coordinator,
+`MediaKeyHUDRouter` — is worse than unused. The sources
 they consume build `updates` once at init and reserve `finish` for their own end of
-life, so a cancelled iteration is not resubscribable: whoever called `stop()` would
-get a permanently media-less app, or brightness keys that never reach the HUD again,
-with no error anywhere — and the Coordinator's variant additionally reported its own
-teardown to the rest of the machine as "the media source died", discarding the
+life, so a cancelled iteration is not resubscribable: whoever calls `stop()`
+gets a permanently media-less app, or brightness keys that never reach the HUD again,
+with no error anywhere — and on the Coordinator the teardown additionally reports
+itself to the rest of the machine as "the media source died", discarding the
 snapshot and hiding the surface, which `ghost-discard` reserves for a genuine source
 death. Decision: an object that lives for the process does not ship a teardown seam it
 cannot honour. The absence is documented on the type (with the reason, not just the
 fact), so the next reader adds a lock or a resubscribe path deliberately instead of
-adding back a `stop()` that compiles and lies. Reopening requires a source whose
+adding a `stop()` that compiles and lies. Reopening requires a source whose
 stream can be rebuilt after cancellation.
 
 ### a-panel-leaves-the-roster-before-it-closes
 Closing a presentation panel is not a leaf operation. `close()` stops its hover
 monitor; the disarm reports the pending exit (deliberately — a silent reset would
-leave the Coordinator's pointer mirror stale, `hover-follows-the-eye`); the
+leave the Coordinator's pointer record stale, `hover-follows-the-eye`); the
 Coordinator collapses an expanded appearance; and that state write runs the
 WindowManager's frame pass SYNCHRONOUSLY (`onPresentationChange`). With the entry
-still in `entries` the pass applied to the panel just closed and re-armed its hover,
+still in `entries` the pass applies to the panel just closed and re-arms its hover,
 reinstalling a pair of NSEvent monitors that nothing disarms again once the entry does
 leave — a dead panel sampling the cursor against regions on a screen that may be gone.
 The re-entrancy guard in `runFramePass` does not cover it: that guard defers a pass
-nested INSIDE a pass, and this one starts outside. Decision: `retirePanel(_:)` removes
-the entry FIRST and closes second, so a re-entrant pass cannot see the dead panel; the
-caller's trailing pass covers whatever takes its place. The general shape, third time
-in this codebase: a teardown that crosses into another subsystem comes back through
+nested INSIDE a pass, and this one starts outside. Decision: a panel leaves the
+roster FIRST and closes second — `retirePanels(_:)` drops a gone display's entry,
+`reconcile(_:)` rewrites a kept display's entry without the panels that leave — so a
+re-entrant pass cannot see the dead panel; the
+caller's trailing pass covers whatever takes its place. The general shape, met three
+times in this codebase: a teardown that crosses into another subsystem comes back through
 the front door, so order the local bookkeeping before the crossing rather than
 trusting the crossing to be quiet.
 
@@ -2256,90 +2436,110 @@ automation monitor stays out of that body (`automation-is-fallback-only`).
 
 ### selected-and-disabled-is-a-state
 A per-display style picker gets asked about screens that cannot draw the style the
-user declared: notch, on a panel with no slit. That tile is drawn SELECTED AND
+user declared: notch, on a panel with no slit. That choice is SELECTED AND
 DISABLED, which is not a contradiction but the honest report of "you declared this
-and this screen does not draw it". So the selection ring keeps full strength — it
-states the choice, which is still true — and only the picture recedes (0.4),
-because the picture is the part that is not happening on this display; a faded
-ring would blur the second statement into the first. And the picture under the
-disabled tile is the fallback that display REALLY draws (`rendered-style-gates-settings`),
-which is what makes the pair readable at all: the tile says what was chosen and
-shows what is drawn, at the same time.
+and this screen does not draw it". The per-display control draws no tile (it is
+a popup, below); the rule for a tile, if one is ever drawn for this pair: the
+selection ring keeps full strength — it states the choice, which is still true —
+and only the picture recedes (0.4), because the picture is the part that is not
+happening on this display; a faded ring would blur the second statement into the
+first. And the picture under such a tile is the fallback that display REALLY
+draws (`rendered-style-gates-settings`), which is what makes the pair readable at
+all: the tile says what was chosen and shows what is drawn, at the same time.
 
-Two accessibility facts were measured on the way there, and both generalize.
+Two accessibility facts are measured here, and both generalize.
 SwiftUI's `AccessibilityTraits` has no member for "not enabled" — the set is
 `isButton` / `isSelected` / `isHeader` and their kin — so unavailability in SwiftUI
 is spoken through `.disabled(_:)` and through no other channel.
 `allowsHitTesting(false)` is the tempting alternative and is the wrong one: it
 leaves a tile that still announces as a live button and does nothing when
 activated, the one failure a person using VoiceOver cannot see. And the disabled
-trait by itself reads as "dimmed" with no reason attached, so the hint on such a
-tile says WHY (`style.unavailableOnThisDisplay`) in place of the position sentence
-the enabled tiles narrate. `.isSelected` survives the disabling for the same
-reason the ring does.
+trait by itself reads as "dimmed" with no reason attached, so such a tile's hint
+says WHY in place of the position sentence the enabled tiles narrate. `.isSelected`
+survives the disabling for the same reason the ring does.
 
-**Amendment (2026-08-01): the state survived, its chrome did not.** The
-per-display control is a popup of names now, not a row of thumbnails, so
-"selected and disabled" is a CHECKED MENU ITEM that cannot be picked — the same
-honest report of "you chose this and this screen does not draw it", stated with a
-checkmark instead of a ring. `DisplayStyleOptions.selection` is still read from
-the user's own key and never filtered through `isHonoured`, which is what makes
-the pair representable at all: a legacy "notch" key on a slitless panel still
-reports `.notch` selected while its item reports `isEnabled == false`. Two things
-went with the tiles — the `style.unavailableOnThisDisplay` hint (a menu item has
-no hint channel) and the 0.4 dim of the picture. The DISABLING CHANNEL changed
-too, and that change is measured rather than stylistic: a `Picker` in `.menu`
-style DISCARDS `.disabled` on its options (macOS 26.5.2,
-`scripts/probes/picker-option-disabled.swift`), so the chrome is a custom `Menu`
-of Toggles, where `.disabled` is honoured and therefore still reaches VoiceOver
-through the only channel SwiftUI has for unavailability. Both accessibility facts
-above are untouched by the move and still generalize. And what keeps an unhonoured
-pick out of the STORE was never the chrome (`the-chrome-is-not-the-guarantee`).
+**The state holds whatever the chrome.** The per-display control is a popup of
+names, not a row of thumbnails, so "selected and disabled" is a CHECKED MENU ITEM
+that cannot be picked — the same honest report of "you chose this and this screen
+does not draw it", stated with a checkmark instead of a ring. A menu item has no
+hint channel and no picture to dim, so the popup carries neither.
+`DisplayStyleOptions.selection` is read from the user's own key and never filtered
+through `isHonoured`, which is what makes the pair representable at all: a legacy
+"notch" key on a slitless panel reports `.notch` selected while its item reports
+`isEnabled == false`. The DISABLING CHANNEL is measured rather than stylistic (the
+measurement: `the-chrome-is-not-the-guarantee`), so the chrome is a custom `Menu`
+of Toggles, where `.disabled` is honoured and therefore reaches VoiceOver through
+the only channel SwiftUI has for unavailability. Both accessibility facts above
+hold for the popup and generalize. And what keeps an unhonoured pick out of the
+STORE is never the chrome (`the-chrome-is-not-the-guarantee`).
 
 ### the-tour-configures-instead-of-pointing
-The welcome tour is five steps that CONFIGURE the app, not five pictures of it:
-the Accessibility permission, the style every display draws, the switch that
-replaces the system indicators, and opening at login. Every control in it is
-the control the Settings window carries — the same persisted key, applied live
-through the same AppCore call — so nothing in the tour is a second source of
-truth and nothing it does needs undoing: what was picked there is what Settings
-shows afterwards.
+The welcome tour is five steps that SHOW the app on the real screen and CONFIGURE
+it, not pictures of it: what Crema is, the Accessibility permission, the style
+every display draws, a key test with the switch that replaces the system
+indicators, and opening at login. What else Settings holds (the Card
+indicator's place and look, a style per display) is left to Settings, where it
+is drawn: told in a sentence before anyone has seen the indicator, it reads as
+a list of names (HIG, Onboarding: postpone nonessential setup). Every control in it
+is the control the Settings window carries — the same persisted key, applied
+live through the same AppCore call — so nothing in the tour is a second source
+of truth and nothing it does needs undoing: what was picked there is what
+Settings shows afterwards.
 
-Four rules came out of building it, and each one is a way this window could
-have gone wrong.
+Five rules hold it, and each one names a way this window could go wrong.
 
 The flag is committed BEFORE the window is shown (`hasSeenWelcomeTour`, written
 inside `presentWelcomeTourIfFirstLaunch` ahead of the presentation). A crash or
 a force quit in the middle of the tour must not re-arm it: a window that
-returns after every bad launch is worse than one that was missed once.
+returns after every bad launch is worse than one that was missed once. The way
+back is the menu's Welcome Tour item, which the HIG asks of a tour a person
+skipped (Onboarding), and it starts over from the first step.
 
-The gate asks about no permission. The Accessibility-only onboarding it
-replaces skipped anyone who already had the grant — which is every upgrading
-install — and an install that carries the grant is not one that was walked
-through anything; it is usually the one whose first launch went worst. So the
-tour is shown once per install, to everybody, and the legacy flag of the old
-onboarding is not consulted.
+The gate asks about no permission. A gate on the Accessibility grant skips
+anyone who already has it — which is every upgrading install — and an install
+that carries the grant is not one that was walked through anything; it is
+usually the one whose first launch went worst. So the tour is shown once per
+install, to everybody.
 
-No step may hold anyone back. The permission decides what the prominent button
-OFFERS (Grant while it is missing, Continue once it lands, which the polling
-monitor picks up live with the window open), never where the road goes: the
-grant button stands BESIDE Continue rather than replacing it. Crema runs
-without that permission, so a step that could only be left by granting would
-trap someone who declines inside a window whose whole point is that it can be
-left. The rule lives in `WelcomeTourFlow` — pure, stringless, both ends total —
-which is why it is pinned by tests instead of by a view body.
+No step may hold anyone back. The permission decides what the step OFFERS (the
+grant as the step's prominent button while it is missing, picked up live by the
+polling monitor, which brings the window back to the front), never where the
+road goes: the footer's way on reads Continue Without Access until then. Crema
+runs without that permission, so a step that could only be left by granting
+would trap someone who declines inside a window whose whole point is that it
+can be left. The rule lives in `WelcomeTourFlow` — pure, stringless, both ends
+total — which is why it is pinned by tests instead of by a view body.
 
-The window is one fixed size for every step, and the last step spells ⌘, out in
-words instead of offering a button. The size, because the steps hold different
-amounts and a window that resized between them would jump under the pointer at
-the moment a button is being clicked. The words, because `openSettings` is an
-environment action of the Settings scene: from a window built outside that
-scene it is a no-op, so a button there would be one that does nothing.
+The real screen answers, and the sample is no player's. The welcome and the
+style steps hold the player up (`Coordinator.showcase(sample:)`): the playing
+track when there is one, otherwise a sample named as such, held with no tuck
+until the step is left or the window closes, however it closes. Where no
+display shows the player — a Mac without a built-in panel, where it is born off
+— those steps say so and offer the per-display switch for the primary display
+(`WelcomeTourFlow.displayToOfferThePlayer`) instead of describing a player
+nobody can see. The sample
+disables the transport in the skins AND the Coordinator refuses every command
+while it shows (`the-chrome-is-not-the-guarantee`): a command would reach
+whatever player macOS last knew, which is not what the sample shows. The key
+test asks for a volume key because Core Audio reports volume with or without
+the grant, so the one step that teaches by doing never waits on the
+permission.
+
+The window is one fixed size for every step, and the last step says where the
+app lives in words, with an arrow at the real icon, instead of offering a
+Settings button. The size, because the steps hold different amounts and a
+window that resized between them would jump under the pointer at the moment a
+button is being clicked. The words, because `openSettings` is an environment
+action of the Settings scene: from a window built outside that scene it is a
+no-op, so a button there would be one that does nothing. The arrow finds the
+icon as the one window of this process at the status-bar level, read by public
+properties alone; macOS builds that window a moment after launch, so the arrow
+asks a few times and, finding none on a screen, does not show.
 
 ### the-chrome-is-not-the-guarantee
 The per-display style control has to refuse a style the screen cannot draw. The
-obvious shape was a `Picker` in `.menu` style with `.disabled` on the option, and
-it does not work: measured on macOS 26.5.2
+obvious shape, a `Picker` in `.menu` style with `.disabled` on the option, does
+not work: measured on macOS 26.5.2
 (`scripts/probes/picker-option-disabled.swift`), a `.menu` Picker DISCARDS
 `.disabled` on its options — the marked item read back `isEnabled == true` while
 an `NSPopUpButton` in the same window, carrying a natively disabled item, read
@@ -2357,40 +2557,46 @@ the greying out is only what keeps X out of reach. Which of the two a given
 framework is giving you is a question a probe answers and a doc does not.
 
 ### surface-border-2026
-The floating surfaces (Card and Classic) wore ONE uniform white hairline —
-`.white.opacity(0.12)`, half a point, all the way round — a single stroke asked to
-do two jobs and doing neither. Over a bright desktop it disappears, which is
-exactly where a translucent surface most needs an edge: the material takes its
-tone from what is behind it, so on a pale wallpaper the surface has no boundary of
-its own at all. And a uniform bright line lies about the light. It claims a
-highlight arriving equally from every direction, including from underneath, which
-nothing on a screen lit from above ever has.
-Decision: the border is a PAIR, and neither half does the other's job. A darkened
-outer rim (black at 0.35, half a point) straddles the outline and DEFINES the
-surface against any backdrop, light or dark. An inner specular, brightest at the
-top edge and spent within the upper third, supplies the lit-from-above highlight
-the material does not draw itself. The anchor carries a year because the shape is
-the one the 2026 platform redesign settled on, and the field research of this
-round is where that came from — provenance, recorded so a later round does not
-re-derive it, never the authority: the reason the pair holds is the paragraph
-above, and one stroke cannot be both a boundary and a highlight in any year.
+ONE uniform white hairline on the floating surfaces (Card and Classic) is a single
+stroke asked to do two jobs and doing neither. Over a bright desktop it
+disappears, which is exactly where a translucent surface most needs an edge. And
+a uniform bright line lies about the light: it claims a highlight arriving
+equally from every direction, including from underneath, which nothing on a
+screen lit from above ever has.
+Decision: the boundary is the surface's own darkness, and the one stroke is the
+light. The film over the material (`SurfaceChrome.scrim`,
+`hud-fixed-dark-palette`) keeps the surface dark over any desktop, so it stands
+out from a bright one with no line drawn round it. An inner specular, brightest
+at the top edge and spent within the upper third, supplies the lit-from-above
+highlight the material does not draw itself. There is no dark rim: with the film
+in place it adds nothing to a dark surface, and around the filled HUD's light
+sweep it reads as a drawn outline over a white page. The anchor carries a year
+because the specular's shape is the one the 2026 platform redesign settled on —
+provenance, recorded so nobody re-derives it, never the authority. This is the
+edge of Classic and of the Card before macOS 26; the Card's glass carries its own
+rim, read off the system's OSD (the-card-is-glass).
 
 Three mechanics are load bearing.
 
 The specular is a `strokeBorder`, not a `stroke`, which is why `vibrantSurface`
-now takes `some InsettableShape`: `strokeBorder` insets by half the line width, so
-the highlight stays INSIDE the surface instead of bleeding a bright edge outward,
-past the rim that is supposed to be the outermost thing there. The rim is applied
-last, so the boundary is never dimmed by the highlight it is adjacent to.
+takes `some InsettableShape`: `strokeBorder` insets by half the line width, so
+the highlight stays INSIDE the surface instead of bleeding a bright edge outward.
+
+The outline is antialiased once. The content and the film are composited before
+the clip (`compositingGroup`), and the material, an AppKit view masked apart from
+the SwiftUI layer above it, stops `SurfaceChrome.materialInset` (half a point)
+inside the outline. Clipped layer by layer, the dark beneath shows through the
+edge pixels of a light fill: a grey fringe round the filled HUD over a bright
+desktop, which scripts/probes/hud-surface-contrast.swift (mode `edge`) measures
+against the shipped surface's clean edge.
 
 The numbers live in one place (`SurfaceChrome`) because the Settings tiles draw
-this same border in miniature, and they had already drifted: the surface stroked
-0.12 while the tile depicting it stroked 0.14, two literals nobody could see
-disagree. A tile draws ONE flat hairline where the surface ramps — at 108 pt an
-edge that fades reads as no edge — and it takes that value from the ramp's
-brightest point (`tileStrokeTopOpacity`, derived, never a literal). A forked
-number would paint a border the app does not have, in the one place a person
-compares the skins: the second description is the one that rots.
+this same edge in miniature, and two literals drift. A tile draws ONE flat
+hairline where the surface ramps — at 108 pt an edge that fades reads as no edge —
+and it takes that value from the ramp's brightest point (`tileStrokeTopOpacity`,
+derived, never a literal), at the specular's own width. A forked number would
+paint an edge the app does not have, in the one place a person compares the
+skins: the second description is the one that rots.
 
 The Notch does not participate, and that is not an omission. That skin is opaque
 black because it camouflages with the hardware cutout it covers — the same
@@ -2399,31 +2605,51 @@ outline the skin exists to hide. Its Settings tile strokes nothing either, off t
 same fact (`surfaceIsOpaque`), so the picture and the surface agree about the
 absence too.
 
-The values are calibration starting points, like `SurfaceAnimation`'s: what must
-survive a retune is the SHAPE of the border — dark outside, light at the top,
-inside — not any single number. Reopening gate: the pair exists because this
+What must survive a retune is the SHAPE — a dark surface, lit at the top, inside
+— not any single number. Reopening gate: the edge rests on the film because this
 material draws no edge of its own. The day a never-key, nonactivating panel can
-take one that does, the pair is re-examined rather than kept beside it — Liquid
-Glass is the standing candidate and the standing blocker, since `glassEffect`
-renders vivid only while the window is key (the note on `vibrantSurface` carries
-the measurement). The other gate is the Notch: if that skin ever floats instead of
-camouflaging, it takes the border with it.
+take one that does, it is re-examined rather than kept beside it — Liquid Glass is
+the standing candidate and the standing blocker (`hud-fixed-dark-palette` carries
+the macOS 27 measurement). The other gate is the Notch: if that skin ever floats
+instead of camouflaging, it takes the specular with it.
+
+### inner-corners-are-concentric
+Apple publishes no OSD dimensions; it publishes shape rules. WWDC25 session 356
+names three shapes: a fixed radius, a capsule (half the height), and a concentric
+shape, which "calculate[s] its radius by subtracting padding from the parent's".
+A rounded shape nested near a surface's corner with any other radius reads as
+off, the gap around the corner pinching or bulging.
+Decision: the Card HUD and every cover nested in a surface corner take their
+radius from one of these rules, derived in code rather than declared. The Card
+HUD is a fixed shape whose radius is a third of its height
+(`CardMetrics.hudSystemCornerRadius`), the corner of the author's reference
+indicator, a filled level bar near 5.8:1, which `CardMetrics.hudSystemSize` reproduces. A cover nested in a surface corner is concentric: the parent's radius minus the
+tighter of its two insets (`CardMetrics.compactArtworkRadius`,
+`expandedArtworkRadius`, `NotchMetrics.compactArtworkRadius`). With unequal insets
+no radius is exactly concentric; subtracting the tighter one keeps the inner
+arc's centre level with the outer one's on that side, so the gap runs from one
+inset to the other with no pinch. A shape whose inset reaches past the parent's
+radius is not nested and keeps its own radius: Classic's covers (centred, 45 pt
+and more from the side under an 18 pt radius), its segments, the Notch's expanded
+cover (below the slit, far from the top corners). The filled HUD's glyph is inset
+by the radius itself, so the corner never reaches it. `CardMetricsShapeTests`
+pins these as relations, never as literals.
 
 ### tile-backdrop-is-the-real-desktop
-The style tiles stood on a drawn desk — a flat, dim gradient, fixed rather than
-theme-following — defended by two reasons: the subject is the black shape and a
+A drawn desk under the style tiles — a flat, dim gradient, fixed rather than
+theme-following — has two reasons for it: the subject is the black shape and a
 busy wallpaper would compete with the one thing these pictures exist to compare,
 and the app's surfaces are always dark (`hud-fixed-dark-palette`), so a tile that
 went bright under a pale desktop would describe a skin the app never draws. Both
-reasons are true. What they argued for was not: a tile is a picture of A PLACE —
+reasons are true. What they argue for is not: a tile is a picture of A PLACE —
 each one says "the surface looks like this, up there on your screen" — and a
 screen wearing a wallpaper nobody has ever seen is a picture of somebody else's
 Mac.
 Decision: the backdrop is the user's own desktop picture under a dark wash
-(`TileBackdrop`, 28%), and the WASH is what keeps both old reasons rather than
+(`TileBackdrop`, 28%), and the WASH is what keeps both reasons rather than
 trading them away. At that opacity a wallpaper stays background instead of
 becoming the subject, and the palest desk stays dark enough for the surface
-standing on it to be honest. The gradient was not deleted: it is the fallback, for
+standing on it to be honest. The gradient stays as the fallback, for
 a desk that cannot be read — no picture reported, or a dynamic/aerial desktop
 ImageIO will not open. A hole where the screen should be is a worse picture than a
 drawn one.
@@ -2441,10 +2667,11 @@ ONE screen is asked (`NSScreen.main`, else the first connected), deliberately. T
 picture is SCENERY, not a claim about a particular display: a tile shows a style
 declared for every screen, so asking each display for its own wallpaper would
 answer a question nobody asked and force a per-tile choice that means nothing.
-Reopening gate: the day a tile NAMES a display — the per-display thumbnail
-`global-style-default` leaves for later — the picture stops being scenery and
-becomes a claim about that screen, and the source takes the display as an
-argument.
+The per-display rows' thumbnails (`DisplayStyleRow`) do name a display, and stand
+on the same desk: what they claim about that screen is the shape, resolved on its
+geometry (`StylePreview.shapes(for:on:)`), and the desk under it stays scenery.
+Reopening gate: the day the desk itself is to be a claim about a particular
+screen, the source takes the display as an argument.
 
 The decode is bounded and cached BY URL, failure included (`WallpaperTileStore`).
 A wallpaper is several megapixels and a tile is 108 pt of it, so the picture is
@@ -2464,511 +2691,134 @@ panes read the store when they are built, so a wallpaper changed with the window
 open shows up the next time it opens.
 
 ### the-lock-screen-is-a-space
-~~**Superseded 2026-08-08: the widget this decision placed no longer exists.**
-The lock-screen surface shipped for one session and was removed whole, and with
-it went the app's only private window API (see
-the-lock-screen-was-built-and-taken-out). The entry stays because the hardware
-knowledge is the durable part and is not re-derivable from the code: no window
-LEVEL reaches the shield, the shield is a SPACE at absolute level 300, a
-private SkyLight space at 400 composites over it, and clicks reach it — all
-proven by probe before a line of surface code was written.~~
 
-Five window levels were swept over the lock shield — up to
-`kCGMaximumWindowLevel` — and every one of them lost. The file that recorded it
-(docs/LOCKSCREEN-INVESTIGATION.md) concluded there was no window path at all, and
-the sweep was sound. The inference was not: `NSWindow.level` orders windows
-**inside** a space, and the shield **is** a space, at absolute level 300. Holding
-the space at the default while varying only the level cannot tell "impossible"
-apart from "wrong knob" — all five readings were the same window in the same
-space, losing for a reason the sweep never varied.
-Decision: the lock-screen now-playing widget lives in a SkyLight space at
-absolute level 400, and that is the ONLY place in this app where a private
-window API is taken. Proven on hardware before a line of surface code was
-written (`scripts/probes/lockscreen-space.swift`), with the control that makes it
-mean something: two markers, one raised and one at `kCGMaximumWindowLevel`, both
-visible before the lock, only the raised one after. A second probe
-(`lockscreen-events.swift`) closed the two behaviour questions the first left
-open — clicks reach a raised-space window while locked (10 logged `LOCKED`
-against 5 unlocked as the control), and a screen-sized one behaves like the small
-one across three lock cycles.
-
-**Why this is not a precedent for the panel layer.**
-`NSPanelPresentationPanel` carries a line refusing SkyLight, and it still holds.
-The two are not the same trade: the panels draw a HUD several times a day on a
-surface the user is already looking at, and a WindowServer wedge there breaks the
-app's core function for everyone; this draws one opt-in window on a surface that
-otherwise shows nothing, and its total absence is a feature not appearing. Same
-API, different blast radius, and the refusal beside `NSPanelPresentationPanel`
-was amended in the same diff rather than left to read as forbidding the file next
-to it.
-
-**The four rules the edge follows**, each of which is why this is not a new
-category of risk for this codebase — it is the category the codebase is built on
-(DisplayServices, CoreBrightness, and now this):
-1. Behind a protocol (`RaisedSpace`) like every other system contact, so the
-   presenter and its tests never see a private symbol.
-2. **Every one of the five symbols checked** at dlsym time; any nil ⇒
-   `isAvailable == false`, the presenter refuses to build a panel, and Settings
-   says "not on this macOS" instead of offering a switch that does nothing.
-   Building anyway would put a window on the DESKTOP that the user never asked
-   for — the failure mode is not invisibility, it is a wrong window.
-3. The window's public half is load-bearing and easy to miss:
-   `canBecomeVisibleWithoutLogin = true`. Without it AppKit refuses to show the
-   window while no session is logged in, and the raised space alone does not save
-   you.
-4. Whether the space survives display sleep, wake or hotplug was NOT measured —
-   no such edge fired during the probe run, and the log says so rather than
-   guessing. Covered by action instead of by a read, per
-   `J7-estado-do-outro-lado`: the panel re-adopts its space unconditionally on
-   the same four edges the media-key tap reinstalls on (`preventive-reinstall`).
-   `adopt` is idempotent, so acting costs one cheap call; a local `isVisible`
-   read would answer "fine" either way and cost a surface that silently stopped
-   appearing.
-
-**The window over the shield takes no clicks it did not draw.** It is the size of
-the display, and transparency does NOT pass a click through — measured for the
-desktop panels, which carry the same machinery. So a clear window that size
-captures the password field, the avatar and the Cancel/Switch-User buttons.
-Nobody is locked out by that (keyboard delivery is unaffected and the field is
-focused by default, which is exactly why it survives a hardware test), but it is
-the worst thing this surface can do, so the panel is born `ignoresMouseEvents`
-and a cursor monitor opens it only over the card's RENDERED rect. Two rules make
-that safe rather than merely correct: the default is capture-nothing, so any
-failure of the routing costs a click on the card and never one on the login UI;
-and only the card ever captures, in BOTH states — expanded, the cover fills the
-display but stays click-through, with the card still there to collapse it, so the
-hidden login UI is never clickable-but-invisible.
-
-That the monitor is delivered over the shield at all is MEASURED
-(`scripts/probes/lockscreen-mouse-routing.swift`, 2026-08-07: 1092 global
-mouse-moved events while locked). It was worth measuring because Apple documents
-that a global monitor "would not be able to detect Command-Tab or a system
-alert" and the lock screen is loginwindow's UI — the restriction does not
-generalize. The same run found `NSEvent.mouseLocation` polling alive there, which
-is a standing fallback rather than a hypothesis: it is a question to the
-WindowServer instead of a subscription, so it survives if delivery ever stops.
-The run also carries a lesson about controls — the global monitor read ZERO
-unlocked, and an earlier verdict called the whole thing inconclusive for that
-reason. A control gives meaning to a silence; there was no silence on the side
-being measured, and a positive reading stands without one.
-
-**Where it sits is measured, and the measurement has an expiry the code names.**
-The card was first placed 96 pt off the bottom, from a mock, with a comment
-claiming that cleared the avatar and the password field. It did the opposite:
-macOS **Sonoma moved the login UI down** — clock to the top, user tile to the
-bottom section — so 96 pt is exactly where the password field now lives. Reported
-from hardware, then measured with a ruler drawn over the shield
-(`scripts/probes/lockscreen-geometry.swift`, 2026-08-07): a card at 96 pt lands
-on the avatar; a 300 pt square centred on the display touches nothing.
-
-Two things make a measured constant acceptable here, and both are the reason the
-obvious fix — read a number off the ruler and freeze it — was not enough on its
-own. The app requires **macOS 14+, and Sonoma IS the release that moved the
-login**, so every version in range shares this layout. And the axis that has
-moved between releases is the vertical one: horizontally the login has been
-centred in every version, which is what lets the surface stay centred without a
-second thought. The ruler is kept so the claim can be re-checked rather than
-re-guessed when a release moves the layout again.
-
-The same measurement forced the expanded state's shape: expanded is **one 300 pt
-tile** with the words and controls laid over the cover, which centres to exactly
-the rectangle that was measured clear. The reason recorded here for rejecting the
-alternative was wrong, and is corrected rather than deleted because it is the
-kind a reader reconstructs. It said cover (300) stacked over the card (152) is
-464 pt and "centring that puts its bottom edge back inside the login's strip";
-re-measured 2026-08-08, the stack centres to 259…723 on the real 1512×982 panel
-and clears the login — whose top is at or below 180 — by 79 pt. What is true is
-the other end: 723 leaves the 641 ceiling the ruler proved, putting a large
-picture where nobody has looked. And the interaction reason never depended on any
-of it, which is why it is the stronger one: only the drawn surface takes a click,
-so with the controls on the cover the cover IS the surface, where a separate hero
-above a card was a large picture that covered the login UI and then ignored every
-click aimed at it.
-
-**The backdrop's fade, and the fraction that never existed.** ~~Superseded by
-the-lock-surface-is-a-card: there is no backdrop and no fade. Kept because the
-anchoring argument below outlived them — `clearBandFloor` is still the one
-constant, now for the card and the tile — and because the fabricated fraction is
-exactly the kind of number that gets reconstructed from memory.~~ The expanded
-state's blurred backdrop took the whole display, which meant it also took the
-clock, the avatar and the password field. It cleared the band below
-`clearBandFloor` and ramped back to opaque over `backdropFadeBand` (180 pt,
-taste) above it — a hard edge there reads as a rendering bug. The anchor was that
-constant and not a new one: "where the card may rest" and "where the backdrop
-must stop" are one fact — the login owns everything below this line — and a
-second constant would be a second answer free to drift from the first.
-
-The rejected alternative is worth naming because it was almost shipped. This
-design was specified as a fade "between 50% and 72% of the height", with 72%
-described as where the ruler measured the login's top. It was not: it is
-1 − 250/900, off a private test fixture whose "about 250 pt" was a guess and
-whose attributed 1440×900 panel was not the machine that ran the probe. A
-fraction would also have given the app two contradictory answers to where the
-login begins — the collapsed card is placed with a screen-free constant, and the
-two models cross at a display height of 1071 pt and sit ~100 pt apart on a
-27-inch, which is reachable in clamshell. So no fraction of the display height
-appears in the surface at all, and the guarantee is structural rather than
-stated: the file has no screen-height source, so `0.72 * height` cannot be
-written there without plumbing a reviewer would see.
-
-Because that layer covers the system's clock, the surface draws **its own** — in
-the expanded state only, on the same condition as the backdrop, since one `if`
-for one fact is what keeps ours from ever appearing beside theirs. It answers to
-none of the drift vetoes, and the third one points the opposite way:
-`settlesAfter` exists because a picture still moving on an idle desk at 4 a.m. is
-wear, whereas a clock still running at 4 a.m. is the entire point of one. It also
-cannot ride the surface's 1 Hz position tick, which is installed only while
-something is PLAYING — pause, lock, walk away, and a clock riding it shows the
-minute of the pause all night.
-
-**Reopening gate.** A macOS release that removes or renames any of the five
-symbols degrades this to "not offered" on its own — that is the designed
-behaviour, not a reopening. What WOULD reopen it: Apple shipping a public path
-(the sanctioned one today is `SFAuthorizationPluginView`, an authorization
-plug-in, which is the wrong tool), or evidence that a raised space destabilises
-the WindowServer the way the panel layer's refusal anticipates. Neither is a
-reason to widen the API's use to the panels without measuring that separately.
+~~Superseded: the app has no lock-screen widget and no private window API (the-lock-screen-was-built-and-taken-out). What holds, proven on hardware and kept in docs/LOCKSCREEN-INVESTIGATION.md: no window level reaches the shield, the shield is a space at absolute level 300, a private SkyLight space at 400 composites over it, and clicks reach a window there. The panels refuse SkyLight at any level: they draw several times a day over the user's work, a public level does the job, and a WindowServer wedge there breaks the app's core function for everyone. Full entry in git (c67c9f1 and earlier).~~
 
 ### the-cover-comes-from-the-archive-not-the-store
-~~**Superseded 2026-08-08: there is no cover lookup.** It fed the 300 pt expanded
-tile, that state was removed, and the largest artwork slot on the lock screen is
-now a 50 pt thumbnail — 100 px at 2x against the 300-600 px the player already
-hands over. A network request naming what somebody is listening to cannot be
-justified by a slot that was already oversupplied (see the-lock-surface-is-a-card).
-The entry stays because the reasoning that chose the source is the durable part
-and would otherwise be re-derived: Apple's terms are the reason the obvious
-endpoint is the wrong one, and that has not changed.~~
 
-The high-resolution cover lookup shipped against Apple's iTunes Search API,
-chosen because it needs no token, no account and no developer program — all
-true, and none of it the question that mattered. The Search API's terms grant
-the use of promotional content, *album art* named explicitly, only **(i)** on
-pages promoting that content, **(ii)** proximate to a "Download on iTunes"
-badge acting as a link to the purchase page, and **(v)** never "for independent
-entertainment value apart from its promotional purpose". A large cover filling
-a lock screen, with no badge and no link, is precisely that fifth thing.
-Decision (2026-08-08): the use is outside what the terms grant, and the fix is
-to change SOURCE rather than to add a purchase button to a lock screen or to
-drop the feature. The **Cover Art Archive** (MusicBrainz) exists for this use
-and imposes no badge. The swap is contained because `ArtworkLookup` was already
-a protocol with the endpoint behind it, and every failure on that path is
-already silence.
-
-Two things worth keeping straight for whoever revisits this. The rate limit was
-never the issue on the old endpoint — ~20 calls per minute, against one call per
-track identity. And this says nothing about the *technique*: rewriting the size
-in the returned artwork URL is how the store served a larger image, and the
-archive simply serves fixed sizes instead.
-
-**Shipped the same day (`CoverArtArchiveLookup`), and four things had to be
-measured first, because three of them are not what the obvious design assumes.**
-
-*The unit is the release GROUP, not the release.* `release/?query=…` for one
-album returns several pressings, each with its own art and no way to tell which
-carries any; `release-group/…/front-1200` is one cover per record. Measured:
-HTTP 200, 77 KB, two redirects into archive.org (500 → 18 KB). Missing art is a
-404 and a malformed identifier a 400 — both arrive as perfectly successful
-`URLSession` responses with a body, which is why the status is checked at the
-edge rather than inferred from the bytes.
-
-*Without an album there is no release-group search at all.* `recording:"…"`
-inside a release-group query returns **zero** results — the field does not exist
-there. The path in is `/ws/2/recording/`, whose answer carries the release groups
-inline, so it is still one request. This matters because the JXA fallback reports
-no album AND carries no bitmap: that path is not an upgrade there, it is the only
-cover the surface will ever get.
-
-*That path ranks bootlegs first, and one field separates them.* "Creep" by
-Radiohead returns eight live recordings ahead of *Pablo Honey* — every one a real
-release with real, wrong art. `secondary-types` is empty on exactly the studio
-record. So the guessed path demands an empty one and the album path must **not**:
-the filter exists to break a tie the app had to guess, and someone playing a live
-record asked for the live record. The asymmetry is the decision, not an oversight.
-
-*MusicBrainz is a guest relationship and it is written down.* One request per
-second per source IP, and a `User-Agent` naming the application and a way to
-reach its maintainers — without it the request is refused. Exceeding the limit
-costs a block for the shared address, so it is paid by users who never touched
-the feature; hence `RequestPacer`, whose slot is reserved in the same breath it
-is read (an actor releases isolation at every `await`, and read-then-sleep-then-
-record lets a burst leave together). The archive publishes neither requirement
-and its half goes straight out, carrying the header only out of courtesy.
-
-Reopening gate: an affiliate/partner arrangement that grants the use, or a
-surface where a purchase badge would genuinely belong. Neither is a lock screen.
+~~Superseded: there is no cover lookup, and the app makes no artwork request (the-click-was-the-last-thing-holding-the-lookup-up). The reasoning that chose the lookup's source over the iTunes Search API, whose terms tie album art to promoting a purchase, is in git (c67c9f1 and earlier).~~
 
 ### animated-artwork-is-withheld-not-missing
-Motion covers keep being proposed for the lock surface, and the reason they
-cannot ship was recorded once as a property of the bridge — "only static art via
-MediaRemote". That framing invites the wrong fix: replace the bridge. There are
-three independent walls and any one is fatal, so this does not reopen when a new
-bridge appears.
-Decision: not implementable by a third party on this platform. Recorded so nobody
-re-researches it.
-1. **Apple withholds the data from every third party.** `editorialVideo`, where
-   motion artwork lives, is not exposed to third-party apps through the Apple
-   Music API — developer token or not. For albums the only extended attribute a
-   third party can load is `artistUrl`.
-2. **`MPMediaItemAnimatedArtwork` is a provider API** — how a music app hands
-   animation *to* the system. Crema observes whatever is playing and never
-   receives it. (This entry first added "and it is iOS-only", which is false:
-   Apple lists it on macOS 26 alongside every other platform. The provider half
-   is what makes it fatal for an observer, and it needed no help.)
-3. **The bridge carries no such key.** The vendored adapter emits 45 fields and
-   exactly one image (`artworkData` + `artworkMimeType`): no artwork identifier,
-   no URL, no animated variant. Apple Music's motion art never crosses the
-   MediaRemote boundary.
 
-The consequence is not a gap but a shape: the expanded state's slow drift on the
-blurred backdrop is the honest form of the idea here, and it carries the app's
-two standing animation vetoes (Reduce Motion, Low Power Mode) plus a third this
-surface invents — **time**. A HUD lives 1.5 s; this can sit lit all night, so the
-drift settles after three minutes. Battery, and OLED burn-in.
-
-The same boundary explains the **cover lookup**, which is a different question
-with a different answer. `MRMediaRemoteGetNowPlayingInfo` takes no options
-dictionary — there is no size to negotiate and the dimensions received are not
-even reported — so the roughly 300–600 px a player publishes is all there is, and
-a larger cover has to come from somewhere else entirely. The Cover Art Archive
-serves it addressed by release group, in fixed sizes, with no token and no
-account (measured: 500 → 18 KB, 1200 → 77 KB; which source, and why not the
-store, is `the-cover-comes-from-the-archive-not-the-store`).
-
-~~**Superseded 2026-08-08 for the cover-lookup half only: there is no lookup any
-more.** The lock surface it fed shipped for one session and was removed whole
-(the-lock-screen-was-built-and-taken-out), and the app makes no artwork request.
-The three walls above are untouched by the removal and still close the motion
-question; what follows described the lookup's opt-in gate and invariants and is
-kept as the reasoning a future lookup would need again.~~ It was **off by
-default** because it is a network request carrying what
-you are listening to — neither an account nor analytics, the two things the app
-promises it does not do, but traffic tied to listening all the same.
-
-Two invariants governed it, and each is a bug that would otherwise ship.
-**There is always something to draw**: the upgrade improves the player's own
-cover and never stands in for having one, so the surface is complete the instant
-it appears and an answer that arrives later only ever replaces a cover with a
-better one — nothing waits, nothing blanks, and every failure (no match, no
-network, a decode that did not fit) is the same silence.
-**Bytes never outlive the identity they belong to**: the fetched cover and the
-title+artist+album it answers are cleared together, because held past a track
-change they put one album's cover on the next song's surface — visible and wrong,
-where the absence would merely be absent. That identity is also why `album` was
-added to the domain: keyed on the snapshot instead, the 1 Hz position tick would
-re-ask the endpoint once a second for the same song.
+~~Superseded: no surface the app carries asks for motion artwork. The three walls recorded against it for any third party (the data withheld by Apple, a provider-only API, a bridge that carries one static image) and the cover lookup's invariants are in git (c67c9f1 and earlier).~~
 
 ### the-lock-surface-is-a-card
-~~**Superseded 2026-08-08: the surface this decision shaped no longer exists.**
-The lock-screen card shipped for one session and was removed whole
-(the-lock-screen-was-built-and-taken-out). The entry stays because the chain of
-costs that ended the backdrop — the Mach band, the self-erasing clock, the
-safety obligations of covering the login — is the reasoning anyone proposing a
-lock-screen ground would otherwise re-derive.~~
 
-The lock-screen widget shipped with a full-screen blurred backdrop: the cover,
-scaled past the display, blurred at 46, drifting on a 26 s cycle, masked so its
-alpha reached zero over the bottom 300 pt the login owns. Because that layer
-also covered the system's clock, the surface drew a clock of its own. The whole
-composition existed to answer one wish — that the artwork reach all four edges.
-
-Decision: **the lock surface paints no ground.** Both states are bounded objects
-on the user's own wallpaper — the 340 pt card resting on `clearBandFloor`, and
-the 300 pt tile centred in the rectangle the ruler proved free. The backdrop,
-the clearance band, the fade and the clock are deleted rather than tuned.
-
-**What ended it was not taste, it was a chain of costs that only pointed one
-way.** The fade's boundary is a Mach band — a retinal artifact at a derivative
-discontinuity — so lengthening or softening the ramp cannot remove it and can
-isolate the two kinks instead; the accepted fixes all cost either a 15-stop
-eased table or a Metal shader, to mitigate an artifact the surface manufactures
-for itself. On a light cover the backdrop erased its own clock: The White Album
-measures 0.996 mean relative luminance, and white type over it is invisible,
-which means the clock the backdrop obliged could not be relied on to survive the
-thing that obliged it. And covering the login turns a cosmetic feature into a
-safety-critical one: a Crema wedged on the main thread leaves its window on
-screen with no code running, so any covering design owes a dead-man's mechanism,
-an idle signal proven to survive the shield, and vetoes for VoiceOver, Reduce
-Transparency, Increase Contrast, the Accessibility Keyboard and Switch Control —
-none of which the surface had.
-
-**Three independent precedents say the same thing, and all three were found
-rather than assumed.** The SkyLight level this window occupies is named
-`kSLSSpaceAbsoluteLevelNotificationCenterAtScreenLock`: Apple's own tenant there
-draws bounded cards, and Droppy, Alcove and boring.notch — the three shipping
-apps at the same level — all draw bounded cards too. Android built precisely
-this backdrop (`MediaArtworkProcessor`: downsample 6, blur 25, flooded with the
-extracted swatch at 70%), shipped it from Android 8 through 10, removed it in 11
-with a one-line justification, and has not restored it in five releases — from a
-position strictly better than ours, since their layer sat behind all system UI
-while ours sits in front of it. GNOME, Windows, elementary and Spotify each keep
-album art as a bounded image and derive the ground from something else.
-
-**The clock left with the backdrop, and that is the load-bearing consequence.**
-It only ever existed because the backdrop covered the system's. With no ground,
-the shield's clock is visible, and drawing a second one beside it is the
-two-clocks defect — the same defect that disqualified the one catalogue entry
-which tried to bloom colour over an uncovered wallpaper. One fact, one absence.
-
-**Not rejected, and available without reopening this**: the artwork reaching all
-four edges on a display that carries no credential cluster. Crema is
-main-display-only by decision and the login lives on the main display; a
-secondary display needs no clearance, no idle poll, no retreat and no
-dead-man's switch. That is a feature, not a workaround, and it is on the roadmap
-rather than in this entry because it changes what the surface is offered on, not
-what it draws.
-
-**Reopening gate, and it is a measurement rather than an argument.** Everything
-above concerns a window ABOVE the shield. Nobody has asked whether a SkyLight
-space at a level BELOW 300 composites behind it — the level was inherited from
-the widget's need to be seen, never from the backdrop's need to be a ground. If
-a lower space shows through, the system draws the login on top and the entire
-chain of costs above retires at once: no clearance, no clock, no wedge story, no
-accessibility veto. The probe that would answer it,
-`scripts/probes/lockscreen-space.swift`, took the level as a parameter and was
-removed with the surface — it lives only in git history (`bb7bb73^`), so
-reopening starts by recovering it from there and running it at 250 and 310
-before anyone re-argues this from taste. The other reopening is the reverse of the first: a macOS that stops
-drawing a lock-screen clock, which would make ours a replacement rather than a
-duplicate.
-
+~~Superseded: the surface this decision shaped does not exist (the-lock-screen-was-built-and-taken-out). The chain of costs that ended its backdrop (the Mach band at the fade, the clock the backdrop obliged, the safety cost of covering the login) is in git (c67c9f1 and earlier); the open question of a space below level 300 stands in the-lock-screen-was-built-and-taken-out.~~
 
 ### the-click-was-the-last-thing-holding-the-lookup-up
-An amendment to the-lock-surface-is-a-card rather than a new decision, recorded
-separately because the chain it describes is the kind nobody reconstructs.
+A corollary of the-lock-surface-is-a-card rather than a new decision, recorded
+separately because the chain it describes is the kind nobody reconstructs. The
+surface, its expanded state and the cover lookup are not in the tree
+(the-lock-screen-was-built-and-taken-out); what stays is the lesson.
 
-The lock surface lost its backdrop first, and kept its two states. Then the
-design round that followed measured what the expanded state actually cost, and
-the costs turned out to compound rather than sit side by side. **The tile was
-300 pt CENTRED**, so its bottom edge was `(H - 300) / 2` — a function of a
-display height the surface never read. On the author's 982 pt panel that is 341
-and everything clears, which is exactly why the measurement was written down as
-if it described the design. Below 900 pt the tile crosses `clearBandFloor`;
-below 660 pt it lands on the login. A 13-inch Air at its most-zoomed scaled
-setting is 1024x640. Not one of eleven proposed designs noticed, and the ruler
-that "proved 341..641 clear" proved it for one panel.
+Costs on a lock surface compound rather than sit side by side. **A 300 pt tile
+CENTRED** has its bottom edge at `(H - 300) / 2` — a function of a display height
+the surface never reads. On the author's 982 pt panel that is 341 and everything
+clears, which is exactly how a measurement gets written down as if it described
+the design. Below 900 pt the tile crosses the clearance floor (`clearBandFloor`,
+gone with the surface); below 660 pt it lands on the login. A 13-inch Air at its most-zoomed scaled setting is 1024x640. Not one
+of eleven proposed designs noticed, and the ruler that "proved 341..641 clear"
+proves it for one panel.
 
-Decision: **the surface has one state.** The click, the tile, the morph and the
-tap gesture are gone; the card rests on `bottomInset` and its placement is not a
-function of any height.
+Decision, for the lock surface: **one state.** No click, no tile, no morph and no
+tap gesture; the card rests on a bottom inset (`bottomInset`, gone with the
+surface) and its placement is not a function of any height.
 
 **And the click was load-bearing for something two directories away.** The
 high-resolution cover lookup — `ArtworkLookup`, `CoverArtArchiveLookup`,
 `RequestPacer`, `LockArtworkResolver`, an opt-in preference, a Settings row and
-four test suites — existed to keep a 300 pt tile from showing a soft 400 px
-image. Nothing else in the app used it. With the largest slot on that surface
-back to a 50 pt thumbnail, the feature was fetching 1200 px over the network,
-paced against MusicBrainz's 1 req/s, to feed 100 px. Retiring it was not
-tidiness: keeping it would have been a network request tied to what somebody is
-listening to, carried by an app whose SPEC promises no accounts and no
-analytics, in exchange for nothing visible. `ArtworkDecoding.lockScreenMaxSide`
-went with it — a decode bound four times the largest remaining slot is cost
-nobody reads.
+four test suites — existed only to keep a 300 pt tile from showing a soft 400 px
+image; nothing else in the app used it, and none of it is in the tree. Against a
+50 pt thumbnail it would fetch 1200 px over the network, paced against
+MusicBrainz's 1 req/s, to feed 100 px. Its absence is not tidiness: keeping it
+would be a network request tied to what somebody is listening to, carried by an
+app whose SPEC promises no accounts and no analytics, in exchange for nothing
+visible. `ArtworkDecoding.lockScreenMaxSide` is gone with it — a decode bound four
+times the largest remaining slot is cost nobody reads.
 
-**Two orphans were removed in the same diff rather than left waiting for a
-caller**, and both are worth naming because both were young.
-`SurfaceAnimation.morph(expanding:reduceMotion:)` was added one commit earlier,
-for this exact toggle; the rule it expressed (the destination picks the spring)
-survives in `geometryAnimation` and in the comment where the overload used to
-be. `MockArtworkLookup` went with its protocol.
+**Orphans leave in the same diff rather than wait for a caller**, young ones
+included. `SurfaceAnimation.morph(expanding:reduceMotion:)`, written for this
+exact toggle, is not in the tree; the rule it expressed (the destination picks
+the spring) survives in `geometryAnimation` and in its comment. `MockArtworkLookup`
+is gone with its protocol.
 
 **What this does NOT settle**, and the distinction matters because the two are
-easy to merge: the surface no longer expands, and the surface no longer shows a
-large cover. The first is a placement decision with arithmetic behind it. The
-second is a consequence of the first, and it is the one a future round might
-want back — with an anchored geometry rather than a centred one, and with the
-lookup's cost re-argued from scratch rather than restored because it used to be
-there.
+easy to merge: no lock surface expands, and none shows a large cover. The first
+is a placement decision with arithmetic behind it. The second is a consequence of
+the first, and it is the one a future attempt might want back — with an anchored
+geometry rather than a centred one, and with the lookup's cost re-argued from
+scratch, never restored on precedent.
 
 ### the-card-takes-the-material-it-was-refusing
 
-~~Superseded 2026-08-08: the material parameter left with the surface (the-lock-screen-was-built-and-taken-out); what outlived it — the Increase Contrast promotion in `TrackTextStack`, and the expired-comment lesson — ships and is recorded at its sites. Full entry in git (46212da and earlier).~~
+~~Superseded: there is no material parameter (the-lock-screen-was-built-and-taken-out); the Increase Contrast promotion in `TrackTextStack` and the expired-comment lesson ship and are recorded at their sites. Full entry in git (46212da and earlier).~~
 
 ### the-card-was-thin-because-it-was-small
 
-~~Superseded 2026-08-08: the card this entry enlarged no longer exists (the-lock-screen-was-built-and-taken-out). Full entry — the sibling measurements and the refusal to grow the shared scrubber — in git (46212da and earlier).~~
+~~Superseded: the card this entry enlarged does not exist (the-lock-screen-was-built-and-taken-out). Full entry — the sibling measurements and the refusal to grow the shared scrubber — in git (46212da and earlier).~~
 
 ### the-lock-card-is-light-and-lives-on-a-module
 
-~~Superseded 2026-08-08: the card, its light palette and the concentric size arithmetic left with the surface (the-lock-screen-was-built-and-taken-out); the module discipline survives as `Sources/`' layout, and the full entry is in git (46212da and earlier).~~
+~~Superseded: there is no lock card, light palette or concentric size arithmetic (the-lock-screen-was-built-and-taken-out); the module discipline survives as `Sources/`' layout, and the full entry is in git (46212da and earlier).~~
 
 ### the-lock-screen-was-built-and-taken-out
-The whole lock-screen surface was designed, proven on hardware, built, shipped
-into a signed build, redesigned four times and then removed in the same session.
-This entry exists so the removal reads as a decision rather than as a gap
-somebody should fill.
+Crema draws nothing on the lock screen, and the app has **no private window API
+at all**. A lock-screen surface is an explored path, built and proven on
+hardware, and its absence is a decision rather than a gap somebody should fill.
+The reason is the author's and concerns return, not correctness: the surface
+drew, the clicks routed and the geometry was measured, and the design still
+converged on a card that reads as thin. "Não está compensando" is a complete
+argument for stopping, and it does not require the work to have been wrong.
 
-**What was removed:** the surface (`LockWidgetView`, `LockWidgetMetrics`,
-`SourceBadge`), its window (`LockScreenPanel`, `LockScreenPresenter`), its
-click-through rule, the SkyLight bridge and the `RaisedSpace` protocol behind
-it, the `LockScreenMirror` second reader on the lock source, the preference and
-its Settings section, five hardware probes, and roughly fourteen test suites.
-The app now has **no private window API at all**, which it had exactly one of.
+With nothing drawn over the shield, lock-aware suppression is what leaves the
+keys their native feedback: OSD suppression never stays engaged while the screen
+is locked (`SuppressionLockController`).
 
-**The reason is the author's and it is about return, not about correctness.**
-Everything in it worked. The surface drew, the clicks routed, the geometry was
-measured rather than guessed, the suite was green at every step. What did not
-hold was the ratio: four rounds of design research — 130, 123 and 156 findings,
-three adversarial critics, three artifacts — converged on a card that still read
-as thin, and each round's fix exposed the next round's problem. "Não está
-compensando" is a complete argument for stopping and it does not require the
-work to have been wrong.
+**The shared files carry nothing for it.** `TrackTextStack` has one type ramp,
+with no scale for a surface read at two or three metres; `SurfaceChrome` has no
+light palette, and `vibrantSurface` no material or palette parameter. An API with
+no caller is removed in the diff that orphans it.
 
-**Removed surgically rather than by reverting the range**, and the distinction
-matters if anyone reads the history. The forty commits touching this feature
-also carried i18n corrections, an audit queue, the progress bar joining the
-HUD bar's decision, and three SDK claims that were wrong — a blanket revert
-would have taken all of it. One commit removes the feature from the tree
-instead.
+**What remains.** `docs/LOCKSCREEN-INVESTIGATION.md` holds the hardware facts,
+which a codebase without the feature cannot rederive: no window LEVEL reaches the
+shield; the shield is a SPACE at absolute level 300; a private SkyLight space at
+400 composites over it; clicks reach a window there; a screen-sized window
+behaves; the login's top edge sits at or below 180 pt on a 1512×982 panel. The
+anchors that record design findings stay too (the concentric radius rule, the
+Mach band diagnosis, the measured contrast arithmetic), because none of them is
+about the lock screen. The surface, its window, the SkyLight bridge behind
+`RaisedSpace`, the second reader on the lock source, the preference, the probes
+and their test suites are in git (`bb7bb73^`).
 
-**What the shared files gave back.** `TrackTextStack` returns to one type ramp:
-the `.glance` scale existed for a surface read at two or three metres and went
-with it, rather than waiting in the file for a caller. `SurfaceChrome` loses the
-light palette for the same reason, and `vibrantSurface` loses the material and
-palette parameters it grew — the desktop skins never passed either. This is the
-same discipline the round applied to `SurfaceAnimation.morph(expanding:)` a day
-earlier: an API with no caller is removed in the diff that orphans it.
+**What a future attempt owes before writing any code**: whether a SkyLight space
+BELOW level 300 composites BEHIND the shield. Nothing needs the artwork above the
+login, only behind it; if a lower space shows through, the system draws the login
+on top, and the clearance band, the clock a backdrop obliges, the accessibility
+vetoes and the panel-height arithmetic retire at once. `lockscreen-space.swift`,
+in git only (`bb7bb73^`), takes the level as a parameter and was never run at 250.
 
-**What is kept, deliberately.** `docs/LOCKSCREEN-INVESTIGATION.md`, with a
-status banner at the top so nobody reads it as current. The knowledge in it is
-expensive and is not recoverable from a codebase that no longer contains the
-feature: no window LEVEL reaches the shield; the shield is a SPACE at absolute
-level 300; a private SkyLight space at 400 composites over it; clicks reach; a
-screen-sized window behaves; the login's top edge sits at or below 180 pt on a
-1512×982 panel. The anchors that recorded design findings stay too — the
-concentric radius rule, the Mach band diagnosis, the measured contrast
-arithmetic — because none of them are about the lock screen specifically.
-
-**What a future attempt owes before writing any code**, and it is the one
-question four rounds never asked: whether a SkyLight space BELOW level 300
-composites BEHIND the shield. Every design assumed level 400 because that is
-what the widget needed to be seen; nothing needed the artwork to be above the
-login, only behind it. If a lower space shows through, the system draws the
-login on top and the entire chain of difficulty — the clearance band, the clock
-the backdrop obliged, the wedge story, the accessibility vetoes, the panel-height
-arithmetic — retires at once. `lockscreen-space.swift` took the level as a
-parameter and it was never run at 250.
-
-**The reopening gate is not a measurement, it is a scope.** The thing that made
-this expensive was not the private API and not the geometry: it was that the
-surface had to be beautiful, legible at three metres, safe over a credential
-field, and correct on every panel size, all at once, on a display the app does
-not own. Anyone proposing it again should say which of those four they are
-dropping.
+**The reopening gate is a scope, not a measurement.** The surface has to be
+beautiful, legible at three metres, safe over a credential field and correct on
+every panel size, all at once, on a display the app does not own. Anyone
+proposing it again says which of those four they are dropping.
 
 ### the-slit-is-found-from-its-edges
-The app carried **two rules for finding the same cutout**. The click-invoke zone
-and the Settings picture built the slit from its edges — `frame.minX + auxLeft`,
-`frame.width − auxLeft − auxRight`. The surface built it from the display's
-centre: `topAnchored` laid the rule width around `geometry.frame.midX`. The two
-agree only while `auxLeft == auxRight`, and diverge by `(auxRight − auxLeft) / 2`
-when they do not.
+One rule finds the cutout, from its edges — `frame.minX + auxLeft`,
+`frame.width − auxLeft − auxRight` — and every reader asks it (the decision
+below). The discarded path is **a second rule for the same cutout**: the surface's
+`topAnchored` laying the rule width around the display's centre,
+`geometry.frame.midX`, while the click-invoke zone and the Settings picture built
+the slit from its edges. A centre-derived copy agrees with the edges only while
+`auxLeft == auxRight`, and diverges by `(auxRight − auxLeft) / 2` when they do
+not.
 
-They do not. The 14" panel this app was built on measures **663 pt left of the
+They do not. The 14" panel this app is built on measures **663 pt left of the
 slit and 664 right** — the app's own reference geometry says so
-(`StylePreview.notchedReference`, and `StylePreviewTests` already called that
+(`StylePreview.notchedReference`, and `StylePreviewTests` calls that
 asymmetry "the hardware's, not ours to round away"). So the display's centre is
-756 and the cutout's is 755.5, and the surface claimed x ∈ [663.5, 848.5] against
-a cutout ending at 848: **half a point of antialiased edge sitting on live
+756 and the cutout's is 755.5, and a centre-built surface claims x ∈ [663.5, 848.5]
+against a cutout ending at 848: **half a point of antialiased edge sitting on live
 menu-bar pixels**, on the default scale mode, on the author's own machine. That
 is precisely what `NotchMetrics.lateralInset`'s calibration forbids — its whole
 argument is that the edges land flush on pixel boundaries so the height morph has
@@ -2987,32 +2837,42 @@ pixel the surface disowns captures clicks over live menu bar.
 `NSScreen.h` documents both auxiliary rects as *"empty if there are no additional
 unobscured areas"*, so a top safe area with `auxLeft == auxRight == 0` describes a
 display whose obscured strip spans the full width — not a cutout. Read as one, the
-slit became the whole screen: a display-wide black surface welded to the top edge,
+slit becomes the whole screen: a display-wide black surface welded to the top edge,
 and an invoke zone over the entire menu bar, captured by the panel and then handed
 to `Coordinator.invoke`, which refuses most clicks (it acts only from `.hidden`
 with something playing). Every menu-bar click in that state is swallowed and does
-nothing. So the criterion is now that the slit be **narrower than the display**,
+nothing. So the criterion is that the slit be **narrower than the display**,
 and a geometry that fails it resolves notch→card like any slitless panel.
 
 **Where the criterion stops, deliberately.** One empty auxiliary rect and one
 populated would pass — a slit flush against a screen edge. No Mac reports that,
 the header's sentence is about both rects together, and inventing a rule for
-hardware nobody ships is how the centre-inference got in. If such a panel ever
+hardware nobody ships is the centre-inference's own mistake. If such a panel ever
 appears, the rule is re-derived from a measurement of it, not guessed here.
+
+**The window that carries the surface lands on whole points.** AppKit places a
+window's origin on whole points, and the edges the API hands over are not
+promised to keep a slit's centre and width compatible with that: on macOS 27.0.1
+this same 14" panel reports 663.5 pt on each side, a whole-point centre with an
+odd slit width, so the Notch's window starts on a half point and is placed half a
+point left, its surface with it, onto live menu bar. Every fixed window is
+therefore widened, never moved, to a whole-point origin about the same centre,
+its pinned edge kept (`CGRect.placeableAsWindow`); `NSPanelPresentationPanelTests`
+checks the placed window and the surface's centre on that geometry.
 
 ### main-takes-docs-outside-a-release
 `main` is the release branch — every merge into it is a release, and it is what
 `release.sh` builds from. But it is also the **Pages root**: the landing page and
 everything under `docs/` are served from `main`, not from `dev`. So the two roles
 disagree whenever documentation changes without code: the site keeps showing the
-previous release's material until the next version ships, however long that is.
-It bit the media refresh — a whole showcase reshot on a new desktop, sitting on
-`dev`, invisible to every visitor.
+previous release's material until the next version ships, however long that is:
+docs that land only on `dev` — a whole showcase reshot on a new desktop, say —
+stay invisible to every visitor until a release.
 
 Decision: **`main` accepts a documentation-only merge outside a release, and the
 test is the diff, not the intent.** If the merge touches nothing but the
 repository's prose — `docs/` and its assets, the root documents `README.md`,
-`CONTRIBUTING.md`, `AGENTS.md`, `CLAUDE.md`, `SPEC.md`, `PLAN.md`, `ROADMAP.md`, and the
+`CONTRIBUTING.md`, `AGENTS.md`, `CLAUDE.md`, `SPEC.md`, `PLAN.md`, and the
 issue forms and pull-request template under `.github/` (`ISSUE_TEMPLATE/`,
 `pull_request_template.md` — prose GitHub serves from the default branch, so a
 form parked on `dev` leaves the issue page bare exactly the way the site went
@@ -3027,23 +2887,23 @@ stops being hostage to the release cadence.
 with the whole ritual, or it waits. `release-notes/` and `docs/appcast.xml` are
 release artifacts despite their paths: the appcast is signed and regenerated by
 `release.sh` (the-feed-signs-itself), so it never travels on a docs merge. The
-route is unchanged — the work still lands on `dev` through a PR first, and `main`
+route stands — the work lands on `dev` through a PR first, and `main`
 takes it from `dev`; what this entry removes is the wait, not a step.
 
-Amendment (2026-09-12): the route is now also what the remote enforces. A
+The route is also what the remote enforces. A
 documentation-only merge reaches `main` through a pull request like any other —
 there is no direct push for anyone, the owner included
 (the-branch-rules-bind-the-admin-too).
 
 ### the-branch-rules-bind-the-admin-too
-CONTRIBUTING.md said "nothing lands on `dev` directly" and the branch protection
-agreed — for everyone but the owner. Classic protection with `enforce_admins`
-off exempts administrators, and this is a one-administrator project: on
-2026-09-12 two local merges pushed straight to `dev` went through with a
-"Bypassed rule violations" notice where a contributor would have seen a
-rejection, and the release's appcast commit was pushed straight to `main` the
-same way, as every release before it had been. The rule existed for people who
-never push here and was silent for the one who does.
+CONTRIBUTING.md says "nothing lands on `dev` directly", and classic branch
+protection with `enforce_admins` off agrees for everyone but administrators —
+in a one-administrator project, everyone but the one person who pushes.
+Observed (2026-09-12): two local merges pushed straight to `dev` go through with
+a "Bypassed rule violations" notice where a contributor would see a rejection,
+and a release's appcast commit pushed straight to `main` goes through the same
+way. A rule that binds only people who never push here is silent for the one
+who does.
 
 Decision: **the protection binds administrators, on `main` and on `dev`**, with
 conversation resolution required on both and the branch kept up to date before
@@ -3053,16 +2913,16 @@ reapplies it, is docs/GITHUB.md.
 
 What it cost, faced rather than inherited:
 
-- **The release ritual lost its direct push.** The appcast commit used to be
-  `git push` on `main` (docs/RELEASE-GUIDE.md §5.4); it now travels on a
-  `release/X.Y.Z` branch through a pull request that `Build & test` gates —
-  four minutes of a suite the release machine already ran. The rule that the
-  commit "never parks on a branch" survives with its reason intact: the branch
+- **The release ritual has no direct push.** The appcast commit travels on a
+  `release/X.Y.Z` branch through a pull request that `Build & test` gates
+  (docs/RELEASE-GUIDE.md §5.4) — four minutes of a suite the release machine
+  already ran. The rule that the commit "never parks on a branch" keeps its
+  reason: the branch
   lives for one sitting and is deleted if the Release does not go out, because
   the trap it guards against — a feed advertising a version whose Release does
   not exist — is armed by a commit *waiting*, not by a commit *travelling*.
 - **`main` comes back into `dev` through a pull request too** (`main` → `dev`),
-  never a local merge pushed by hand — the same push the rule now rejects.
+  never a local merge pushed by hand — the same push the rule rejects.
 - **Dependabot targets `dev`**, both ecosystems: the default target is the
   default branch, and a bot cannot land on `main` between releases.
 
@@ -3079,9 +2939,9 @@ runner.
 `CremaApp` owns the composition root as `@State private var core = AppCore()`, and
 SwiftUI evaluates that initial value inside its scene update: the crash report puts
 `AppCore.init` under `AppGraph.sceneList`, called from
-`applicationWillFinishLaunching`. The init used to build every panel right there, and
-a panel's first `setFrame(display: true)` lays out its `NSHostingView` — a view-graph
-update nested inside the scene update. Linked against the macOS 27 SDK, AttributeGraph
+`applicationWillFinishLaunching`. An init that builds a panel right there runs the
+panel's first `setFrame(display: true)`, which lays out its `NSHostingView` — a
+view-graph update nested inside the scene update. Linked against the macOS 27 SDK, AttributeGraph
 refuses the nesting and aborts ("precondition failure: setting value during update",
 SIGABRT) before the first test or the first frame; the same path linked against the
 26.5 SDK runs on macOS 27.0.1 without complaint (the installed 1.6.1). Measured with
@@ -3094,14 +2954,14 @@ still writes `hasSeenWelcomeTour` inline, before any window, as its own rule req
 The turn is invisible on screen and costs nothing the roster did not already pay.
 Path not taken: moving the root out of `@State` (an app delegate owning it) would also
 leave the update, but it changes who owns the root's lifetime to fix one ordering.
-The CI image ran Xcode 26.3, linked against SDK 26, and could not see this class.
-Reopening gate: none for the deferral itself — an SDK that tolerates the nesting again
-does not make it safe to move back inline. Any new window the init would show inherits
+A CI image on Xcode 26.3, linked against SDK 26, cannot see this class.
+Reopening gate: none for the deferral itself — an SDK that tolerates the nesting
+does not make it safe to move inline. Any new window the init would show inherits
 the same turn.
 
 ### self-signed-runtime-without-library-validation
-`signed-without-hardened-runtime` turned the runtime off on the self-signed path to
-stop a crash, and recorded only that reason. Its price went unwritten: without the
+Turning the runtime off on the self-signed path stops a crash
+(`signed-without-hardened-runtime`), and it has a price: without the
 runtime, dyld honours `DYLD_*` variables (`man dyld`: they are ignored only for
 binaries protected by System Integrity Protection; Apple's Hardened Runtime page:
 it prevents "code injection, dynamically linked library (DLL) hijacking"), so any
@@ -3109,7 +2969,7 @@ process of the same user could launch Crema with `DYLD_INSERT_LIBRARIES` and run
 code inside the process that holds the Accessibility grant.
 Measured with Xcode 27.0 on macOS 27.0.1, one Release build signed three ways with
 the real self-signed identity and launched for 6 s with `DYLD_PRINT_LIBRARIES=1`
-(a variable that only makes dyld print what it loads): today's shape (no runtime)
+(a variable that only makes dyld print what it loads): the no-runtime shape
 stayed alive, mapped Sparkle and printed 1239 dyld lines; the runtime alone aborted
 (exit 134, "different Team IDs" loading `@rpath/Sparkle.framework`), reproducing the
 recorded crash; the runtime with `com.apple.security.cs.disable-library-validation`
@@ -3117,8 +2977,11 @@ stayed alive, mapped Sparkle and printed nothing.
 Decision: on the self-signed path the app's own executable is signed with
 `--options runtime` and `Crema-SelfSigned.entitlements`, which carries that one
 exception. The Developer ID path is unchanged (a real Team ID satisfies validation).
-The nested code (Sparkle's helpers, the vendored adapter) keeps the signature it
-shipped with: it holds no grant, and the update path it runs is left as it was.
+The nested code (Sparkle's framework and helpers, the vendored adapter) is
+re-signed with Crema's identity on every identity path, and without the runtime
+on the self-signed one: it holds no grant. A helper without the runtime honours
+`DYLD_*` variables; that residual is recorded under docs/KNOWN-GAPS.md's
+"Files inside Crema.app" entry.
 What it does not close: turning validation off lets the process load a library of
 any signer from its own bundle, so whoever can replace files inside `Crema.app`
 still runs code in it, the same class docs/KNOWN-GAPS.md records for the adapter.
@@ -3128,3 +2991,74 @@ grant should survive the update; not measured on an updated install.
 Reopening gate: a Developer ID account, which makes validation pass with a real
 Team ID and lets the exception go.
 
+### the-output-glyph-names-only-what-it-knows
+The volume HUD draws the kind of device the sound goes to, and two facts bound
+what it may claim. A device's name is localized and renamable — the built-in
+speakers read "Alto-falantes (MacBook Pro)" on a pt-BR system, and a Bluetooth
+device answers to whatever the user typed — so a name is evidence only where
+nothing better exists. And CoreGlyphs' `symbol_restrictions.strings` reserves
+`airpods`, `airpods.pro` and `airpods.max` for Apple's AirPods, AirPods Pro and
+AirPods Max, and `beats.headphones` for Beats headphones: a product glyph on the
+wrong device misuses the mark, not only the picture.
+Decision: the transport (`kAudioDevicePropertyTransportType`,
+AudioHardwareBase.h) decides first. On the built-in device the selected output
+data source decides (IOAudioTypes.h: `'hdpn'` is the headphone jack; `'ispk'`,
+or no data-source control, the speakers; any other selection, unknown) and the
+name never does. On Bluetooth, classic or LE, the name decides by a
+case-insensitive match, most specific first — "AirPods Max", "AirPods Pro",
+"AirPods" — then Beats' headphone lines, "Beats Solo" and "Beats Studio" without
+"Buds": the brand's earbuds and speakers carry marks of their own, reserved like
+the headphones'. Any other Bluetooth device is plain `headphones`, the glyph that
+claims no product. AirPlay draws `airplayaudio`; HDMI and DisplayPort
+draw `display`, a screen that does not call a monitor a television. USB,
+Thunderbolt, aggregates and virtual devices keep the speaker family: USB carries
+headsets, DACs and a display's speakers on one transport, and an aggregate's main
+sub-device is its clock (AudioHardware.h: "the AudioDevice that is currently
+serving as the time base"), not where the sound goes. The device glyph replaces
+the speaker at every level, since the bar already shows the level; mute keeps
+`speaker.slash.fill`. The macOS 14 spellings `airpodspro`, `airpodsmax` and
+`airplayaudio` are the ones emitted; macOS 15 and later resolve them as aliases
+(`name_aliases.strings`). A device or data-source change re-reads the route in
+silence and pops nothing by itself; the next volume event draws it. A volume
+notification the switch itself causes is a level event and does pop, and one that
+lands before the data-source notification draws the previous glyph.
+Paths not taken: `kAudioDevicePropertyModelUID` could name a model without the
+name, but its format on Bluetooth is unmeasured; `scripts/probes/output-device-route.swift`
+harvests it. The output stream's terminal type (`kAudioStreamPropertyTerminalType`)
+reads 0x301 on the built-in speakers, the USB Audio Class speaker code rather
+than the header's `'spkr'`, so it does not speak the vocabulary its header
+documents (measured with that probe, 2026-10-15, macOS 27.0.1, Mac16,8).
+Unmeasured: whether the jack on Apple Silicon is a data source of the built-in
+device or a device of its own (a device of its own with no data-source control
+draws the speaker); AirPlay, HDMI and DisplayPort transports on real devices; the
+order of the data-source and volume notifications when a jack is plugged in.
+Reopening gate: a harvested ModelUID table for Bluetooth, or a measured jack on
+Apple Silicon.
+
+### a-long-title-scrolls-where-it-is-read
+A long title stretched the compact Card to its full 280 pt and was cut with an
+ellipsis wherever it still did not fit. The author found the strip too wide and
+asked for the title to scroll. Apple documents a label that scrolls when longer
+than its space on tvOS (TVMLKit, label state values), and Music on the iPhone
+scrolled long titles in its player; the HIG states no rule either way.
+Decision:
+- The expanded player, of every skin, scrolls a line that does not fit
+  (`MarqueeLine`, `TrackTextStack.scrolls`): it rests 2 s at its start, slides
+  at 30 pt/s until a copy 32 pt behind arrives where it began, and rests again;
+  the trailing edge fades over 12 pt, the leading one only while text runs past
+  it. Title and artist share one rhythm: one start, and a run as long as the
+  longer line needs, the shorter one waiting where it began, so both rest
+  together; drifting apart, two lines moving at once read as busy.
+- The compact strips truncate. They announce a track for a few seconds, so a
+  scroll would barely start before they went, and it would be one more thing
+  moving beside the menu bar. The Card's strip hugs to 250 pt at most
+  (`CardMetrics.compactMaxWidth`) inside its unchanged 280 pt rule, which keeps
+  the expanded frame containing the compact one.
+- Reduce Motion and Low Power Mode stop it (`SurfaceAnimation.allowsPerpetualMotion`),
+  leaving the truncated line.
+- The scrolling line is drawn over the truncated one, which stays laid out
+  unseen, so scrolling moves nothing around it and the Card still hugs its text.
+  VoiceOver reads the line once.
+The pace, rest, gap and fade are taste, not measured. Path not taken: stripping
+reissue tags ("- 2011 Remaster") from titles, which services spell differently,
+and which some listeners want to see.

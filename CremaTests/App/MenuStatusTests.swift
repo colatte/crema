@@ -1,11 +1,11 @@
 import Testing
 @testable import Crema
 
-/// What the menu says, in which block, and in what order. The blocks ARE the
-/// hierarchy — the switch that turns the headline feature on, the facts it is true
-/// of, what needs the user, the media — and the gating is where it rots in silence:
-/// a row that restates a preference promises something the app is not doing, and a
-/// media block under the line saying nothing is reporting contradicts it. All of it
+/// What the menu says, in which block, under which control, and in what order. The
+/// blocks ARE the hierarchy — the controls with the facts written under them, what
+/// needs the user, the media — and the gating is where it rots in silence: a fact
+/// that restates a preference promises something the app is not doing, and a media
+/// section under the line saying nothing is reporting contradicts it. All of it
 /// lives in MenuStatus and is pinned here, not in a view body no test can reach
 /// (docs/DECISIONS.md: menu-status-before-warnings).
 struct MenuStatusTests {
@@ -38,33 +38,34 @@ struct MenuStatusTests {
         )
     }
 
-    @Test func theStatusBlockIsAbsentOnAHealthyMac() {
+    @Test func aHealthyMacStatesNoFact() {
         // The common shape: a Mac where the declaration is honoured and no neighbour
-        // reports has no FACT left to state, so the block is absent rather than
-        // carrying a row nobody needs the menu to say.
+        // reports has no FACT left to state, so no control carries a note nobody
+        // needs the menu to say.
         #expect(status().blocks == [.controls, .media])
         #expect(status().rows.isEmpty)
+        #expect(status().note(on: .replacementSwitch) == nil)
+        #expect(status().note(on: .styleMenu) == nil)
     }
 
-    @Test func theMenuIsFourBlocksAndTheOrderIsTheContract() {
+    @Test func theMenuIsThreeBlocksAndTheOrderIsTheContract() {
         // Controls first and unconditionally: the switch is the anchor the menu
         // opens with, and on a fresh install — the feature is opt-in and ships OFF —
         // it is the only line that names the headline feature at all.
         #expect(status().blocks == [.controls, .media])
-        // A warning slots between the facts and the media, never at either end: what
-        // the app IS doing above it, the transport it does not govern below. The fact
-        // has to be asked for now — no row is true of a healthy Mac any more — and
-        // asking for it is what keeps this pinning the ORDER of four blocks rather
-        // than of the three that survive on their own.
+        // A warning slots between the controls and the media, never at either end:
+        // what the app IS doing above it, the transport it does not govern below. A
+        // fact adds no block — it is written under its control — so asking for one
+        // here pins that it stays out of the block list.
         let everything = status(fallsBackToCard: true, mediaCommandsAvailable: false)
-        #expect(everything.blocks == [.controls, .status, .warnings, .media])
+        #expect(everything.blocks == [.controls, .warnings, .media])
     }
 
     @Test func aDeadChainNeverPutsATransportUnderTheLineThatSaysItIsDead() {
-        // With no media source reporting, a "Nothing playing" row states as news what
-        // the warning right above it already said, and it is the one line in the menu
-        // no user can act on. The gate used to live in the scene's ViewBuilder, where
-        // no test could reach it and nothing tied it to the warning it belongs to.
+        // With no media source reporting, a media section states as news what the
+        // warning right above it already said, and holds nothing a user can act on.
+        // The gate lives here, tied to the warning it belongs to, rather than in a
+        // view body no test can reach.
         let dead = status(nowPlayingActive: false)
         #expect(!dead.blocks.contains(.media))
         #expect(dead.warnings.contains(.nowPlayingUnavailable))
@@ -72,17 +73,17 @@ struct MenuStatusTests {
     }
 
     @Test func aHealthyAppStatesNoFactAndWarnsAboutNothing() {
-        // A healthy app states no fact: a sentence repeating a control the user can
-        // already see is noise, so the block is conditional.
+        // A healthy app states no fact: a line repeating a control the user can
+        // already see is noise, so every note is conditional.
         #expect(status().rows.isEmpty)
         #expect(status().warnings.isEmpty)
     }
 
-    @Test func withNothingToReportTheStatusBlockSimplyIsNotThere() {
-        // Everything off or broken — no longer the only way to empty the block (a
-        // healthy Mac empties it too), but still the arrangement where every gate
-        // fires at once, and what it pins is the absence itself: an empty block would
-        // still draw the separator that opens it, over nothing.
+    @Test func withEverythingBrokenNoFactSpeaksAndNoEmptyBlockIsBuilt() {
+        // Everything off or broken: the arrangement where every gate fires at once.
+        // What it pins is absence — no note on a control that is not in effect, and
+        // no media block whose empty section would still draw the separator that
+        // opens it, over nothing.
         let broken = status(
             accessibilityGranted: false,
             suppressionEnabled: false,
@@ -94,34 +95,15 @@ struct MenuStatusTests {
         #expect(broken.blocks == [.controls, .warnings])
     }
 
-    @Test func aSeparatorOpensEveryBlockButTheFirst() {
-        // EVERY block but the first, which takes three of them to say: with a healthy
-        // Mac down to two blocks, a rule that fenced only the second would pass here
-        // and drop the separator above the media the day a fact appears.
-        let withAFact = status(fallsBackToCard: true)
-        #expect(withAFact.blocks == [.controls, .status, .media])
-        #expect(!withAFact.separatesBlock(at: 0))
-        #expect(withAFact.separatesBlock(at: 1))
-        #expect(withAFact.separatesBlock(at: 2))
-
-        let healthy = status()
-        #expect(healthy.blocks == [.controls, .media])
-        #expect(!healthy.separatesBlock(at: 0))
-        #expect(healthy.separatesBlock(at: 1))
-        // Total at both borders, like separatesWarning: the view walks an enumerated
-        // list, so every index it can hold has to answer instead of trapping.
-        #expect(!healthy.separatesBlock(at: 2))
-        #expect(!healthy.separatesBlock(at: -1))
-    }
-
     @Test func aDeclarationNothingHonoursIsSaidOutLoud() {
         // A Mac with no slit — the shipped default declares Notch and every panel
         // draws Card. The declaration itself is the checked item in the Style
         // submenu; what a checkmark cannot say is that nothing honours it, so the
-        // fallback keeps its row and now opens the block
+        // fallback is written under that submenu
         // (docs/DECISIONS.md: rendered-style-gates-settings).
         let notchless = status(fallsBackToCard: true)
         #expect(notchless.rows.first == .styleFallsBackToCard)
+        #expect(notchless.note(on: .styleMenu) == .styleFallsBackToCard)
         #expect(notchless.warnings.isEmpty)
         #expect(!status().rows.contains(.styleFallsBackToCard))
     }
@@ -142,6 +124,7 @@ struct MenuStatusTests {
         #expect(suspended.rows.isEmpty)   // and no claim beside it
     }
 
+    @MainActor
     @Test func theBrightnessTargetIsStatusAndNeverCollidesWithTheNeighboursRow() {
         // One arrangement still has news the user can get nowhere else: no built-in
         // panel in use, so Crema applies no brightness key at all
@@ -152,12 +135,32 @@ struct MenuStatusTests {
         // row would tell a Mac that HAS a built-in display that Crema cannot control
         // screen brightness, which is false.
         #expect(status(brightnessTarget: .builtInAmongOthers).rows.isEmpty)
-        // The composition upstream stands the target down for any chain answer but
-        // `.quiet`, so the neighbour's row and the brightness row are mutually
-        // exclusive by construction — this pins that they never both appear.
-        let drawing = status(chainNotice: .drawingFromBetterDisplay, brightnessTarget: .quiet)
+        // The two rows never both appear because the composition upstream stands
+        // the target down for any chain answer but `.quiet`. So the target here is
+        // the one that composition really produces, for the arrangement that would
+        // otherwise say both: the neighbour reporting, and no built-in panel.
+        let noPanel = (hasBuiltIn: false, count: 1)
+        let target = AppCore.brightnessKeyTargetNotice(
+            chain: .drawingFromBetterDisplay, keysAreCaptured: true, census: { noPanel }
+        )
+        let drawing = status(chainNotice: .drawingFromBetterDisplay, brightnessTarget: target)
         #expect(drawing.rows.contains(.brightnessFromBetterDisplay))
         #expect(!drawing.rows.contains(.brightnessNoBuiltIn))
+    }
+
+    @Test func eachFactIsWrittenUnderTheControlItQualifies() {
+        // Kills a fact written under the wrong control — the style fallback under
+        // the replacement switch reads as a claim about the indicators — and a host
+        // carrying two notes, which the item's single subtitle cannot show.
+        #expect(MenuStatus.Row.styleFallsBackToCard.host == .styleMenu)
+        #expect(MenuStatus.Row.brightnessFromBetterDisplay.host == .replacementSwitch)
+        #expect(MenuStatus.Row.brightnessNoBuiltIn.host == .replacementSwitch)
+
+        let both = status(fallsBackToCard: true, chainNotice: .drawingFromBetterDisplay)
+        #expect(both.note(on: .styleMenu) == .styleFallsBackToCard)
+        #expect(both.note(on: .replacementSwitch) == .brightnessFromBetterDisplay)
+        let noPanel = status(fallsBackToCard: true, brightnessTarget: .noBuiltInDisplay)
+        #expect(noPanel.note(on: .replacementSwitch) == .brightnessNoBuiltIn)
     }
 
     @Test func approvalPendingIsAWarningOfItsOwn() {
@@ -211,45 +214,14 @@ struct MenuStatusTests {
         #expect(MenuStatus.Warning.mediaControlsBlocked.action == nil)
     }
 
-    @Test func onlyTheDeadNowPlayingCarriesTheTrailOutOfIt() {
-        // The one warning with no button but a second sentence: the backup reader
-        // needs Automation access, a requirement the app used to have without ever
-        // naming it. That advice on any other warning is a non sequitur.
-        #expect(MenuStatus.Warning.nowPlayingUnavailable.advice == .automationForBackupReader)
-        #expect(MenuStatus.Warning.mediaControlsBlocked.advice == nil)
-        #expect(MenuStatus.Warning.accessibilityMissing.advice == nil)
-        #expect(MenuStatus.Warning.betterDisplayAheadAndSilent.advice == nil)
-    }
-
-    @Test func anActionableWarningIsFencedOnceFromItsNeighbours() {
-        let twoActionable = status(
-            accessibilityGranted: false,
-            suppressionAvailable: false,
-            loginOutcome: .revokedByUpdate
-        )
-        #expect(twoActionable.warnings == [.accessibilityMissing, .loginItemRevoked])
-        // ONE separator between two actionable warnings, not the two a
-        // fence-before-plus-fence-after rule would emit.
-        #expect(twoActionable.separatesWarning(at: 1))
-
-        // A plain sentence following an actionable one is fenced too: the button
-        // above it must not read as its repair.
-        let mixed = status(
-            accessibilityGranted: false,
-            suppressionAvailable: false,
-            mediaCommandsAvailable: false
-        )
-        #expect(mixed.warnings == [.accessibilityMissing, .mediaControlsBlocked])
-        #expect(mixed.separatesWarning(at: 1))
-
-        // Two plain sentences read as a list and need no fence between them.
-        let plain = status(chainNotice: .betterDisplayAheadAndSilent, mediaCommandsAvailable: false)
-        #expect(plain.warnings == [.betterDisplayAheadAndSilent, .mediaControlsBlocked])
-        #expect(!plain.separatesWarning(at: 1))
-        // The block's own separator already opened the first one, and asking past
-        // the end is not a question the view can ask — both stay total.
-        #expect(!plain.separatesWarning(at: 0))
-        #expect(!plain.separatesWarning(at: 2))
+    @Test func aWarningWithoutARepairIsItsOwnFact() {
+        // The item a warning draws is chosen here, exhaustively: a repair becomes the
+        // button, and a warning with none is drawn as its fact. Kills a fact mapped to
+        // the wrong one — or losing the neighbour's name on the way.
+        #expect(MenuStatus.Warning.betterDisplayAheadAndSilent.item == .fact(.betterDisplayAheadAndSilent))
+        #expect(MenuStatus.Warning.anotherAppAhead("Some Other App").item == .fact(.anotherAppAhead("Some Other App")))
+        #expect(MenuStatus.Warning.mediaControlsBlocked.item == .fact(.mediaControlsBlocked))
+        #expect(MenuStatus.Warning.accessibilityMissing.item == .repair(.grantAccessibility))
     }
 
     @Test func theBrightnessRowSpeaksOnlyWhereCremaIsTheOneApplying() {
@@ -263,8 +235,8 @@ struct MenuStatusTests {
         //
         // So the row speaks only where Crema is the one that writes: opted in,
         // available, and no domain suspended. Everywhere else another line speaks —
-        // the neighbour's row, or the suspension warning. The pointer row left this
-        // block as a copy of the Indicators footer; the gate did NOT leave with it,
+        // the neighbour's row, or the suspension warning. The pointer row is not
+        // in this block — the Indicators footer carries it; the gate stays here,
         // because "Crema can't control screen brightness" makes exactly the same
         // promise about who applies.
         for target in [BrightnessKeyTargetNotice.noBuiltInDisplay] {

@@ -4,9 +4,9 @@ import Testing
 
 /// The stale-keyboard-ID sibling of the display bridge's regression
 /// (docs/DECISIONS.md: J2-display-id-stale): backlight IDs are enumerated from
-/// the client's connection, and a bridge that froze the ID at init would rot
-/// the keyboard-brightness path the first time the enumeration moved. The fix
-/// re-resolves the ID per operation, exactly like the display bridge.
+/// the client's connection, and a bridge that freezes the ID at init rots the
+/// keyboard-brightness path the first time the enumeration moves. So the ID is
+/// re-resolved per operation, exactly like the display bridge.
 ///
 /// The private client is faked through the injectable class resolver — no
 /// private API is touched. The bridge instantiates the class itself, so the
@@ -32,12 +32,12 @@ struct CoreBrightnessKeyboardBridgeKeyboardIDTests {
     }
 
     @Test func aBridgeBuiltBeforeTheKeyboardIsListedComesAliveWithoutARelaunch() {
-        // The cold-boot shape. Two facts used to be one: whether the private class
-        // resolved (fixed for the process) and whether a built-in keyboard was
+        // The cold-boot shape. Two facts, not one: whether the private class
+        // resolved (fixed for the process) and whether a built-in keyboard is
         // listed at that instant (not fixed at all — the enumeration goes over a
-        // connection that may not be up yet). Requiring an ID at construction made
-        // a launch that listed none permanently unavailable, and the backlight HUD
-        // stayed dead for the session with nothing but a relaunch to fix it.
+        // connection that may not be up yet). Requiring an ID at construction makes
+        // a launch that lists none permanently unavailable, and the backlight HUD
+        // stays dead for the session with nothing but a relaunch to fix it.
         fakeKeyboard.reset(validID: 2, brightness: 0.4)
         fakeKeyboard.setHasBuiltIn(false)
 
@@ -54,7 +54,7 @@ struct CoreBrightnessKeyboardBridgeKeyboardIDTests {
     }
 
     @Test func aFrozenKeyboardIDReproducesTheStaleIDDeath() {
-        // The pre-parity behavior, modeled by a constant provider: once the
+        // A launch-frozen ID, modeled by a constant provider: once the
         // valid ID moves, every read and write fails and the keyboard path is
         // dead until relaunch — the display bridge's released bug, on this arm.
         fakeKeyboard.reset(validID: 2, brightness: 0.4)
@@ -121,7 +121,7 @@ private final class FakeKeyboardState: @unchecked Sendable {
     }
 }
 
-private nonisolated(unsafe) let fakeKeyboard = FakeKeyboardState()
+private let fakeKeyboard = FakeKeyboardState()
 
 private final class FakeKeyboardBrightnessClient: NSObject {
     @objc(brightnessForKeyboard:)

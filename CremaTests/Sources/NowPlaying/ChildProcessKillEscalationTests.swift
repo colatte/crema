@@ -10,7 +10,7 @@ import Testing
 /// named for ("the child is abandoned AND killed", docs/DECISIONS.md:
 /// child-process-deadline, born of a hung child stalling the whole now-playing
 /// chain) is a signal sequence, and a fake cannot ignore a signal. A mutation
-/// deleting the SIGKILL left the entire suite green.
+/// deleting the SIGKILL leaves every other test green.
 ///
 /// So this suite spawns a real child — deliberately, and narrowly: it is
 /// `/bin/sh` with a trap and nothing of the app in it, it cannot outlive the
@@ -20,12 +20,12 @@ import Testing
 /// the border may never be exercised at all.
 struct ChildProcessKillEscalationTests {
 
-    /// A child that catches SIGTERM and keeps running — the shape that hung the
-    /// chain before the escalation existed. It echoes AFTER installing the trap:
+    /// A child that catches SIGTERM and keeps running — the shape that hangs the
+    /// chain without the escalation. It echoes AFTER installing the trap:
     /// between exec and the trap there is a window where SIGTERM still kills it,
-    /// and on a starved runner the test's terminate landed inside that window —
-    /// the child died politely and the "SIGTERM alone did nothing" assertion
-    /// failed. The echo is the proof the trap is armed; the test waits for it
+    /// and on a starved runner the test's terminate can land inside that window —
+    /// the child dies politely and the "SIGTERM alone did nothing" assertion
+    /// fails. The echo is the proof the trap is armed; the test waits for it
     /// (bounded) before it lets the deadline fire.
     private func deafChild() -> Process {
         let process = Process()
@@ -78,6 +78,43 @@ struct ChildProcessKillEscalationTests {
         clock.advance()                     // it elapses
 
         #expect(await eventuallyOffActor { !process.isRunning })
+    }
+
+    @Test func aChildWritingMoreThanThePipeHoldsExitsBeforeTheDeadline() async {
+        // A pipe buffers a bounded amount ("the size of the buffer is determined by
+        // the underlying operating system", Apple, Pipe); a child writing past it
+        // blocks until someone reads. Read only at exit, it never exits, and the
+        // reply is lost to the deadline. The test clock never advances while the
+        // child runs, so only a reader draining stdout as it arrives lets it finish.
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", "head -c 200000 /dev/zero | tr '\\000' a"]
+        defer { if process.isRunning { kill(process.processIdentifier, SIGKILL) } }
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        let clock = TestSleepClock()
+        let finished = ReadyFlag()
+
+        let run = Task {
+            let count = await runChildProcess(
+                process,
+                readingStdout: pipe,
+                timeout: 5,
+                clock: clock,
+                failureValue: -1,
+                interpret: { _, output in output?.count ?? 0 }
+            )
+            finished.set()
+            return count
+        }
+
+        let exitedOnItsOwn = await eventuallyOffActor { finished.value }
+        if !exitedOnItsOwn {                // frees a child that never finished
+            await clock.waitForSleep()
+            clock.advance()
+        }
+        #expect(exitedOnItsOwn)
+        #expect(await run.value == 200_000)
     }
 
     @Test func aChildThatHonoursTerminationNeedsNoKill() async {

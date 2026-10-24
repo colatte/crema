@@ -125,11 +125,11 @@ final class PostWakeSeamHarness {
 /// do NOT go through reinstallation, and the observable difference between them.
 ///
 /// The stale-unlock-read latch — the unlock edge reads a still-locked session
-/// and strands the consumer — is FIXED at its source (a settle re-read in
+/// and strands the consumer — is closed at its source (a settle re-read in
 /// `DistributedNotificationScreenLockSource`; docs/DECISIONS.md: settle-rereads),
 /// and the recovery is pinned end-to-end in
 /// `DistributedNotificationScreenLockSourceTests`. What stays here is the pure
-/// proof of the reconciler dedup that made the stale read dangerous (the reason
+/// proof of the reconciler dedup that makes a stale read dangerous (the reason
 /// the settle re-read must exist), plus the by-design transient symptom.
 @MainActor
 struct PostWakeConsumerReproTests {
@@ -272,7 +272,7 @@ struct PostWakeConsumerReproTests {
     /// still transiently locked. With no later edge to re-read, the reconciler
     /// stays unsafe — the return-to-safe emission is lost. This dedup is CORRECT
     /// (a confirming edge must not manufacture a flip); it is what makes a stale
-    /// unlock read dangerous, and precisely why the source now schedules settle
+    /// unlock read dangerous, and precisely why the source schedules settle
     /// re-reads after each edge. The recovery those re-reads provide is pinned
     /// end-to-end in `DistributedNotificationScreenLockSourceTests`.
     @Test func reconcilerDedupesALostReturnToSafeEdge() {
@@ -306,10 +306,11 @@ struct PostWakeConsumerReproTests {
 
         // The symptom: the next volume key passes through (native OSD) while the
         // tap still observes (Crema HUD) — both HUDs together, as reported.
-        let before = h.observedCount
+        // The two presses above land first, so the count after the next one is
+        // that press's own observation, not a late one of an earlier key.
+        #expect(await eventually { h.observedCount == 2 })
         #expect(h.press(.volumeDown) == false)          // volume no longer swallowed
-        await settle()
-        #expect(h.observedCount > before)               // observation alive
+        #expect(await eventually { h.observedCount == 3 })  // observation alive
 
         // DISCRIMINATOR vs the stale-unlock-read latch: this is domain-scoped and still engaged.
         #expect(h.suppressor.isEngaged)

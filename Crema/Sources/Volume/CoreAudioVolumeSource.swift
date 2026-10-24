@@ -6,8 +6,10 @@ import os
 /// mute via Core Audio property listeners and emits domain events. Raw↔domain
 /// translation lives in VolumeConversion; when the default output device
 /// changes, observation moves to the new device (silently — switching devices
-/// must not pop the HUD; the next real change will).
-final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unchecked Sendable {
+/// must not pop the HUD; the next real change will). Each event carries the
+/// observed device's route, read when observation starts and again when the
+/// device selects another data source, both in silence (`OutputChange`).
+final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, VolumeReading, @unchecked Sendable {
     let updates: AsyncStream<SystemHUD>
 
     private let continuation: AsyncStream<SystemHUD>.Continuation
@@ -15,10 +17,12 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unch
     private let lock = NSLock()
     private let logger = Logger.crema("Volume")
     private var observedDevice: AudioDeviceID?
+    private var observedRoute: AudioOutputRoute?
 
     // Listener blocks are retained so they can be removed; one block serves
     // both the volume and the mute address on the observed device.
     private var deviceBlock: AudioObjectPropertyListenerBlock?
+    private var dataSourceBlock: AudioObjectPropertyListenerBlock?
     private var defaultDeviceBlock: AudioObjectPropertyListenerBlock?
     private var serviceRestartBlock: AudioObjectPropertyListenerBlock?
 
@@ -51,7 +55,7 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unch
         self.continuation = continuation
 
         let defaultBlock: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
-            self?.observeCurrentDefaultDevice()
+            self?.receive(.defaultDevice, from: nil)
         }
         defaultDeviceBlock = defaultBlock
         var address = CoreAudioSystemOutput.defaultOutputDeviceAddress
@@ -87,7 +91,7 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unch
             guard let self else { return }
             logger.notice("coreaudiod restarted; re-establishing volume listeners")
             installServiceRestartListener()
-            observeCurrentDefaultDevice()
+            receive(.defaultDevice, from: nil)
         }
         let previous = lock.withLock {
             let old = serviceRestartBlock
@@ -150,11 +154,11 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unch
     /// Runs on `queue`, never on the caller's thread. The caller is the
     /// suppressor's post-apply hook on the MainActor, and these three round trips
     /// are the same blocking Core Audio IPC the suppressor deadline-races for
-    /// exactly this reason — doing them inline froze the whole app (HUD, now
+    /// exactly this reason — doing them inline freezes the whole app (HUD, now
     /// playing, menu) on a coreaudiod stall, on the HEALTHY path, once per volume
-    /// key, and froze it precisely while the key had been swallowed. Sharing the
+    /// key, and freezes it precisely while the key has been swallowed. Sharing the
     /// listener queue also orders this against `emitCurrentState`, so a sample and
-    /// a property callback can no longer interleave their reads.
+    /// a property callback cannot interleave their reads.
     func sample() {
         queue.async { [weak self] in self?.sampleOnQueue() }
     }
@@ -170,11 +174,49 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unch
             return
         }
         let muted = CoreAudioSystemOutput.readMute(device) ?? false
-        guard let hud = VolumeConversion.boundaryRefreshHUD(rawVolume: raw, isMuted: muted) else { return }
+        let route = route(of: device)
+        guard let hud = VolumeConversion.boundaryRefreshHUD(rawVolume: raw, isMuted: muted, route: route) else { return }
         continuation.yield(hud)
     }
 
+    /// On `queue`, for the reason `sample()` gives: the lookup and the reads are
+    /// blocking Core Audio IPC, and the caller is on the MainActor. Yields
+    /// nothing into the stream — the caller decides what the reading is for.
+    func currentVolume() async -> SystemHUD? {
+        await withCheckedContinuation { continuation in
+            queue.async {
+                guard let device = CoreAudioSystemOutput.defaultOutputDeviceID(),
+                      let raw = CoreAudioSystemOutput.readVolume(device)
+                else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let muted = CoreAudioSystemOutput.readMute(device) ?? false
+                continuation.resume(returning: VolumeConversion.hud(rawVolume: raw, isMuted: muted, route: self.route(of: device)))
+            }
+        }
+    }
+
+    /// The route a reading taken outside the listeners carries: the observed
+    /// device's cached one, as a key press would carry it, or, for a device the
+    /// observation has not reached yet, one read now. On `queue`.
+    private func route(of device: AudioDeviceID) -> AudioOutputRoute {
+        lock.withLock { observedDevice == device ? observedRoute : nil } ?? CoreAudioSystemOutput.readRoute(device)
+    }
+
     // MARK: - Observation
+
+    /// Every notification about the output passes here, so whether it pops the
+    /// HUD is decided in one place, by `OutputChange.popsHUD`.
+    private func receive(_ change: OutputChange, from device: AudioDeviceID?) {
+        switch change {
+        case .level: break
+        case .dataSource: if let device { refreshRoute(of: device) }
+        case .defaultDevice: observeCurrentDefaultDevice()
+        }
+        guard change.popsHUD, let device else { return }
+        emitCurrentState(from: device)
+    }
 
     private func observeCurrentDefaultDevice() {
         lock.lock()
@@ -191,7 +233,7 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unch
         // device can still be queued when the default output switches, and it
         // must not emit (device switches never pop the HUD).
         let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
-            self?.emitCurrentState(from: device)
+            self?.receive(.level, from: device)
         }
         deviceBlock = block
         var volume = CoreAudioSystemOutput.volumeAddress
@@ -206,7 +248,32 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unch
                 "listener add on device \(device, privacy: .public) failed (OSStatus \(statuses, privacy: .public)) — HUD deaf until the next device switch"
             )
         }
+        // Only a device with a data-source control can change route in place; a
+        // failed registration costs a stale glyph until the next device switch.
+        if CoreAudioSystemOutput.supportsDataSource(device) {
+            let routeBlock: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+                self?.receive(.dataSource, from: device)
+            }
+            var dataSource = CoreAudioSystemOutput.dataSourceAddress
+            if AudioObjectAddPropertyListenerBlock(device, &dataSource, queue, routeBlock) == noErr {
+                dataSourceBlock = routeBlock
+            } else {
+                logger.error("data-source listener add on device \(device, privacy: .public) failed — route refreshes on the next device switch")
+            }
+        }
         observedDevice = device
+        observedRoute = CoreAudioSystemOutput.readRoute(device)
+    }
+
+    /// The read runs outside the lock; the write is dropped if the default
+    /// output moved on meanwhile, so a late notification cannot stamp an old
+    /// device's route on the new one.
+    private func refreshRoute(of device: AudioDeviceID) {
+        let route = CoreAudioSystemOutput.readRoute(device)
+        lock.withLock {
+            guard observedDevice == device else { return }
+            observedRoute = route
+        }
     }
 
     private func removeDeviceListenersLocked() {
@@ -216,13 +283,20 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unch
         // The old device may already be gone; removal failures are harmless.
         AudioObjectRemovePropertyListenerBlock(device, &volume, queue, block)
         AudioObjectRemovePropertyListenerBlock(device, &mute, queue, block)
+        if let routeBlock = dataSourceBlock {
+            var dataSource = CoreAudioSystemOutput.dataSourceAddress
+            AudioObjectRemovePropertyListenerBlock(device, &dataSource, queue, routeBlock)
+        }
         deviceBlock = nil
+        dataSourceBlock = nil
         observedDevice = nil
+        observedRoute = nil
     }
 
     private func emitCurrentState(from device: AudioDeviceID) {
         lock.lock()
         let isCurrentDevice = observedDevice == device
+        let route = observedRoute
         lock.unlock()
         guard isCurrentDevice else { return }
 
@@ -233,6 +307,6 @@ final class CoreAudioVolumeSource: SystemHUDSource, ManuallySampledSource, @unch
             return
         }
         let muted = CoreAudioSystemOutput.readMute(device) ?? false
-        continuation.yield(VolumeConversion.hud(rawVolume: raw, isMuted: muted))
+        continuation.yield(VolumeConversion.hud(rawVolume: raw, isMuted: muted, route: route))
     }
 }

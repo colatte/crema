@@ -16,11 +16,38 @@ struct DomainTypesTests {
         #expect(live.duration == nil)
     }
 
+    @Test func trackIdentityIsTitleAndArtist() {
+        // One rule read by the surfacing thresholds and the scrub grace alike.
+        #expect(track.isAnotherTrack(than: nil))
+        var sameTrack = track
+        sameTrack.isPlaying = false
+        sameTrack.position = 100
+        sameTrack.artworkData = [1, 2, 3]
+        #expect(!sameTrack.isAnotherTrack(than: track))
+        var retitled = track
+        retitled.title = "Time"
+        #expect(retitled.isAnotherTrack(than: track))
+        var otherArtist = track
+        otherArtist.artist = nil
+        #expect(otherArtist.isAnotherTrack(than: track))
+    }
+
     @Test func systemHUDDefaultsToNoDisplayAndUnmuted() {
         let hud = SystemHUD(kind: .volume, value: 0.5)
         #expect(hud.target == .noDisplay)
         #expect(hud.commandDisplay == nil)
         #expect(!hud.isMuted)
+        #expect(hud.route == nil)
+    }
+
+    @Test func everyCopyOfAReadingKeepsItsRoute() {
+        // The echo of a drag is a copy of the reading; losing the route there
+        // would swap the device glyph back to the speaker under the finger.
+        let hud = SystemHUD(kind: .volume, value: 0.5, route: .airPodsMax)
+        #expect(hud.at(0.2).route == .airPodsMax)
+        #expect(hud.by(.betterDisplay).route == .airPodsMax)
+        #expect(hud.echoed().route == .airPodsMax)
+        #expect(hud != SystemHUD(kind: .volume, value: 0.5))
     }
 
     @Test func systemHUDCoversVolumeAndBothBrightnessKinds() {
@@ -36,7 +63,7 @@ struct DomainTypesTests {
     }
 
     @Test func theBuiltInPanelIsARoleDistinctFromNamingNoDisplay() {
-        // Two different facts the old `DisplayUUID?` folded into one nil: no screen
+        // Two different facts a bare `DisplayUUID?` folds into one nil: no screen
         // owns this reading, versus the internal panel owns it. Only the second
         // scopes the bar, so the values must NOT compare equal or presentation
         // could not tell them apart. Actuation still sees nil for both, because
@@ -75,6 +102,7 @@ struct DomainTypesTests {
         requireSendable(SystemHUD.self)
         requireSendable(PresentationState.self)
         requireSendable(DisplayUUID.self)
+        requireSendable(AudioOutputRoute.self)
         #expect(Bool(true))
     }
 }

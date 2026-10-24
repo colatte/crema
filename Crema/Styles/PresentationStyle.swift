@@ -13,9 +13,10 @@ protocol PresentationStyle {
     /// the WindowManager applies the result to the NSPanel by hand.
     func frame(for state: PresentationState, on geometry: ScreenGeometry) -> CGRect
 
-    /// The skin's view. Reads `coordinator.state`/`coordinator.nowPlaying`
-    /// (through the display policy — per-display now-playing suppression) and
-    /// reports intents back as Coordinator method calls.
+    /// The skin's view. Reads the Coordinator's layers and `coordinator.nowPlaying`
+    /// through the display policy — which names the layers this panel draws and
+    /// suppresses now playing per display — and reports intents back as
+    /// Coordinator method calls.
     @MainActor @ViewBuilder func makeView(coordinator: Coordinator, displayPolicy: SurfaceDisplayPolicy) -> StyleView
 
     /// The panel's fixed window frame. A protocol requirement (not just an
@@ -74,20 +75,54 @@ extension PresentationStyle {
         )
     }
 
-    /// The panel's fixed frame: the union of every state's rule frame — no
-    /// single state is guaranteed largest on both axes — plus overshoot headroom,
-    /// sideways and down only; the top edge stays pinned so the top-anchored
-    /// surface sits exactly where the rule puts it. The window never resizes
-    /// after creation; states animate as content inside it, so there is no
-    /// window-vs-render race to coordinate.
+    /// The fixed frame of a top-anchored surface.
     func windowFrame(on geometry: ScreenGeometry) -> CGRect {
+        fixedWindowFrame(on: geometry, anchor: .top)
+    }
+
+    /// The panel's fixed frame: the union of every state's rule frame — no
+    /// single state is guaranteed largest on both axes — plus overshoot headroom
+    /// sideways and away from `anchor`, whose edge stays pinned so the surface
+    /// sits exactly where the rule puts it: down under a top-anchored surface, up
+    /// over a bottom-anchored one. The window never resizes after creation;
+    /// states animate as content inside it, so there is no window-vs-render race
+    /// to coordinate.
+    func fixedWindowFrame(on geometry: ScreenGeometry, anchor: SurfaceVerticalAnchor) -> CGRect {
         var rect = frame(for: .nowPlaying(referenceTrack, expanded: true), on: geometry)
             .union(frame(for: .nowPlaying(referenceTrack, expanded: false), on: geometry))
             .union(frame(for: .hud(referenceHUD), on: geometry))
         rect.origin.x -= SurfaceAnimation.overshootHeadroom
         rect.size.width += 2 * SurfaceAnimation.overshootHeadroom
-        rect.origin.y -= SurfaceAnimation.overshootHeadroom
+        if anchor == .top {
+            rect.origin.y -= SurfaceAnimation.overshootHeadroom
+        }
         rect.size.height += SurfaceAnimation.overshootHeadroom
-        return rect
+        return rect.placeableAsWindow(anchor: anchor)
+    }
+}
+
+extension CGRect {
+    /// The frame a window takes as asked. AppKit places a window's origin on
+    /// whole points: asked for x 651.5, the Notch's window on a slit 663.5 pt from
+    /// each side lands at 651.0 (`NSPanelPresentationPanelTests`), and the surface
+    /// its view draws at the window's horizontal centre and pinned edge moves with
+    /// it, half a point onto the live menu bar beside the slit. So the window is
+    /// widened, never moved: its left edge goes down to a whole point and its right
+    /// edge mirrors it about the same centre, and its free vertical edge grows to a
+    /// whole point while the pinned one stays put.
+    func placeableAsWindow(anchor: SurfaceVerticalAnchor) -> CGRect {
+        let minX = minX.rounded(.down)
+        let maxX = 2 * midX - minX
+        let minY: CGFloat
+        let maxY: CGFloat
+        switch anchor {
+        case .top:
+            minY = self.minY.rounded(.down)
+            maxY = self.maxY
+        case .bottom:
+            minY = self.minY
+            maxY = self.maxY.rounded(.up)
+        }
+        return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
     }
 }

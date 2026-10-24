@@ -4,9 +4,9 @@ import Testing
 /// What a finished hover leaves behind: the shortened tail (hoverExitRelinger)
 /// the appearance keeps until a real event replaces it. A refinement — artwork
 /// or a duration landing a beat later — restarts the tuck timer through the
-/// plain path, and restarting it from the full linger handed the graze back the
-/// whole 3 s it had just given up, so the surface outstayed its own rule for as
-/// long as content kept trickling in.
+/// plain path, and restarting it from the full linger hands the graze back the
+/// whole 3 s it has just given up, so the surface outstays its own rule for as
+/// long as content keeps trickling in.
 ///
 /// Driven by the injectable clock; the test never really sleeps. The assertions
 /// read the clock's PARK RECORD rather than `delays.last`, because the hover
@@ -36,8 +36,8 @@ struct CoordinatorHoverExitTailTests {
         let h = CoordinatorHarness()
         await appeared(h)
 
-        h.coordinator.hover(true)    // holds the appearance, cancels the linger
-        h.coordinator.hover(false)   // the exit buys hoverExitRelinger, not a full one
+        h.coordinator.hover(true, on: .both)    // holds the appearance, cancels the linger
+        h.coordinator.hover(false, on: .both)   // the exit buys hoverExitRelinger, not a full one
         await h.clock.waitForSleep(delay: Coordinator.hoverExitRelinger)
 
         let withArtwork = refined()
@@ -59,8 +59,8 @@ struct CoordinatorHoverExitTailTests {
         let h = CoordinatorHarness()
         await appeared(h)
 
-        h.coordinator.hover(true)
-        h.coordinator.hover(false)
+        h.coordinator.hover(true, on: .both)
+        h.coordinator.hover(false, on: .both)
         await h.clock.waitForSleep(delay: Coordinator.hoverExitRelinger)
 
         let next = CoordinatorHarness.playingTrack(title: "Time")
@@ -88,8 +88,8 @@ struct CoordinatorHoverExitTailTests {
         #expect(h.coordinator.state == .nowPlaying(track, expanded: true))
         await h.clock.waitForSleep(delay: Coordinator.defaultInvokedLinger)
 
-        h.coordinator.hover(true)
-        h.coordinator.hover(false)
+        h.coordinator.hover(true, on: .both)
+        h.coordinator.hover(false, on: .both)
         await h.clock.waitForSleep(delay: Coordinator.defaultInvokedLinger)
 
         let withArtwork = refined()

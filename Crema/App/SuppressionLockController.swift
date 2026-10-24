@@ -11,7 +11,7 @@ import Foundation
 /// over it is proven on hardware (docs/DECISIONS.md: the-lock-screen-is-a-space).
 /// The app does not take it, by decision rather than by wall: a HUD fires
 /// several times a day on a security surface, which is a different
-/// proposition from one window somebody asked for. The fix: while locked (or
+/// proposition from one window somebody asked for. The rule: while locked (or
 /// off-console),
 /// suppression is *suspended* — keys flow back to the system, the native OSD
 /// returns. On return, suppression re-engages if and only if the user
@@ -50,6 +50,13 @@ final class SuppressionLockController {
     /// pref-off user still needs the reinstall (docs/DECISIONS.md:
     /// J7-estado-do-outro-lado). Nil unless the owner wires a recovery.
     var onUnlocked: (@MainActor () -> Void)?
+
+    /// Fired with every engagement decision — the level, not the edge — so a
+    /// second follower of the same rule keeps no decision of its own: the
+    /// neighbour's indicator is taken over exactly while suppression would be
+    /// engaged (docs/DECISIONS.md: the-neighbour-indicator-is-borrowed). Nil unless
+    /// the owner wires one.
+    var onEngagementDecided: (@MainActor (Bool) -> Void)?
 
     private var isSafe: Bool
     private var consumeTask: Task<Void, Never>?
@@ -103,6 +110,8 @@ final class SuppressionLockController {
     /// the pref here (not caching it) keeps the two inputs — lock state and
     /// preference — always reconciled, whichever changed last.
     private func applyEngagement() {
-        suppressor?.setEngaged(isSafe && preferences.suppressesNativeOSD)
+        let engaged = isSafe && preferences.suppressesNativeOSD
+        suppressor?.setEngaged(engaged)
+        onEngagementDecided?(engaged)
     }
 }

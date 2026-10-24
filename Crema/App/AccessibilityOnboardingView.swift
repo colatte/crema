@@ -8,8 +8,8 @@ import SwiftUI
 ///
 /// It explains why the permission is needed, deep-links to the exact Settings
 /// pane, and reflects a grant live — the monitor keeps polling, so no relaunch
-/// is needed. Its sentences are the ones the tour's permission step reuses:
-/// one permission asked for in one set of words.
+/// is needed. It says what the grant is for with the tour's own list
+/// (`AccessibilityPurposeList`): one permission asked for in one set of words.
 @MainActor
 struct AccessibilityOnboardingView: View {
     let monitor: AccessibilityPermissionMonitor
@@ -22,21 +22,16 @@ struct AccessibilityOnboardingView: View {
                 .font(.system(size: 44))
                 .foregroundStyle(monitor.isGranted ? AnyShapeStyle(.green) : AnyShapeStyle(.tint))
 
-            Text(String(localized: "onboarding.title", defaultValue: "Crema needs Accessibility access"))
+            Text(String(localized: "onboarding.title", defaultValue: "Accessibility access for Crema"))
                 .font(.title2.bold())
                 .multilineTextAlignment(.center)
 
-            Text(String(
-                localized: "onboarding.body",
-                // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
-                defaultValue: "Crema uses the Accessibility permission to capture the volume and brightness keys so it can show its own indicators. Without it the app keeps working — it just can’t react to those keys."
-            ))
-            .multilineTextAlignment(.center)
-            .foregroundStyle(.secondary)
+            AccessibilityPurposeList()
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             Text(String(
                 localized: "onboarding.grantDetection",
-                defaultValue: "Granting is picked up automatically — no relaunch needed. If capture still doesn’t start, relaunch Crema."
+                defaultValue: "Crema notices the permission on its own, so there’s no need to restart. If the keys still don’t respond, quit and reopen Crema."
             ))
             .font(.footnote)
             .foregroundStyle(.tertiary)

@@ -36,8 +36,9 @@ struct WaveformGlyphTests {
     @Test func lowPowerModeVetoesTheDance() {
         // Low Power Mode asks the whole system to stop spending on motion, and a
         // repeatForever pulse on a surface that sits over the menu bar is exactly
-        // the kind of spend it means. Deleting `&& !lowPower` from the rule leaves
-        // every other assertion in the suite green.
+        // the kind of spend it means. The veto is
+        // `SurfaceAnimation.allowsPerpetualMotion`'s, pinned there as well; this is
+        // the glyph asking it.
         #expect(!WaveformGlyph.dances(animating: true, reduceMotion: false, lowPower: true))
     }
 
@@ -45,7 +46,7 @@ struct WaveformGlyphTests {
 
     @Test func aVetoedGlyphStillSaysPlaying() {
         // The bug this rule exists for: with the pulse vetoed and every bar at
-        // rest, playing and paused drew the same four 4 pt stubs — and on the
+        // rest, playing and paused draw the same four 4 pt stubs — and on the
         // compact surfaces this glyph is the ONLY thing that says playing at all.
         // The vetoes forbid movement and spending, not information.
         let playing = WaveformGlyph.stillHeights(animating: true, reduceMotion: true, lowPower: false)
@@ -87,6 +88,15 @@ struct WaveformGlyphTests {
         // Zero movement is the whole point: the profile is a shape, not a phase,
         // so the same inputs answer the same heights every time.
         #expect(WaveformGlyph.stillHeights(animating: true, reduceMotion: true, lowPower: false) == vetoed)
+    }
+
+    @Test func aHiddenSurfaceStopsThePulseAndKeepsTheSilhouette() {
+        // A hidden surface still draws the glyph it faded out with, so it vetoes
+        // the pulse as Reduce Motion does: no motion nobody sees, and the same
+        // silhouette, so nothing settles during the fade.
+        #expect(!WaveformGlyph.dances(animating: true, reduceMotion: false, lowPower: false, shown: false))
+        #expect(WaveformGlyph.stillHeights(animating: true, reduceMotion: false, lowPower: false, shown: false)
+            == WaveformGlyph.stillHeights(animating: true, reduceMotion: true, lowPower: false))
     }
 
     @Test func theSilhouetteFollowsATuningItDoesNotHardcode() {

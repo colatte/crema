@@ -10,8 +10,7 @@ import SwiftUI
 /// only the glyph it is attached to, so the swap animates without reaching the
 /// level fill/bar beside or beneath it (that keeps its own value-keyed spring in
 /// HUDLevelSlider — the only level animator). Under Reduce Motion the swap
-/// carries no animation and lands dry, the accessibility fallback that matches
-/// today's behavior.
+/// carries no animation and lands dry.
 struct SymbolReplaceEffect: ViewModifier {
     let symbolName: String
     @Environment(\.accessibilityReduceMotion) private var reduceMotion

@@ -24,7 +24,7 @@ struct LocalizationTests {
         // "Card" == "Card" stays green against a bundle that ignores the language
         // argument entirely.
         #expect(try localizedInBuiltBundle("style.notch.description", in: "en") == "Blends into the notch")
-        #expect(try localizedInBuiltBundle("style.notch.description", in: "pt-BR") == "Funde-se com o notch")
+        #expect(try localizedInBuiltBundle("style.notch.description", in: "pt-BR") == "Se funde com o notch")
 
         // And the styles themselves, pinned as deliberately UNtranslated: the
         // rule is easy to undo by helpfully translating one of them back.
@@ -75,5 +75,31 @@ struct LocalizationTests {
             #expect(line.contains("TRACK"), "\(language) drops the title")
             #expect(line.contains("BAND"), "\(language) drops the artist")
         }
+    }
+
+    /// The Card footer counts the displays it names, so its noun agrees with the
+    /// count in each language. A String Catalog plural compiles to the bundle's
+    /// stringsdict, never to the flat table, so its presence there is the check
+    /// that the variation shipped at all.
+    @Test func theCardFooterAgreesWithTheNumberOfDisplays() throws {
+        let key = "settings.hud.indicator.footer"
+        var forms: [String: (one: String, two: String)] = [:]
+        for language in ["en", "pt-BR"] {
+            let lproj = try #require(Bundle.main.path(forResource: language, ofType: "lproj"))
+            let plurals = NSDictionary(contentsOfFile: lproj + "/Localizable.stringsdict")
+            try #require(plurals?[key] != nil, "\(language) ships no plural for \(key)")
+
+            let bundle = try #require(Bundle(path: lproj))
+            let format = bundle.localizedString(forKey: key, value: nil, table: nil)
+            let locale = Locale(identifier: language)
+            forms[language] = (
+                String(format: format, locale: locale, 1, "A"),
+                String(format: format, locale: locale, 2, "A, B")
+            )
+        }
+        #expect(forms["en"]?.one == "Applies to 1 display: A.")
+        #expect(forms["en"]?.two == "Applies to 2 displays: A, B.")
+        #expect(forms["pt-BR"]?.one == "Vale para 1 tela: A.")
+        #expect(forms["pt-BR"]?.two == "Vale para 2 telas: A, B.")
     }
 }

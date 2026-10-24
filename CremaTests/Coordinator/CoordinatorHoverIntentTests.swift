@@ -21,7 +21,7 @@ struct CoordinatorHoverIntentTests {
             hoverOutDebounce: hoverOutDebounce
         )
         h.nowPlayingSource.emit(track)
-        _ = await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) })
         // Wait until the appearance's linger parks, so cancellation counts in
         // the test bodies are deterministic across optimization levels.
         await h.clock.waitForSleep(delay: nowPlayingLinger)
@@ -33,7 +33,7 @@ struct CoordinatorHoverIntentTests {
         h.coordinator.hoverIntent(true)
         await h.clock.waitForSleep()
         h.clock.advance()
-        _ = await eventually { h.coordinator.state == .nowPlaying(track, expanded: true) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(track, expanded: true) })
     }
 
     @Test func expandsOnlyAfterTheIntentDelay() async {
@@ -127,6 +127,11 @@ struct CoordinatorHoverIntentTests {
         // fires, debounce commits the no-op collapse and restarts the linger.
         h.coordinator.hoverIntent(true)
         await h.clock.waitForSleep(delay: Coordinator.defaultHoverIntentDelay)
+        // Inside, the linger is off the clock: the arrival cancels it at once
+        // (the cancel removes the sleeper synchronously), so no deadline is left
+        // to tuck the surface out from under the cursor waiting out the intent.
+        #expect(!h.clock.isParked(delay: 0.05))
+        #expect(h.coordinator.state == .nowPlaying(track, expanded: false))
         h.coordinator.hoverIntent(false)
         await h.clock.waitForSleep(delay: Coordinator.defaultHoverOutDebounce)
         h.clock.advance(delay: Coordinator.defaultHoverOutDebounce)
@@ -150,30 +155,30 @@ struct CoordinatorHoverIntentTests {
         h.coordinator.hoverIntent(false)
         await h.clock.waitForSleep(delay: Coordinator.defaultHoverOutDebounce)
         h.clock.advance(delay: Coordinator.defaultHoverOutDebounce)
-        _ = await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) }
+        #expect(await eventually { h.coordinator.state == .nowPlaying(track, expanded: false) })
 
         // Immediate-style gesture: both edges commit at once. The clock stays
         // parked — any diversion to the debounced path would leave the state
         // expanded here, waiting on an advance this test never gives.
-        h.coordinator.hover(true)
+        h.coordinator.hover(true, on: .both)
         #expect(h.coordinator.state == .nowPlaying(track, expanded: true))
-        h.coordinator.hover(false)
+        h.coordinator.hover(false, on: .both)
         #expect(h.coordinator.state == .nowPlaying(track, expanded: false))
     }
 
     /// The control pair: a genuinely in-flight debounced gesture still routes
-    /// `hover(false)` through the intent path — the fix narrows the guard to
-    /// live tasks, it does not remove it.
+    /// `hover(false)` through the intent path — the guard is narrowed to live
+    /// tasks, not removed.
     @Test func hoverOutDuringAnInFlightIntentStillTakesTheDebouncedPath() async {
         let h = await showingCompact()
 
-        h.coordinator.hover(true)   // immediate expand
+        h.coordinator.hover(true, on: .both)   // immediate expand
         #expect(h.coordinator.state == .nowPlaying(track, expanded: true))
 
         h.coordinator.hoverIntent(true)   // debounced gesture now in flight
         await h.clock.waitForSleep(delay: Coordinator.defaultHoverIntentDelay)
 
-        h.coordinator.hover(false)
+        h.coordinator.hover(false, on: .both)
         // Diverted: still expanded until the out-debounce elapses.
         #expect(h.coordinator.state == .nowPlaying(track, expanded: true))
         await h.clock.waitForSleep(delay: Coordinator.defaultHoverOutDebounce)

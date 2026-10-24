@@ -2,8 +2,8 @@ import Testing
 @testable import Crema
 
 /// NotchView: content is a function of coordinator state; intents go back
-/// through Coordinator methods; scrubber position comes from `nowPlaying`. Same
-/// contract CardViewTests holds for the card.
+/// through Coordinator methods. Same contract CardViewTests holds for the card;
+/// the live scrubber position is SkinBodyObservationTests' for all three.
 @MainActor
 struct NotchViewTests {
 
@@ -17,24 +17,12 @@ struct NotchViewTests {
         #expect(await eventually { view.contentKind == .nowPlayingCompact(track) })
 
         // Drive expansion directly (the timed intent path is tested separately).
-        h.coordinator.hover(true)
+        h.coordinator.hover(true, on: .both)
         #expect(view.contentKind == .nowPlayingExpanded(track))
 
         let hud = SystemHUD(kind: .volume, value: 0.5)
         h.hudSource.emit(hud)
         #expect(await eventually { view.contentKind == .hud(hud) })
-    }
-
-    @Test func scrubberReadsPositionFromNowPlayingNotFromState() async {
-        let h = CoordinatorHarness()
-        let view = NotchView(coordinator: h.coordinator)
-        h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(position: 10))
-        #expect(await eventually { view.scrubberPosition == 10 })
-
-        let stateBefore = h.coordinator.state
-        h.nowPlayingSource.emit(CoordinatorHarness.playingTrack(position: 11))
-        #expect(await eventually { view.scrubberPosition == 11 })
-        #expect(h.coordinator.state == stateBefore)
     }
 
     @Test func playPauseIntentReachesTheMediaActuator() async {

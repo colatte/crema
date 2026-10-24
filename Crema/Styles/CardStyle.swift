@@ -17,13 +17,49 @@ struct CardStyle: PresentationStyle {
         case .nowPlaying(_, expanded: true):
             size = CardMetrics.expanded
         case .hud:
-            size = CardMetrics.hudSystemSize
+            // On the card's own spot, where the HUD morphs from the now-playing
+            // card.
+            return Self.hudFrame(at: HUDPlacement.cardsOwnSpot, on: geometry)
         }
-        // Anchor below the safe area: on a notched display the card must not
-        // sit behind the slit.
-        return CGRect(
+        return Self.topCentered(size, on: geometry)
+    }
+
+    /// The HUD at `placement` on this screen. Along the top edge it hangs from
+    /// the card's own top anchor, below the safe area; along the bottom and on a
+    /// side it keeps `hudEdgeMargin` from the edge the Dock leaves free, and in
+    /// the middle of a side it stands upright (`HUDPlacement.axis`).
+    static func hudFrame(at placement: HUDPlacement, on geometry: ScreenGeometry) -> CGRect {
+        let size = CardMetrics.hudSize(for: placement.axis)
+        let screen = geometry.frame
+        let x: CGFloat = switch placement {
+        case .topLeft, .middleLeft, .bottomLeft:
+            screen.minX + geometry.dockLeft + CardMetrics.hudEdgeMargin
+        case .topCenter, .bottomCenter:
+            screen.midX - size.width / 2
+        case .topRight, .middleRight, .bottomRight:
+            screen.maxX - geometry.dockRight - CardMetrics.hudEdgeMargin - size.width
+        }
+        let y: CGFloat = switch placement {
+        case .topLeft, .topCenter, .topRight:
+            topAnchor(on: geometry) - size.height
+        case .middleLeft, .middleRight:
+            screen.midY - size.height / 2
+        case .bottomLeft, .bottomCenter, .bottomRight:
+            screen.minY + geometry.dockBottom + CardMetrics.hudEdgeMargin
+        }
+        return CGRect(x: x, y: y, width: size.width, height: size.height)
+    }
+
+    /// The line every top-anchored Card surface hangs from: below the safe area,
+    /// so on a notched display nothing sits behind the slit.
+    private static func topAnchor(on geometry: ScreenGeometry) -> CGFloat {
+        geometry.frame.maxY - geometry.safeTop - CardMetrics.topMargin
+    }
+
+    private static func topCentered(_ size: CGSize, on geometry: ScreenGeometry) -> CGRect {
+        CGRect(
             x: geometry.frame.midX - size.width / 2,
-            y: geometry.frame.maxY - geometry.safeTop - CardMetrics.topMargin - size.height,
+            y: topAnchor(on: geometry) - size.height,
             width: size.width,
             height: size.height
         )
@@ -42,10 +78,16 @@ struct CardStyle: PresentationStyle {
 /// bounding hover and click regions.
 enum CardMetrics {
     static let topMargin: CGFloat = 8
-    /// Rule-frame compact size; the width doubles as the adaptive ceiling.
+    /// Rule-frame compact size: as wide as the expanded rule, so the card grows
+    /// down only and the expanded frame contains the compact one (the hover
+    /// extension's hysteresis rests on that containment).
     static let compact = CGSize(width: 280, height: 64)
     static let compactMinWidth: CGFloat = 180
-    static var compactMaxWidth: CGFloat { compact.width }
+    /// The widest the compact strip hugs, inside its rule. The strip announces a
+    /// track for a few seconds, so a long title truncates here rather than
+    /// stretching it to the full player's width; the expanded player, which is
+    /// read, scrolls it (docs/DECISIONS.md: a-long-title-scrolls-where-it-is-read).
+    static let compactMaxWidth: CGFloat = 250
     /// Derived, not declared: the expanded height is the exact sum of its
     /// stacked sections (header, scrubber, controls, gaps, padding). Dead
     /// vertical space cannot reappear without a metric saying so — and
@@ -66,52 +108,119 @@ enum CardMetrics {
     /// when a short title would hug narrower.
     static let expandedMinWidth: CGFloat = 240
     static let expandedMaxWidth: CGFloat = 280
-    /// Dedicated system-HUD frame, deliberately smaller than the now-playing
-    /// compact strip: that strip is sized around a 40 pt artwork the HUD never
-    /// shows, so reusing it leaves the volume/brightness bar oversized for
-    /// glance-level info. Issue #3's reference indicators are thin
-    /// bars, roughly 4.5–5.5:1 width:height; 210×42 (5:1) sits mid-range. Both
-    /// Card HUD variants lay out in it: the .slider row is the icon column
-    /// (CardHUDIndicator.hudIconColumnWidth) beside the capsule's 16 pt hit row
-    /// (CapsuleTrack.trackHitHeight) centered in the 42 pt height with headroom
-    /// to spare, and the full-bleed .filled bar adapts by construction while its
-    /// leading glyph stays legible at the shorter height. Width and height are
-    /// separate calibration knobs.
-    static let hudSystemWidth: CGFloat = 210
-    static let hudSystemHeight: CGFloat = 42
+    /// Dedicated system-HUD frame, smaller than the now-playing compact strip:
+    /// that strip is sized around a 40 pt artwork the HUD never shows. Apple
+    /// publishes no OSD dimensions, only shape rules, so the proportion is read off
+    /// the author's reference indicator, a filled level bar near 5.8:1 with a
+    /// radius about a third of its height. 220×38 is that bar at the size the
+    /// author settled on screen (radius: hudSystemCornerRadius). Both Card HUD
+    /// variants lay out in it. The .slider row centres the capsule's 16 pt hit row
+    /// (CapsuleTrack.trackHitHeight) in the 38 pt height, 11 pt clear above and
+    /// below, and upright the same 16 pt runs across the 38 pt width; along the
+    /// bar, padding, icon column (CardHUDIndicator.hudIconSlot) and gap take
+    /// 16 + 22 + 10 + 16 = 64 of the 220, leaving the capsule 156
+    /// (CardMetricsShapeTests pins the fit across and the 156 along). The full-bleed .filled bar adapts
+    /// by construction. Width and height are separate calibration knobs.
+    static let hudSystemWidth: CGFloat = 220
+    static let hudSystemHeight: CGFloat = 38
     static let hudSystemSize = CGSize(width: hudSystemWidth, height: hudSystemHeight)
-    /// Now-playing surface radius: generous, near half the compact height so the
-    /// player reads as a soft block (never a capsule at its taller states).
+
+    /// The HUD's size as the bar runs: the strip above, or the same strip
+    /// transposed when it stands upright — one size, never a second declaration.
+    static func hudSize(for axis: Axis) -> CGSize {
+        axis == .horizontal ? hudSystemSize : CGSize(width: hudSystemHeight, height: hudSystemWidth)
+    }
+
+    /// Distance from the edge for a HUD placed along the bottom or on a side,
+    /// measured from where the Dock ends (`ScreenGeometry.dockBottom`,
+    /// `dockLeft`, `dockRight`), so a placed HUD never sits under a shown Dock.
+    /// One margin for every edge: a thin bar reads as resting on the edge it
+    /// belongs to, and the native OSD's 140 pt, which suits Classic's square,
+    /// leaves the bar floating over the apps (docs/DECISIONS.md:
+    /// card-hud-placement).
+    static let hudEdgeMargin: CGFloat = 16
+    /// Now-playing surface radius: generous, yet well short of the compact
+    /// strip's half height (20 against 32), so the player reads as a soft block
+    /// and never as a capsule, at the strip's height or any taller one.
     static let cornerRadius: CGFloat = 20
     /// HUD-state surface radius, a separate knob from cornerRadius: at the short
-    /// 42 pt HUD height, reusing 20 (≈ half the height) rounds the ends into a
-    /// capsule. Issue #3's reference indicators are rounded rectangles — soft
-    /// corners with straight runs, radius ~1/4 of the height. This rides the same
-    /// layoutKind-keyed surface spring, so HUD↔now-playing morphs the outline
-    /// (RoundedRectangle cornerRadius is animatable) instead of snapping.
-    static let hudSystemCornerRadius: CGFloat = 12
+    /// 38 pt HUD height, reusing 20 (past half the height) rounds the ends into a
+    /// capsule. A third of the height is the reference indicator's corner: a
+    /// fixed-radius rounded rectangle, soft corners with straight runs — of the
+    /// three shapes Apple names (fixed, capsule at h/2, concentric; WWDC25
+    /// session 356), the fixed one. Derived from the height so a retuned bar keeps
+    /// its proportion (docs/DECISIONS.md: inner-corners-are-concentric). This
+    /// rides the same layoutKind-keyed surface spring, so HUD↔now-playing morphs
+    /// the outline (RoundedRectangle cornerRadius is animatable) instead of
+    /// snapping.
+    static let hudSystemCornerRadius: CGFloat = hudSystemHeight / 3
 
     /// Filled HUD indicator (HUDIndicatorStyle.filled): the whole card IS the
     /// bar. The fill sweeps edge to edge under the card's own corners with no
-    /// inner track; the level is the boundary between a light fill and a dark
-    /// remainder (iOS Control Center contrast), fixed across light and dark so
-    /// the fill always reads and the empty stays recessed in both. No radius
-    /// here — the card's rounded-rect clip rounds the sweep.
-    static let hudFilledFill = Color.white.opacity(0.9)
-    static let hudFilledEmpty = Color.black.opacity(0.55)
-    /// Grayish glyph that stays legible over both the light fill and the dark
-    /// remainder — at low levels the icon sits on the empty area.
-    static let hudFilledIconColor = Color(white: 0.5)
-    /// Leading inset of the icon riding inside the fused bar; clears the card's
-    /// corner curve at the vertical center where the glyph sits.
-    static let hudFilledIconLeading: CGFloat = 18
+    /// inner track; the level is the boundary between a light fill and the
+    /// remainder. No radius here — the card's rounded-rect clip rounds the sweep.
+    /// On the glass the remainder is the glass itself, pale or dark with what is
+    /// behind it, wherever the bar is drawn on it (`surfaceIsGlass`, never the
+    /// system alone: Settings' tiles draw it on a flat stand-in); on the film
+    /// path, and on the glass under Increase Contrast, it is a dark remainder
+    /// (iOS Control Center contrast), and both ends move apart under that
+    /// setting: an opaque fill over a deeper remainder
+    /// (docs/DECISIONS.md: the-card-is-glass).
+    static func hudFilledFill(_ contrast: ColorSchemeContrast) -> Color {
+        Color.white.opacity(hudFilledFillOpacity(contrast))
+    }
+
+    static func hudFilledEmpty(_ contrast: ColorSchemeContrast, onGlass: Bool) -> Color {
+        Color.black.opacity(hudFilledEmptyOpacity(contrast, onGlass: onGlass))
+    }
+
+    static func hudFilledFillOpacity(_ contrast: ColorSchemeContrast) -> Double {
+        contrast == .increased ? 1 : 0.9
+    }
+
+    static func hudFilledEmptyOpacity(_ contrast: ColorSchemeContrast, onGlass: Bool) -> Double {
+        if onGlass, contrast != .increased { return 0 }
+        return contrast == .increased ? 0.75 : 0.55
+    }
+
+    /// What the glyph riding in the bar draws over `backdrop`, one encoded
+    /// component: its inverse. The glyph sits over the light fill at a high level
+    /// and the remainder at a low one, and no single ink reads on both (a 0.5
+    /// grey comes out near 3:1 on each), so it is white under a difference blend —
+    /// dark over the fill, and over the remainder the inverse of whatever the
+    /// surface shows there, which on the bare glass follows the page behind.
+    /// HUDFilledContrastTests holds this against the film path's lightest and
+    /// darkest (docs/DECISIONS.md: ink-meets-the-minimum, the-card-is-glass).
+    static func hudFilledGlyph(over backdrop: Double) -> Double {
+        1 - backdrop
+    }
+
+    /// Inset of the icon riding inside the fused bar, from the bar's start —
+    /// the leading edge, or the bottom of an upright bar. Equal to the corner
+    /// radius: the corner's curve runs that far along the bar, so the glyph
+    /// starts where the straight edges do, and centred across the bar it sits
+    /// clear of both, in either orientation. A third of 38, it also sits in the
+    /// 11–16 pt band Apple gives widget content margins (HIG, Widgets: "16 points for most widgets",
+    /// "margins of 11 points can work well").
+    static let hudFilledIconInset: CGFloat = hudSystemCornerRadius
 
     static let compactArtworkSide: CGFloat = 40
-    static let compactArtworkRadius: CGFloat = 10
-    /// The artwork anchors the layout but must not dominate it (72 once ate
-    /// half the card and left the rest floating in leftover space).
+    /// Concentric with the card: Apple's rule is the parent's radius minus the
+    /// padding between them (WWDC25 session 356). The artwork sits 12 pt off the
+    /// top and bottom ((64 − 40) / 2) and 16 off the side; with unequal insets no
+    /// single radius is exactly concentric, so the radius subtracts the tighter
+    /// one. That keeps the inner arc's centre level with the card's on that side,
+    /// and the gap around the corner runs from one inset to the other with no
+    /// pinch: 20 − 12 = 8 (docs/DECISIONS.md: inner-corners-are-concentric).
+    static let compactArtworkRadius: CGFloat = cornerRadius - compactArtworkVerticalInset
+    static let compactArtworkVerticalInset: CGFloat = (compact.height - compactArtworkSide) / 2
+    /// The artwork anchors the layout but must not dominate it (at 72 it eats
+    /// half the card and leaves the rest floating in leftover space).
     static let expandedArtworkSide: CGFloat = 44
-    static let expandedArtworkRadius: CGFloat = 10
+    /// Concentric by the same rule: the header sits contentPaddingVertical (10)
+    /// below the top and contentPaddingHorizontal (16) in from the side, so the
+    /// tighter inset is the top one: 20 − 10 = 10.
+    static let expandedArtworkRadius: CGFloat = cornerRadius - contentPaddingVertical
     /// Fixed row heights so the section sum above is honest — and taken from the
     /// components that fill them, never re-declared: the scrubber row IS the
     /// capsule's hit row (the stock Slider's measured height, which the drag

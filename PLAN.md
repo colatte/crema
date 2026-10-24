@@ -33,7 +33,7 @@ Depends on: nothing — the items are independent of one another.
 ## Phase 2 (optional) — External displays: what is still missing
 
 Objective: external-display volume and a brightness key Crema applies itself, over the neighbour's channel; Lunar behind the same protocols.
-Depends on: Phase 1 not at all — but on evidence the neighbour's API does not give today (its `get` refuses every spelling of brightness, so the apply+verify cycle has no `before`; docs/DECISIONS.md: external-brightness-is-write-only). Tasks are detailed in the round that opens this phase.
+Depends on: Phase 1 not at all. The neighbour's `get` reads brightness through the feature key (`"brightness":""`), which gives the apply+verify cycle its `before`; the cycle is unbuilt (docs/DECISIONS.md: external-brightness-is-write-only, neighbour-features-are-not-identifiers). Tasks are detailed in the round that opens this phase.
 
 - [ ] T7.1 — Integration detection and selection · módulo: Sources
   - Tests (first): with detection mocked (none / BetterDisplay only / Lunar only / both), the selection offers only what exists and allows one active integration at a time.
@@ -44,21 +44,21 @@ Depends on: Phase 1 not at all — but on evidence the neighbour's API does not 
 
 ## Phase 3 (optional) — Notarized distribution
 
-Objective: the downloaded `.dmg` opens with no "unidentified developer" warning.
-Depends on: an Apple Developer account existing. The script path is already written and exercised; nothing in the code changes.
+Objective: SPEC's criterion for notarized distribution (SPEC.md, "Notarized distribution").
+Depends on: an Apple Developer account existing. The script path is written; nothing in the code changes.
 
 - [ ] T8.5 — Signing and notarization · módulo: docs
-  - Verification: no unit test — a smoke on the release machine (`spctl --assess` accepts the app; a fresh download opens without the Gatekeeper prompt).
-  - Acceptance: SPEC's criterion for notarized distribution passes, and docs/RELEASE-GUIDE.md's Developer ID path is the one release.sh takes by default.
+  - Verification: no unit test — SPEC's criterion, checked on the release machine.
+  - Acceptance: that criterion passes, and docs/RELEASE-GUIDE.md's Developer ID path is the one release.sh takes by default.
 
-## Phase 4 (deferred) — A Tahoe-native icon
+## Phase 4 — A Tahoe-native icon
 
-Objective: an Icon Composer `.icon` alongside the classic appiconset, additive and without breaking macOS 14 (which falls back to the appiconset automatically).
-Depends on: the author exporting the art in separate layers (background / pill / wave). Without them, Tahoe already applies its system treatment to the classic icon on its own, which is why this is deferred rather than open.
+Objective: the icon is an Icon Composer document, `Crema/AppIcon.icon`, written by `design/icon/makeicon.swift` from the mark's vector. The document replaces the appiconset rather than sitting beside it, and one build serves every supported macOS (docs/BRAND.md carries Apple's page for both); no classic icon ships.
+Depends on: nothing left; the document ships, and what stays open is its check on the older system.
 
 - [ ] T12.2 — Tahoe icon (Icon Composer, Liquid Glass) · módulo: design
-  - Verification: visual, on Tahoe and on Sonoma, from one build.
-  - Acceptance: the icon reads correctly in Finder, Get Info, Spotlight and Sparkle on both, with no regression at 16/32 pt.
+  - Verification: visual, on Tahoe and on Sonoma, from one build. Tahoe is seen; Sonoma waits on a machine running it.
+  - Acceptance: the icon reads correctly in Finder, Get Info, Spotlight and Sparkle on both, the mark recognisable at 32 pt and at 16 pt @2x; at 16 pt @1x the hollow reads as a notch, the one size docs/BRAND.md exempts.
 
 ## Risks and dependencies
 
@@ -67,7 +67,7 @@ Depends on: the author exporting the art in separate layers (background / pill /
 - **The whole app depends on private API** (SPEC, constraint 3) → mitigated structurally: every point of contact sits behind a protocol, so an implementation can be swapped without touching the rest. The brightness APIs are chosen and embedded (DisplayServices, CoreBrightness); what remains is the standing risk of breakage on each release, which is why docs/system-contact-inventory.md exists.
 - **The Accessibility permission** (SPEC, constraint 4) → answered by the event tap plus onboarding, and the app runs degraded without it. In development, TCC identifies the binary by its signature — sign with a stable certificate.
 - **BetterDisplay/Lunar is an optional external dependency** (SPEC, "Planned", associated constraint) → Phase 2 is optional for exactly this reason, and degradation is pinned by test: with the integration absent, the essential flows are intact.
-- **The neighbour's API gives no read-back for external brightness** → Phase 2's apply+verify cycle has no `before` to compare against. Plan B is to keep handing the key back to whoever moves that screen, which is what ships today.
+- **The apply+verify cycle over the neighbour's channel is unbuilt** → the read it needs exists (Phase 2), and until the cycle is built the key goes back to whoever moves that screen.
 
 ## Open decisions
 

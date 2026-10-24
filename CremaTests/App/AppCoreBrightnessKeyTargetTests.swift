@@ -84,18 +84,27 @@ struct AppCoreBrightnessKeyTargetTests {
 
     @Test func aSilencedRowNeverAsksTheSystemWhichDisplaysAreThere() {
         // The gate runs before the census on purpose: a menu that will say nothing
-        // costs no display enumeration at all.
-        var reads = 0
-        let notice = AppCore.brightnessKeyTargetNotice(
-            chain: .quiet,
-            keysAreCaptured: false,
-            census: {
-                reads += 1
-                return (hasBuiltIn: true, count: 2)
-            }
-        )
+        // costs no display enumeration at all. Both halves of it, each on its own:
+        // no tap, and a chain notice already speaking about the keys.
+        let silenced: [(chain: MediaKeyChainNotice, captured: Bool)] = [
+            (.quiet, false),
+            (.anotherAppAhead("Some Other App"), true),
+            (.betterDisplayAheadAndSilent, true),
+            (.drawingFromBetterDisplay, true),
+        ]
+        for row in silenced {
+            var reads = 0
+            let notice = AppCore.brightnessKeyTargetNotice(
+                chain: row.chain,
+                keysAreCaptured: row.captured,
+                census: {
+                    reads += 1
+                    return (hasBuiltIn: true, count: 2)
+                }
+            )
 
-        #expect(notice == .quiet)
-        #expect(reads == 0)
+            #expect(notice == .quiet, "\(row.chain)")
+            #expect(reads == 0, "\(row.chain)")
+        }
     }
 }

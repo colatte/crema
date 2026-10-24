@@ -14,17 +14,7 @@ struct SettingsView: View {
         self.core = core
         var initial = SettingsTab.general
         #if DEBUG
-        // Screenshot/dev harness: `-CremaSettingsInitialTab about` decides the
-        // tab this window LANDS on when it opens (by ⌘, or the menu — nothing
-        // opens it programmatically; the modern Settings scene has no
-        // supported selector for that). An unknown name parses to nil and lands on
-        // General silently, which is the harness's contract: it steers a screenshot
-        // run, so a stale flag is worth a wrong tab and never a crash.
-        // DEBUG-only read; the selection state itself is ordinary TabView plumbing.
-        if let raw = UserDefaults.standard.string(forKey: "CremaSettingsInitialTab"),
-           let tab = SettingsTab(rawValue: raw) {
-            initial = tab
-        }
+        if let tab = SettingsTab.harnessInitial { initial = tab }
         #endif
         _selectedTab = State(initialValue: initial)
     }
@@ -72,17 +62,18 @@ struct SettingsView: View {
 
 // MARK: - General
 
-/// Style at both of its scopes, the Card's indicator under it, then opening at
-/// login.
+/// Style at both of its scopes, the Card's indicator after the displays, then
+/// opening at login.
 ///
 /// Style leads because it is what a person came here to change, and both of its
 /// scopes are in one pane on purpose: the all-displays declaration SWEEPS the
-/// per-display styles, and a tab away that sweep was a warning about sections the
-/// reader could not see. So the declaration sits above the very list it replaces.
+/// per-display styles, and a tab away that sweep would be a warning about sections
+/// the reader cannot see. So the declaration sits above the very list it replaces.
 ///
-/// The per-display list is reactive; the declaration's mirrors are seeded once and
-/// re-read only when that picker writes — a pinned-latent tradeoff
-/// (docs/CONTRACTS.md: S4) that costs a stale value there.
+/// The per-display list is reactive; the rendered-style mirrors are seeded once and
+/// re-read after every write this pane makes and every display change — a
+/// pinned-latent tradeoff (docs/CONTRACTS.md: S4) whose residual is a style picked
+/// from the menu bar while this window is open.
 /// A list whose rows ARE the displays cannot take that deal: a row outliving its
 /// monitor is a control over a screen the user cannot see, and a display plugged in
 /// with the window open would have no row at all until Settings is closed and
@@ -92,20 +83,15 @@ private struct GeneralSettingsView: View {
     let core: AppCore
     /// The all-displays declaration, as the picker holds it.
     @State private var style: Style
-    /// Whether any connected display RENDERS Card — which is also whether the
-    /// indicator row exists at all. A mirror of what is drawn, not of the
+    /// The displays RENDERING Card — whether the indicator row exists at all, and
+    /// the displays its sentence names. A mirror of what is drawn, not of the
     /// declaration: the two disagree on notchless hardware, where the default
     /// declaration is Notch and every display draws Card.
-    @State private var rendersCard: Bool
+    @State private var cardDisplays: Set<DisplayUUID>
     /// Whether any connected display actually draws the notch skin — the signal
     /// that separates "Notch declared and honoured" from "Notch declared and
     /// falling back everywhere", which is what the footer has to say out loud.
     @State private var rendersNotch: Bool
-    /// The Card's indicator, on the same persisted key the panels read. It lives
-    /// beside the style tiles rather than in the Indicators tab because the choice
-    /// is a picture of a bar, and the only place that picture means anything is
-    /// next to the picture of the surface the bar sits on.
-    @AppStorage(Preferences.hudIndicatorStyleKey) private var indicatorStyle = HUDIndicatorStyle.shippedDefault.rawValue
     /// The desk both tile rows stand on, read once when this pane is built. Asked
     /// of the core rather than of each row, so the two rows in one Section cannot
     /// end up on different desks.
@@ -122,11 +108,31 @@ private struct GeneralSettingsView: View {
         // their why live in StyleSectionSeed, never respelled here.
         let seed = StyleSectionSeed(core: core)
         _style = State(initialValue: seed.style)
-        _rendersCard = State(initialValue: seed.rendersCard)
+        _cardDisplays = State(initialValue: seed.cardDisplays)
         _rendersNotch = State(initialValue: seed.rendersNotch)
         _wallpaper = State(initialValue: seed.wallpaper)
         _launchesAtLogin = State(initialValue: seed.launchesAtLogin)
         _loginNeedsApproval = State(initialValue: seed.loginNeedsApproval)
+    }
+
+    private var rendersCard: Bool {
+        !cardDisplays.isEmpty
+    }
+
+    /// The displays drawing Card, in the list's own order and under the list's own
+    /// names, so the sentence and the rows above it call each screen the same thing.
+    private var cardDisplayNames: [String] {
+        core.displayRoster.displays
+            .filter { cardDisplays.contains($0.id) }
+            .map { DisplayStyleRow.title(for: $0) }
+    }
+
+    /// What the panels draw, re-read right after they are re-resolved — never
+    /// inferred from what was written, which says nothing about which displays have
+    /// a slit.
+    private func rereadRenderedStyles() {
+        cardDisplays = core.displaysRendering(.card)
+        rendersNotch = core.rendersAnywhere(.notch)
     }
 
     private var fallbackIsInEffect: Bool {
@@ -162,7 +168,7 @@ private struct GeneralSettingsView: View {
                 LabeledContent {
                     StylePicker(selection: $style, wallpaper: wallpaper)
                 } label: {
-                    Text(String(localized: "settings.general.style", defaultValue: "Style"))
+                    Text(String(localized: "settings.displays.allDisplays", defaultValue: "All displays"))
                 }
                 // The declaration decides what every display renders, so the
                 // rendered-style mirrors are re-read from the panels right after
@@ -170,112 +176,98 @@ private struct GeneralSettingsView: View {
                 // nothing about which of the connected displays has a slit.
                 .onChange(of: style) { _, new in
                     core.setStyleEverywhere(new)
-                    rendersCard = core.rendersAnywhere(.card)
-                    rendersNotch = core.rendersAnywhere(.notch)
-                }
-
-                // Offered where some display draws Card, and ABSENT rather than
-                // greyed out where none does: a visible-but-disabled row was paying
-                // for the tab's worth of distance to the picker that governs it, and
-                // right under that picker there is no distance left to excuse
-                // (docs/DECISIONS.md: rendered-style-gates-settings). The gate is the
-                // mirror the declaration above re-reads on every write, so declaring
-                // Card makes this row appear at once. Residual, the S4 deal that
-                // mirror has always taken: a per-display override — or a monitor
-                // plugged in — while this window is open leaves the row on the
-                // previous answer until Settings is reopened.
-                if rendersCard {
-                    LabeledContent {
-                        IndicatorPicker(selection: $indicatorStyle, wallpaper: wallpaper)
-                    } label: {
-                        Text(String(localized: "settings.hud.indicator", defaultValue: "Card indicator"))
-                    }
-                    .onChange(of: indicatorStyle) { _, new in
-                        core.setHUDIndicatorStyle(HUDIndicatorStyle(rawValue: new) ?? .shippedDefault)
-                    }
+                    rereadRenderedStyles()
                 }
             } header: {
-                Text(String(localized: "settings.displays.allDisplays", defaultValue: "All displays"))
+                // "Style" over "All displays", and "Each display" over the list:
+                // the two places a style is chosen are named for their reach, so
+                // the declaration and the per-display rows cannot read as two
+                // spellings of one choice.
+                Text(String(localized: "settings.general.style.header", defaultValue: "Style"))
             } footer: {
                 // Say what is happening HERE, not only what could happen. With Notch
-                // declared on hardware that has none, the generic sentence left the
-                // window contradicting itself: the picker reads Notch while every
-                // display draws Card. Naming the fallback as a fact resolves that
-                // instead of explaining it away.
+                // declared on hardware that has none, the generic sentence alone
+                // has the window contradict itself: the picker reads Notch while
+                // every display draws Card. Naming the fallback as a fact resolves
+                // that instead of explaining it away.
                 VStack(alignment: .leading, spacing: 4) {
                     Text(fallbackIsInEffect
                         ? String(
                             localized: "settings.general.style.footer.fallingBack",
-                            defaultValue: "Applies to every display. No connected display has a notch, so every one is drawing Card."
+                            defaultValue: "Changes every display at once. None of your displays has a notch, so they all use Card."
                         )
                         : String(
                             localized: "settings.general.style.footer",
-                            defaultValue: "Applies to every display. On a display without a notch, the Notch style falls back to Card."
+                            defaultValue: "Changes every display at once. On a display without a notch, Notch shows as Card."
                         ))
-                    // "Applies to every display" is only half of what picking here
+                    // Where the other choice is: the declaration alone does not say
+                    // a single display can differ, and the list it would be made in
+                    // is drawn right under this section.
+                    if offersPerDisplayList {
+                        Text(String(
+                            localized: "settings.general.style.footer.perDisplay",
+                            defaultValue: "To give one display a different style, choose it under Each display, below."
+                        ))
+                    }
+                    // "Changes every display at once" is only half of what picking here
                     // does: it also drops the per-display styles. Said only when
                     // there is something to replace — a warning about nothing
                     // teaches the reader to skip the footer.
                     //
-                    // The sentence points DOWN, and may: an override existing among
-                    // the connected displays is one of the clauses that opens the
-                    // list, so whenever this line is drawn the section it names is
-                    // drawn under it. The welcome tour makes the same declaration
-                    // with no list beneath it, and owes its own wording for that.
+                    // The sentence points DOWN, and may: an override is kept for a
+                    // connected display, and any connected display opens the list
+                    // (`DisplayStyleOptions.listIsOffered`), so whenever this line
+                    // is drawn the section it names is drawn under it. The welcome
+                    // tour makes the same declaration with no list beneath it, and
+                    // owes its own wording for that.
                     if hasPerDisplayStyles {
                         Text(String(
                             localized: "settings.general.style.footer.replacesPerDisplay",
-                            defaultValue: "This also replaces the per-display styles below."
+                            defaultValue: "Choosing here also clears the styles set for single displays below."
                         ))
                     }
                 }
                 .settingsFootnote()
             }
-            // The indicator row appears and disappears with the declaration right
-            // above it, and an instant insertion jumps every control under it in the
-            // same frame as the click that caused it. Scoped to that one fact, so
-            // nothing else in the pane animates.
-            .animation(.default, value: rendersCard)
 
             // Offered wherever there is a display at all. The style popup on a lone
             // panel does repeat the declaration above — but the row also carries the
-            // only "show the player here" switch the app has, and withholding it left
-            // a single-laptop install with the surface on and no way to turn it off,
-            // the mirror of the sole-external case that first opened this list.
+            // only "show the player here" switch the app has, and withholding it
+            // leaves a single-laptop install with the surface on and no way to turn
+            // it off, the mirror of a lone external display in the same spot.
             if offersPerDisplayList {
                 Section {
                     ForEach(core.displayRoster.displays, id: \.id) { screen in
-                        DisplayStyleRow(screen: screen, core: core)
+                        DisplayStyleRow(screen: screen, core: core, wallpaper: wallpaper) {
+                            rereadRenderedStyles()
+                        }
                     }
                 } header: {
-                    Text(String(localized: "settings.general.displays", defaultValue: "Displays"))
+                    Text(String(localized: "settings.general.displays", defaultValue: "Each display"))
                 } footer: {
                     // One sentence for the list rather than one per row: the toggle
-                    // above it repeats per display, and so did its explanation, which
-                    // made a two-monitor pane read as the same paragraph printed
+                    // above it repeats per display, and an explanation per row would
+                    // make a two-monitor pane read as the same paragraph printed
                     // twice.
                     Text(String(
                         localized: "settings.displays.showNowPlaying.footer",
-                        defaultValue: "The player appears on each display switched on here. On by default for the built-in display."
+                        defaultValue: "The player appears only on the displays turned on here. It’s on for the built-in display by default."
                     ))
                     .settingsFootnote()
                 }
             }
 
+            // Offered where some display draws Card, and ABSENT rather than greyed
+            // out where none does (docs/DECISIONS.md: rendered-style-gates-settings).
+            // The gate is `cardDisplays`, the rendered-style mirror read from
+            // `core.displaysRendering(.card)` and re-read after every style write in
+            // this pane, so a pick above makes this section appear or go at once.
+            if rendersCard {
+                CardIndicatorSection(core: core, wallpaper: wallpaper, displayNames: cardDisplayNames)
+            }
+
             Section {
-                // A custom binding (not onChange): the setter routes the intent
-                // through AppCore and reflects the real status it returns, so a
-                // failed registration snaps it back and a "requires approval"
-                // result keeps it on with the note below — and mutating state
-                // in the setter can't re-fire itself.
-                Toggle(isOn: Binding(
-                    get: { launchesAtLogin },
-                    set: { wanted in
-                        (launchesAtLogin, loginNeedsApproval) = core.setLaunchesAtLogin(wanted)
-                    }
-                )) {
-                    Text(String(localized: "settings.general.launchAtLogin", defaultValue: "Open Crema at login"))
-                }
+                LaunchAtLoginToggle(core: core, isOn: $launchesAtLogin, needsApproval: $loginNeedsApproval)
             } footer: {
                 if loginNeedsApproval {
                     // The sentence names no PATH, and that is the fix rather
@@ -302,6 +294,14 @@ private struct GeneralSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        // The indicator section appears and goes with what the displays draw, and
+        // an instant insertion jumps every control under it in the same frame as
+        // the click that caused it. Scoped to that one fact.
+        .animation(.default, value: rendersCard)
+        // A display plugged in or out changes what is drawn; the panels have already
+        // been rebuilt by the time the roster this reads from moves
+        // (`AppCore.applyScreenRoster`).
+        .onChange(of: core.displayRoster.displays) { rereadRenderedStyles() }
     }
 }
 
@@ -315,11 +315,11 @@ private struct NowPlayingSettingsView: View {
 
     var body: some View {
         Form {
-            // The degradation this tab was silent about: with nothing reporting,
-            // every switch below configures a surface that never appears, and the
-            // menu was the only place saying so. Same shape the Indicators tab gives
-            // the neighbour integration, and the footer names the channel rather than
-            // a fault — the resting case is nobody playing anything.
+            // The degradation this tab states: with nothing reporting, every switch
+            // below configures a surface that never appears, and without it here the
+            // menu would be the only place saying so. Same shape the Indicators tab
+            // gives the neighbour integration, and the footer names the channel rather
+            // than a fault — the resting case is nobody playing anything.
             //
             // `isActive` is safe to read from a Form body, unlike the readings behind
             // the menu: it is a guarded mirror written only on a chain selection edge
@@ -328,17 +328,16 @@ private struct NowPlayingSettingsView: View {
             Section {
                 LabeledContent {
                     Text(core.nowPlayingMonitor.isActive
-                        ? String(localized: "settings.nowPlaying.source.reporting", defaultValue: "Reporting")
-                        : String(localized: "settings.nowPlaying.source.notReporting", defaultValue: "Not reporting"))
+                        ? String(localized: "settings.nowPlaying.source.reporting", defaultValue: "Working")
+                        : String(localized: "settings.nowPlaying.source.notReporting", defaultValue: "No answer"))
                         .foregroundStyle(core.nowPlayingMonitor.isActive ? .primary : .secondary)
                 } label: {
-                    Text(String(localized: "settings.nowPlaying.source", defaultValue: "Media source"))
+                    Text(String(localized: "settings.nowPlaying.source", defaultValue: "Now Playing info"))
                 }
             } footer: {
                 Text(String(
                     localized: "settings.nowPlaying.source.footer",
-                    // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
-                    defaultValue: "Crema reads what’s playing from the system. With nothing reporting, the player stays hidden and the options below have nothing to act on."
+                    defaultValue: "Crema asks macOS what’s playing. With no answer, the player stays hidden and the options below have no effect."
                 ))
                 .settingsFootnote()
             }
@@ -351,7 +350,7 @@ private struct NowPlayingSettingsView: View {
             } footer: {
                 Text(String(
                     localized: "settings.nowPlaying.reactive.footer",
-                    defaultValue: "The player appears on its own when a track changes or playback starts. Turn off to keep it hidden until you open it."
+                    defaultValue: "The player appears on its own when a track changes or playback starts. Turn this off to keep it hidden until you open it."
                 ))
                 .settingsFootnote()
             }
@@ -364,7 +363,7 @@ private struct NowPlayingSettingsView: View {
             } footer: {
                 Text(String(
                     localized: "settings.nowPlaying.controls.footer",
-                    defaultValue: "Off shows a view-only player — cover, title, and scrubber, without the transport buttons."
+                    defaultValue: "When this is off, the player shows only the cover, the title and the progress bar, with no play or skip buttons."
                 ))
                 .settingsFootnote()
             }
@@ -378,7 +377,7 @@ private struct NowPlayingSettingsView: View {
                 Text(String(
                     localized: "settings.nowPlaying.browsers.footer",
                     // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
-                    defaultValue: "Includes music playing in Safari, Chrome, and other browsers. This can make the player appear for autoplay videos on websites."
+                    defaultValue: "Includes music playing in Safari, Chrome, and other browsers. This can make the player appear for videos that start playing on their own on websites."
                 ))
                 .settingsFootnote()
             }
@@ -400,10 +399,8 @@ private struct AboutSettingsView: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            // null_resettable in AppKit (imported as an IUO — reads never
-            // return nil); the fallback keeps the no-force-unwrap discipline
-            // explicit. Decorative: the app name right below is the label.
-            Image(nsImage: NSApp.applicationIconImage ?? NSImage())
+            // Decorative: the app name right below is the label.
+            Image(nsImage: AppIdentity.icon)
                 .resizable()
                 .frame(width: 110, height: 110)
                 .padding(.bottom, 2)
@@ -444,22 +441,13 @@ private struct AboutSettingsView: View {
         .padding(.vertical, 30)
     }
 
-    /// Product name from the bundle (display name, then name), so a rename
-    /// never leaves a stale plaque; the literal is only the last-resort
-    /// fallback and is brand, not translatable chrome.
-    private var appName: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
-            ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
-            ?? "Crema"
-    }
+    /// The literal is only the last-resort fallback, and is brand, not
+    /// translatable chrome.
+    private var appName: String { AppIdentity.name ?? "Crema" }
 
-    private var shortVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
-    }
+    private var shortVersion: String { AppIdentity.version ?? "—" }
 
-    private var buildNumber: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
-    }
+    private var buildNumber: String { AppIdentity.build ?? "—" }
 
     @ViewBuilder
     private func link(_ title: String, _ url: URL?) -> some View {

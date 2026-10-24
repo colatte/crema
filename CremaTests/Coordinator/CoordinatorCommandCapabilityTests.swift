@@ -4,6 +4,11 @@ import Testing
 /// Commands degrade honestly: a media-command failure (blocked write
 /// path) flips `commandsAvailable`; success restores it; HUD commands don't
 /// touch it. All with mocks, no real process.
+///
+/// A command's verdict lands on the main actor after an await on the
+/// nonisolated double, and nothing signals that it has: a denial waits for the
+/// command to reach the double, then gives the hop back a wall-clock window
+/// (`footprintAppears`) — a drain of the main actor never sees the hop coming.
 @MainActor
 struct CoordinatorCommandCapabilityTests {
 
@@ -82,8 +87,8 @@ struct CoordinatorCommandCapabilityTests {
 
         h.coordinator.nextTrack()
 
-        await settle()
-        #expect(h.coordinator.skipCommandsAvailable)
+        #expect(await eventuallyOffActor { h.media.commands == [.nextTrack] })
+        #expect(await !footprintAppears { !h.coordinator.skipCommandsAvailable })
     }
 
     @Test func aFailedMediaCommandMarksCommandsUnavailable() async {
@@ -100,8 +105,8 @@ struct CoordinatorCommandCapabilityTests {
 
         h.coordinator.togglePlayPause()
 
-        await settle()
-        #expect(h.coordinator.commandsAvailable)
+        #expect(await eventuallyOffActor { h.media.commands == [.togglePlayPause] })
+        #expect(await !footprintAppears { !h.coordinator.commandsAvailable })
     }
 
     @Test func recoversWhenACommandSucceedsAgain() async {
@@ -135,15 +140,15 @@ struct CoordinatorCommandCapabilityTests {
 
         h.coordinator.togglePlayPause()
 
-        await settle()
-        #expect(h.coordinator.commandsAvailable)   // transient — not latched off
+        #expect(await eventuallyOffActor { h.media.commands == [.togglePlayPause] })
+        // transient — not latched off
+        #expect(await !footprintAppears { !h.coordinator.commandsAvailable })
     }
 
     @Test func aSurfacingEventDuringAHUDRestoresDegradedControls() async {
-        // The heal reaches every branch, the .hud one included: a track change
+        // The heal reaches the event whatever the HUD is doing: a track change
         // arriving while a HUD owns the surface must re-enable the controls, or
-        // play/pause stays dead for the rest of the track. Before the fix the
-        // .hud branch returned early, ahead of the restore.
+        // play/pause stays dead for the rest of the track.
         let h = CoordinatorHarness()
         h.media.shouldThrow = true
         h.coordinator.nextTrack()
@@ -161,8 +166,8 @@ struct CoordinatorCommandCapabilityTests {
 
         #expect(await eventually { h.coordinator.commandsAvailable })
         #expect(await eventually { h.coordinator.skipCommandsAvailable })
-        // The HUD branch semantics are intact — it still owns the surface and
-        // the event is only armed to resurface on the revert.
+        // The HUD still owns the surface: the event reached only the appearance
+        // under it, which shows on the revert.
         #expect(h.coordinator.state == .hud(SystemHUD(kind: .volume, value: 0.5)))
     }
 
@@ -174,7 +179,8 @@ struct CoordinatorCommandCapabilityTests {
 
         h.coordinator.hudSliderChanged(to: 0.7)
 
-        await settle()
-        #expect(h.coordinator.commandsAvailable)   // unaffected by a HUD failure
+        #expect(await eventuallyOffActor { h.volume.commands == [.setVolume(0.7, display: nil)] })
+        // unaffected by a HUD failure
+        #expect(await !footprintAppears { !h.coordinator.commandsAvailable })
     }
 }

@@ -153,6 +153,19 @@ struct SuppressionLockControllerTests {
         #expect(h.preferences.suppressesNativeOSD)
     }
 
+    @Test func togglingOffWhileEngagedDisengagesAtOnce() {
+        // The reversibility half of the opt-in: turning it off hands every key back
+        // to the system now, not at the next lock edge.
+        let h = Harness(prefOn: true)
+        h.controller.start()
+        #expect(h.suppressor.isEngaged)
+
+        h.controller.setPreferredSuppression(false)
+        #expect(!h.suppressor.isEngaged)
+        #expect(h.suppressor.engageHistory == [true, false])
+        #expect(!h.preferences.suppressesNativeOSD)
+    }
+
     // MARK: - Unlock-edge tap reinstall (ENABLED-but-deaf recovery; docs/DECISIONS.md: J7-estado-do-outro-lado)
 
     @Test func unlockEdgeFiresReinstallBeforeReengage() async {
@@ -230,5 +243,30 @@ struct SuppressionLockControllerTests {
         h.lock.set(safe: false)
         #expect(await eventually { !h.suppressor.isEngaged })
         #expect(reinstalls == 0)
+    }
+
+    @Test func everyDecisionReachesTheSecondFollowerAsALevel() async {
+        // The neighbour's indicator follows the same rule as the suppressor, so it
+        // must hear every decision, the redundant ones included: a level it can
+        // reconcile against, never an edge it could miss.
+        var decisions: [Bool] = []
+        let h = Harness(prefOn: true)
+        h.controller.onEngagementDecided = { decisions.append($0) }
+        h.controller.start()
+        #expect(decisions == [true])
+
+        h.lock.set(safe: false)
+        #expect(await eventually { decisions == [true, false] })
+        h.lock.set(safe: true)
+        #expect(await eventually { decisions == [true, false, true] })
+
+        // A redundant decision: the switch written again with the value it holds.
+        // An edge-only follower would hear nothing here.
+        h.controller.setPreferredSuppression(true)
+        #expect(decisions == [true, false, true, true])
+
+        h.controller.setPreferredSuppression(false)
+        #expect(decisions == [true, false, true, true, false])
+        #expect(decisions.last == h.suppressor.isEngaged)
     }
 }

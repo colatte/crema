@@ -6,8 +6,8 @@ import Testing
 ///
 /// It sits apart from `ArtworkAccentTests`, which is about the PICKER — which
 /// pixels vote and what tone they elect. This is about motion, and it is here
-/// because the tone fade was the last leaf in the app still spending an animation
-/// unconditionally: the app-wide gate (MG5) is asserted per rule, one rule at a
+/// because the tone fade is a leaf that spends an animation of its own: the
+/// app-wide gate (MG5) is asserted per rule, one rule at a
 /// time, and a leaf with no assertion of its own is exactly how one veto ends up
 /// observed and another forgotten.
 struct ArtworkAccentMotionTests {

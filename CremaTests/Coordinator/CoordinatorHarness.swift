@@ -9,8 +9,10 @@ struct CoordinatorHarness {
     let volume = MockVolumeController()
     let screen = MockScreenBrightnessController()
     let keyboard = MockKeyboardBrightnessController()
+    /// The output's level as the placement preview reads it.
+    let volumeReading = MockVolumeReading()
     /// The neighbour's actuator (BetterDisplay). Present only when a test asks
-    /// for it, so every existing test keeps the single-actuator wiring it had.
+    /// for it, so every other test keeps the single-actuator wiring.
     let external: MockScreenBrightnessController?
     let clock = TestSleepClock()
     /// Screen-brightness drag writes the Coordinator has finished, fallback and
@@ -39,6 +41,7 @@ struct CoordinatorHarness {
             screenBrightnessController: screen,
             keyboardBrightnessController: keyboard,
             externalScreenBrightnessController: external,
+            volumeReading: volumeReading,
             clock: clock,
             hudRevertDelay: hudRevertDelay,
             nowPlayingLinger: nowPlayingLinger,

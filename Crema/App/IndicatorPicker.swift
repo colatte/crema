@@ -14,8 +14,8 @@ import SwiftUI
 /// Whether this row exists at all is the CALLER's question, not this view's: it is
 /// offered only where some connected display renders Card. That gate is an
 /// EXISTENCE one — the row is absent rather than greyed out — because the sentence
-/// a greyed row needed ("applies to the Card style, which is chosen in the General
-/// tab") was paying for the distance to that picker, and there is no distance left
+/// a greyed row would need ("applies to the Card style, which is chosen in the
+/// General tab") pays for the distance to that picker, and there is no distance
 /// to pay for beside it (docs/DECISIONS.md: rendered-style-gates-settings).
 struct IndicatorPicker: View {
     /// The persisted rawValue rather than the enum, because the caller holds this
@@ -33,9 +33,7 @@ struct IndicatorPicker: View {
     let wallpaper: NSImage?
 
     var body: some View {
-        // The gap the style tiles above use, so the two rows read as one grid
-        // rather than as two controls that happen to be stacked.
-        HStack(alignment: .top, spacing: 4) {
+        HStack(alignment: .top, spacing: Thumbnail.smallTileSpacing) {
             ForEach(HUDIndicatorStyle.allCases, id: \.rawValue) { style in
                 IndicatorTile(
                     style: style,
@@ -47,7 +45,7 @@ struct IndicatorPicker: View {
         // One control, two options: without this the buttons are read out as
         // unrelated and the row's own label never reaches them.
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(String(localized: "settings.hud.indicator", defaultValue: "Card indicator"))
+        .accessibilityLabel(String(localized: "settings.hud.indicator", defaultValue: "Volume and brightness indicator on Card"))
     }
 }
 
@@ -164,12 +162,10 @@ private enum IndicatorThumbnail {
     static let scale = width * surfaceWidthFraction / CardMetrics.hudSystemWidth
     /// The hairline as authored inside the scaled subtree, so that it LANDS at the
     /// width `SurfaceChrome` asked for.
-    static let surfaceStrokeWidth = SurfaceChrome.outerHairlineWidth / scale
-    /// The stand-in surface's darkness — the same value the style tiles give a
-    /// floating surface, and for the same reason: it stands in for a material that
-    /// cannot be drawn here, dark enough that the bar on it reads as the app's
-    /// (docs/DECISIONS.md: hud-fixed-dark-palette).
-    static let surfaceOpacity = 0.62
+    static let surfaceStrokeWidth = SurfaceChrome.specularWidth / scale
+    /// The stand-in surface's darkness: the one every picture gives a floating
+    /// surface.
+    static let surfaceOpacity = Thumbnail.floatingSurfaceOpacity
     /// The reading both tiles freeze at. ONE sample for both, because what the pair
     /// exists to show is the difference between the bodies — two levels would let
     /// the eye read that difference as a difference in loudness instead. Volume is

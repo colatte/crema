@@ -19,10 +19,11 @@ protocol PresentationPanel: AnyObject {
     /// (SurfaceDisplayPolicy), not at the window level. `showsHUD` is the same
     /// mechanism for the other half: a HUD that names a display is content this
     /// panel must not draw unless it IS that display — the frame alone cannot
-    /// express that, since the window never orders out. `showsControls` is the
+    /// express that, since the window never orders out; such a panel draws the
+    /// appearance under the HUD instead. `showsControls` is the
     /// global view-only toggle (off hides the transport in the expanded view).
     /// `invokeZone` is the click-invoke region — non-nil only while media plays
-    /// with nothing visible: a click inside it surfaces the compact appearance;
+    /// with nothing visible: a click inside it opens the expanded appearance;
     /// everything outside it keeps falling through to the menu bar/windows below.
     /// `hudIndicatorStyle` is the global HUD level-indicator appearance (Card
     /// only) — carried like showsControls, render context the view reads.

@@ -1,12 +1,11 @@
 // Generates the README's download button (docs/assets/download-macos.png).
 // Anatomy is the App Store lineage every Mac app uses: near-black rounded plate,
 // hairline border, Apple mark at the left, "Download app for" over "macOS". The
-// one liberty is warmth — the ground is not neutral black but the app icon's
-// roasted coffee pushed almost to black (#0C0A08, sampled from the icon art),
-// and the hairline carries the icon's crema instead of cold white. Sober on the
-// surface, warm underneath; still reads as black beside GitHub's chrome, and the
-// hairline is what separates the plate from a dark page (on a light one the
-// plate separates itself).
+// one liberty is warmth — the ground is not neutral black but roasted coffee
+// pushed almost to black, and the hairline carries a warm crema instead of
+// cold white. Sober on the surface, warm underneath; still reads as black
+// beside GitHub's chrome, and the hairline is what separates the plate from a
+// dark page (on a light one the plate separates itself).
 // Rendered at 2x and displayed at its point width in the README, so it stays
 // crisp on Retina. Regenerate here, never edit the PNG by hand.
 // Run: swift design/badge/makedownloadbadge.swift
@@ -47,7 +46,7 @@ private enum Metrics {
 }
 
 private enum Palette {
-    // icon.png's coffee (#281208) taken down to a near-black ground: reads black
+    // Roasted coffee taken down to a near-black ground: reads black
     // next to GitHub's chrome, but the warm bias survives on a calibrated screen.
     // Calibrated against BOTH canvases, not just white: at #0C0A08 the plate was
     // DARKER than GitHub's dark page (#0d1117) and read as a hole punched through
@@ -57,7 +56,7 @@ private enum Palette {
     // still an undifferentiated black block (verified side by side; the three
     // candidates were indistinguishable there). Never take this below the canvas.
     static let ground = Color(red: 0x16 / 255, green: 0x13 / 255, blue: 0x0F / 255)
-    // The icon's crema (#FBE7C7), not white: at 22% over the ground the hairline
+    // A warm crema (#FBE7C7), not white: at 22% over the ground the hairline
     // lands warm-neutral instead of blue-cold. Same reason the ink is off-white.
     static let hairline = Color(red: 0xFB / 255, green: 0xE7 / 255, blue: 0xC7 / 255)
     static let ink = Color(red: 1.0, green: 0.995, blue: 0.985)

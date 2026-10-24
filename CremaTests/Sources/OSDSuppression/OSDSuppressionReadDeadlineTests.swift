@@ -148,7 +148,7 @@ struct OSDSuppressionReadDeadlineTests {
         // private client's connection, and it is re-asked per press precisely
         // because a cold boot can answer "no keyboard" before the service is up.
         // Its screen sibling is two dlsym results resolved at init and cannot
-        // block, which is why only this one races a deadline. Inline, this froze
+        // block, which is why only this one races a deadline. Inline, this freezes
         // the MainActor once per backlight key.
         let h = OSDSuppressorHarness()
         h.keyboard.availableHangs = true
@@ -208,8 +208,8 @@ struct OSDSuppressionReadDeadlineTests {
         // The probe asks availability before the read, to tell a genuinely absent
         // channel from a present one that cannot be read. On the keyboard that
         // question is the same stalling IPC the apply path races, and it runs on
-        // every backoff cycle — inline, it blocked the MainActor once per cycle,
-        // for as long as the domain stayed suspended.
+        // every backoff cycle — inline, it blocks the MainActor once per cycle,
+        // for as long as the domain stays suspended.
         let h = OSDSuppressorHarness()
         h.keyboard.value = nil   // a fast failure enters the suspension (no hang yet)
         h.suppressor.setEngaged(true)
@@ -258,7 +258,13 @@ struct OSDSuppressionReadDeadlineTests {
         })
 
         h.screen.releaseRead()   // the stalled read finally returns, late
-        await settle()
+        // The landing is the orphan's, on a GCD thread: the positive fact takes the
+        // off-actor wait, and what it could still set off gets a wall-clock window.
+        #expect(await eventuallyOffActor { h.screen.readsReturned == 1 })
+        #expect(await !footprintAppears {
+            !h.screen.applied.isEmpty || applied.count >= 1
+                || !h.suppressor.suspendedDomains.contains(.screenBrightness)
+        })
 
         #expect(h.screen.applied.isEmpty)   // never reached the write
         // Box.count is a running counter, not a collection.
@@ -272,7 +278,7 @@ struct OSDSuppressionReadDeadlineTests {
     @Test func fastReadsRaceTheDeadlineAndWinApplyingAsBefore() async {
         // The deadline machinery is transparent when reads return promptly: the
         // read wins the race, the deadline sleep is cancelled, the apply lands
-        // exactly as it did before the read was raced.
+        // exactly as an unraced read's would.
         let h = OSDSuppressorHarness()
         h.suppressor.setEngaged(true)
 

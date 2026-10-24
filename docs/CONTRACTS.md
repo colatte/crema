@@ -1,14 +1,14 @@
 # The implicit contracts, made explicit
 
 > Twenty-six named contracts the code obeys and cites by id — `MG*` motion and
-> geometry, `G*` windows and coordinates, `S*` state and pipeline, `P*`
+> geometry, `W*` windows and coordinates, `S*` state and pipeline, `P*`
 > preferences and strings. They exist so a comment can say "S4" and mean one
 > precise thing in every file that says it.
 >
 > Four are carried as **known-accepted tensions** rather than settled law: S4,
-> P5, G2 and MG1 (the Card's width). They are debt the author took on purpose;
+> P5, W1 and MG1 (the Card's width). They are debt the author took on purpose;
 > a reader finding code that bends one of them is looking at a decision, not a
-> bug. Where a contract has since become a rule of the house, AGENTS.md states
+> bug. Where a contract is also a rule of the house, AGENTS.md states
 > it and this file is the depth.
 
 ## Motion and geometry
@@ -29,13 +29,13 @@
 
 ## Windows, regions and coordinates
 
-**G2 — Fixed-window invariant.** One NSPanel per display, created once at the union of every state's rule frame plus overshoot headroom, never resized nor ordered out; only SwiftUI content animates inside it. The window must contain every animatable state, or the morph clips at the window edge.
+**W1 — Fixed-window invariant.** One NSPanel per surface a display draws (`PanelSurface`: both layers on a skin's own panel, the Card's HUD off its spot on a panel of its own), created once at the union of every state's rule frame plus overshoot headroom, never resized nor ordered out; only SwiftUI content animates inside it. The window must contain every animatable state, or the morph clips at the window edge.
 
-**G3 — Rendered-truth regions with decoupled hover.** The click-interactive region follows the rendered surface (zeroed while hidden); hover is judged against stable screen-space hysteresis regions decoupled from the animating frame, retargeted on every apply (rule frame ∩ last rendered, erring tight) and on every size report (the rendered truth) — every style, the same truth clicks use; exit = enter + per-edge band. Both armed only while a surface is visible on that display.
+**W2 — Rendered-truth regions with decoupled hover.** The click-interactive region follows the rendered surface (zeroed while hidden); hover is judged against stable screen-space hysteresis regions decoupled from the animating frame, retargeted on every apply (rule frame ∩ last rendered, erring tight) and on every size report (the rendered truth) — every style, the same truth clicks use; exit = enter + per-edge band. Both armed only while a surface is visible on that display.
 
-**G4 — Global coordinate space, UUID keying, pure rules.** Everything is AppKit global screen coordinates (bottom-left origin, y up, no flips); `NSScreen.frame` flows verbatim into `ScreenGeometry` and rule outputs go straight to `setFrame`. Displays are keyed by stable display UUID; every frame rule is a pure function of `ScreenGeometry`.
+**W3 — Global coordinate space, UUID keying, pure rules.** Everything is AppKit global screen coordinates (bottom-left origin, y up, no flips); `NSScreen.frame` flows verbatim into `ScreenGeometry` and rule outputs go straight to `setFrame`. Displays are keyed by stable display UUID; every frame rule is a pure function of `ScreenGeometry`.
 
-**G5 — Rebuild on geometry/style change of a kept display.** A kept display whose geometry (scale / safeTop / frame origin) or resolved style changes rebuilds its panel, because the slit inset and the per-state sizes are captured at creation; per-state frames — and the hover/click regions derived from them — flow fresh through `apply()`.
+**W4 — Rebuild per surface on a kept display.** A display's panels are the surfaces its resolved style and the Card's HUD placement call for (`PanelSurface.surfaces(for:hudPlacement:)`, in `WindowManager.reconcile`): a panel whose surface is still wanted is kept, the others close and the missing ones are built. A geometry change (`ScreenGeometry`: frame, safe top, auxiliary widths, scale) rebuilds them all, because the slit inset, the per-state sizes and the hover regions are captured at creation. Nothing else in a display's description rebuilds a panel: a renamed display keeps its panels and hover regions (`WindowManagerTests.aRenamedDisplayKeepsItsPanelAndItsHoverRegions`). Per-state frames — and the hover/click regions derived from them — flow fresh through `apply()`.
 
 ## State and pipeline
 
@@ -51,7 +51,7 @@
 
 **S6 — Stream finish = unavailability; no unrepresentable ghost.** When a media source ends, the Coordinator drops the ghost snapshot and disarms click-invoke. A mid-chain failover must likewise not leave a snapshot on which controls are armed but which no live source can represent.
 
-**S7 — Position tick writes only the live snapshot.** A pure position tick writes only `nowPlaying`, never `state`; identity and content changes (title/artist/layoutContent) drive `state` and the frame pass.
+**S7 — Position tick writes only the live snapshot.** A pure position tick writes only `nowPlaying`, never `layers` (the stored layout state that `state` is computed from); identity and content changes (title/artist/layoutContent) write `layers` and drive the frame pass.
 
 **S8 — Command optimism restored on every surfacing event.** `commandsAvailable` and `skipCommandsAvailable` are optimistic, flip false on a genuine command failure, and are restored to true on the next surfacing event, so a degraded control has a path back.
 
@@ -59,13 +59,13 @@
 
 ## Preferences and strings
 
-**P1 — Catalog verbatim discipline.** Every `String(localized:defaultValue:)` key exists in `Localizable.xcstrings` with `defaultValue` byte-identical to the `en` value, `extractionState` manual, a semantic (non-literal) key, and a translated `pt-BR` unit; no orphan keys. Enforced in CI by `scripts/check-catalog.py` (docs/INTERNATIONALIZATION.md).
+**P1 — Catalog verbatim discipline.** The code and `Localizable.xcstrings` agree key for key, the `en` value byte-identical to the `defaultValue`; the full rule lives in docs/INTERNATIONALIZATION.md ("Catalog verbatim discipline"), and `scripts/check-catalog.py` enforces it in CI.
 
 **P2 — One name per concept, in each language.** A concept (style name, feature name) uses a single term across picker labels, footers, menu items and onboarding within each language. The three style names are product names and stay English in both (docs/INTERNATIONALIZATION.md).
 
 **P3 — Conservative defaults.** A pref whose desired default differs from the type's zero reads `object(forKey:) as? T ?? default` to distinguish unset from zero; opt-in features default off via `bool(forKey:)`.
 
-**P4 — rawValue degrade-to-default.** Every persisted enum (`Style`, `HUDIndicatorStyle`) decodes an unknown or removed rawValue to the shipped default instead of failing. The per-display override is the documented exception: it degrades to the user's declaration, never to the app default (docs/DECISIONS.md: global-style-default).
+**P4 — rawValue degrade-to-default.** Every persisted enum (`Style`, `HUDIndicatorStyle`, `HUDPlacement`) decodes an unknown or removed rawValue to the shipped default instead of failing. The per-display override is the documented exception: it degrades to the user's declaration, never to the app default (docs/DECISIONS.md: global-style-default).
 
 **P5 — Per-display UUID keys; dependent controls disabled-not-hidden; every live pref reachable from UI.** Per-display prefs are keyed by display UUID, global prefs by a bare key; a dependent Settings control stays visible-but-disabled with a footer naming its scope. A pref honoured live by the runtime must be writable from some UI surface, or explicitly annotated as deferred.
 

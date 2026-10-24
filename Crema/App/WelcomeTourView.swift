@@ -1,13 +1,15 @@
 import SwiftUI
 
-/// The welcome tour: five steps that CONFIGURE the app instead of describing it.
+/// The welcome tour: five steps that show the app working on the real screen and
+/// CONFIGURE it, instead of describing it.
 ///
 /// Every control here is the same control the Settings window carries — the same
 /// persisted key, applied live through the same AppCore call — so the tour is a
 /// place the app gets set up, not a slideshow pointing at a window the person
 /// then has to find (docs/DECISIONS.md: the-tour-configures-instead-of-pointing).
 /// It follows that nothing here needs undoing: what was picked in the tour is
-/// what Settings shows afterwards.
+/// what Settings shows afterwards. What happens on the screen behind each step
+/// (the player held up, the arrow at the menu bar) is AppCore's, per step.
 ///
 /// The window is one fixed size for every step. The steps hold different amounts,
 /// and a window that resized between them would jump under the pointer at the
@@ -18,7 +20,11 @@ struct WelcomeTourView: View {
     let core: AppCore
     let dismiss: () -> Void
 
-    @State private var step: WelcomeTourStep = .welcome
+    @State private var step: WelcomeTourStep
+    /// Whether a HUD has risen since the key test came on screen: the test's
+    /// answer, and a one-way one — the bar reverting a moment later does not
+    /// take back that the key arrived.
+    @State private var heardAKey = false
     /// The suppression opt-in, bound to the key the feature itself reads — the
     /// same one the Indicators tab binds, so this toggle and that one are a single
     /// switch. The live effect is the AppCore call in `onChange`, which every
@@ -26,9 +32,7 @@ struct WelcomeTourView: View {
     @AppStorage(Preferences.suppressesNativeOSDKey) private var suppressesNativeOSD = false
     /// Seeded-once mirrors, the shape the all-displays section uses: the declared style,
     /// which of the styles any panel actually renders, and the real login-item
-    /// status, re-read from every attempt rather than wished at. Nothing else can
-    /// write them while this window is up — it is modal in practice, being the
-    /// only thing on screen at first launch.
+    /// status, re-read from every attempt rather than wished at.
     @State private var style: Style
     @State private var rendersCard: Bool
     @State private var rendersNotch: Bool
@@ -38,10 +42,16 @@ struct WelcomeTourView: View {
     /// the same reason — the store behind it (`AppCore.tileWallpaper`) is what
     /// remembers the decode, so nothing here re-opens the file per body.
     @State private var wallpaper: NSImage?
+    /// The display the player is offered on when no display shows it, seeded once
+    /// like the mirrors above and kept for the whole window: the switch has to
+    /// stay under the hand after it is flipped, not vanish because it worked.
+    @State private var playerOffer: ScreenDescription?
+    @State private var playerOfferOn = false
 
-    init(core: AppCore, dismiss: @escaping () -> Void) {
+    init(core: AppCore, firstStep: WelcomeTourStep = .welcome, dismiss: @escaping () -> Void) {
         self.core = core
         self.dismiss = dismiss
+        _step = State(initialValue: firstStep)
         // One seed rule for both windows that carry this section — the reads and
         // their why live in StyleSectionSeed, never respelled here.
         let seed = StyleSectionSeed(core: core)
@@ -51,42 +61,42 @@ struct WelcomeTourView: View {
         _wallpaper = State(initialValue: seed.wallpaper)
         _launchesAtLogin = State(initialValue: seed.launchesAtLogin)
         _loginNeedsApproval = State(initialValue: seed.loginNeedsApproval)
+        _playerOffer = State(initialValue: core.welcomeTourPlayerOffer())
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            progressHeader
-            Divider()
+            // A cross-fade between steps and never a slide: a fade is what Reduce
+            // Motion asks motion to become, so one transition serves both.
             stepBody
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .id(step)
+                .transition(.opacity)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(.horizontal, Layout.margin)
-                .padding(.vertical, 18)
-            Divider()
+                .padding(.top, Layout.top)
             footer
         }
         .frame(width: Layout.width, height: Layout.height)
+        .onChange(of: step, initial: true) { _, entered in
+            core.welcomeTourEntered(entered)
+            if entered == .tryIt { heardAKey = false }
+        }
+        .onChange(of: core.permissionMonitor.isGranted) { _, granted in
+            if granted, step == .accessibility { core.bringWelcomeTourForward() }
+        }
+        // The HUD's value, not whether one is up: a key pressed while a bar from
+        // an earlier press is still on screen updates that bar, and must count.
+        .onChange(of: core.coordinator.layers.hud) { _, hud in
+            if hud != nil, step == .tryIt { heardAKey = true }
+        }
     }
 
     // MARK: - Chrome
 
-    private var progressHeader: some View {
-        let progress = WelcomeTourFlow.progress(step)
-        return VStack(spacing: 6) {
-            ProgressView(value: Double(progress.index), total: Double(progress.count))
-            Text(String(
-                localized: "tour.progress",
-                defaultValue: "Step \(progress.index) of \(progress.count)"
-            ))
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        }
-        .padding(.horizontal, Layout.margin)
-        .padding(.top, 16)
-        .padding(.bottom, 12)
-    }
-
     private var footer: some View {
         HStack(spacing: 10) {
+            TourStepDots(step: step)
+            Spacer()
             // Leaving is offered until the last step, where the primary button
             // already says the tour is over and a second way out beside it would
             // only ask the person to choose between two identical exits.
@@ -96,38 +106,38 @@ struct WelcomeTourView: View {
                 // the platform's own way out has to reach the button that takes it.
                 Button(String(localized: "tour.skip", defaultValue: "Skip")) { dismiss() }
                     .keyboardShortcut(.cancelAction)
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(.secondary)
             }
-            Spacer()
             if let previous = WelcomeTourFlow.previous(before: step) {
-                Button(String(localized: "tour.back", defaultValue: "Back")) { step = previous }
+                Button(String(localized: "tour.back", defaultValue: "Back")) { go(to: previous) }
             }
             primaryButtons
         }
+        .controlSize(.large)
         .padding(.horizontal, Layout.margin)
-        .padding(.vertical, 14)
+        .padding(.vertical, 18)
     }
 
-    /// The prominent button, and — on the permission step — the way forward beside
-    /// it. Two buttons there rather than one that does both: granting is a system
+    /// The way forward. On the permission step, before the grant, it is the plain
+    /// way on and the grant itself is the step's own prominent button: two
+    /// buttons rather than one that does both, because granting is a system
     /// prompt whose answer arrives later (the monitor picks it up live), so the
     /// button that asks cannot also be the button that advances without pretending
-    /// the answer was yes.
+    /// the answer was yes. The way on names what declining costs, so going on
+    /// without the grant is a choice the person can read.
     @ViewBuilder private var primaryButtons: some View {
         switch WelcomeTourFlow.primaryAction(for: step, accessibilityGranted: core.permissionMonitor.isGranted) {
         case .continue:
-            continueButton
-                .buttonStyle(.borderedProminent)
-                .keyboardShortcut(.defaultAction)
+            Button(step == .welcome
+                ? String(localized: "tour.start", defaultValue: "Get Started")
+                : String(localized: "tour.continue", defaultValue: "Continue")) { advance() }
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
         case .grantAccess:
-            continueButton
-            Button(String(
-                localized: "settings.permissions.grant",
-                defaultValue: "Grant Accessibility Access…"
-            )) {
-                core.requestAccessibilityAccess()
+            Button(String(localized: "tour.step.accessibility.without", defaultValue: "Continue Without Access")) {
+                advance()
             }
-            .buttonStyle(.borderedProminent)
-            .keyboardShortcut(.defaultAction)
         case .done:
             Button(String(localized: "onboarding.done", defaultValue: "Done")) { dismiss() }
                 .buttonStyle(.borderedProminent)
@@ -135,15 +145,15 @@ struct WelcomeTourView: View {
         }
     }
 
-    private var continueButton: some View {
-        Button(String(localized: "tour.continue", defaultValue: "Continue")) { advance() }
-    }
-
     /// Forward, or out. The last step's button is Done rather than Continue, so
     /// the second branch is what keeps this total — never a second exit.
     private func advance() {
         guard let next = WelcomeTourFlow.next(after: step) else { dismiss(); return }
-        step = next
+        go(to: next)
+    }
+
+    private func go(to target: WelcomeTourStep) {
+        withAnimation(.easeInOut(duration: 0.25)) { step = target }
     }
 
     // MARK: - The steps
@@ -153,85 +163,106 @@ struct WelcomeTourView: View {
         case .welcome: welcomeStep
         case .accessibility: accessibilityStep
         case .style: styleStep
-        case .indicators: indicatorsStep
+        case .tryIt: tryItStep
         case .finish: finishStep
         }
     }
 
+    /// The app's icon, and the player itself on the real screen behind the
+    /// window (AppCore holds it up for this step): what Crema is, answered by the
+    /// thing rather than a paragraph about it.
     private var welcomeStep: some View {
-        VStack(spacing: 14) {
-            // The menu bar icon at the size it appears up there. The app has no
-            // Dock tile and no window of its own, so "where is it" is the first
-            // question the tour owes an answer to, and the answer is a picture of
-            // the thing to look for rather than a sentence describing it. Hidden
-            // from VoiceOver, which would otherwise read the asset's name aloud:
-            // the sentences below carry the whole meaning either way.
-            Image("MenuBarIcon")
-                .accessibilityHidden(true)
-                .foregroundStyle(.primary)
-                .padding(10)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            // Its own key, deliberately not the window's title: every step carries a
-            // heading and this is the first one, but the two strings answer to
-            // different constraints — a title bar is sized by the window and this
-            // line by the step — and sharing one made a change to either silently
-            // rewrite the other.
-            Text(String(localized: "tour.welcome.title", defaultValue: "Welcome to Crema"))
-                .font(.title2.bold())
-            Text(String(
-                localized: "tour.welcome.body",
-                // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
-                defaultValue: "Crema shows what’s playing near the top of your screen and can replace the system’s volume and brightness indicators with its own."
-            ))
-            .foregroundStyle(.secondary)
-        }
-        .multilineTextAlignment(.center)
+        TourStepLayout(
+            title: String(localized: "tour.welcome.title", defaultValue: "Welcome to Crema"),
+            hero: {
+                // The icon carries no meaning the title does not; hidden from
+                // VoiceOver, which would otherwise read the image's name aloud.
+                Image(nsImage: AppIdentity.icon)
+                    .resizable()
+                    .frame(width: 128, height: 128)
+                    .accessibilityHidden(true)
+            },
+            content: {
+                Text(String(
+                    localized: "tour.welcome.body",
+                    defaultValue: "Crema shows what’s playing on your screen, and its own indicator when you change the volume or brightness."
+                ))
+                .foregroundStyle(.secondary)
+                // Said for what is actually up there: the sample is named as one,
+                // so nobody goes looking for a song that is not playing, and a
+                // player switched off everywhere is said to be off.
+                if !playerIsShownSomewhere {
+                    TourPlayerOffNote()
+                } else {
+                    Text(core.coordinator.showsSample
+                        ? String(
+                            localized: "tour.welcome.sample",
+                            defaultValue: "Nothing is playing, so the player on your screen shows a sample. Play a song to see yours."
+                        )
+                        : String(
+                            localized: "tour.welcome.playing",
+                            defaultValue: "The player on your screen is Crema, showing what’s playing now."
+                        ))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                if let playerOffer {
+                    TourPlayerSwitch(core: core, display: playerOffer, isOn: $playerOfferOn)
+                }
+            }
+        )
     }
 
-    /// Reuses the onboarding window's own sentences: it is the same permission,
-    /// asked for in the same words, and a second wording for one concept is how
-    /// two screens come to describe different things.
+    /// What the permission is for, in the things it lets the app do, and what it
+    /// never sees — the list the standalone permission window shows too.
     private var accessibilityStep: some View {
-        VStack(spacing: 12) {
-            Image(systemName: core.permissionMonitor.isGranted ? "checkmark.circle.fill" : "accessibility")
-                .font(.system(size: 40))
-                .foregroundStyle(core.permissionMonitor.isGranted ? AnyShapeStyle(.green) : AnyShapeStyle(.tint))
-            Text(String(
-                localized: "tour.step.accessibility.title",
-                defaultValue: "Let Crema see the media keys"
-            ))
-            .font(.title3.bold())
-            Text(String(
-                localized: "onboarding.body",
-                // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
-                defaultValue: "Crema uses the Accessibility permission to capture the volume and brightness keys so it can show its own indicators. Without it the app keeps working — it just can’t react to those keys."
-            ))
-            .foregroundStyle(.secondary)
-            // The grant lands while this window is open — the monitor polls, so the
-            // step answers the person who just flipped the switch in System
-            // Settings instead of waiting for a relaunch nobody would perform.
-            if core.permissionMonitor.isGranted {
-                Text(String(
-                    localized: "tour.step.accessibility.granted",
-                    defaultValue: "Accessibility access is on."
-                ))
-                .foregroundStyle(.green)
-            } else {
-                Text(String(
-                    localized: "onboarding.grantDetection",
-                    defaultValue: "Granting is picked up automatically — no relaunch needed. If capture still doesn’t start, relaunch Crema."
-                ))
-                .font(.footnote)
-                .foregroundStyle(.tertiary)
+        let granted = core.permissionMonitor.isGranted
+        return TourStepLayout(
+            title: String(localized: "tour.step.accessibility.title", defaultValue: "Let Crema notice the volume and brightness keys"),
+            hero: {
+                Image(systemName: granted ? "checkmark.circle.fill" : "accessibility")
+                    .font(.system(size: 72, weight: .light))
+                    .foregroundStyle(granted ? AnyShapeStyle(.green) : AnyShapeStyle(.tint))
+                    .contentTransition(.symbolEffect(.replace))
+                    .accessibilityHidden(true)
+            },
+            content: {
+                AccessibilityPurposeList()
+                    .fixedSize()
+                // The grant lands while this window is open — the monitor polls, so
+                // the step answers the person who just flipped the switch in System
+                // Settings instead of waiting for a relaunch nobody would perform.
+                // The offer is the flow's `.grantAccess`, the rule its tests pin.
+                if WelcomeTourFlow.primaryAction(for: .accessibility, accessibilityGranted: granted) == .grantAccess {
+                    // In the step and not the footer: the footer's row has no room
+                    // for it beside the way on, in either language.
+                    Button(String(
+                        localized: "settings.permissions.grant",
+                        defaultValue: "Grant Accessibility Access…"
+                    )) {
+                        core.requestAccessibilityAccess()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .keyboardShortcut(.defaultAction)
+                    Text(String(
+                        localized: "onboarding.grantDetection",
+                        // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
+                        defaultValue: "Crema notices the permission on its own, so there’s no need to restart. If the keys still don’t respond, quit and reopen Crema."
+                    ))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                } else {
+                    Text(String(localized: "tour.step.accessibility.granted", defaultValue: "Accessibility is on for Crema."))
+                        .foregroundStyle(.green)
+                }
             }
-        }
-        .multilineTextAlignment(.center)
+        )
     }
 
     /// Picking here is the real declaration, applied at once to every display —
-    /// not a preview of one. The tile is the figure a person reads; whatever the
-    /// panels behind this window happen to be showing at that moment (a HUD, a
-    /// track) changes with it, but nothing here depends on something being up.
+    /// and the player AppCore holds up on the real screen redraws in it, so the
+    /// tile is the label and the screen is the preview.
     ///
     /// It carries the all-displays section's footer because it is the same
     /// declaration, and a price named in one place and not the other is a price paid
@@ -239,53 +270,65 @@ struct WelcomeTourView: View {
     /// this window, because that one points at a list Settings has and this step
     /// does not.
     private var styleStep: some View {
-        VStack(spacing: 16) {
-            Text(String(localized: "tour.step.style.title", defaultValue: "Pick a style"))
-                .font(.title3.bold())
-            // The rendered-style mirrors are re-read from the panels right after
-            // they are re-resolved, never inferred from `new`: which displays have
-            // a slit is a fact about the hardware, not about the pick.
-            StylePicker(selection: $style, wallpaper: wallpaper)
-                .onChange(of: style) { _, new in
-                    core.setStyleEverywhere(new)
-                    rendersCard = core.rendersAnywhere(.card)
-                    rendersNotch = core.rendersAnywhere(.notch)
-                }
-            VStack(spacing: 6) {
-                Text(fallbackIsInEffect
-                    ? String(
-                        localized: "settings.general.style.footer.fallingBack",
-                        defaultValue: "Applies to every display. No connected display has a notch, so every one is drawing Card."
-                    )
-                    : String(
-                        localized: "settings.general.style.footer",
-                        defaultValue: "Applies to every display. On a display without a notch, the Notch style falls back to Card."
-                    ))
-                // Picking a tile calls the same `setStyleEverywhere` the Settings
-                // declaration does, which SWEEPS the per-display styles — on an
-                // upgrading install that silently discards configuration, so this
-                // window owes the same warning that section owes. Said only when
-                // there is something to replace.
-                //
-                // Its own key, and not the Settings one: that sentence points DOWN
-                // at the list under it, and there is no list here. A shared string
-                // would have to lose the pointer to be true in both places, which
-                // costs the pane the only wording that says WHERE.
-                if hasPerDisplayStyles {
+        TourStepLayout(
+            title: String(localized: "tour.step.style.title", defaultValue: "Pick a style"),
+            hero: {
+                // The rendered-style mirrors are re-read from the panels right after
+                // they are re-resolved, never inferred from `new`: which displays have
+                // a slit is a fact about the hardware, not about the pick.
+                StylePicker(selection: $style, wallpaper: wallpaper)
+                    .onChange(of: style) { _, new in
+                        core.setStyleEverywhere(new)
+                        rendersCard = core.rendersAnywhere(.card)
+                        rendersNotch = core.rendersAnywhere(.notch)
+                    }
+            },
+            content: {
+                if playerIsShownSomewhere {
                     Text(String(
-                        localized: "tour.step.style.replacesPerDisplay",
-                        defaultValue: "This also replaces the per-display styles in Settings."
+                        localized: "tour.step.style.live",
+                        defaultValue: "The player on your screen changes as you pick."
                     ))
+                    .foregroundStyle(.secondary)
+                } else {
+                    TourPlayerOffNote()
                 }
-                Text(String(
-                    localized: "tour.step.style.body",
-                    defaultValue: "You can give a single display its own style later, in Settings → General."
-                ))
+                if let playerOffer {
+                    TourPlayerSwitch(core: core, display: playerOffer, isOn: $playerOfferOn)
+                }
+                VStack(spacing: 4) {
+                    Text(fallbackIsInEffect
+                        ? String(
+                            localized: "settings.general.style.footer.fallingBack",
+                            defaultValue: "Changes every display at once. None of your displays has a notch, so they all use Card."
+                        )
+                        : String(
+                            localized: "settings.general.style.footer",
+                            defaultValue: "Changes every display at once. On a display without a notch, Notch shows as Card."
+                        ))
+                    // Picking a tile calls the same `setStyleEverywhere` the Settings
+                    // declaration does, which SWEEPS the per-display styles — on an
+                    // upgrading install that silently discards configuration, so this
+                    // window owes the same warning that section owes. Said only when
+                    // there is something to replace.
+                    //
+                    // Its own key, and not the Settings one: that sentence points DOWN
+                    // at the list under it, and there is no list here.
+                    if hasPerDisplayStyles {
+                        Text(String(
+                            localized: "tour.step.style.replacesPerDisplay",
+                            defaultValue: "This also clears the styles set for single displays in Settings."
+                        ))
+                    }
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
             }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-        }
-        .multilineTextAlignment(.center)
+        )
+    }
+
+    private var playerIsShownSomewhere: Bool {
+        playerOffer == nil || playerOfferOn
     }
 
     private var fallbackIsInEffect: Bool {
@@ -300,153 +343,125 @@ struct WelcomeTourView: View {
         PerDisplayStyleOverride.exists(among: core.displayRoster.displays)
     }
 
-    /// The app's headline feature, offered where the Indicators tab offers it and
-    /// with the same scope caveat: the sentence about the built-in display and the
-    /// pointer is the one that keeps the switch from promising what it cannot do
-    /// on a second display (docs/DECISIONS.md: brightness-key-follows-the-pointer).
-    private var indicatorsStep: some View {
-        VStack(spacing: 14) {
-            // Names what the person gets, never what the switch below already
-            // says: a heading repeating its own control's label verbatim reads as
-            // the label having been printed twice.
-            Text(String(
-                localized: "tour.step.indicators.title",
-                defaultValue: "Volume and brightness, drawn by Crema"
-            ))
-            .font(.title3.bold())
+    /// The person presses a key and the real HUD answers, in the style just
+    /// picked: the one step that teaches by doing (HIG, Onboarding). A volume key
+    /// works with or without the grant, Core Audio reporting the change either
+    /// way, so the test never waits on the permission.
+    ///
+    /// Under it the app's headline switch, offered where the Indicators tab offers
+    /// it and with the same scope caveat: the sentence about the built-in display
+    /// and the pointer keeps the switch from promising what it cannot do on a
+    /// second display (docs/DECISIONS.md: brightness-key-follows-the-pointer).
+    private var tryItStep: some View {
+        TourStepLayout(
+            title: String(localized: "tour.step.try.title", defaultValue: "Press a volume key"),
+            hero: {
+                Image(systemName: heardAKey ? "checkmark.circle.fill" : "speaker.wave.2.fill")
+                    .font(.system(size: 64, weight: .light))
+                    .foregroundStyle(heardAKey ? AnyShapeStyle(.green) : AnyShapeStyle(.tint))
+                    .contentTransition(.symbolEffect(.replace))
+                    .accessibilityHidden(true)
+            },
+            content: {
+                Text(heardAKey
+                    ? String(localized: "tour.step.try.heard", defaultValue: "That’s Crema’s indicator.")
+                    : String(localized: "tour.step.try.waiting", defaultValue: "Crema’s indicator will appear on your screen."))
+                    .foregroundStyle(heardAKey ? AnyShapeStyle(.green) : AnyShapeStyle(.secondary))
 
-            Toggle(isOn: $suppressesNativeOSD) {
-                Text(String(localized: "settings.hud.suppress", defaultValue: "Replace the system indicators"))
-            }
-            .toggleStyle(.switch)
-            .disabled(!canSuppress)
-            .onChange(of: suppressesNativeOSD) { _, new in core.setNativeOSDSuppression(new) }
+                VStack(spacing: 10) {
+                    Toggle(isOn: $suppressesNativeOSD) {
+                        Text(String(localized: "settings.hud.suppress", defaultValue: "Replace the system indicators"))
+                    }
+                    .toggleStyle(.switch)
+                    .disabled(!core.suppressionAvailable)
+                    .onChange(of: suppressesNativeOSD) { _, new in core.setNativeOSDSuppression(new) }
 
-            // The house rule, the same one the Indicators tab follows: the fix sits
-            // BESIDE the control it unblocks, never in its place. Without it this
-            // step showed a dead switch and a sentence naming a permission, to a
-            // person whose only way to grant it was to walk back a step.
-            if !core.permissionMonitor.isGranted {
-                Button(String(
-                    localized: "settings.permissions.grant",
-                    defaultValue: "Grant Accessibility Access…"
-                )) {
-                    core.requestAccessibilityAccess()
+                    // The house rule, the same one the Indicators tab follows: the fix
+                    // sits by the control it unblocks, never in its place — under it,
+                    // since beside it the row outgrows the window in Portuguese.
+                    if !core.permissionMonitor.isGranted {
+                        Button(String(
+                            localized: "settings.permissions.grant",
+                            defaultValue: "Grant Accessibility Access…"
+                        )) {
+                            core.requestAccessibilityAccess()
+                        }
+                    }
                 }
-            }
 
-            VStack(spacing: 6) {
-                Text(String(
-                    localized: "settings.hud.suppress.footer",
-                    defaultValue: "Hides the system volume and brightness indicators and shows Crema’s instead."
-                ))
-                Text(String(
-                    localized: "settings.hud.suppress.footer.brightnessScope",
-                    // swiftlint:disable:next line_length - one line, so check-catalog.py reads the defaultValue
-                    defaultValue: "Screen brightness is replaced only on the built-in display, while the pointer is on it — a key aimed at any other display is left to the system."
-                ))
-                // Split for the reason the Indicators tab states it: the joint gate
-                // told someone who HAD granted Accessibility that the grant was
-                // missing, which is an accusation rather than a diagnosis. The
-                // second branch is the honest sentence for a Mac with nothing to
-                // engage.
-                if !core.permissionMonitor.isGranted {
-                    Text(String(
-                        localized: "settings.hud.suppress.needsPermission",
-                        defaultValue: "Needs Accessibility access — until then the system’s own indicators stay."
-                    ))
-                    .foregroundStyle(.orange)
-                } else if core.osdSuppressor == nil {
-                    Text(String(
-                        localized: "settings.hud.suppress.unavailable",
-                        defaultValue: "System indicator replacement isn’t available on this Mac."
-                    ))
-                    .foregroundStyle(.orange)
-                }
+                SuppressionNotes(core: core, alignment: .center)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-        }
-        .multilineTextAlignment(.center)
+        )
     }
 
-    /// The same rule the Indicators tab reads: the opt-in can be persisted with
-    /// nothing to engage, so the switch is offered only where it would take
-    /// effect.
-    private var canSuppress: Bool {
-        core.permissionMonitor.isGranted && core.osdSuppressor != nil
-    }
-
-    /// Last, where a person has seen what they would be keeping. The toggle is a
-    /// view onto the real registration — a custom binding, copied from the General
-    /// tab, that reflects the status the attempt returns: a failed one snaps back
-    /// and a pending approval stays on with the note beneath it.
+    /// Last, where a person has seen what they would be keeping. The toggle is
+    /// the General tab's own (`LaunchAtLoginToggle`): a failed attempt snaps back
+    /// and a pending approval stays on with the note beneath it. The arrow at the
+    /// real icon is AppCore's, shown for this step.
     private var finishStep: some View {
-        VStack(spacing: 14) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 40))
-                .foregroundStyle(.green)
-            Text(String(localized: "tour.step.finish.title", defaultValue: "You’re set"))
-                .font(.title3.bold())
-
-            Toggle(isOn: Binding(
-                get: { launchesAtLogin },
-                set: { wanted in
-                    (launchesAtLogin, loginNeedsApproval) = core.setLaunchesAtLogin(wanted)
-                }
-            )) {
-                Text(String(localized: "settings.general.launchAtLogin", defaultValue: "Open Crema at login"))
-            }
-            .toggleStyle(.switch)
-
-            if loginNeedsApproval {
-                // No written path, and a button instead — the tour's own rule
-                // (the-tour-configures-instead-of-pointing): macOS 15 renamed
-                // the pane to "Login Items & Extensions" and the app supports
-                // 14+, so any written path is wrong on one of them.
+        TourStepLayout(
+            title: String(localized: "tour.step.finish.title", defaultValue: "You’re set"),
+            hero: {
+                // The menu bar, pointed at: the app has no Dock tile and no window
+                // of its own, so "where is it" is the question this step owes an
+                // answer to — and the arrow on the real screen gives it.
+                Image(systemName: "menubar.arrow.up.rectangle")
+                    .font(.system(size: 72, weight: .light))
+                    .foregroundStyle(.tint)
+                    .accessibilityHidden(true)
+            },
+            content: {
+                // The menu bar is the whole answer, with no Command-Comma beside it:
+                // a key equivalent belongs to the active app, and this one has no
+                // Dock tile and no window to become active by — so the shortcut
+                // fires only while the menu is already open. And words rather than
+                // a Settings button: nothing outside the Settings scene can open
+                // that window (docs/DECISIONS.md: the-tour-configures-instead-of-pointing).
                 Text(String(
-                    localized: "settings.general.launchAtLogin.needsApproval",
-                    defaultValue: "Approve Crema in System Settings to finish enabling this."
+                    localized: "tour.step.finish.body",
+                    defaultValue: "Crema lives in the menu bar, with no Dock icon. Its menu has Settings, and this tour if you want to see it again."
                 ))
-                .font(.footnote)
-                .foregroundStyle(.orange)
-                Button(String(
-                    localized: "settings.general.launchAtLogin.openSettings",
-                    defaultValue: "Open Login Items Settings…"
-                )) {
-                    core.openLoginItemsSettings()
-                }
-                .buttonStyle(.link)
-                .font(.footnote)
-            }
+                .foregroundStyle(.secondary)
 
-            // Where everything in this window lives afterwards, said in words rather
-            // than offered as a button: nothing outside the Settings scene can open
-            // that window — an accessory app has no supported call for it, so a
-            // button here would be one that does nothing
-            // (docs/DECISIONS.md: the-tour-configures-instead-of-pointing).
-            //
-            // The menu bar is the whole answer, with no Command-Comma beside it: a key
-            // equivalent belongs to the active app, and this one has no Dock tile and
-            // no window to become active by — so the shortcut fires only while the
-            // menu is already open.
-            Text(String(
-                localized: "tour.step.finish.body",
-                defaultValue: "Crema lives in the menu bar — its icon opens the menu, and Settings is there too."
-            ))
-            .font(.callout)
-            .foregroundStyle(.secondary)
-        }
-        .multilineTextAlignment(.center)
+                LaunchAtLoginToggle(core: core, isOn: $launchesAtLogin, needsApproval: $loginNeedsApproval)
+                    .toggleStyle(.switch)
+
+                if loginNeedsApproval {
+                    // No written path, and a button instead — the tour's own rule
+                    // (the-tour-configures-instead-of-pointing): macOS 15 renamed
+                    // the pane to "Login Items & Extensions" and the app supports
+                    // 14+, so any written path is wrong on one of them.
+                    Text(String(
+                        localized: "settings.general.launchAtLogin.needsApproval",
+                        defaultValue: "Approve Crema in System Settings to finish enabling this."
+                    ))
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+                    Button(String(
+                        localized: "settings.general.launchAtLogin.openSettings",
+                        defaultValue: "Open Login Items Settings…"
+                    )) {
+                        core.openLoginItemsSettings()
+                    }
+                    .buttonStyle(.link)
+                    .font(.footnote)
+                }
+            }
+        )
     }
 
-    /// One size for the window, and the margin its content breathes in. Fixed
-    /// rather than derived: the steps differ in height and the tallest (the style
-    /// picker's three tiles) sets the floor, so a size that followed the content
-    /// would resize the window on every step change.
+    /// One size for the window, and the margins its content breathes in. Fixed
+    /// rather than derived: the steps differ in height and the tallest (the key
+    /// test's switch and its notes) sets the floor, so a size that followed the
+    /// content would resize the window on every step change.
     private enum Layout {
-        static let width: CGFloat = 460
-        static let height: CGFloat = 420
-        static let margin: CGFloat = 28
+        static let width: CGFloat = 560
+        static let height: CGFloat = 520
+        static let margin: CGFloat = 36
+        /// Air under the title bar: SwiftUI already keeps the content clear of
+        /// it (the window's safe area), so this is spacing and nothing more.
+        static let top: CGFloat = 12
     }
 }

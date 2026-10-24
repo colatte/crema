@@ -84,12 +84,12 @@ struct CoordinatorTimerTests {
     }
 
     @Test func revertAfterPointerExitRestoresTheHeldNowPlayingExpanded() async {
-        // With the hold (docs/DECISIONS.md: hud-capsule-track) the revert can
-        // no longer fire while the pointer rests on the HUD — it restarts on
+        // With the hold (docs/DECISIONS.md: hud-capsule-track) the revert
+        // cannot fire while the pointer rests on the HUD — it restarts on
         // pointer exit. Entering through the intent path keeps `isHovering`
         // committed while the exit debounce is pending, so a revert firing in
-        // that window still restores the now-playing EXPANDED — the corner the
-        // old always-armed revert pinned directly.
+        // that window still restores the now-playing EXPANDED — the corner an
+        // always-armed revert would pin directly.
         let h = CoordinatorHarness()
         let track = CoordinatorHarness.playingTrack()
         h.nowPlayingSource.emit(track)
@@ -101,8 +101,10 @@ struct CoordinatorTimerTests {
 
         h.hudSource.emit(SystemHUD(kind: .volume, value: 0.5))
         #expect(await eventually { h.coordinator.state == .hud(SystemHUD(kind: .volume, value: 0.5)) })
-        // Held: the pointer is inside, so no revert timer is parked.
-        #expect(h.clock.pendingSleeps == 0)
+        // Held: the pointer is inside, so no revert timer is parked. A timer
+        // parks from a task of its own, ordered after nothing a test can await,
+        // so the denial gets the short wall-clock window.
+        #expect(await !footprintAppears { h.clock.pendingSleeps > 0 })
 
         h.coordinator.hoverIntent(false)
         await h.clock.waitForSleep(delay: Coordinator.defaultHUDRevertDelay)

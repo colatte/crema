@@ -17,19 +17,20 @@ struct WindowManagerTests {
 
     @MainActor
     final class Harness {
-        let base = CoordinatorHarness()
+        let base: CoordinatorHarness
         private let store = EphemeralDefaults()
         let preferences: Preferences
         let recorder = PanelRecorder()
         let manager: WindowManager
 
-        init() {
+        init(withExternalBrightness: Bool = false) {
+            base = CoordinatorHarness(withExternalBrightness: withExternalBrightness)
             preferences = Preferences(defaults: store.defaults)
             manager = WindowManager(
                 coordinator: base.coordinator,
                 preferences: preferences
-            ) { [recorder] screen, style, _ in
-                recorder.make(screen, style)
+            ) { [recorder] screen, surface, _ in
+                recorder.make(screen, surface)
             }
             manager.start()
         }
@@ -117,9 +118,9 @@ struct WindowManagerTests {
 
     /// Retirement ORDER: a panel leaves the roster BEFORE it is closed, so a
     /// frame pass re-entered by the close itself cannot apply to the closed
-    /// panel — all three retirement paths (disconnect, geometry/style rebuild,
-    /// refreshStyles) route through the same seam, so pinning the order once
-    /// covers them (docs/DECISIONS.md: a-panel-leaves-the-roster-before-it-closes).
+    /// panel. Two seams close panels — a display that leaves, here, and a display
+    /// that stays but changes what it draws, in CardHUDPanelTests — so each is
+    /// pinned (docs/DECISIONS.md: a-panel-leaves-the-roster-before-it-closes).
     @Test func aRetiredPanelReceivesNothingFromThePassItsCloseReenters() {
         let base = CoordinatorHarness()
         let store = EphemeralDefaults()
@@ -210,10 +211,10 @@ struct WindowManagerTests {
     }
 
     @Test func aDisplayConnectedLaterAdoptsTheDeclaredStyle() {
-        // The hotplug the all-displays picker used to miss: only the displays
-        // attached at pick time got a key, so a monitor plugged in afterwards
-        // fell to the shipped default (notch → card on a slitless panel) while
-        // Settings promised "Applies to every display".
+        // The hotplug an all-displays picker misses when it keys only the
+        // displays attached at pick time: a monitor plugged in afterwards falls
+        // to the shipped default (notch → card on a slitless panel) while
+        // Settings promises "Changes every display at once."
         // (docs/DECISIONS.md: global-style-default)
         let h = Harness()
         let a = Self.screen("A")
@@ -229,7 +230,7 @@ struct WindowManagerTests {
     }
 
     @Test func twoScreensOnOneUUIDCostAPanelAndNotTheProcess() {
-        // Reconciliation used to index the roster with
+        // Reconciliation must not index the roster with
         // `Dictionary(uniqueKeysWithValues:)`, whose "no duplicate keys" is a
         // PRECONDITION — a trap, not an error. That runs at every hotplug and
         // reconfiguration, the one place this app owes graceful degradation, so a
@@ -344,6 +345,25 @@ struct WindowManagerTests {
         #expect(h.manager.renders(.card))
     }
 
+    /// Settings names the displays the Card indicator reaches, so the answer has to
+    /// be per display and has to move with a per-display override: an ANY would
+    /// name every display, and a stale set would name one that stopped drawing Card.
+    @Test func displaysRenderingNamesEachDisplayByWhatItDraws() {
+        let h = Harness()
+        let laptop = Self.notchedScreen("N")
+        let monitor = Self.screen("EXT", isInternal: false, frame: CGRect(x: 1512, y: 0, width: 1920, height: 1080))
+        h.manager.updateScreens([laptop, monitor])
+
+        #expect(h.manager.displays(rendering: .card) == [monitor.id])
+        #expect(h.manager.displays(rendering: .notch) == [laptop.id])
+
+        h.preferences.setStyle(.classic, for: monitor.id)
+        h.manager.refreshStyles()
+
+        #expect(h.manager.displays(rendering: .card).isEmpty)
+        #expect(h.manager.displays(rendering: .classic) == [monitor.id])
+    }
+
     @Test func safeTopChangeOnAKeptDisplayRebuildsThePanel() {
         let h = Harness()
         let notched = Self.notchedScreen("N")   // safeTop 32
@@ -380,6 +400,27 @@ struct WindowManagerTests {
 
         #expect(firstPanel?.closed == true)
         #expect(h.recorder.created.count == 2)
+    }
+
+    @Test func aDockChangeRebuildsOnlyThePanelThatReadsTheDock() throws {
+        // A Dock shown along the bottom moves a bottom-placed Card HUD up, so that
+        // panel is rebuilt; the card's own panel captured nothing from the Dock and
+        // is kept, hover and all.
+        let h = Harness()
+        h.preferences.hudPlacement = .bottomLeft
+        let a = Self.screen("A", isInternal: false)
+        h.manager.updateScreens([a])
+        let card = try #require(h.recorder.panel(for: a.id))
+        let hud = try #require(h.recorder.hudPanel(for: a.id))
+
+        var docked = a.geometry
+        docked.dockBottom = 90
+        h.manager.updateScreens([ScreenDescription(id: a.id, name: a.name, geometry: docked, isInternal: false)])
+
+        #expect(h.recorder.panel(for: a.id) === card)
+        #expect(!card.closed)
+        #expect(hud.closed)
+        #expect(h.recorder.hudPanel(for: a.id) !== hud)
     }
 
     /// The other side of the two rebuild tests above, and the reason the rebuild
@@ -419,10 +460,14 @@ struct WindowManagerTests {
 
     /// Panel double that commits a hover from inside its first armed apply —
     /// exactly what arming a real hover monitor does when the cursor is already
-    /// inside the region (setActive → sample → report → hover).
+    /// inside the region (setActive → sample → report → hover). It also records
+    /// whether an apply ever began while another was still running on it: the
+    /// frame-pass guard's contract.
     @MainActor
     private final class HoverCommittingPanel: PresentationPanel {
         private(set) var appliedFrames: [CGRect] = []
+        private(set) var wasReentered = false
+        private var applying = false
         var onFirstArmedApply: (() -> Void)?
 
         // swiftlint:disable:next function_parameter_count
@@ -435,6 +480,9 @@ struct WindowManagerTests {
             hudIndicatorStyle: HUDIndicatorStyle,
             invokeZone: CGRect?
         ) {
+            if applying { wasReentered = true }
+            applying = true
+            defer { applying = false }
             appliedFrames.append(frame)
             if hoverArmed, let fire = onFirstArmedApply {
                 onFirstArmedApply = nil
@@ -445,16 +493,14 @@ struct WindowManagerTests {
         func close() {}
     }
 
-    /// The guard's actual contract, which needs a SECOND display to be visible.
-    ///
-    /// With one panel the two behaviours converge — deferred or nested, the last
-    /// frame that panel receives is the fresh one — which is why the test below
-    /// stayed green against a mutation removing the guard entirely. With two, a
-    /// nested pass runs to completion in the middle of the outer one, and the
-    /// outer loop then hands its remaining panels the frame it computed BEFORE
-    /// the state changed: the second display is left holding a stale silhouette
-    /// until something else happens to trigger another pass.
-    @Test func aNestedPassNeverLeavesASecondDisplayHoldingTheOldFrame() async {
+    /// The frame-pass guard's contract: a state write made from inside a panel's
+    /// apply defers the next pass instead of running it there, so no panel's apply
+    /// is entered again while it is still running — a real panel mid-apply is
+    /// arming its hover monitors. The final frames are not the witness: each
+    /// panel's frame is read from the live layers, so every display ends on the
+    /// fresh state with or without the guard (removing it entirely leaves the
+    /// frame assertions green, measured); `wasReentered` is what fails.
+    @Test func aNestedStateWriteNeverReentersAPanelAndEveryDisplayEndsFresh() async {
         let base = CoordinatorHarness()
         let store = EphemeralDefaults()
         let preferences = Preferences(defaults: store.defaults)
@@ -468,7 +514,7 @@ struct WindowManagerTests {
 
         let track = CoordinatorHarness.playingTrack()
         base.nowPlayingSource.emit(track)
-        _ = await eventually { base.coordinator.state == .nowPlaying(track, expanded: false) }
+        #expect(await eventually { base.coordinator.state == .nowPlaying(track, expanded: false) })
 
         let a = Self.screen("A")
         let b = Self.screen("B", frame: CGRect(x: 2000, y: 0, width: 1200, height: 800))
@@ -477,7 +523,7 @@ struct WindowManagerTests {
 
         // Whichever panel the roster reaches first commits the hover mid-apply.
         for panel in panels {
-            panel.onFirstArmedApply = { [coordinator = base.coordinator] in coordinator.hover(true) }
+            panel.onFirstArmedApply = { [coordinator = base.coordinator] in coordinator.hover(true, on: .both) }
         }
         manager.refreshPresentation()
 
@@ -495,13 +541,13 @@ struct WindowManagerTests {
         ]
         #expect(landed.count == 2)
         #expect(wanted.allSatisfy(landed.contains))
+        #expect(panels.allSatisfy { !$0.wasReentered })
     }
 
     @Test func aNestedHoverCommitDuringAFramePassConvergesOnTheFreshState() async {
-        // Every frame pass must go through the re-entrancy guard: a nested
-        // state write (here, the hover committed mid-apply) defers, and the
-        // final pass runs with the final state — two passes never interleave,
-        // and no panel is left holding a stale pre-write frame.
+        // The guard on the screen-update path, the pass a hotplug runs: the hover
+        // committed mid-apply defers the next pass, so the panel is never
+        // re-entered, and it ends on the final state.
         let base = CoordinatorHarness()
         let store = EphemeralDefaults()
         let preferences = Preferences(defaults: store.defaults)
@@ -511,17 +557,17 @@ struct WindowManagerTests {
 
         let track = CoordinatorHarness.playingTrack()
         base.nowPlayingSource.emit(track)
-        _ = await eventually { base.coordinator.state == .nowPlaying(track, expanded: false) }
+        #expect(await eventually { base.coordinator.state == .nowPlaying(track, expanded: false) })
 
         panel.onFirstArmedApply = { [coordinator = base.coordinator] in
-            coordinator.hover(true)
+            coordinator.hover(true, on: .both)
         }
-        // updateScreens is one of the passes that used to bypass the guard.
         manager.updateScreens([Self.screen("A")])
 
         #expect(base.coordinator.state == .nowPlaying(track, expanded: true))
         let geometry = Self.screen("A").geometry
         #expect(panel.appliedFrames.last == Style.card.frame(for: .nowPlaying(track, expanded: true), on: geometry))
+        #expect(!panel.wasReentered)
     }
 
     @Test func stateChangeAppliesFramesInTheSameCallout() async throws {
@@ -530,7 +576,7 @@ struct WindowManagerTests {
         h.manager.updateScreens([a])
         let track = CoordinatorHarness.playingTrack()
         h.base.nowPlayingSource.emit(track)
-        _ = await eventually { h.base.coordinator.state == .nowPlaying(track, expanded: false) }
+        #expect(await eventually { h.base.coordinator.state == .nowPlaying(track, expanded: false) })
         let panel = try #require(h.recorder.panel(for: a.id))
         let before = panel.appliedFrames.count
 
@@ -538,7 +584,7 @@ struct WindowManagerTests {
         // must track the state in the same callout as the write — an async hop
         // would leave a beat where the visible surface and the routed region
         // disagree. No awaits between the intent and the assertions.
-        h.base.coordinator.hover(true)
+        h.base.coordinator.hover(true, on: .both)
 
         let applied = panel.appliedFrames
         #expect(applied.count > before)
@@ -558,7 +604,7 @@ struct WindowManagerTests {
         #expect(h.recorder.panel(for: internalScreen.id)?.invokeZones.last == CGRect?.none)
 
         h.base.nowPlayingSource.emit(CoordinatorHarness.playingTrack())
-        _ = await eventually { h.base.coordinator.state != .hidden }
+        #expect(await eventually { h.base.coordinator.state != .hidden })
 
         // Visible appearance: hover arms on the internal display (now-playing
         // on); no invoke zone while something is on screen. The external
@@ -572,7 +618,7 @@ struct WindowManagerTests {
         // click-invoke zone takes over: the notch's slit rect.
         await h.base.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
         h.base.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
-        _ = await eventually { h.base.coordinator.state == .hidden }
+        #expect(await eventually { h.base.coordinator.state == .hidden })
         #expect(await eventually { h.recorder.panel(for: internalScreen.id)?.hoverArmedStates.last == false })
         #expect(
             h.recorder.panel(for: internalScreen.id)?.invokeZones.last
@@ -591,10 +637,10 @@ struct WindowManagerTests {
         h.manager.updateScreens([a])
 
         h.base.nowPlayingSource.emit(CoordinatorHarness.playingTrack())
-        _ = await eventually { h.base.coordinator.state != .hidden }
+        #expect(await eventually { h.base.coordinator.state != .hidden })
         await h.base.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
         h.base.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
-        _ = await eventually { h.base.coordinator.state == .hidden }
+        #expect(await eventually { h.base.coordinator.state == .hidden })
 
         #expect(h.base.coordinator.mediaActive)
         #expect(h.recorder.panel(for: a.id)?.invokeZones.last == CGRect?.none)
@@ -604,8 +650,8 @@ struct WindowManagerTests {
         // The "show now playing here" term of the invoke-zone condition, and it
         // needs a NOTCHED display to be visible at all: every other case that
         // reaches the condition runs on a slitless panel, where the resolved card
-        // has no zone whatever the preference says — so dropping the term left
-        // the suite green. The claim: a display the user muted must not capture
+        // has no zone whatever the preference says — so dropping the term leaves
+        // every other test green. The claim: a display the user muted must not capture
         // the click, because invoking would surface an appearance that this
         // panel then suppresses — a click swallowed for nothing.
         let h = Harness()
@@ -614,10 +660,10 @@ struct WindowManagerTests {
         h.manager.updateScreens([n])
 
         h.base.nowPlayingSource.emit(CoordinatorHarness.playingTrack())
-        _ = await eventually { h.base.coordinator.state != .hidden }
+        #expect(await eventually { h.base.coordinator.state != .hidden })
         await h.base.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
         h.base.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
-        _ = await eventually { h.base.coordinator.state == .hidden }
+        #expect(await eventually { h.base.coordinator.state == .hidden })
 
         // Media playing and nothing on screen: the two conditions the honored
         // case shares with this one, so only the preference is under test.
@@ -637,7 +683,7 @@ struct WindowManagerTests {
         let a = Self.screen("A", isInternal: true)
         h.manager.updateScreens([a])
         h.base.nowPlayingSource.emit(CoordinatorHarness.playingTrack())
-        _ = await eventually { h.base.coordinator.state != .hidden }
+        #expect(await eventually { h.base.coordinator.state != .hidden })
 
         // Paused: media inactive, but the appearance is on screen for its
         // linger — hover must still be able to hold it.
@@ -647,8 +693,7 @@ struct WindowManagerTests {
         #expect(h.recorder.panel(for: a.id)?.hoverArmedStates.last == true)
 
         // Tucked with media paused: disarmed, and no invoke zone either —
-        // paused media is not click-invokable (same rule as the old
-        // paused-resurface decision).
+        // paused media is not click-invokable.
         await h.base.clock.waitForSleep(delay: Coordinator.defaultNowPlayingLinger)
         h.base.clock.advance(delay: Coordinator.defaultNowPlayingLinger)
         #expect(await eventually { h.base.coordinator.state == .hidden })
@@ -658,14 +703,14 @@ struct WindowManagerTests {
 
     @Test func showsNowPlayingPolicyReachesEachPanel() async {
         // The fixed window never orders out, so per-display suppression happens
-        // in the view via this flag — the frame alone no longer hides anything.
+        // in the view via this flag — the frame alone hides nothing.
         let h = Harness()
         let internalScreen = Self.screen("A", isInternal: true)
         let externalScreen = Self.screen("B", isInternal: false, frame: CGRect(x: 1000, y: 0, width: 1200, height: 800))
         h.manager.updateScreens([internalScreen, externalScreen])
 
         h.base.nowPlayingSource.emit(CoordinatorHarness.playingTrack())
-        _ = await eventually { h.base.coordinator.state != .hidden }
+        #expect(await eventually { h.base.coordinator.state != .hidden })
 
         #expect(await eventually { h.recorder.panel(for: internalScreen.id)?.showsNowPlayingStates.last == true })
         #expect(h.recorder.panel(for: externalScreen.id)?.showsNowPlayingStates.last == false)
@@ -708,7 +753,7 @@ struct WindowManagerTests {
 
         let track = CoordinatorHarness.playingTrack()
         h.base.nowPlayingSource.emit(track)
-        _ = await eventually { h.base.coordinator.state != .hidden }
+        #expect(await eventually { h.base.coordinator.state != .hidden })
 
         let state = PresentationState.nowPlaying(track, expanded: false)
         #expect(await eventually {

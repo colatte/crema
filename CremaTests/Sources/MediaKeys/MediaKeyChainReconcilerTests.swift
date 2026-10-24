@@ -141,6 +141,36 @@ struct MediaKeyChainSeamTests {
         #expect(notice(registry) == .anotherAppAhead("Some Other App"))
     }
 
+    @Test func losingThePositionIsNamedAndNeverFoughtFor() async {
+        // Contention "stops": the app names who is ahead and does not try to get
+        // back in front. Nothing joins the chain reading to the tap — the seam
+        // above takes a registry and no tap — so the one path that could
+        // out-insert a neighbour is the tap's own self-repair, the health poll.
+        // Losing the position leaves our port valid and enabled, and on such a
+        // port the poll must reinstall nothing, tick after tick
+        // (docs/DECISIONS.md: media-key-chain-contention).
+        let registry = MockEventTapRegistry(
+            taps: [.contender(pid: 200), .contender(pid: 100)],
+            names: [200: "Some Other App"],
+            bundleIDs: [200: "com.example.other"]
+        )
+        #expect(notice(registry) == .anotherAppAhead("Some Other App"))
+
+        let ops = FakeEventTapOperating()
+        let clock = TestSleepClock()
+        let source = CGEventTapMediaKeySource(
+            permission: MockAccessibilityPermission(granted: true), clock: clock, tapOps: ops
+        )
+        for _ in 0..<5 {
+            await clock.waitForSleep()   // the previous tick ran and re-parked
+            clock.advance()
+        }
+        await clock.waitForSleep()
+        #expect(ops.installCount == 1)
+        #expect(ops.isInstalled)
+        withExtendedLifetime(source) {}
+    }
+
     @Test func anUnnamedContenderIsNotAccused() {
         // A daemon with no localized name would surface as a blank or a bare pid;
         // silence beats an accusation the user cannot act on.
@@ -179,6 +209,19 @@ struct MediaKeyChainSeamTests {
         #expect(notice(registry, betterDisplayIsFeedingUs: true) == .drawingFromBetterDisplay)
     }
 
+    @Test func aDispatchCremaTurnedOnAndReadBackSilencesTheAdvice() {
+        // The actionable line asks for the one setting the handoff already set and
+        // read back; until the neighbour's first report it would be advice already
+        // followed. Every other reading passes through untouched.
+        #expect(AppCore.mediaKeyChainNotice(.betterDisplayAheadAndSilent, betterDisplayDispatches: true)
+            == .drawingFromBetterDisplay)
+        #expect(AppCore.mediaKeyChainNotice(.betterDisplayAheadAndSilent, betterDisplayDispatches: false)
+            == .betterDisplayAheadAndSilent)
+        #expect(AppCore.mediaKeyChainNotice(.quiet, betterDisplayDispatches: true) == .quiet)
+        #expect(AppCore.mediaKeyChainNotice(.anotherAppAhead("Other"), betterDisplayDispatches: true)
+            == .anotherAppAhead("Other"))
+    }
+
     @Test func aDeliveredPayloadOutranksTheChainReading() {
         // Even with nobody ahead of us: if the neighbour is reporting, that is
         // where the brightness bar comes from, and the menu says so.
@@ -188,8 +231,8 @@ struct MediaKeyChainSeamTests {
 }
 
 /// Two ways a neighbour listed ahead of us is innocent by the DOCUMENTED
-/// pipeline, not by position — both of which the registry used to discard, so
-/// both produced a false accusation against a named app.
+/// pipeline, not by position — both of which a registry that discards them
+/// turns into a false accusation against a named app.
 ///
 /// This decision errs toward silence on purpose (`media-key-chain-contention`):
 /// a missing line costs a diagnostic, a false line accuses somebody.
@@ -208,8 +251,8 @@ struct MediaKeyChainInnocenceTests {
     @Test func anAnnotatedSessionTapIsBehindUsWhereverItIsLISTED() {
         // CGEventTapLocation is an ordered pipeline — HID, session, annotated
         // session (CGEventTypes.h) — so this one receives AFTER our session tap
-        // no matter what index the registry hands it back at. It was being named
-        // purely for being listed first.
+        // no matter what index the registry hands it back at. Naming it purely
+        // for being listed first is a false accusation.
         let downstream = EventTapEntry.contender(pid: them, atAnnotatedSessionLocation: true)
         #expect(chain([downstream, .contender(pid: us)]) == .ours)
     }

@@ -10,8 +10,9 @@ import Testing
 /// RUNS, and produces a wrong-but-plausible app rather than a crash or a type
 /// error. The rest are recorded as an accepted gap in AGENTS.md.
 ///
-/// The sibling suite AppCoreHandbackWiringTests measured the whole class: deleting
-/// one arm of the hand-back switch left all 900-odd tests green.
+/// The sibling suite AppCoreHandbackWiringTests pins the whole class: deleting one
+/// arm of the hand-back switch, measured over 900-odd tests, leaves every other
+/// test green.
 @MainActor
 struct AppCoreWiringSeamTests {
 
@@ -77,7 +78,7 @@ struct AppCoreWiringSeamTests {
 
     @Test func theMenuMirrorFollowsTheSuppressorInBothDirections() {
         // This closure is the only path from an escalation to the user: the menu's
-        // warning and its "try to reactivate now" button both hang off what the
+        // warning and its "Try Again" button both hang off what the
         // monitor holds. Frozen empty, the user's keys go quietly back to the
         // system while the menu reports health and the repair button never
         // appears; frozen full, a healed domain leaves a permanent false warning.
@@ -136,7 +137,14 @@ struct AppCoreWiringSeamTests {
         // Volume never routes here — Core Audio echoes itself.
         coordinator.onBrightnessApplied?(SystemHUD(kind: .volume, value: 0.4))
         #expect(taken == Pokes(screen: 1, keyboard: 1, volume: 0))
-        #expect(seen.all.count == 1)
+        // The neighbour's stream reaches `seen` a hop later, so a stray echo above
+        // would still be on its way. A sentinel sent down that one ordered stream
+        // is the barrier: once it lands, everything ahead of it has.
+        coordinator.onBrightnessApplied?(
+            SystemHUD(kind: .screenBrightness, value: 0.7, authority: .betterDisplay)
+        )
+        #expect(await eventually { seen.all.last?.value == 0.7 })
+        #expect(seen.all.map(\.value) == [0.4, 0.7])
 
         task.cancel()
     }

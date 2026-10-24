@@ -29,9 +29,10 @@ enum VolumeConversion {
     /// default output device's, so no screen owns it and its bar belongs on every
     /// panel — and the actuator refuses a named display outright, which makes this
     /// a contract of actuation and not only of presentation
-    /// (docs/DECISIONS.md: hud-target-is-a-role).
-    static func hud(rawVolume: Float, isMuted: Bool) -> SystemHUD {
-        SystemHUD(kind: .volume, value: normalize(rawVolume), isMuted: isMuted)
+    /// (docs/DECISIONS.md: hud-target-is-a-role). The route is whatever the
+    /// source read for the device the level belongs to.
+    static func hud(rawVolume: Float, isMuted: Bool, route: AudioOutputRoute?) -> SystemHUD {
+        SystemHUD(kind: .volume, value: normalize(rawVolume), isMuted: isMuted, route: route)
     }
 
     /// The HUD a consumed volume key owes at a scale boundary. Contract: a
@@ -40,9 +41,9 @@ enum VolumeConversion {
     /// source re-reads and emits here to reproduce native's full/empty-bar
     /// flash. Nil off the boundary — mid-scale the write moves the value and the
     /// echo already covers it, so emitting would double-fire.
-    static func boundaryRefreshHUD(rawVolume: Float, isMuted: Bool) -> SystemHUD? {
+    static func boundaryRefreshHUD(rawVolume: Float, isMuted: Bool, route: AudioOutputRoute?) -> SystemHUD? {
         let value = normalize(rawVolume)
         guard value == minValue || value == maxValue else { return nil }
-        return SystemHUD(kind: .volume, value: value, isMuted: isMuted)
+        return SystemHUD(kind: .volume, value: value, isMuted: isMuted, route: route)
     }
 }

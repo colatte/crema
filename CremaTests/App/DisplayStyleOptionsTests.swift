@@ -5,12 +5,8 @@ import Testing
 /// One display's style control, decided before any chrome exists: what the list
 /// offers, what it reads back, and what a pick is allowed to write.
 ///
-/// The refusal is pinned HERE and nowhere else on purpose. Measured on macOS
-/// 26.5.2 (`scripts/probes/picker-option-disabled.swift`): a SwiftUI `Picker` in
-/// `.menu` style DISCARDS `.disabled` on its options — the marked item read back
-/// `isEnabled == true` against an `NSPopUpButton` control reading `false` — so no
-/// popup can be the thing that stops a pick this screen cannot draw. The chrome
-/// dims; this type decides.
+/// The refusal is pinned HERE and nowhere else on purpose: the chrome dims, this
+/// type decides (docs/DECISIONS.md: the-chrome-is-not-the-guarantee).
 struct DisplayStyleOptionsTests {
     /// A panel with no slit: the Mac mini, the external monitor, the clamshell.
     private let notchless = ScreenGeometry(frame: CGRect(x: 0, y: 0, width: 1920, height: 1080))
@@ -80,9 +76,11 @@ struct DisplayStyleOptionsTests {
     }
 
     @Test func aPickThisScreenCannotDrawIsRefusedRatherThanWritten() {
-        // Kills: write answering .override for every style. This is the guarantee
-        // the popup was measured unable to keep — a `.menu` Picker hands its options
-        // out enabled whatever `.disabled` says — so the store is protected here.
+        // Kills: write answering .override for every style. The chrome is no
+        // guarantee — a `.menu` Picker hands its options out enabled whatever
+        // `.disabled` says, and the custom Menu that honours it is still chrome
+        // (docs/DECISIONS.md: the-chrome-is-not-the-guarantee) — so the store is
+        // protected here.
         let slitless = options(declared: "card", on: notchless)
         #expect(slitless.write(for: .notch) == .refused)
         #expect(slitless.write(for: .card) == .override(.card))
@@ -125,19 +123,20 @@ struct DisplayStyleOptionsTests {
         #expect(legacy.items.contains(DisplayStyleOptions.Item(choice: .notch, isEnabled: false)))
     }
 
-    @Test func theNoNotchFootnoteFollowsTheStyleInForceAndNotThePresenceOfAnOverride() {
-        // Kills: the footnote gated on the override EXISTING. That gate goes silent
-        // on the common case — a display inheriting a Notch declaration it cannot
-        // draw, which is the shipped default on notchless hardware — and speaks up
-        // where an override already says Card, explaining a fallback that is not
-        // happening.
-        #expect(options(declared: "notch", on: notchless).footnotes == [.noNotch])
-        #expect(options(override: "notch", declared: "card", on: notchless).footnotes == [.noNotch])
-        // An override that IS drawn silences it, under a declaration that is not.
-        #expect(options(override: "card", declared: "notch", on: notchless).footnotes.isEmpty)
-        // And the slit makes the sentence untrue either way.
-        #expect(options(declared: "notch", on: notched).footnotes.isEmpty)
-        #expect(options(override: "notch", declared: "card", on: notched).footnotes.isEmpty)
+    @Test func theCaptionNamesTheDrawnStyleFollowingTheStyleInForce() {
+        // Kills: the caption naming the CHOSEN style, which is the contradiction it
+        // exists to end — "Notch" under the name of a screen drawing Card. And kills
+        // a fallback gated on the override EXISTING: that gate misses the common
+        // case, a display inheriting a Notch declaration it cannot draw, which is the
+        // shipped default on notchless hardware.
+        #expect(options(declared: "notch", on: notchless).caption == .drawingWithoutNotch(.card))
+        #expect(options(override: "notch", declared: "card", on: notchless).caption == .drawingWithoutNotch(.card))
+        // An override that IS drawn is named as drawn, under a declaration that is not.
+        #expect(options(override: "card", declared: "notch", on: notchless).caption == .drawing(.card))
+        #expect(options(override: "classic", declared: "notch", on: notchless).caption == .drawing(.classic))
+        // And the slit draws the notch as chosen, inherited or not.
+        #expect(options(declared: "notch", on: notched).caption == .drawing(.notch))
+        #expect(options(override: "notch", declared: "card", on: notched).caption == .drawing(.notch))
     }
 }
 
@@ -185,8 +184,8 @@ struct DisplayStyleListOfferTests {
 
     @Test func aSoleBuiltInDisplayOffersTheListBecauseTheSurfaceStartsOnThere() {
         // Kills: the internal panel answered entirely by the all-displays section —
-        // the gate this rule shipped with, and the mirror of the bug the external
-        // clause below was written for. The style popup on a lone laptop does repeat
+        // the mirror of the bug the external clause below exists for. The style
+        // popup on a lone laptop does repeat
         // the declaration, but the row also carries the ONLY "show the player here"
         // switch in the app, and the surface is born ON here — the default is
         // literally `isInternal`, pinned in PreferencesTests — so withholding the row
@@ -207,19 +206,6 @@ struct DisplayStyleListOfferTests {
         // and neither of these carries an override to be found.
         let two = [screen("A", isInternal: true), screen("B", isInternal: false)]
         #expect(DisplayStyleOptions.listIsOffered(for: two))
-    }
-
-    @Test func aSoleDisplayThatAlreadyCarriesAnOverrideOffersTheListThatClearsIt() {
-        // A key written when more displays were attached outlives that arrangement,
-        // and this is the promise that it can still be cleared: the row exists for
-        // the display, whatever the key says — including a rawValue a future version
-        // retired, which reads as inherit and would have opened no list of its own.
-        let laptop = screen("A", isInternal: true)
-        store.defaults.set("pill", forKey: Preferences.styleKey(for: laptop.id))
-        #expect(DisplayStyleOptions.listIsOffered(for: [laptop]))
-
-        store.defaults.set(Style.classic.rawValue, forKey: Preferences.styleKey(for: laptop.id))
-        #expect(DisplayStyleOptions.listIsOffered(for: [laptop]))
     }
 
     @Test func anEmptyRosterOffersNothingAndAsksNothingOfItsFirstElement() {

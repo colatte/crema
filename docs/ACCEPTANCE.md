@@ -22,15 +22,19 @@
    declared just above it; notch→card where there is no slit — positioned and
    sized by that style. That list is offered for every connected display, a lone
    built-in panel included: its row carries the only switch for the now-playing
-   surface, so a MacBook on its own still shows the Displays section with its one
+   surface, so a MacBook on its own still shows the Each display section with its one
    row. Picking a style for one display moves only that
-   display; picking that display's "Follow all displays (…)" item returns it to
-   the declaration at once, and declaring for all displays (General's leading
-   section, or the menu bar's Style submenu) replaces every per-display style. On
+   display; picking that display's "Same as the others" item returns it to
+   the declaration at once, and declaring for all displays (General's Style
+   section, or the menu bar's "Style for All Displays" submenu) replaces every per-display style. On
    a display without a notch, Notch is offered greyed out: it cannot be picked,
    and a pick that reached the store anyway writes nothing — that display keeps
    the style it had. The per-display "Show now
    playing here" toggle is honoured live, on by default for the built-in display.
+   Each display's row shows what that display draws, in a thumbnail and a
+   caption: a notchless monitor under a Notch declaration reads "Using Card, since
+   this display has no notch", and the Card indicator below the list names it among the
+   displays drawing Card.
 5. Now playing works through mediaremote-adapter on every supported version; if
    it is unavailable, the JXA fallback takes over; if neither is available, the
    availability check disables the feature without crashing. A recovered adapter
@@ -100,10 +104,15 @@
 18. With version N installed and N+1 published in the appcast, the app offers the
     update and applies it.
 19. The first launch of a clean install opens the welcome tour (five steps;
-    the Accessibility step flips to Continue live when the grant lands and never
-    advances on its own). Finishing
-    it — or closing the window — and relaunching shows nothing: the tour runs
-    once per install. An install that already carries the Accessibility grant
+    the player shows on the real screen, a sample when nothing plays, and a
+    Mac with no built-in display is offered the switch that turns it on; the
+    Accessibility step flips to Continue live when the grant lands, comes back
+    to the front, and never advances on its own; a volume key on the key test
+    raises Crema's HUD; the last step points an arrow at the menu bar icon).
+    Finishing it — or closing the window — and relaunching shows nothing: the
+    tour runs once per install, and the menu's Welcome Tour item reopens it
+    from the first step. Closing it mid-step leaves no sample player and no
+    arrow on screen. An install that already carries the Accessibility grant
     still sees it once; the menu's "Grant Accessibility Access…" button remains
     the manual path to the standalone permission window afterwards.
 20. ~~The lock-screen card.~~ **Retired** (docs/DECISIONS.md:
@@ -113,3 +122,47 @@
     here, and it is checked by there being nothing to see.
 21. ~~The cover lookup.~~ **Retired.** Crema makes no artwork request of any
     kind.
+22. On a display drawing Card, the indicator's position is picked in General
+    from the Position pop-up — each place named beside a picture of it, the
+    three rows split by dividers — and applies at once to every display drawing
+    Card. Choosing a place shows the real volume HUD there once, at the current
+    level and without changing it, on every display drawing Card and on no
+    other, and it leaves on its own timer. At the top centre (the default) nothing changes: the HUD is the
+    card itself, morphed. Anywhere else the HUD appears there, upright in the
+    middle of a side and filling from the bottom, while the card stays at the top
+    centre, readable and controllable; the cursor on the HUD holds the HUD, on the
+    card it expands the card and leaves the HUD to its own timer; the card tucks
+    after the HUD has gone, never under it. Notch and Classic draw their HUD where
+    they always do, whatever the position.
+23. A Card HUD placed along the bottom or on a side never sits under a shown
+    Dock: with the Dock visible at the bottom it rests just above it, with the
+    Dock on a side the places on that side clear it, and with the Dock hidden a
+    bottom HUD rests near the bottom edge. Changing the Dock (hide, move, resize)
+    moves the HUD on its next appearance without the card blinking.
+24. With headphones, AirPods, AirPods Pro, AirPods Max, Beats headphones, an
+    AirPlay speaker or a display's speakers as the output, the volume HUD shows
+    that device's glyph in place of the speaker; the Mac's own speakers and any
+    device it cannot name keep the speaker, and mute shows the slashed speaker on
+    any device. Switching outputs shows nothing by itself.
+25. Over a white page, Classic stays dark and its glyph and level read clearly.
+    On macOS 26 and later the Card is glass: its HUD turns pale over the page as
+    the system's own volume indicator does, with no shadow and no dark line
+    round it; over a black page it is dark, lit along the top and bottom edges
+    and not down the sides, and over a coloured page its edge is a thin light
+    line, never a heavy ring. The player is darker glass
+    over the white page, its title and artist reading clearly. With Increase
+    Contrast on, the HUD dims over the white page too, until its glyph reads
+    clearly. The filled Card HUD's light end has a clean edge: no grey
+    line round it (docs/DECISIONS.md: surface-border-2026, the-card-is-glass).
+26. With BetterDisplay running and "Replace the system indicators" on, a
+    brightness key BetterDisplay handles shows Crema's indicator and not
+    BetterDisplay's, with nothing changed by hand in BetterDisplay. Quitting
+    Crema, or turning the switch off, brings BetterDisplay's indicator back at the
+    next press, and BetterDisplay's Settings show its switches as they were
+    before Crema ran. The same holds after Crema is force quit and opened again.
+27. A track whose title does not fit: the compact Card cuts it with an ellipsis
+    and stays narrower than the expanded player; the expanded player, in every
+    style, rests on the title's start, scrolls it through, and rests again, its
+    artist line moving with it when that does not fit either. With Reduce Motion
+    on, or in Low Power Mode, nothing scrolls and both lines end in an ellipsis
+    (docs/DECISIONS.md: a-long-title-scrolls-where-it-is-read).

@@ -48,10 +48,10 @@ struct OSDWriteHealthAxisTests {
         #expect(h.suspensionChanges == 1)
     }
 
-    /// A nil read-back is a READ failure. It used to reach the axis through
-    /// `OSDApplyVerification.verified`, which answers false for a nil `after`, so
-    /// an output blinking out between write and verify looked exactly like a dead
-    /// write — and after five of them the menu accused a channel whose write had
+    /// A nil read-back is a READ failure. Routed to the axis through
+    /// `OSDApplyVerification.verified`, which answers false for a nil `after`, an
+    /// output blinking out between write and verify looks exactly like a dead
+    /// write — and after five of them the menu accuses a channel whose write has
     /// landed every single time.
     @Test func aNilReadBackNeverEscalatesAsADeadWrite() async {
         let h = OSDSuppressorHarness()
@@ -68,10 +68,10 @@ struct OSDWriteHealthAxisTests {
         #expect(h.screen.applied.count >= Self.threshold)
     }
 
-    /// A no-op wrote nothing, so it proves nothing. Sharing the verified branch
-    /// let one press on an output that had just lost its volume control clear
+    /// A no-op writes nothing, so it proves nothing. Sharing the verified branch
+    /// lets one press on an output that has just lost its volume control clear
     /// five episodes of accumulated evidence and drop the menu warning; the next
-    /// time the device came back with the same dead write, the user had to earn
+    /// time the device comes back with the same dead write, the user has to earn
     /// the warning all over again.
     @Test func aNoOpNeverClearsAWriteDeadChannelsMenuWarning() async {
         let h = OSDSuppressorHarness()
@@ -84,20 +84,25 @@ struct OSDWriteHealthAxisTests {
         #expect(h.suppressor.longSuspendedDomains.contains(.volume))
 
         // The output loses its volume control entirely: the apply is a no-op.
+        let applies = CounterBox()
+        h.suppressor.onApplied = { [applies] _ in applies.count += 1 }
         h.volume.available = false
         h.keys.press(.volumeUp)
-        await settle()
+        // The no-op runs off the actor; a screen press queued behind it on the
+        // one apply chain reports applied only after it finished.
+        h.keys.press(.screenBrightnessUp)
+        #expect(await eventually { applies.count == 1 }, "the apply chain never drained")
 
         #expect(h.suppressor.longSuspendedDomains.contains(.volume))
     }
 
     @Test func retryInsideTheEscalatingSuspensionWindowActuallyClearsTheWarning() async {
-        // The window the menu button used to miss. A read-alive/write-dead channel
+        // The window a menu button can miss. A read-alive/write-dead channel
         // suspends AND escalates in the same step on its fifth flap, so for as long
-        // as the suspension lasts the domain is in both states at once — and the
-        // retry reached only the kick branch, the probe re-engaged on the read, and
-        // `reengage` found the write-health count still standing and kept the warning
-        // up. The user clicked and the menu did not change.
+        // as the suspension lasts the domain is in both states at once — and a
+        // retry that reaches only the kick branch lets the probe re-engage on the
+        // read, and `reengage` finds the write-health count still standing and keeps
+        // the warning up. The user clicks and the menu does not change.
         let h = OSDSuppressorHarness()
         h.screen.writeIsDead = true
         h.suppressor.setEngaged(true)
@@ -105,18 +110,18 @@ struct OSDWriteHealthAxisTests {
         // Flap until the escalation lands, leaving the domain suspended at that step.
         for _ in 0..<(OSDTest.escalation * 4) {
             h.keys.press(.screenBrightnessUp)
-            _ = await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) }
-            _ = await eventually {
+            #expect(await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) })
+            #expect(await eventually {
                 h.clock.advance()
                 return !h.suppressor.suspendedDomains.contains(.screenBrightness)
-            }
+            })
         }
         #expect(h.suppressor.longSuspendedDomains.contains(.screenBrightness))
 
         // Land IN the window, which is the whole subject: one more press and no
         // clock advance, so the domain is suspended AND escalated when the click
         // arrives. The loop above always ends re-engaged, which is the other branch
-        // — a retry there was never the broken one.
+        // — a retry there is not the one at risk.
         h.keys.press(.screenBrightnessUp)
         #expect(await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) })
 
@@ -147,13 +152,13 @@ struct OSDWriteHealthAxisTests {
 
         for _ in 0..<(OSDTest.escalation + 2) {
             h.keys.press(.screenBrightnessUp)
-            _ = await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) }
-            _ = await eventually { h.clock.advance(); return true }
+            #expect(await eventually { h.suppressor.suspendedDomains.contains(.screenBrightness) })
+            #expect(await eventually { h.clock.advance(); return true })
         }
-        _ = await eventually {
+        #expect(await eventually {
             h.clock.advance()
             return h.suppressor.longSuspendedDomains.contains(.screenBrightness)
-        }
+        })
         #expect(h.suppressor.longSuspendedDomains.contains(.screenBrightness))
 
         h.suppressor.retrySuspendedNow()   // the channel is STILL dead

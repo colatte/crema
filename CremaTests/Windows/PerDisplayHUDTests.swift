@@ -2,9 +2,10 @@ import CoreGraphics
 import Testing
 @testable import Crema
 
-/// Which display shows a HUD. The app has one state and one panel per screen, so
-/// this is where a bar for a particular display stops being a bar on every
-/// display — and stops being a control for a screen the user is not looking at.
+/// Which display shows a HUD. The app has one state, drawn by every display's
+/// panels, so this is where a bar for a particular display stops being a bar on
+/// every display — and stops being a control for a screen the user is not
+/// looking at.
 ///
 /// The HUD does not name a UUID, it names a ROLE — no screen owns it, the
 /// built-in panel, or a display it names — and this layer is the only one holding
@@ -90,6 +91,31 @@ struct PerDisplayHUDTests {
         // And the geometry agrees, so nothing on the quiet panel is touchable.
         #expect(h.recorder.panel(for: Self.internalID)?.appliedFrames.last
             == Self.frame(.hidden, on: Self.internalScreen()))
+    }
+
+    @Test func aDisplayKeepsItsAppearanceWhileAnotherDisplaysHUDIsUp() async {
+        // The HUD is the other display's; this one still has the appearance under
+        // it, and keeps drawing that, as the Card's own panel does when its HUD
+        // sits on a panel apart. Hover stays disarmed here: the pointer record
+        // names surfaces, not displays, so a pointer on this appearance would hold
+        // the other display's HUD (docs/DECISIONS.md: hud-belongs-to-its-display).
+        let h = makeHarness()
+        let track = CoordinatorHarness.playingTrack()
+        h.base.nowPlayingSource.emit(track)
+        #expect(await eventually { h.base.coordinator.state == .nowPlaying(track, expanded: false) })
+        let hud = SystemHUD(
+            kind: .screenBrightness, value: 0.4, target: .display(Self.externalID), authority: .betterDisplay
+        )
+
+        h.base.hudSource.emit(hud)
+        #expect(await eventually { h.base.coordinator.state == .hud(hud) })
+
+        let quiet = h.recorder.panel(for: Self.internalID)
+        #expect(quiet?.appliedFrames.last == Self.frame(.nowPlaying(track, expanded: false), on: Self.internalScreen()))
+        #expect(quiet?.showsHUDStates.last == false)
+        #expect(quiet?.hoverArmedStates.last == false)
+        #expect(h.recorder.panel(for: Self.externalID)?.appliedFrames.last
+            == Self.frame(.hud(hud), on: Self.externalScreen()))
     }
 
     @Test func aHUDForADisplayThatIsGoneIsDrawnNowhere() async {
@@ -240,13 +266,26 @@ struct PerDisplayHUDTests {
         #expect(h.recorder.panel(for: Self.externalID)?.showsHUDStates.last == false)
     }
 
-    @Test func aDragOnANamedDisplaysBarKeepsTheBarOnThatDisplay() async {
+    @Test func aDragOnANamedDisplaysBarKeepsTheBarOnThatDisplay() async throws {
         // The same claim on the other path, and not a copy of it: the neighbour's
         // confirming echo re-publishes the applied HUD VERBATIM
         // (`BetterDisplayOSDSource.noteApplied`) instead of re-sampling a source, so a
         // target lost in the copy reaches presentation here by a different route —
-        // the monitor's bar spreading onto the laptop mid-drag.
-        let h = makeHarness()
+        // the monitor's bar spreading onto the laptop mid-drag. The echo travels
+        // AppCore's own wiring back into the HUD stream, and the neighbour reports
+        // a level other than the finger's, so the bar on screen after it is the
+        // echo's and not the drag's optimistic publish.
+        let h = WindowManagerTests.Harness(withExternalBrightness: true)
+        h.manager.updateScreens([Self.internalScreen(), Self.externalScreen()])
+        let external = try #require(h.base.external)
+        external.reportsWritten(0.85)
+        let neighbour = BetterDisplayOSDSource(target: { _ in nil })
+        AppCore.wireBrightnessEcho(
+            to: h.base.coordinator, screen: SpySampledSource(), keyboard: SpySampledSource(), neighbour: neighbour
+        )
+        let merge = Task { @MainActor in
+            for await echo in neighbour.updates { h.base.hudSource.emit(echo) }
+        }
         let hud = SystemHUD(
             kind: .screenBrightness, value: 0.4, target: .display(Self.externalID), authority: .betterDisplay
         )
@@ -256,10 +295,12 @@ struct PerDisplayHUDTests {
 
         h.base.coordinator.hudSliderChanged(to: 0.9)
 
+        #expect(await eventually { h.base.coordinator.layers.hud?.value == 0.85 })
         #expect(h.base.coordinator.state == .hud(SystemHUD(
-            kind: .screenBrightness, value: 0.9, target: .display(Self.externalID), authority: .betterDisplay
+            kind: .screenBrightness, value: 0.85, target: .display(Self.externalID), authority: .betterDisplay
         )))
         #expect(h.recorder.panel(for: Self.externalID)?.showsHUDStates.last == true)
         #expect(h.recorder.panel(for: Self.internalID)?.showsHUDStates.last == false)
+        merge.cancel()
     }
 }
