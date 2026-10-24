@@ -1,11 +1,13 @@
 // Does the compact player's waveform keep pulsing through each transition the
-// surface goes through, or does it stop?
+// surface goes through, and stay between rest and peak while it does?
 //
-// The pulse is one implicit `repeatForever` per bar (Crema/Styles/WaveformGlyph.swift),
-// and an animation the surface starts around it can replace it: a stopped pulse
-// shows as the four bars frozen at the peak, all equal. A track change with the
-// Card on screen does that when the Card's width spring reaches the bars (the
-// rationale at `geometryGroup()` in the glyph).
+// A stopped pulse shows as the four bars frozen at the peak, all equal; a pulse
+// left running under another shows as a bar under rest or out of sight. An
+// implicit `repeatForever` pulse does both: a track change with the Card on screen
+// freezes it, and a tuck while playing followed by a reappearance drives the
+// second bar out of sight. The glyph samples its pulse from the clock instead
+// (docs/DECISIONS.md: perpetual-motion-is-sampled), and this probe is how that
+// is measured.
 //
 // Run it against a Debug copy with its own bundle id, so its preferences never
 // touch the installed app's, on the demo sources (Crema/App/DemoRemote.swift):
@@ -165,7 +167,8 @@ let cases: [(name: String, act: () -> Void)] = [
     ("control: pause/play, surface up", { say("pause"); wait(0.4); say("play"); wait(0.5) }),
     ("control: HUD over the player and back", { say("hud volume 0.5"); wait(2.0) }),
     ("track change, surface up", { say("next"); wait(0.5) }),
-    ("reappearance after the tuck", { say("pause"); wait(3.6); say("play"); wait(0.5) }),
+    ("reappearance after a tuck while paused", { say("pause"); wait(3.6); say("play"); wait(0.5) }),
+    ("reappearance after a tuck while playing", { wait(3.8); say("next"); wait(0.3) }),
 ]
 
 print("style \(style), scale \(scale), bar ranges in pt (bar 1 … bar 4)")
