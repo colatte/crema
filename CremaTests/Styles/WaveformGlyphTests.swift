@@ -2,20 +2,21 @@ import CoreGraphics
 import Testing
 @testable import Crema
 
-/// The glyph's two decisions, each as a table written independently of the rule it
-/// checks — the glyph's own `&&` chain would agree with any mutation of itself.
+/// The glyph's rules, each checked against values written independently of the
+/// rule — the glyph's own `&&` chain would agree with any mutation of itself.
 ///
 /// The PULSE has two vetoes and they are not interchangeable: Reduce Motion is the
 /// standing accessibility preference over every animation in the app, and Low
 /// Power Mode is the system asking that nothing be spent on motion. A `&&
 /// !lowPower` deletion is the mutation that goes silent — the bars keep dancing
 /// forever and nothing else in the app reads the mirror. Both are read live inside
-/// the body, which is why the `@State` phase is keyed on this rule and not on
-/// `animating`.
+/// the body, so the pulse stops the moment either flips.
 ///
-/// The FORM is a separate question with a separate answer, and the second half of
-/// this file is where the two are held apart: a veto takes the movement away, not
-/// the fact that something is playing.
+/// The FORM is a separate question with a separate answer, held apart from the
+/// pulse here: a veto takes the movement away, not the fact that something is
+/// playing. And the pulse's SHAPE is a function of the clock, checked at points of
+/// its curve and against the one promise that form exists for: no bar leaves the
+/// rest…peak span.
 @MainActor
 struct WaveformGlyphTests {
 
@@ -35,7 +36,7 @@ struct WaveformGlyphTests {
 
     @Test func lowPowerModeVetoesTheDance() {
         // Low Power Mode asks the whole system to stop spending on motion, and a
-        // repeatForever pulse on a surface that sits over the menu bar is exactly
+        // perpetual pulse on a surface that sits over the menu bar is exactly
         // the kind of spend it means. The veto is
         // `SurfaceAnimation.allowsPerpetualMotion`'s, pinned there as well; this is
         // the glyph asking it.
@@ -67,15 +68,6 @@ struct WaveformGlyphTests {
                 )
             }
         }
-    }
-
-    @Test func theHeightsBehindALivePulseAreItsFloorAndNotTheSilhouette() {
-        // Playing with no veto, the height declared here is the value the endless
-        // autoreverse animates AWAY from. Hand it the silhouette and the bar the
-        // profile puts at peak would pulse from peak to peak — a bar that stops
-        // moving while its neighbours dance, which no other assertion would catch.
-        let flat = [CGFloat](repeating: WaveformGlyph.Configuration.standard.restHeight, count: 4)
-        #expect(WaveformGlyph.stillHeights(animating: true, reduceMotion: false, lowPower: false) == flat)
     }
 
     @Test func theSilhouetteIsStaggeredAcrossTheRestToPeakSpan() {
@@ -144,5 +136,58 @@ struct WaveformGlyphTests {
                 "animating=\(row.animating) reduceMotion=\(row.reduceMotion) lowPower=\(row.lowPower)"
             )
         }
+    }
+
+    // MARK: - The pulse's shape, a function of the clock
+
+    /// Equal within float rounding: the curve's turning points come out of `cos`,
+    /// which lands a few ulps off exact zero and one.
+    private func isClose(_ height: CGFloat, _ expected: CGFloat) -> Bool {
+        abs(height - expected) < 1e-9
+    }
+
+    @Test func aBarRisesFromRestToPeakInOneStrokeAndFallsBackInTheNext() {
+        // The standard tuning written out: 4…12 pt, half a second a stroke.
+        #expect(isClose(WaveformGlyph.pulseHeight(bar: 0, at: 0), 4))
+        #expect(isClose(WaveformGlyph.pulseHeight(bar: 0, at: 0.25), 8))
+        #expect(isClose(WaveformGlyph.pulseHeight(bar: 0, at: 0.5), 12))
+        #expect(isClose(WaveformGlyph.pulseHeight(bar: 0, at: 0.75), 8))
+        #expect(isClose(WaveformGlyph.pulseHeight(bar: 0, at: 1), 4))
+    }
+
+    @Test func eachBarIsAQuarterStrokeBehindTheOneBeforeIt() {
+        // Four bars over one stroke: each touches rest 0.125 s after its left
+        // neighbour, so one rises while another falls and no two move together.
+        for bar in 0..<4 {
+            #expect(isClose(WaveformGlyph.pulseHeight(bar: bar, at: 0.125 * Double(bar)), 4), "bar \(bar)")
+        }
+        #expect(WaveformGlyph.pulseHeight(bar: 0, at: 0.3) != WaveformGlyph.pulseHeight(bar: 1, at: 0.3))
+    }
+
+    @Test func noBarEverLeavesTheRestToPeakSpan() {
+        // The promise this form exists for: no bar dips under rest, out of sight.
+        // Sampled at uneven steps near zero and at the reference-date magnitude the
+        // view's clock really passes, where the phase is billions of radians.
+        let now = 783_000_000.0
+        for step in 0..<2000 {
+            for base in [0, now] {
+                let time = base + Double(step) * 0.0137
+                for bar in 0..<4 {
+                    let height = WaveformGlyph.pulseHeight(bar: bar, at: time)
+                    #expect((4...12).contains(height), "bar \(bar) at \(time): \(height)")
+                }
+            }
+        }
+    }
+
+    @Test func thePulseRepeatsEveryTwoStrokes() {
+        for time in [0.1, 0.37, 2.9] {
+            #expect(isClose(WaveformGlyph.pulseHeight(bar: 2, at: time), WaveformGlyph.pulseHeight(bar: 2, at: time + 1)))
+        }
+        // At the clock's real magnitude a Double carries the phase to about 1e-5 pt
+        // of height: a thousandth of a point is the bound, far under a pixel.
+        let late = 783_000_000.21
+        let drift = abs(WaveformGlyph.pulseHeight(bar: 2, at: late) - WaveformGlyph.pulseHeight(bar: 2, at: late + 1))
+        #expect(drift < 0.001)
     }
 }

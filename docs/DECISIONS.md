@@ -3062,3 +3062,28 @@ Decision:
 The pace, rest, gap and fade are taste, not measured. Path not taken: stripping
 reissue tags ("- 2011 Remaster") from titles, which services spell differently,
 and which some listeners want to see.
+
+### perpetual-motion-is-sampled
+A motion that loops on a presentation surface, which the app also morphs, hides
+and shows again, is drawn from the clock: a `TimelineView(.animation(paused:))`
+samples a pure function of time on every frame (`WaveformGlyph.pulseHeight`, a
+raised cosine between rest and peak; `MarqueeMotion.offset`). It is never an
+implicit `repeatForever`, because SwiftUI keeps or ends such an animation by the
+transactions that pass through it. A spring that reaches the animated frame
+replaces it ("each animation will be replaced by their successor",
+Animation.spring(response:dampingFraction:blendDuration:)), and a transition
+that leaves the value where it is adds nothing to replace it, so it keeps
+running under the next one and the system combines the two ("both animations
+run together", CustomAnimation.shouldMerge(previous:value:time:context:)).
+Measured on 2026-10-24 on a demo copy with scripts/probes/waveform-pulse.swift,
+against a `repeatForever` pulse: a track change with the Card up freezes the
+four bars at the peak in 4 of 5 trials (the Card's width spring); a tuck while
+playing, then a reappearance, loses a bar from sight in 5 of 5, and a tuck after
+a pause in 0 of 5. Frame by frame, the lost bar is the second, the one the
+hidden silhouette holds at the peak, its value unchanged by the tuck; held at
+0.9 of the span instead, no frame shows it missing.
+The only animated change is the settle between pulsing and still, a finite
+easeOut that Reduce Motion lands dry. The glyph also resolves its geometry as
+one group (`geometryGroup()`), so a surface's spring moves it as a block and the
+bars' frames stay the clock's: without it, a reappearance by a track change
+squashes three bars to 0.5 pt for a frame in 1 of 5 trials, and with it in 0.
