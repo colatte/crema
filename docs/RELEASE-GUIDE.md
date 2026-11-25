@@ -347,7 +347,9 @@ export CREMA_SIGN_IDENTITY="Crema Code Signing"   # self-signed (§2); or Develo
 
 The run opens with the **release gate**, before anything is built: the tree must
 be a git repo and **clean**, the tag `v1.1.1` must not already exist, and then
-`swiftlint --strict`, `swiftformat --lint`, the catalog self-test plus checker,
+`swiftlint --strict`, `swiftformat --lint` (both required, at the exact versions
+`ci.yml` pins, which the gate reads from there: a linter missing or at another
+version fails it), the catalog self-test plus checker,
 and the **full test suite** run in that order — the suite's verdict is the
 `Test run with N tests … passed` line, read from the log while `xcodebuild` runs
 in the background (a test host hung after the verdict is killed, and no verdict
