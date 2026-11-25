@@ -70,7 +70,7 @@ struct AppCorePerDisplayWritersTests {
         h.preferences.declareStyleEverywhere(.card)
         h.manager.updateScreens([builtIn, external])
 
-        AppCore.applyStyleOverride(.classic, on: builtIn.id, in: h.preferences, applyingTo: h.manager)
+        AppCore.applyStyleOverride(.classic, on: builtIn, in: h.preferences, applyingTo: h.manager)
 
         #expect(h.preferences.styleOverride(for: builtIn.id) == .classic)
         #expect(h.preferences.styleOverride(for: external.id) == nil)
@@ -80,6 +80,24 @@ struct AppCorePerDisplayWritersTests {
         // monitors for a preference that never spoke about it.
         #expect(h.recorder.created.last(where: { $0.screen.id == builtIn.id })?.style == .classic)
         #expect(h.recorder.created.count == 3)
+        #expect(h.recorder.panel(for: external.id)?.closed == false)
+    }
+
+    @Test func aStyleTheScreenDoesNotDrawIsRefusedOnTheWritePathItself() {
+        // The Settings row refuses it too, but that guards one caller; this pins the
+        // write path every caller shares. The screen has no slit, so Notch resolves
+        // to Card there: storing it would leave an override the panel swaps out.
+        let h = WindowManagerTests.Harness()
+        let external = Self.screen("B")
+        h.preferences.declareStyleEverywhere(.classic)
+        h.manager.updateScreens([external])
+        let built = h.recorder.created.count
+
+        let wrote = AppCore.applyStyleOverride(.notch, on: external, in: h.preferences, applyingTo: h.manager)
+
+        #expect(!wrote)
+        #expect(h.preferences.styleOverride(for: external.id) == nil)
+        #expect(h.recorder.created.count == built)
         #expect(h.recorder.panel(for: external.id)?.closed == false)
     }
 

@@ -113,7 +113,8 @@ struct DisplayStyleRow: View {
     /// with the probe named there (docs/DECISIONS.md: the-chrome-is-not-the-guarantee).
     /// Here `.disabled` is honoured, but that is only what keeps such a pick out of
     /// REACH; what keeps it out of the store is `DisplayStyleOptions.write(for:)`,
-    /// which answers `refused` and writes nothing.
+    /// which answers `refused` and writes nothing, and behind it the write path's
+    /// own refusal (`AppCore.applyStyleOverride`).
     private var stylePopup: some View {
         Menu {
             ForEach(options.items, id: \.choice) { item in
@@ -159,7 +160,7 @@ struct DisplayStyleRow: View {
             // declaration forever (docs/DECISIONS.md: global-style-default).
             core.clearStyle(for: screen.id)
         case .override(let style):
-            core.setStyle(style, for: screen.id)
+            core.setStyle(style, for: screen)
         case .refused:
             return
         }
