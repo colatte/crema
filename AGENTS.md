@@ -58,7 +58,6 @@ design/           # icon/badge sources; outputs (AppIcon.icon) never by hand
   adapter → JXA → feature off, and every link degrades without crashing.
 - Never use a brightness API beyond the spike-validated pair, DisplayServices
   and CoreBrightness, keyboard ID enumerated; a nil symbol means unavailable.
-  The rationale header in `Crema/Sources/Brightness/` keeps its content.
 - Never implement DDC; external displays belong to BetterDisplay, never a
   requirement (docs/DECISIONS.md: external-brightness-is-write-only).
 - Never suppress the native OSD without opt-in, reversibility and apply+verify
@@ -129,7 +128,7 @@ design/           # icon/badge sources; outputs (AppIcon.icon) never by hand
 
 ## Known gaps
 
-- G1 — `AppCore.init` mostly unpinned by decision; 26 static seams are pinned.
+- G1 — `AppCore.init` mostly unpinned by decision; 27 static seams are pinned.
 - G2 — Three 0...1 clamps unshared; the third refuses NaN, so the gate is met.
 - G3 — Waveform and title marquee carry no time veto; reopens on a power read.
 - G4 — A process ending is not its children's; `release.sh` reaps the adapter.
@@ -144,6 +143,7 @@ design/           # icon/badge sources; outputs (AppIcon.icon) never by hand
 - G13 — The vendored adapter's binaries carry no upstream commit or digest.
 - G14 — Whoever can write Crema.app swaps the adapter or a library in it.
 - G16 — Two hover hypotheses and two motion constants await a hardware probe.
+- G17 — Private brightness casts check presence, not signature; probe 2 checks.
 
 ## Open decisions
 
