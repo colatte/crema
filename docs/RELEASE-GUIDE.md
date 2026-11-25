@@ -350,7 +350,9 @@ be a git repo and **clean**, the tag `v1.1.1` must not already exist, the
 project's `MARKETING_VERSION` must already read `1.1.1` in every configuration
 (a commit that lands before the release, so Debug and CI builds report the
 version they become; the build number stays derived), and then
-`swiftlint --strict`, `swiftformat --lint`, the catalog self-test plus checker,
+`swiftlint --strict`, `swiftformat --lint` (both required, at the exact versions
+`ci.yml` pins, which the gate reads from there: a linter missing or at another
+version fails it), the catalog self-test plus checker,
 and the **full test suite** run in that order — the suite's verdict is the
 `Test run with N tests … passed` line, read from the log while `xcodebuild` runs
 in the background (a test host hung after the verdict is killed, and no verdict

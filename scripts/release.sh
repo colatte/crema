@@ -150,20 +150,37 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     [[ "$PROJECT_VERSIONS" == "$VERSION" ]] \
         || fail "The project's MARKETING_VERSION is '$(echo $PROJECT_VERSIONS)', not $VERSION. Set it to $VERSION in every build configuration and commit that before releasing."
 
-    if command -v swiftlint >/dev/null 2>&1; then
-        swiftlint lint --strict --quiet >/dev/null \
-            || fail "SwiftLint (--strict) failed. Run 'swiftlint lint --strict' to see it."
-        info "SwiftLint: clean"
-    else
-        info "SwiftLint not installed — skipped here (CI still gates it)."
-    fi
-    if command -v swiftformat >/dev/null 2>&1; then
-        swiftformat --lint "$REPO_ROOT" >/dev/null 2>&1 \
-            || fail "SwiftFormat found unformatted files. Run 'swiftformat .' to fix."
-        info "SwiftFormat: clean"
-    else
-        info "SwiftFormat not installed — skipped here (CI still gates it)."
-    fi
+    # A release does not pass through CI, so "CI still gates it" was never true of
+    # what this script builds: a missing linter here would ship an unlinted commit.
+    # The linters are therefore required, at the versions CI pins — read from
+    # ci.yml, the one home of those numbers, because another version can pass a
+    # tree CI rejects.
+    CI_WORKFLOW="$REPO_ROOT/.github/workflows/ci.yml"
+    ci_pin() {
+        sed -n "s/^ *$1: \"\(.*\)\"$/\1/p" "$CI_WORKFLOW" | head -n 1
+    }
+    SWIFTLINT_PIN="$(ci_pin SWIFTLINT_VERSION)"
+    SWIFTFORMAT_PIN="$(ci_pin SWIFTFORMAT_VERSION)"
+    [[ -n "$SWIFTLINT_PIN" && -n "$SWIFTFORMAT_PIN" ]] \
+        || fail "Could not read SWIFTLINT_VERSION / SWIFTFORMAT_VERSION from $CI_WORKFLOW; the gate needs CI's pins."
+
+    command -v swiftlint >/dev/null 2>&1 \
+        || fail "SwiftLint is not installed. Install $SWIFTLINT_PIN, the version CI pins: https://github.com/realm/SwiftLint/releases/tag/$SWIFTLINT_PIN"
+    SWIFTLINT_HAVE="$(swiftlint version 2>/dev/null || true)"
+    [[ "$SWIFTLINT_HAVE" == "$SWIFTLINT_PIN" ]] \
+        || fail "SwiftLint is ${SWIFTLINT_HAVE:-unreadable}, CI pins $SWIFTLINT_PIN. Install that one: https://github.com/realm/SwiftLint/releases/tag/$SWIFTLINT_PIN"
+    swiftlint lint --strict --quiet >/dev/null \
+        || fail "SwiftLint (--strict) failed. Run 'swiftlint lint --strict' to see it."
+    info "SwiftLint $SWIFTLINT_HAVE: clean"
+
+    command -v swiftformat >/dev/null 2>&1 \
+        || fail "SwiftFormat is not installed. Install $SWIFTFORMAT_PIN, the version CI pins: https://github.com/nicklockwood/SwiftFormat/releases/tag/$SWIFTFORMAT_PIN"
+    SWIFTFORMAT_HAVE="$(swiftformat --version 2>/dev/null || true)"
+    [[ "$SWIFTFORMAT_HAVE" == "$SWIFTFORMAT_PIN" ]] \
+        || fail "SwiftFormat is ${SWIFTFORMAT_HAVE:-unreadable}, CI pins $SWIFTFORMAT_PIN. Install that one: https://github.com/nicklockwood/SwiftFormat/releases/tag/$SWIFTFORMAT_PIN"
+    swiftformat --lint "$REPO_ROOT" >/dev/null 2>&1 \
+        || fail "SwiftFormat found unformatted files. Run 'swiftformat .' to fix."
+    info "SwiftFormat $SWIFTFORMAT_HAVE: clean"
     # The third CI gate, and the one this script had been missing. A release is the
     # only path out of this repository that does not pass through CI, so a catalog
     # broken here — an orphan key, a defaultValue that drifted from the code, a %@
