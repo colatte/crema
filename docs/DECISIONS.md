@@ -2550,7 +2550,10 @@ So the popup is a custom `Menu` of one item per option, where `.disabled` is
 honoured, and its label is the effective style. But the chrome is not where the
 guarantee lives: `DisplayStyleOptions.write(for:)` answers `.refused` for a style
 this geometry does not honour, `.clear` for inherit and `.override` otherwise, so
-a pick that reaches the store despite the greying still writes nothing.
+a pick that reaches the store despite the greying still writes nothing. The
+write path itself refuses the same way (`AppCore.applyStyleOverride`, asking the
+`Style.isHonoured` the options ask), because a ban in the row's type guards the
+row alone, and the next caller of the write would store what the row refuses.
 This is an entry rather than a comment because it generalizes: when a control
 must not be able to do X, the ban belongs in the pure type the control calls, and
 the greying out is only what keeps X out of reach. Which of the two a given

@@ -1681,8 +1681,8 @@ extension AppCore {
 
     /// One display's own style — the override that outranks the declaration, for
     /// the display in front of the user.
-    func setStyle(_ style: Style, for display: DisplayUUID) {
-        Self.applyStyleOverride(style, on: display, in: preferences, applyingTo: windowManager)
+    func setStyle(_ style: Style, for screen: ScreenDescription) {
+        Self.applyStyleOverride(style, on: screen, in: preferences, applyingTo: windowManager)
     }
 
     /// Writes the per-display override and swaps that display's panel from the
@@ -1693,14 +1693,26 @@ extension AppCore {
     /// (docs/DECISIONS.md: global-style-default). `refreshStyles` re-resolves every
     /// display and rebuilds only the ones whose answer changed, so the untouched
     /// displays keep their live panels — and their hover monitors with them.
+    ///
+    /// A style the screen does not draw is refused HERE, on the write path, and not
+    /// only by the Settings row that offers it: the row's refusal guards one caller,
+    /// and the next per-display caller would store a Notch override on a panel with
+    /// no slit, which renders Card and reads back selected-and-disabled forever
+    /// (docs/DECISIONS.md: the-chrome-is-not-the-guarantee). The
+    /// rule is `Style.isHonoured`, the resolver the panels render by and the one
+    /// `DisplayStyleOptions.isEnabled` asks, so the two cannot disagree. Hence the
+    /// whole screen rather than its UUID: the geometry is what answers.
+    @discardableResult
     static func applyStyleOverride(
         _ style: Style,
-        on display: DisplayUUID,
+        on screen: ScreenDescription,
         in preferences: Preferences,
         applyingTo windowManager: WindowManager
-    ) {
-        preferences.setStyle(style, for: display)
+    ) -> Bool {
+        guard style.isHonoured(on: screen.geometry) else { return false }
+        preferences.setStyle(style, for: screen.id)
         windowManager.refreshStyles()
+        return true
     }
 
     /// Returns one display to the declaration — the "follow the global choice"
