@@ -63,6 +63,31 @@ if cbHandle == nil {
     let getSel = NSSelectorFromString("brightnessForKeyboard:")
     let setSel = NSSelectorFromString("setBrightness:forKeyboard:")
 
+    // The types every call below is cast to, and the ones the app's bridge declares
+    // (CoreBrightnessKeyboardBridge): the keyboard ID is an unsigned long long and the
+    // two predicates answer BOOL. A cast through any other type is undefined
+    // behaviour, so the runtime's own encodings are compared first, and a mismatch
+    // stops the probe before a single call (docs/KNOWN-GAPS.md: a private
+    // function's signature is never checked, only its presence).
+    let expectedEncodings = [
+        "brightnessForKeyboard:": "f24@0:8Q16",
+        "setBrightness:forKeyboard:": "B28@0:8f16Q20",
+        "copyKeyboardBacklightIDs": "@16@0:8",
+        "isKeyboardBuiltIn:": "B24@0:8Q16",
+    ]
+    var encodingsMatch = true
+    for (name, expected) in expectedEncodings.sorted(by: { $0.key < $1.key }) {
+        let method = class_getInstanceMethod(clientClass, NSSelectorFromString(name))
+        let found = method.flatMap(method_getTypeEncoding).map { String(cString: $0) } ?? "missing"
+        let verdict = found == expected ? "matches" : "DIFFERS from the bridge's \(expected)"
+        print("  \(name) encodes \(found) — \(verdict)")
+        if found != expected { encodingsMatch = false }
+    }
+    guard encodingsMatch else {
+        print("  an encoding differs: the bridge's casts are wrong on this macOS — probe stopped.")
+        exit(0)
+    }
+
     guard client.responds(to: idsSel),
           let rawIDs = client.perform(idsSel)?.takeUnretainedValue() as? [NSNumber] else {
         print("  copyKeyboardBacklightIDs answered nothing — no built-in backlight on this Mac.")
@@ -70,11 +95,11 @@ if cbHandle == nil {
     }
     // isKeyboardBuiltIn: returns a BOOL, so it needs an IMP cast for the same
     // reason the accessors below do — `perform` would answer a garbage object.
-    typealias BuiltInIMP = @convention(c) (AnyObject, Selector, NSNumber) -> ObjCBool
+    typealias BuiltInIMP = @convention(c) (AnyObject, Selector, UInt64) -> Bool
     let builtInIMP = client.method(for: builtInSel).map { unsafeBitCast($0, to: BuiltInIMP.self) }
     let keyboardID = rawIDs.first { id in
         guard let builtInIMP else { return true }
-        return builtInIMP(client, builtInSel, id).boolValue
+        return builtInIMP(client, builtInSel, id.uint64Value)
     } ?? rawIDs.first
 
     guard let keyboardID else {
@@ -87,8 +112,8 @@ if cbHandle == nil {
     // take a FLOAT, and `perform` can only pass and answer objects — it hands back
     // nil for the getter, which silently turns the read leg of this probe into 400
     // no-ops that report "no anomalies".
-    typealias GetIMP = @convention(c) (AnyObject, Selector, NSNumber) -> Float
-    typealias SetIMP = @convention(c) (AnyObject, Selector, Float, NSNumber) -> Void
+    typealias GetIMP = @convention(c) (AnyObject, Selector, UInt64) -> Float
+    typealias SetIMP = @convention(c) (AnyObject, Selector, Float, UInt64) -> Bool
     guard let getIMP = client.method(for: getSel).map({ unsafeBitCast($0, to: GetIMP.self) }),
           let setIMP = client.method(for: setSel).map({ unsafeBitCast($0, to: SetIMP.self) }) else {
         print("  brightnessForKeyboard:/setBrightness:forKeyboard: did not resolve — probe skipped.")
@@ -96,7 +121,7 @@ if cbHandle == nil {
     }
 
     // Remember the level so the probe leaves the machine as it found it.
-    let original = getIMP(client, getSel, keyboardID)
+    let original = getIMP(client, getSel, keyboardID.uint64Value)
     print("  level before: \(String(format: "%.3f", original))")
 
     let lock = NSLock()
@@ -109,13 +134,13 @@ if cbHandle == nil {
             for i in 0..<400 {
                 switch worker {
                 case 0:
-                    let v = getIMP(client, getSel, keyboardID)
+                    let v = getIMP(client, getSel, keyboardID.uint64Value)
                     lock.withLock {
                         readings.append(v)
                         if !v.isFinite || v < 0 || v > 1 { anomalies.append("out-of-range read \(v)") }
                     }
                 case 1:
-                    setIMP(client, setSel, Float(i % 2 == 0 ? 0.4 : 0.6), keyboardID)
+                    _ = setIMP(client, setSel, Float(i % 2 == 0 ? 0.4 : 0.6), keyboardID.uint64Value)
                 default:
                     _ = client.perform(idsSel)?.takeUnretainedValue()
                 }
@@ -126,7 +151,7 @@ if cbHandle == nil {
     // Only restore a real level. The getter answers -1 when it cannot read, and
     // writing that back would hand the backlight a value that is not a brightness.
     if original >= 0, original <= 1 {
-        setIMP(client, setSel, original, keyboardID)
+        _ = setIMP(client, setSel, original, keyboardID.uint64Value)
     } else {
         print("  (level not restored: it never read as a level)")
     }
