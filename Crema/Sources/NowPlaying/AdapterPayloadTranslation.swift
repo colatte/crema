@@ -116,7 +116,7 @@ enum AdapterPayloadTranslation {
         /// `Int(seconds × 1e6)` on it lands exactly on 2^63 and traps.
         var durationSeconds: Double? {
             guard let raw = durationMicros.map({ $0 / 1_000_000 }) ?? duration,
-                  raw.isFinite, raw > 0, raw < 24 * 60 * 60 else { return nil }
+                  raw.isFinite, raw > 0, raw < NowPlaying.maximumPosition else { return nil }
             return raw
         }
 
