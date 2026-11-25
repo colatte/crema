@@ -346,7 +346,10 @@ export CREMA_SIGN_IDENTITY="Crema Code Signing"   # self-signed (§2); or Develo
 ```
 
 The run opens with the **release gate**, before anything is built: the tree must
-be a git repo and **clean**, the tag `v1.1.1` must not already exist, and then
+be a git repo and **clean**, the tag `v1.1.1` must not already exist, the
+project's `MARKETING_VERSION` must already read `1.1.1` in every configuration
+(a commit that lands before the release, so Debug and CI builds report the
+version they become; the build number stays derived), and then
 `swiftlint --strict`, `swiftformat --lint`, the catalog self-test plus checker,
 and the **full test suite** run in that order — the suite's verdict is the
 `Test run with N tests … passed` line, read from the log while `xcodebuild` runs
@@ -787,6 +790,7 @@ Release body only (§5.3).
 ## 9. The ritual, summarized
 
 ```bash
+# before: a commit setting MARKETING_VERSION = X.Y.Z in the project (the gate checks it)
 export CREMA_SIGN_IDENTITY="Crema Code Signing"
 ./scripts/release.sh X.Y.Z                       # build, stamp, sign (Sparkle incl.), package, regenerate appcast
 open Crema.dmg                                    # local test (§5.2)
