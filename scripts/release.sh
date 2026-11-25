@@ -141,6 +141,15 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
         fail "Tag $TAG already exists. Its build number ($BUILD_NUMBER) is derived from the version, so re-releasing it leaves every existing install seeing no update. Bump the patch."
     fi
 
+    # The stamp below overrides the project's MARKETING_VERSION for this build
+    # only, so a project left behind made every Debug and CI build report a version
+    # long since shipped, and a bug report from one names the wrong release. The
+    # release is therefore cut from a commit whose project already says what it is.
+    # The build number stays derived (nothing to bump there): only this one.
+    PROJECT_VERSIONS="$(sed -n 's/^[[:space:]]*MARKETING_VERSION = \(.*\);$/\1/p' "$REPO_ROOT/Crema.xcodeproj/project.pbxproj" | sort -u)"
+    [[ "$PROJECT_VERSIONS" == "$VERSION" ]] \
+        || fail "The project's MARKETING_VERSION is '$(echo $PROJECT_VERSIONS)', not $VERSION. Set it to $VERSION in every build configuration and commit that before releasing."
+
     # A release does not pass through CI, so "CI still gates it" was never true of
     # what this script builds: a missing linter here would ship an unlinted commit.
     # The linters are therefore required, at the versions CI pins — read from
