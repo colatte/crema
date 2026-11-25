@@ -18,7 +18,7 @@
    active, the native HUD does not appear.
 3. Turning suppression off restores the native HUD (verifiable reversibility).
 4. Each display renders the HUD and now playing in its resolved style — its own
-   override from the Displays list in General when it has one, else the style
+   override from the Each display list in General when it has one, else the style
    declared just above it; notch→card where there is no slit — positioned and
    sized by that style. That list is offered for every connected display, a lone
    built-in panel included: its row carries the only switch for the now-playing

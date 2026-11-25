@@ -526,12 +526,13 @@ final class AppCore {
     /// the reinstall trigger (post the notification → reinstall) without booting
     /// the whole graph. Returns the observer token AppCore retains.
     /// The center carries the production default, so a test that omits it is
-    /// posting where the app really listens. Its wake siblings take no center at
-    /// all for the same reason, and the measured lesson behind that is recorded on
-    /// them: a seam that lets the caller name the center pins the JOIN and says
-    /// nothing about WHICH center is joined — screen parameters are posted by
-    /// NSApplication on `.default`, and pointing this at NSWorkspace's center would
-    /// leave a hotplug with neither a tap reinstall nor a panel for the new screen —
+    /// posting where the app really listens. Its wake siblings carry their own
+    /// center's default the same way, and the lesson behind that is recorded on
+    /// their notification names: a seam that lets the caller name the center pins
+    /// the JOIN and says nothing about WHICH center is joined — screen parameters
+    /// are posted by NSApplication on `.default`, and pointing this at NSWorkspace's
+    /// center would leave a hotplug with neither a tap reinstall nor a panel for the
+    /// new screen —
     /// a mutation only `theScreenParameterSeamListensOnTheCenterNSApplicationPostsOn`
     /// catches.
     static func wireScreenParameterReinstall(
@@ -628,7 +629,7 @@ final class AppCore {
         Self.declareStyleEverywhere(style, in: preferences, applyingTo: windowManager)
     }
 
-    /// Extracted as a static for the reason the other five wiring statics are
+    /// Extracted as a static for the reason the other wiring statics are
     /// (`wireActiveSourceEnded`, the three `wire*Reinstall`, `reconcileLoginItemIntent`):
     /// reaching it through an instance means constructing `AppCore`, which boots the
     /// real system sources, so through an instance the behaviour is unreachable by
@@ -642,7 +643,7 @@ final class AppCore {
     /// Both collaborators are already constructible in a test without touching a
     /// system API (Preferences over ephemeral defaults; WindowManager over the fake
     /// panel factory), which is what makes the seam worth having. The residual is the
-    /// same one the other five accept and is stated so nobody reads more into it: a
+    /// same one those others accept and is stated so nobody reads more into it: a
     /// mutation that removes the DELEGATION above is still not caught.
     static func declareStyleEverywhere(
         _ style: Style,
