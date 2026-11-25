@@ -38,9 +38,11 @@
     --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",Helvetica,Arial,sans-serif;
     --ease:cubic-bezier(.32,.72,0,1);
     --wrap:980px; --wide:1180px; --radius:28px;
+    --nav-h:64px;
   }
+  @media (min-width:768px){:root{--nav-h:80px}}
   *,*::before,*::after{box-sizing:border-box}
-  html{-webkit-text-size-adjust:100%;scroll-padding-top:64px}
+  html{-webkit-text-size-adjust:100%;scroll-padding-top:calc(var(--nav-h) + 16px)}
   body{margin:0;background:var(--base);color:var(--ink);font:400 17px/1.47 var(--sans);
        letter-spacing:-.022em;-webkit-font-smoothing:antialiased;overflow-x:hidden}
   a{color:inherit}
@@ -76,18 +78,25 @@
   .actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px 28px;margin-top:30px;font-size:17px}
   .glyph{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 
-  /* ---- nav: the product's own bar, as Apple's product pages carry one ---- */
-  .nav{position:fixed;inset:0 0 auto;z-index:50;height:52px;
-       background:rgba(13,11,9,.72);-webkit-backdrop-filter:saturate(180%) blur(20px);
-       backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid transparent;transition:border-color .3s}
-  .nav.is-scrolled{border-bottom-color:var(--line)}
+  /* ---- nav ---------------------------------------------------------------
+     The product's own bar, laid out as Apple's product pages carry one, but it
+     behaves as the house's site's does (colatte.io's Nav), since the palette it
+     floats over is the house's: clear while the page sits at the top, so the bar
+     is part of the page, and an espresso veil with a plain blur once the page
+     has moved. No saturation boost: over the captures it lit the album art into
+     amber smears outside the espresso palette. No hairline: the veil is the
+     edge. Sized as the house's too (64px, 80px from 768px, its type at 14px):
+     the 52px bar read small under headings that reach 104px. */
+  .nav{position:fixed;inset:0 0 auto;z-index:50;height:var(--nav-h);background:transparent;
+       transition:background-color .3s,-webkit-backdrop-filter .3s,backdrop-filter .3s}
+  .nav.is-scrolled{background:rgba(13,11,9,.7);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
   .nav .wide{height:100%;display:flex;align-items:center;gap:26px}
-  .brand{display:flex;align-items:center;gap:9px;font-size:19px;font-weight:600;text-decoration:none;margin-right:auto;letter-spacing:-.02em}
-  .brand img{width:26px;height:26px}
-  .nav-links{display:flex;gap:24px}
-  .nav-links a{font-size:13px;color:var(--ink-2);text-decoration:none;letter-spacing:-.01em}
+  .brand{display:flex;align-items:center;gap:10px;font-size:21px;font-weight:600;text-decoration:none;margin-right:auto;letter-spacing:-.02em}
+  .brand img{width:30px;height:30px}
+  .nav-links{display:flex;gap:28px}
+  .nav-links a{font-size:14px;color:var(--ink-2);text-decoration:none;letter-spacing:-.01em}
   .nav-links a:hover{color:var(--ink)}
-  .nav .get{padding:5px 14px;font-size:13px;opacity:0;pointer-events:none;transform:translateY(-4px);
+  .nav .get{padding:8px 16px;font-size:14px;opacity:0;pointer-events:none;transform:translateY(-4px);
             transition:opacity .3s,transform .3s var(--ease),background .2s}
   .nav .get.is-shown{opacity:1;pointer-events:auto;transform:none}
   @media (max-width:700px){.nav-links{display:none}}
@@ -477,10 +486,10 @@
   const navGet = document.getElementById('nav-get');
   const heroGet = document.getElementById('hero-get');
   function onScroll() {
-    nav.classList.toggle('is-scrolled', scrollY > 8);
+    nav.classList.toggle('is-scrolled', scrollY > 60);   // the house's threshold (colatte.io's Nav)
     /* The nav's filled button only once the hero's has left the screen:
        one filled cream button per viewport (docs/BRAND.md). */
-    const gone = heroGet.getBoundingClientRect().bottom < 52;
+    const gone = heroGet.getBoundingClientRect().bottom < nav.offsetHeight;
     navGet.classList.toggle('is-shown', gone);
     navGet.tabIndex = gone ? 0 : -1;
   }
