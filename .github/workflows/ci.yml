@@ -41,10 +41,12 @@ jobs:
         # deployment target (macOS 14) is unaffected by the toolchain version.
         # Pinned like the linters below: latest-stable floats with the runner
         # image, so a toolchain bump lands as a red build on an unrelated PR with
-        # nothing in the diff to explain it. Raise this deliberately.
+        # nothing in the diff to explain it. Raise this deliberately, to the
+        # version the release machine builds with (27.2, build 27B52, which the
+        # xcode-27 image carries beside 27.0 and 27.1 per its runner-images readme).
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
-          xcode-version: "27.0"
+          xcode-version: "27.2"
 
       - name: Toolchain versions
         run: |
@@ -53,11 +55,16 @@ jobs:
 
       - name: Install SwiftLint
         # Pinned so the strict gate is reproducible: a floating SwiftLint could
-        # add or tighten a default rule and turn CI red on an unrelated PR.
+        # add or tighten a default rule and turn CI red on an unrelated PR. A tag
+        # pins a name, not bytes: the asset is checked against the sha256 GitHub
+        # records for it (the release API's `digest`), so a replaced zip stops here
+        # instead of running. Bump the version and the digest together.
         env:
           SWIFTLINT_VERSION: "0.65.0"
+          SWIFTLINT_SHA256: "d6cb0aa7a2f5f1ef306fc9e37bcb54dc9a26facc8f7784ac0c3dd3eccf5c6ba6"
         run: |
-          curl -sSL "https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/portable_swiftlint.zip" -o /tmp/swiftlint.zip
+          curl -fsSL "https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/portable_swiftlint.zip" -o /tmp/swiftlint.zip
+          echo "${SWIFTLINT_SHA256}  /tmp/swiftlint.zip" | shasum -a 256 -c -
           unzip -oq /tmp/swiftlint.zip -d /tmp/swiftlint
           echo "/tmp/swiftlint" >> "$GITHUB_PATH"
 
@@ -70,11 +77,13 @@ jobs:
           swiftlint lint --strict
 
       - name: Install SwiftFormat
-        # Pinned for reproducibility, like SwiftLint.
+        # Pinned for reproducibility, and checked against its digest, like SwiftLint.
         env:
           SWIFTFORMAT_VERSION: "0.62.1"
+          SWIFTFORMAT_SHA256: "7cb1cb1fae04932047c7015441c543848e8e60e1572d808d080e0a1f1661114a"
         run: |
-          curl -sSL "https://github.com/nicklockwood/SwiftFormat/releases/download/${SWIFTFORMAT_VERSION}/swiftformat.zip" -o /tmp/swiftformat.zip
+          curl -fsSL "https://github.com/nicklockwood/SwiftFormat/releases/download/${SWIFTFORMAT_VERSION}/swiftformat.zip" -o /tmp/swiftformat.zip
+          echo "${SWIFTFORMAT_SHA256}  /tmp/swiftformat.zip" | shasum -a 256 -c -
           unzip -oq /tmp/swiftformat.zip -d /tmp/swiftformat
           echo "/tmp/swiftformat" >> "$GITHUB_PATH"
 
